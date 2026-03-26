@@ -1,4 +1,19 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+
+const COUNTRIES = [
+  { flag: '\ud83c\uddf7\ud83c\uddfa', code: '+7', name: '\u0420\u043e\u0441\u0441\u0438\u044f', id: 'ru' },
+  { flag: '\ud83c\uddfa\ud83c\udde6', code: '+380', name: '\u0423\u043a\u0440\u0430\u0438\u043d\u0430', id: 'ua' },
+  { flag: '\ud83c\udde7\ud83c\uddfe', code: '+375', name: '\u0411\u0435\u043b\u0430\u0440\u0443\u0441\u044c', id: 'by' },
+  { flag: '\ud83c\uddf0\ud83c\uddff', code: '+7', name: '\u041a\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043d', id: 'kz' },
+  { flag: '\ud83c\uddfa\ud83c\uddff', code: '+998', name: '\u0423\u0437\u0431\u0435\u043a\u0438\u0441\u0442\u0430\u043d', id: 'uz' },
+  { flag: '\ud83c\uddf0\ud83c\uddec', code: '+996', name: '\u041a\u044b\u0440\u0433\u044b\u0437\u0441\u0442\u0430\u043d', id: 'kg' },
+  { flag: '\ud83c\uddf9\ud83c\uddf7', code: '+90', name: '\u0422\u0443\u0440\u0446\u0438\u044f', id: 'tr' },
+  { flag: '\ud83c\udde9\ud83c\uddea', code: '+49', name: '\u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f', id: 'de' },
+  { flag: '\ud83c\uddf5\ud83c\uddf1', code: '+48', name: '\u041f\u043e\u043b\u044c\u0448\u0430', id: 'pl' },
+  { flag: '\ud83c\uddf7\ud83c\uddf4', code: '+40', name: '\u0420\u0443\u043c\u044b\u043d\u0438\u044f', id: 'ro' },
+  { flag: '\ud83c\uddfa\ud83c\uddf8', code: '+1', name: '\u0421\u0428\u0410', id: 'us' },
+  { flag: '\ud83c\uddec\ud83c\udde7', code: '+44', name: '\u0412\u0435\u043b\u0438\u043a\u043e\u0431\u0440\u0438\u0442\u0430\u043d\u0438\u044f', id: 'gb' },
+]
 
 const BRANDS = {
   'Volvo': ['FH', 'FH16', 'FM', 'FMX', 'FE', 'FL'],
@@ -221,8 +236,22 @@ function PinDots({ length, shake }) {
 }
 
 // ===== SCREEN 1: PHONE =====
-function PhoneScreen({ phone, setPhone, onNext }) {
+function PhoneScreen({ phone, setPhone, country, setCountry, onNext }) {
   const valid = phone.replace(/\D/g, '').length >= 10
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const handleClick = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [dropdownOpen])
+
   return (
     <div style={styles.inner}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
@@ -233,17 +262,71 @@ function PhoneScreen({ phone, setPhone, onNext }) {
         <div style={{ marginTop: 40 }}>
           <label style={styles.label}>{'\u041d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0430'}</label>
           <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{
-              padding: '14px 12px',
-              background: '#1a2235',
-              border: '1px solid #1e2a3f',
-              borderRadius: 12,
-              color: '#64748b',
-              fontSize: 16,
-              fontWeight: 600,
-              flexShrink: 0,
-            }}>
-              +7
+            <div ref={dropdownRef} style={{ position: 'relative', flexShrink: 0 }}>
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                style={{
+                  padding: '14px 12px',
+                  background: '#1a2235',
+                  border: '1px solid #1e2a3f',
+                  borderRadius: 12,
+                  color: '#e2e8f0',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <span>{country.flag}</span>
+                <span>{country.code}</span>
+                <span style={{ fontSize: 10, color: '#64748b' }}>{'\u25be'}</span>
+              </button>
+              {dropdownOpen && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  marginTop: 4,
+                  background: '#1a2235',
+                  border: '1px solid #1e2a3f',
+                  borderRadius: 12,
+                  overflow: 'hidden',
+                  zIndex: 100,
+                  width: 260,
+                  maxHeight: 300,
+                  overflowY: 'auto',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+                }}>
+                  {COUNTRIES.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => { setCountry(c); setDropdownOpen(false) }}
+                      style={{
+                        width: '100%',
+                        padding: '12px 14px',
+                        background: c.id === country.id ? '#111827' : 'transparent',
+                        border: 'none',
+                        color: '#e2e8f0',
+                        fontSize: 15,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 10,
+                        textAlign: 'left',
+                      }}
+                    >
+                      <span>{c.flag}</span>
+                      <span style={{ flex: 1 }}>{c.name}</span>
+                      <span style={{ color: '#64748b', fontSize: 14 }}>{c.code}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <input
               style={styles.input}
@@ -274,7 +357,7 @@ function PhoneScreen({ phone, setPhone, onNext }) {
 }
 
 // ===== SCREEN 2: SMS CODE =====
-function SmsScreen({ phone, onBack, onNext }) {
+function SmsScreen({ phone, countryCode, onBack, onNext }) {
   const [code, setCode] = useState('')
   const [error, setError] = useState(false)
 
@@ -301,7 +384,7 @@ function SmsScreen({ phone, onBack, onNext }) {
           {'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0434 \u0438\u0437 SMS'}
         </h2>
         <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
-          {'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u043b\u0438 \u043d\u0430 +7 ' + phone}
+          {'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u043b\u0438 \u043d\u0430 ' + countryCode + ' ' + phone}
         </p>
 
         <PinDots length={code.length} shake={error} />
@@ -636,6 +719,7 @@ function WelcomeScreen({ profile, biometricEnabled, onStart }) {
 export default function Auth({ onComplete }) {
   const [step, setStep] = useState(1)
   const [phone, setPhone] = useState('')
+  const [country, setCountry] = useState(COUNTRIES[0])
   const [profile, setProfile] = useState({
     name: '',
     brand: '',
@@ -649,7 +733,7 @@ export default function Auth({ onComplete }) {
   if (step === 1) {
     return (
       <div style={styles.container}>
-        <PhoneScreen phone={phone} setPhone={setPhone} onNext={() => setStep(2)} />
+        <PhoneScreen phone={phone} setPhone={setPhone} country={country} setCountry={setCountry} onNext={() => setStep(2)} />
       </div>
     )
   }
@@ -657,7 +741,7 @@ export default function Auth({ onComplete }) {
   if (step === 2) {
     return (
       <div style={styles.container}>
-        <SmsScreen phone={phone} onBack={() => setStep(1)} onNext={() => setStep(3)} />
+        <SmsScreen phone={phone} countryCode={country.code} onBack={() => setStep(1)} onNext={() => setStep(3)} />
       </div>
     )
   }

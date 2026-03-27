@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
+import { useAuth } from './hooks/useAuth'
 import Overview from './tabs/Overview'
 import Fuel from './tabs/Fuel'
 import Byt from './tabs/Byt'
@@ -9,24 +10,48 @@ import Auth from './components/Auth'
 import FAB from './components/FAB'
 import AddModal from './components/AddModal'
 
-const TABS = {
-  overview: Overview,
-  fuel: Fuel,
-  byt: Byt,
-  trips: Trips,
-  service: Service,
-}
-
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { session, loading } = useAuth()
   const [activeTab, setActiveTab] = useState('overview')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [fuelRefreshKey, setFuelRefreshKey] = useState(0)
 
-  if (!isLoggedIn) {
-    return <Auth onComplete={() => setIsLoggedIn(true)} />
+  const handleFuelSaved = useCallback(() => {
+    setFuelRefreshKey((k) => k + 1)
+  }, [])
+
+  if (loading) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: '#0a0e1a', display: 'flex',
+        alignItems: 'center', justifyContent: 'center', color: '#64748b',
+        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+      }}>
+        {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+      </div>
+    )
   }
 
-  const ActiveComponent = TABS[activeTab]
+  if (!session) {
+    return <Auth onComplete={() => {}} />
+  }
+
+  const userId = session.user.id
+
+  const renderTab = () => {
+    switch (activeTab) {
+      case 'fuel':
+        return <Fuel userId={userId} refreshKey={fuelRefreshKey} />
+      case 'byt':
+        return <Byt />
+      case 'trips':
+        return <Trips />
+      case 'service':
+        return <Service />
+      default:
+        return <Overview />
+    }
+  }
 
   return (
     <div
@@ -43,10 +68,15 @@ export default function App() {
       }}
     >
       <div style={{ flex: 1, paddingBottom: 64, overflow: 'auto' }}>
-        <ActiveComponent />
+        {renderTab()}
       </div>
       <FAB onClick={() => setIsModalOpen(true)} />
-      <AddModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+      <AddModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        userId={userId}
+        onFuelSaved={handleFuelSaved}
+      />
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   )

@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
+import { addFuel } from '../lib/api'
 
 const RECORD_TYPES = [
   { key: 'fuel', icon: '\u26FD', label: '\u0417\u0430\u043F\u0440\u0430\u0432\u043A\u0430' },
@@ -55,8 +56,11 @@ function FieldGroup({ label, children }) {
 function FuelFields({ form, onChange }) {
   return (
     <>
-      <FieldGroup label={'\u0421\u0442\u0430\u043D\u0446\u0438\u044F'}>
-        <input style={inputStyle} value={form.station || ''} onChange={(e) => onChange('station', e.target.value)} />
+      <FieldGroup label={'\u0410\u0417\u0421'}>
+        <input style={inputStyle} placeholder={'\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0441\u0442\u0430\u043d\u0446\u0438\u0438'} value={form.station || ''} onChange={(e) => onChange('station', e.target.value)} />
+      </FieldGroup>
+      <FieldGroup label={'\u0414\u0430\u0442\u0430'}>
+        <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
       <FieldGroup label={'\u041B\u0438\u0442\u0440\u044B'}>
         <input style={inputStyle} type="number" value={form.liters || ''} onChange={(e) => onChange('liters', e.target.value)} />
@@ -64,7 +68,7 @@ function FuelFields({ form, onChange }) {
       <FieldGroup label={'\u0421\u0443\u043C\u043C\u0430'}>
         <input style={inputStyle} type="number" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u041E\u0434\u043E\u043C\u0435\u0442\u0440'}>
+      <FieldGroup label={'\u041F\u0440\u043E\u0431\u0435\u0433'}>
         <input style={inputStyle} type="number" value={form.odometer || ''} onChange={(e) => onChange('odometer', e.target.value)} />
       </FieldGroup>
     </>
@@ -177,15 +181,28 @@ const FIELDS_MAP = {
   other: OtherFields,
 }
 
-export default function AddModal({ isOpen, onClose }) {
+export default function AddModal({ isOpen, onClose, userId, onFuelSaved }) {
   const [recordType, setRecordType] = useState('fuel')
   const [form, setForm] = useState({})
+  const [saving, setSaving] = useState(false)
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }))
   }
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (recordType === 'fuel' && userId) {
+      try {
+        setSaving(true)
+        await addFuel(userId, form)
+        if (onFuelSaved) onFuelSaved()
+      } catch (err) {
+        console.error('Failed to save fuel:', err)
+        return
+      } finally {
+        setSaving(false)
+      }
+    }
     setForm({})
     setRecordType('fuel')
     onClose()
@@ -318,20 +335,22 @@ export default function AddModal({ isOpen, onClose }) {
         {/* Save button */}
         <button
           onClick={handleSave}
+          disabled={saving}
           style={{
             width: '100%',
             padding: '14px 0',
             borderRadius: 12,
             border: 'none',
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            background: saving ? '#64748b' : 'linear-gradient(135deg, #f59e0b, #d97706)',
             color: '#fff',
             fontSize: 16,
             fontWeight: 700,
-            cursor: 'pointer',
+            cursor: saving ? 'not-allowed' : 'pointer',
             marginTop: 8,
+            opacity: saving ? 0.7 : 1,
           }}
         >
-          {'\u2713 \u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+          {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u2713 \u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
         </button>
       </div>
     </>

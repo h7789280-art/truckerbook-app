@@ -1,4 +1,4 @@
-import React from 'react'
+import { useTheme } from '../lib/theme'
 
 const TABS = [
   { key: 'overview', label: '\u041e\u0411\u0417\u041e\u0420', icon: '\ud83d\udcca' },
@@ -9,6 +9,8 @@ const TABS = [
 ]
 
 export default function BottomNav({ activeTab, onTabChange }) {
+  const { theme } = useTheme()
+
   return (
     <nav
       style={{
@@ -19,8 +21,8 @@ export default function BottomNav({ activeTab, onTabChange }) {
         width: '100%',
         maxWidth: 480,
         height: 64,
-        background: '#111827',
-        borderTop: '1px solid #1e2a3f',
+        background: theme.navBg,
+        borderTop: '1px solid ' + theme.border,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-around',
@@ -42,7 +44,7 @@ export default function BottomNav({ activeTab, onTabChange }) {
               alignItems: 'center',
               gap: 2,
               padding: '6px 0',
-              color: isActive ? '#f59e0b' : '#64748b',
+              color: isActive ? '#f59e0b' : theme.dim,
               fontSize: 10,
               fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
               fontWeight: isActive ? 700 : 500,

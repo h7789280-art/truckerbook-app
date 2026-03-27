@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import { fetchTrips, deleteTrip } from '../lib/api'
+import { useTheme } from '../lib/theme'
 
 const TABS = [
   { key: 'trips', label: '\ud83d\ude9b \u0420\u0435\u0439\u0441\u044b' },
@@ -24,7 +25,7 @@ function formatDate(dateStr) {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
-function TripsTab({ userId, refreshKey }) {
+function TripsTab({ userId, refreshKey, theme }) {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -57,12 +58,15 @@ function TripsTab({ userId, refreshKey }) {
   const totalIncome = entries.reduce((s, t) => s + (t.income || 0), 0)
   const totalKm = entries.reduce((s, t) => s + (t.distance_km || 0), 0)
 
+  const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
+  const miniCard = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '12px', textAlign: 'center' }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Mini cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <div style={miniCard}>
-          <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>
+          <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
             {'\u0414\u043e\u0445\u043e\u0434'}
           </div>
           <div style={{ color: '#22c55e', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
@@ -70,10 +74,10 @@ function TripsTab({ userId, refreshKey }) {
           </div>
         </div>
         <div style={miniCard}>
-          <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>
+          <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
             {'\u041a\u041c'}
           </div>
-          <div style={{ color: '#e2e8f0', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
+          <div style={{ color: theme.text, fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
             {fmt(totalKm)}
           </div>
         </div>
@@ -81,18 +85,18 @@ function TripsTab({ userId, refreshKey }) {
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
+        <div style={{ color: theme.dim, fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
           {'\u0420\u0415\u0419\u0421\u042b'}
         </div>
       </div>
 
       {/* Trip cards */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
           {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
         </div>
       ) : entries.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
           {'\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0440\u0435\u0439\u0441\u043e\u0432. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 + \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u0435\u0440\u0432\u044b\u0439'}
         </div>
       ) : (
@@ -100,10 +104,10 @@ function TripsTab({ userId, refreshKey }) {
           <div key={trip.id} style={card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div>
-                <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: 600 }}>
+                <div style={{ color: theme.text, fontSize: '16px', fontWeight: 600 }}>
                   {trip.origin || '?'} {'\u2192'} {trip.destination || '?'}
                 </div>
-                <div style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>
+                <div style={{ color: theme.dim, fontSize: '13px', marginTop: '4px' }}>
                   {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {'\u043a\u043c'}
                 </div>
               </div>
@@ -111,7 +115,7 @@ function TripsTab({ userId, refreshKey }) {
                 +{fmtFull(trip.income || 0)} {'\u20bd'}
               </div>
             </div>
-            <div style={{ borderTop: '1px solid #1e2a3f', paddingTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
               <button
                 onClick={() => handleDelete(trip.id)}
                 style={{
@@ -134,7 +138,7 @@ function TripsTab({ userId, refreshKey }) {
   )
 }
 
-function CalcTab() {
+function CalcTab({ theme }) {
   const [km, setKm] = useState(820)
   const [rate, setRate] = useState(65000)
 
@@ -151,14 +155,15 @@ function CalcTab() {
   }, [km, rate])
 
   const profitable = calc.profit > 0
+  const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Distance slider */}
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ color: '#64748b', fontSize: '13px' }}>{'\u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435'}</div>
-          <div style={{ color: '#e2e8f0', fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>{fmtFull(km)} {'\u043a\u043c'}</div>
+          <div style={{ color: theme.dim, fontSize: '13px' }}>{'\u0420\u0430\u0441\u0441\u0442\u043e\u044f\u043d\u0438\u0435'}</div>
+          <div style={{ color: theme.text, fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>{fmtFull(km)} {'\u043a\u043c'}</div>
         </div>
         <input
           type="range"
@@ -167,15 +172,15 @@ function CalcTab() {
           step={10}
           value={km}
           onChange={e => setKm(Number(e.target.value))}
-          style={sliderStyle}
+          style={{ width: '100%', accentColor: '#f59e0b' }}
         />
       </div>
 
       {/* Rate slider */}
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ color: '#64748b', fontSize: '13px' }}>{'\u0421\u0442\u0430\u0432\u043a\u0430'}</div>
-          <div style={{ color: '#e2e8f0', fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>{fmtFull(rate)} {'\u20bd'}</div>
+          <div style={{ color: theme.dim, fontSize: '13px' }}>{'\u0421\u0442\u0430\u0432\u043a\u0430'}</div>
+          <div style={{ color: theme.text, fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>{fmtFull(rate)} {'\u20bd'}</div>
         </div>
         <input
           type="range"
@@ -184,7 +189,7 @@ function CalcTab() {
           step={1000}
           value={rate}
           onChange={e => setRate(Number(e.target.value))}
-          style={sliderStyle}
+          style={{ width: '100%', accentColor: '#f59e0b' }}
         />
       </div>
 
@@ -197,7 +202,7 @@ function CalcTab() {
           { label: '\ud83c\udfe0 \u0416\u0438\u043b\u044c\u0451', value: calc.housing, color: '#06b6d4' },
         ].map((item, i) => (
           <div key={i} style={card}>
-            <div style={{ color: '#64748b', fontSize: '12px', marginBottom: '6px' }}>{item.label}</div>
+            <div style={{ color: theme.dim, fontSize: '12px', marginBottom: '6px' }}>{item.label}</div>
             <div style={{ color: item.color, fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' }}>
               {fmtFull(Math.round(item.value))} {'\u20bd'}
             </div>
@@ -208,19 +213,19 @@ function CalcTab() {
       {/* Totals */}
       <div style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ color: '#64748b', fontSize: '14px' }}>{'\u0420\u0430\u0441\u0445\u043e\u0434\u044b'}</div>
+          <div style={{ color: theme.dim, fontSize: '14px' }}>{'\u0420\u0430\u0441\u0445\u043e\u0434\u044b'}</div>
           <div style={{ color: '#ef4444', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
             {fmtFull(Math.round(calc.totalExp))} {'\u20bd'}
           </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <div style={{ color: '#64748b', fontSize: '14px' }}>{'\u0421\u0442\u0430\u0432\u043a\u0430'}</div>
-          <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
+          <div style={{ color: theme.dim, fontSize: '14px' }}>{'\u0421\u0442\u0430\u0432\u043a\u0430'}</div>
+          <div style={{ color: theme.text, fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
             {fmtFull(rate)} {'\u20bd'}
           </div>
         </div>
-        <div style={{ borderTop: '1px solid #1e2a3f', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
-          <div style={{ color: '#64748b', fontSize: '14px', fontWeight: 600 }}>{'\u041f\u0440\u0438\u0431\u044b\u043b\u044c'}</div>
+        <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ color: theme.dim, fontSize: '14px', fontWeight: 600 }}>{'\u041f\u0440\u0438\u0431\u044b\u043b\u044c'}</div>
           <div style={{ color: profitable ? '#22c55e' : '#ef4444', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
             {profitable ? '+' : ''}{fmtFull(Math.round(calc.profit))} {'\u20bd'}
           </div>
@@ -243,7 +248,7 @@ function CalcTab() {
       {/* Extra metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <div style={card}>
-          <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>
+          <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
             {'\u041c\u0438\u043d. \u0441\u0442\u0430\u0432\u043a\u0430 (+20% \u043c\u0430\u0440\u0436\u0438)'}
           </div>
           <div style={{ color: '#f59e0b', fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' }}>
@@ -251,7 +256,7 @@ function CalcTab() {
           </div>
         </div>
         <div style={card}>
-          <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>
+          <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
             {'\u0414\u043e\u0445\u043e\u0434 \u043d\u0430 1 \u043a\u043c'}
           </div>
           <div style={{ color: profitable ? '#22c55e' : '#ef4444', fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' }}>
@@ -263,27 +268,8 @@ function CalcTab() {
   )
 }
 
-const card = {
-  background: '#111827',
-  border: '1px solid #1e2a3f',
-  borderRadius: '12px',
-  padding: '16px',
-}
-
-const miniCard = {
-  background: '#111827',
-  border: '1px solid #1e2a3f',
-  borderRadius: '12px',
-  padding: '12px',
-  textAlign: 'center',
-}
-
-const sliderStyle = {
-  width: '100%',
-  accentColor: '#f59e0b',
-}
-
 export default function Trips({ userId, refreshKey }) {
+  const { theme } = useTheme()
   const [tab, setTab] = useState('trips')
 
   return (
@@ -291,11 +277,11 @@ export default function Trips({ userId, refreshKey }) {
       {/* Sub-tab switcher */}
       <div style={{
         display: 'flex',
-        background: '#111827',
+        background: theme.card,
         borderRadius: '12px',
         padding: '4px',
         marginBottom: '16px',
-        border: '1px solid #1e2a3f',
+        border: '1px solid ' + theme.border,
       }}>
         {TABS.map(t => (
           <button
@@ -310,7 +296,7 @@ export default function Trips({ userId, refreshKey }) {
               fontWeight: 600,
               cursor: 'pointer',
               background: tab === t.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-              color: tab === t.key ? '#fff' : '#64748b',
+              color: tab === t.key ? '#fff' : theme.dim,
               transition: 'all 0.2s',
             }}
           >
@@ -319,7 +305,7 @@ export default function Trips({ userId, refreshKey }) {
         ))}
       </div>
 
-      {tab === 'trips' ? <TripsTab userId={userId} refreshKey={refreshKey} /> : <CalcTab />}
+      {tab === 'trips' ? <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} /> : <CalcTab theme={theme} />}
     </div>
   )
 }

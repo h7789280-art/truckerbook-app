@@ -1,11 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useTheme } from '../lib/theme'
 
 function getGreeting(name) {
   const h = new Date().getHours()
-  if (h >= 5 && h < 12) return { text: `\u0414\u043e\u0431\u0440\u043e\u0435 \u0443\u0442\u0440\u043e, ${name}!`, icon: '\u2600\ufe0f' }
-  if (h >= 12 && h < 17) return { text: `\u0414\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c, ${name}!`, icon: '\ud83d\udc4b' }
-  if (h >= 17 && h < 22) return { text: `\u0414\u043e\u0431\u0440\u044b\u0439 \u0432\u0435\u0447\u0435\u0440, ${name}!`, icon: '\ud83c\udf05' }
-  return { text: `\u0414\u043e\u0431\u0440\u043e\u0439 \u043d\u043e\u0447\u0438, ${name}!`, icon: '\ud83c\udf19' }
+  const n = name || '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c'
+  if (h >= 6 && h < 12) return { text: `\u0414\u043e\u0431\u0440\u043e\u0435 \u0443\u0442\u0440\u043e, ${n}!`, icon: '\u2600\ufe0f' }
+  if (h >= 12 && h < 18) return { text: `\u0414\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c, ${n}!`, icon: '\ud83d\udc4b' }
+  if (h >= 18 && h < 23) return { text: `\u0414\u043e\u0431\u0440\u044b\u0439 \u0432\u0435\u0447\u0435\u0440, ${n}!`, icon: '\ud83c\udf05' }
+  return { text: `\u0414\u043e\u0431\u0440\u043e\u0439 \u043d\u043e\u0447\u0438, ${n}!`, icon: '\ud83c\udf19' }
 }
 
 function formatTimer(seconds) {
@@ -14,6 +16,13 @@ function formatTimer(seconds) {
   const s = seconds % 60
   return [h, m, s].map(v => String(v).padStart(2, '0')).join(':')
 }
+
+const THEME_OPTIONS = [
+  { key: 'light', label: '\u2600\ufe0f \u0414\u0435\u043d\u044c' },
+  { key: 'dark', label: '\ud83c\udf19 \u041d\u043e\u0447\u044c' },
+  { key: 'red_night', label: '\ud83d\udd34 \u041a\u0440\u0430\u0441\u043d\u0430\u044f' },
+  { key: 'auto', label: '\ud83d\udd04 \u0410\u0432\u0442\u043e' },
+]
 
 const expenses = [
   { label: '\u0422\u043e\u043f\u043b', value: 72000, color: '#f59e0b' },
@@ -32,7 +41,8 @@ const reminders = [
   { icon: '\ud83d\udd27', text: '\u0422\u041e', sub: '\u0447\u0435\u0440\u0435\u0437 7 700 \u043a\u043c' },
 ]
 
-export default function Overview() {
+export default function Overview({ userName }) {
+  const { theme, mode, setMode } = useTheme()
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const intervalRef = useRef(null)
@@ -48,29 +58,61 @@ export default function Overview() {
     return () => clearInterval(intervalRef.current)
   }, [timerRunning])
 
-  const greeting = getGreeting('\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c')
+  const greeting = getGreeting(userName)
 
   const cardStyle = {
-    background: '#111827',
-    border: '1px solid #1e2a3f',
+    background: theme.card,
+    border: '1px solid ' + theme.border,
     borderRadius: '12px',
     padding: '16px',
   }
 
-  const dimText = { color: '#64748b', fontSize: '13px' }
+  const dimText = { color: theme.dim, fontSize: '13px' }
 
   return (
-    <div style={{ background: '#0a0e1a', minHeight: '100vh', color: '#e2e8f0', padding: '16px', paddingBottom: '80px' }}>
+    <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
       {/* Greeting */}
-      <div style={{ fontSize: '20px', fontWeight: 600, marginBottom: '16px' }}>
+      <div style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>
         {greeting.icon} {greeting.text}
+      </div>
+
+      {/* Theme switcher */}
+      <div style={{
+        display: 'flex',
+        gap: '6px',
+        marginBottom: '16px',
+        background: theme.card,
+        borderRadius: '12px',
+        padding: '4px',
+        border: '1px solid ' + theme.border,
+      }}>
+        {THEME_OPTIONS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => setMode(t.key)}
+            style={{
+              flex: 1,
+              padding: '8px 4px',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: mode === t.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+              color: mode === t.key ? '#fff' : theme.dim,
+              transition: 'all 0.2s',
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* Driving timer */}
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '14px', color: '#64748b' }}>{'\u23f1\ufe0f'} {'\u0412\u0440\u0435\u043c\u044f \u0437\u0430 \u0440\u0443\u043b\u0451\u043c'}</span>
-          <span style={{ fontSize: '12px', color: '#64748b' }}>{'\u043c\u0430\u043a\u0441 9\u0447'}</span>
+          <span style={{ fontSize: '14px', color: theme.dim }}>{'\u23f1\ufe0f'} {'\u0412\u0440\u0435\u043c\u044f \u0437\u0430 \u0440\u0443\u043b\u0451\u043c'}</span>
+          <span style={{ fontSize: '12px', color: theme.dim }}>{'\u043c\u0430\u043a\u0441 9\u0447'}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span style={{ fontSize: '32px', fontFamily: 'monospace', fontWeight: 700 }}>
@@ -98,7 +140,7 @@ export default function Overview() {
           </button>
         </div>
         {/* Progress bar (9h = 32400s) */}
-        <div style={{ marginTop: '8px', background: '#1e2a3f', borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
+        <div style={{ marginTop: '8px', background: theme.border, borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
           <div style={{
             width: `${Math.min((seconds / 32400) * 100, 100)}%`,
             height: '100%',
@@ -114,16 +156,16 @@ export default function Overview() {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
           <div>
             <div style={dimText}>{'\u0414\u043e\u0445\u043e\u0434'}</div>
-            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>263 000 ₽</div>
+            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>263 000 \u20bd</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={dimText}>{'\u0420\u0430\u0441\u0445\u043e\u0434'}</div>
-            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>253 104 ₽</div>
+            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>253 104 \u20bd</div>
           </div>
         </div>
-        <div style={{ borderTop: '1px solid #1e2a3f', paddingTop: '8px', textAlign: 'center' }}>
+        <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
           <div style={dimText}>{'\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c'}</div>
-          <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>+9 896 ₽</div>
+          <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>+9 896 \u20bd</div>
         </div>
       </div>
 
@@ -137,8 +179,8 @@ export default function Overview() {
           <div key={i} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
             <div style={{ fontSize: '18px', marginBottom: '4px' }}>{item.icon}</div>
             <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700 }}>{item.value}</div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>{item.unit}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>{item.label}</div>
+            <div style={{ fontSize: '11px', color: theme.dim }}>{item.unit}</div>
+            <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
           </div>
         ))}
       </div>
@@ -149,7 +191,7 @@ export default function Overview() {
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '8px' }}>
           {expenses.map((e, i) => (
             <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: '#64748b', marginBottom: '4px' }}>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px', color: theme.dim, marginBottom: '4px' }}>
                 {e.value >= 1000 ? `${Math.round(e.value / 1000)}k` : e.value}
               </div>
               <div style={{
@@ -160,7 +202,7 @@ export default function Overview() {
                 borderRadius: '4px 4px 0 0',
                 minHeight: '8px',
               }} />
-              <div style={{ fontSize: '10px', color: '#64748b', marginTop: '4px' }}>{e.label}</div>
+              <div style={{ fontSize: '10px', color: theme.dim, marginTop: '4px' }}>{e.label}</div>
             </div>
           ))}
         </div>
@@ -175,7 +217,7 @@ export default function Overview() {
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '10px 0',
-            borderTop: i > 0 ? '1px solid #1e2a3f' : 'none',
+            borderTop: i > 0 ? '1px solid ' + theme.border : 'none',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontSize: '18px' }}>{r.icon}</span>

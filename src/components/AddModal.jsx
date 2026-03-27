@@ -197,17 +197,24 @@ export default function AddModal({ isOpen, onClose, userId, onFuelSaved, onTripS
   }
 
   const handleSave = async () => {
+    alert('DEBUG 1: handleSave started, type=' + recordType + ', form=' + JSON.stringify(form))
     try {
       setSaving(true)
       if (recordType === 'fuel' && userId) {
         await addFuel(userId, form)
         if (onFuelSaved) onFuelSaved()
       } else if (recordType === 'trip') {
-        await addTrip(form)
+        alert('DEBUG 2: calling addTrip')
+        const result = await addTrip(form)
+        alert('DEBUG 3: addTrip result=' + JSON.stringify(result))
         if (onTripSaved) onTripSaved()
       } else if (recordType === 'byt') {
-        await addBytExpense({ ...form, date: form.date || new Date().toISOString().slice(0, 10) })
+        alert('DEBUG 2: calling addBytExpense')
+        const result = await addBytExpense({ ...form, date: form.date || new Date().toISOString().slice(0, 10) })
+        alert('DEBUG 3: addBytExpense result=' + JSON.stringify(result))
         if (onBytSaved) onBytSaved()
+      } else {
+        alert('DEBUG: no matching recordType or missing userId. recordType=' + recordType + ', userId=' + userId)
       }
     } catch (err) {
       console.error('Failed to save ' + recordType + ':', err)

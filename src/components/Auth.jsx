@@ -292,7 +292,11 @@ function PinDots({ length, shake, total = 4 }) {
 
 // ===== SCREEN 1: PHONE =====
 function PhoneScreen({ phone, setPhone, country, setCountry, onNext }) {
-  const valid = phone.replace(/\D/g, '').length >= 10
+  // E.164: total digits (country code + number) must be 7-15
+  const phoneDigits = phone.replace(/\D/g, '')
+  const codeDigits = country.code.replace(/\D/g, '')
+  const totalDigits = codeDigits.length + phoneDigits.length
+  const valid = phoneDigits.length >= 1 && totalDigits >= 7 && totalDigits <= 15
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [search, setSearch] = useState('')
   const dropdownRef = useRef(null)

@@ -6,6 +6,8 @@ import Trips from './tabs/Trips'
 import Service from './tabs/Service'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
+import FAB from './components/FAB'
+import AddModal from './components/AddModal'
 
 const TABS = {
   overview: Overview,
@@ -18,6 +20,7 @@ const TABS = {
 export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  const [isModalOpen, setIsModalOpen] = useState(false)
 
   if (!isLoggedIn) {
     return <Auth onComplete={() => setIsLoggedIn(true)} />
@@ -42,6 +45,8 @@ export default function App() {
       <div style={{ flex: 1, paddingBottom: 64, overflow: 'auto' }}>
         <ActiveComponent />
       </div>
+      <FAB onClick={() => setIsModalOpen(true)} />
+      <AddModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>
   )

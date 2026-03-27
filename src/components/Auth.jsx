@@ -272,7 +272,7 @@ function NumPad({ onDigit, onBackspace }) {
   )
 }
 
-function PinDots({ length, shake }) {
+function PinDots({ length, shake, total = 4 }) {
   return (
     <div
       style={{
@@ -283,7 +283,7 @@ function PinDots({ length, shake }) {
         animation: shake ? 'shake 0.4s ease' : 'none',
       }}
     >
-      {[0, 1, 2, 3].map((i) => (
+      {Array.from({ length: total }, (_, i) => (
         <div key={i} style={styles.dot(i < length)} />
       ))}
     </div>
@@ -460,7 +460,7 @@ function SmsScreen({ phone, countryCode, onBack, onNext }) {
   const [error, setError] = useState(false)
 
   const handleDigit = (d) => {
-    if (code.length < 4) {
+    if (code.length < 6) {
       setCode((prev) => prev + d)
       setError(false)
     }
@@ -468,7 +468,7 @@ function SmsScreen({ phone, countryCode, onBack, onNext }) {
   const handleBack = () => setCode((prev) => prev.slice(0, -1))
 
   const handleConfirm = () => {
-    if (code.length === 4) onNext()
+    if (code.length === 6) onNext()
   }
 
   return (
@@ -485,13 +485,13 @@ function SmsScreen({ phone, countryCode, onBack, onNext }) {
           {'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u043b\u0438 \u043d\u0430 ' + countryCode + ' ' + phone}
         </p>
 
-        <PinDots length={code.length} shake={error} />
+        <PinDots length={code.length} shake={error} total={6} />
 
         <NumPad onDigit={handleDigit} onBackspace={handleBack} />
 
         <button
-          style={{ ...(code.length === 4 ? styles.btnPrimary : styles.btnDisabled), marginTop: 24 }}
-          disabled={code.length < 4}
+          style={{ ...(code.length === 6 ? styles.btnPrimary : styles.btnDisabled), marginTop: 24 }}
+          disabled={code.length < 6}
           onClick={handleConfirm}
         >
           {'\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c'}

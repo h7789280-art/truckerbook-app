@@ -15,9 +15,19 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('overview')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [fuelRefreshKey, setFuelRefreshKey] = useState(0)
+  const [tripsRefreshKey, setTripsRefreshKey] = useState(0)
+  const [bytRefreshKey, setBytRefreshKey] = useState(0)
 
   const handleFuelSaved = useCallback(() => {
     setFuelRefreshKey((k) => k + 1)
+  }, [])
+
+  const handleTripSaved = useCallback(() => {
+    setTripsRefreshKey((k) => k + 1)
+  }, [])
+
+  const handleBytSaved = useCallback(() => {
+    setBytRefreshKey((k) => k + 1)
   }, [])
 
   if (loading) {
@@ -43,9 +53,9 @@ export default function App() {
       case 'fuel':
         return <Fuel userId={userId} refreshKey={fuelRefreshKey} />
       case 'byt':
-        return <Byt />
+        return <Byt userId={userId} refreshKey={bytRefreshKey} />
       case 'trips':
-        return <Trips />
+        return <Trips userId={userId} refreshKey={tripsRefreshKey} />
       case 'service':
         return <Service />
       default:
@@ -76,6 +86,8 @@ export default function App() {
         onClose={() => setIsModalOpen(false)}
         userId={userId}
         onFuelSaved={handleFuelSaved}
+        onTripSaved={handleTripSaved}
+        onBytSaved={handleBytSaved}
       />
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>

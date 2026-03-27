@@ -1,54 +1,5 @@
-import React, { useState, useMemo } from 'react'
-
-const TRIPS_DATA = [
-  {
-    from: '\u041c\u043e\u0441\u043a\u0432\u0430',
-    to: '\u041a\u0430\u0437\u0430\u043d\u044c',
-    date: '2026-03-20',
-    km: 820,
-    income: 65000,
-    expenses: [
-      { key: 'fuel', icon: '\u26fd\ufe0f', amount: 2800 },
-      { key: 'repair', icon: '\ud83c\udfd7', amount: 3500 },
-      { key: 'food', icon: '\ud83c\udf7d', amount: 400 },
-      { key: 'housing', icon: '\ud83c\udfe0', amount: 600 },
-      { key: 'toll', icon: '\ud83c\udd7f\ufe0f', amount: 800 },
-      { key: 'platon', icon: '\ud83d\ude9b', amount: 2200 },
-      { key: 'other', icon: '\ud83d\udce6', amount: 500 },
-    ],
-  },
-  {
-    from: '\u041a\u0430\u0437\u0430\u043d\u044c',
-    to: '\u0415\u043a\u0430\u0442\u0435\u0440\u0438\u043d\u0431\u0443\u0440\u0433',
-    date: '2026-03-23',
-    km: 960,
-    income: 78000,
-    expenses: [
-      { key: 'fuel', icon: '\u26fd\ufe0f', amount: 3200 },
-      { key: 'repair', icon: '\ud83c\udfd7', amount: 4000 },
-      { key: 'food', icon: '\ud83c\udf7d', amount: 400 },
-      { key: 'toll', icon: '\ud83c\udd7f\ufe0f', amount: 1000 },
-      { key: 'platon', icon: '\ud83d\ude9b', amount: 1800 },
-      { key: 'other', icon: '\ud83d\udce6', amount: 300 },
-    ],
-  },
-  {
-    from: '\u0415\u043a\u0430\u0442\u0435\u0440\u0438\u043d\u0431\u0443\u0440\u0433',
-    to: '\u041c\u043e\u0441\u043a\u0432\u0430',
-    date: '2026-03-25',
-    km: 1780,
-    income: 120000,
-    expenses: [
-      { key: 'fuel', icon: '\u26fd\ufe0f', amount: 5500 },
-      { key: 'repair', icon: '\ud83c\udfd7', amount: 7000 },
-      { key: 'food', icon: '\ud83c\udf7d', amount: 800 },
-      { key: 'housing', icon: '\ud83c\udfe0', amount: 600 },
-      { key: 'toll', icon: '\ud83c\udd7f\ufe0f', amount: 1500 },
-      { key: 'platon', icon: '\ud83d\ude9b', amount: 4200 },
-      { key: 'other', icon: '\ud83d\udce6', amount: 1000 },
-    ],
-  },
-]
+import { useState, useMemo, useEffect, useCallback } from 'react'
+import { fetchTrips, deleteTrip } from '../lib/api'
 
 const TABS = [
   { key: 'trips', label: '\ud83d\ude9b \u0420\u0435\u0439\u0441\u044b' },
@@ -67,32 +18,55 @@ function fmtFull(n) {
   return n.toLocaleString('ru-RU')
 }
 
-function TripsTab() {
-  const totalIncome = TRIPS_DATA.reduce((s, t) => s + t.income, 0)
-  const totalExpenses = TRIPS_DATA.reduce(
-    (s, t) => s + t.expenses.reduce((es, e) => es + e.amount, 0),
-    0
-  )
-  const totalKm = TRIPS_DATA.reduce((s, t) => s + t.km, 0)
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+}
+
+function TripsTab({ userId, refreshKey }) {
+  const [entries, setEntries] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  const loadData = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoading(true)
+      const data = await fetchTrips(userId)
+      setEntries(data)
+    } catch (err) {
+      console.error('Failed to load trips:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData, refreshKey])
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteTrip(id)
+      setEntries((prev) => prev.filter((e) => e.id !== id))
+    } catch (err) {
+      console.error('Failed to delete trip:', err)
+    }
+  }
+
+  const totalIncome = entries.reduce((s, t) => s + (t.income || 0), 0)
+  const totalKm = entries.reduce((s, t) => s + (t.distance_km || 0), 0)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Mini cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <div style={miniCard}>
           <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>
             {'\u0414\u043e\u0445\u043e\u0434'}
           </div>
           <div style={{ color: '#22c55e', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
             {fmt(totalIncome)} {'\u20bd'}
-          </div>
-        </div>
-        <div style={miniCard}>
-          <div style={{ color: '#64748b', fontSize: '11px', marginBottom: '4px' }}>
-            {'\u0420\u0430\u0441\u0445\u043e\u0434\u044b'}
-          </div>
-          <div style={{ color: '#ef4444', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
-            {fmt(totalExpenses)} {'\u20bd'}
           </div>
         </div>
         <div style={miniCard}>
@@ -110,48 +84,52 @@ function TripsTab() {
         <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
           {'\u0420\u0415\u0419\u0421\u042b'}
         </div>
-        <button style={addBtn}>+ {'\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c'}</button>
       </div>
 
       {/* Trip cards */}
-      {TRIPS_DATA.map((trip, i) => {
-        const expTotal = trip.expenses.reduce((s, e) => s + e.amount, 0)
-        const net = trip.income - expTotal
-        return (
-          <div key={i} style={card}>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b', fontSize: 14 }}>
+          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+        </div>
+      ) : entries.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', fontSize: 14 }}>
+          {'\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0440\u0435\u0439\u0441\u043e\u0432. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 + \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u0435\u0440\u0432\u044b\u0439'}
+        </div>
+      ) : (
+        entries.map((trip) => (
+          <div key={trip.id} style={card}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div>
                 <div style={{ color: '#e2e8f0', fontSize: '16px', fontWeight: 600 }}>
-                  {trip.from} {'\u2192'} {trip.to}
+                  {trip.origin || '?'} {'\u2192'} {trip.destination || '?'}
                 </div>
                 <div style={{ color: '#64748b', fontSize: '13px', marginTop: '4px' }}>
-                  {trip.date} {'\u00b7'} {fmtFull(trip.km)} {'\u043a\u043c'}
+                  {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {'\u043a\u043c'}
                 </div>
               </div>
               <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
-                +{fmtFull(trip.income)} {'\u20bd'}
+                +{fmtFull(trip.income || 0)} {'\u20bd'}
               </div>
             </div>
-
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' }}>
-              {trip.expenses.map((e, j) => (
-                <div key={j} style={{ color: '#64748b', fontSize: '12px' }}>
-                  {e.icon} {fmtFull(e.amount)}
-                </div>
-              ))}
-            </div>
-
-            <div style={{ borderTop: '1px solid #1e2a3f', paddingTop: '10px', display: 'flex', justifyContent: 'space-between' }}>
-              <div style={{ color: '#64748b', fontSize: '13px' }}>
-                {'\u0418\u0442\u043e\u0433\u043e \u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432: '}{fmtFull(expTotal)} {'\u20bd'}
-              </div>
-              <div style={{ color: '#22c55e', fontSize: '14px', fontWeight: 700, fontFamily: 'monospace' }}>
-                {'\u0427\u0438\u0441\u0442\u044b\u0435: '}{fmtFull(net)} {'\u20bd'}
-              </div>
+            <div style={{ borderTop: '1px solid #1e2a3f', paddingTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => handleDelete(trip.id)}
+                style={{
+                  background: 'none',
+                  border: '1px solid #ef444466',
+                  borderRadius: '8px',
+                  color: '#ef4444',
+                  fontSize: '12px',
+                  padding: '4px 12px',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\u0423\u0434\u0430\u043b\u0438\u0442\u044c'}
+              </button>
             </div>
           </div>
-        )
-      })}
+        ))
+      )}
     </div>
   )
 }
@@ -300,23 +278,12 @@ const miniCard = {
   textAlign: 'center',
 }
 
-const addBtn = {
-  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-  color: '#fff',
-  border: 'none',
-  borderRadius: '8px',
-  padding: '6px 14px',
-  fontSize: '13px',
-  fontWeight: 600,
-  cursor: 'pointer',
-}
-
 const sliderStyle = {
   width: '100%',
   accentColor: '#f59e0b',
 }
 
-export default function Trips() {
+export default function Trips({ userId, refreshKey }) {
   const [tab, setTab] = useState('trips')
 
   return (
@@ -352,7 +319,7 @@ export default function Trips() {
         ))}
       </div>
 
-      {tab === 'trips' ? <TripsTab /> : <CalcTab />}
+      {tab === 'trips' ? <TripsTab userId={userId} refreshKey={refreshKey} /> : <CalcTab />}
     </div>
   )
 }

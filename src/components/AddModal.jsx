@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { addFuel } from '../lib/api'
+import { addFuel, addTrip, addBytExpense } from '../lib/api'
 
 const RECORD_TYPES = [
   { key: 'fuel', icon: '\u26FD', label: '\u0417\u0430\u043F\u0440\u0430\u0432\u043A\u0430' },
@@ -84,10 +84,13 @@ function TripFields({ form, onChange }) {
       <FieldGroup label={'\u041A\u0443\u0434\u0430'}>
         <input style={inputStyle} value={form.to || ''} onChange={(e) => onChange('to', e.target.value)} />
       </FieldGroup>
+      <FieldGroup label={'\u0414\u0430\u0442\u0430'}>
+        <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
+      </FieldGroup>
       <FieldGroup label={'\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435 \u043A\u043C'}>
         <input style={inputStyle} type="number" value={form.distance || ''} onChange={(e) => onChange('distance', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0421\u0442\u0430\u0432\u043A\u0430 \u20BD'}>
+      <FieldGroup label={'\u0421\u0442\u0430\u0432\u043A\u0430 (\u0434\u043E\u0445\u043E\u0434) \u20BD'}>
         <input style={inputStyle} type="number" value={form.rate || ''} onChange={(e) => onChange('rate', e.target.value)} />
       </FieldGroup>
     </>
@@ -106,6 +109,9 @@ function BytFields({ form, onChange }) {
       </FieldGroup>
       <FieldGroup label={'\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435'}>
         <input style={inputStyle} value={form.name || ''} onChange={(e) => onChange('name', e.target.value)} />
+      </FieldGroup>
+      <FieldGroup label={'\u0414\u0430\u0442\u0430'}>
+        <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
       <FieldGroup label={'\u0421\u0443\u043C\u043C\u0430'}>
         <input style={inputStyle} type="number" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
@@ -181,7 +187,7 @@ const FIELDS_MAP = {
   other: OtherFields,
 }
 
-export default function AddModal({ isOpen, onClose, userId, onFuelSaved }) {
+export default function AddModal({ isOpen, onClose, userId, onFuelSaved, onTripSaved, onBytSaved }) {
   const [recordType, setRecordType] = useState('fuel')
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
@@ -191,18 +197,23 @@ export default function AddModal({ isOpen, onClose, userId, onFuelSaved }) {
   }
 
   const handleSave = async () => {
-    if (recordType === 'fuel' && userId) {
-      try {
-        setSaving(true)
+    try {
+      setSaving(true)
+      if (recordType === 'fuel' && userId) {
         await addFuel(userId, form)
         if (onFuelSaved) onFuelSaved()
-      } catch (err) {
-        console.error('Failed to save fuel:', err)
-        alert('Failed to save fuel: ' + (err.message || JSON.stringify(err)))
-        return
-      } finally {
-        setSaving(false)
+      } else if (recordType === 'trip') {
+        await addTrip(form)
+        if (onTripSaved) onTripSaved()
+      } else if (recordType === 'byt') {
+        await addBytExpense({ ...form, date: form.date || new Date().toISOString().slice(0, 10) })
+        if (onBytSaved) onBytSaved()
       }
+    } catch (err) {
+      console.error('Failed to save ' + recordType + ':', err)
+      return
+    } finally {
+      setSaving(false)
     }
     setForm({})
     setRecordType('fuel')

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { supabase } from '../lib/supabase'
 
 const COUNTRIES = [
   // \u0421\u041d\u0413
@@ -291,7 +292,7 @@ function PinDots({ length, shake, total = 4 }) {
 }
 
 // ===== SCREEN 1: PHONE =====
-function PhoneScreen({ phone, setPhone, country, setCountry, onNext }) {
+function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, error }) {
   // E.164: total digits (country code + number) must be 7-15
   const phoneDigits = phone.replace(/\D/g, '')
   const codeDigits = country.code.replace(/\D/g, '')
@@ -441,12 +442,16 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext }) {
           </div>
         </div>
 
+        {error && (
+          <p style={{ color: '#ef4444', fontSize: 14, textAlign: 'center', margin: '0 0 12px' }}>{error}</p>
+        )}
+
         <button
-          style={valid ? styles.btnPrimary : styles.btnDisabled}
-          disabled={!valid}
+          style={valid && !loading ? styles.btnPrimary : styles.btnDisabled}
+          disabled={!valid || loading}
           onClick={onNext}
         >
-          {'\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043e\u0434'}
+          {loading ? '\u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...' : '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043e\u0434'}
         </button>
 
         <p style={{ fontSize: 11, color: '#64748b', textAlign: 'center', marginTop: 16 }}>
@@ -459,20 +464,48 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext }) {
 }
 
 // ===== SCREEN 2: SMS CODE =====
-function SmsScreen({ phone, countryCode, onBack, onNext }) {
+function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
   const [code, setCode] = useState('')
   const [error, setError] = useState(false)
+  const [errorMsg, setErrorMsg] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
 
   const handleDigit = (d) => {
     if (code.length < 6) {
       setCode((prev) => prev + d)
       setError(false)
+      setErrorMsg('')
     }
   }
   const handleBack = () => setCode((prev) => prev.slice(0, -1))
 
-  const handleConfirm = () => {
-    if (code.length === 6) onNext()
+  const handleConfirm = async () => {
+    if (code.length !== 6 || loading) return
+    setLoading(true)
+    setError(false)
+    setErrorMsg('')
+    const fullPhone = countryCode + phone.replace(/\D/g, '')
+    const { error: verifyError } = await supabase.auth.verifyOtp({
+      phone: fullPhone,
+      token: code,
+      type: 'sms',
+    })
+    setLoading(false)
+    if (verifyError) {
+      setError(true)
+      setErrorMsg(verifyError.message)
+      setCode('')
+    } else {
+      onNext()
+    }
+  }
+
+  const handleResend = async () => {
+    if (resending) return
+    setResending(true)
+    await onResend()
+    setResending(false)
   }
 
   return (
@@ -489,21 +522,29 @@ function SmsScreen({ phone, countryCode, onBack, onNext }) {
           {'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u043b\u0438 \u043d\u0430 ' + countryCode + ' ' + phone}
         </p>
 
+        {errorMsg && (
+          <p style={{ color: '#ef4444', fontSize: 14, margin: '12px 0 0' }}>{errorMsg}</p>
+        )}
+
         <PinDots length={code.length} shake={error} total={6} />
 
         <NumPad onDigit={handleDigit} onBackspace={handleBack} />
 
         <button
-          style={{ ...(code.length === 6 ? styles.btnPrimary : styles.btnDisabled), marginTop: 24 }}
-          disabled={code.length < 6}
+          style={{ ...(code.length === 6 && !loading ? styles.btnPrimary : styles.btnDisabled), marginTop: 24 }}
+          disabled={code.length < 6 || loading}
           onClick={handleConfirm}
         >
-          {'\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c'}
+          {loading ? '\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430...' : '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c'}
         </button>
 
-        <p style={{ fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 20, cursor: 'pointer' }}>
-          {'\u041d\u0435 \u043f\u0440\u0438\u0448\u0451\u043b? '}
-          <span style={{ color: '#f59e0b' }}>{'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0441\u043d\u043e\u0432\u0430'}</span>
+        <p
+          style={{ fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 20, cursor: 'pointer' }}
+          onClick={handleResend}
+        >
+          {resending ? '\u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...' : (
+            <>{'\u041d\u0435 \u043f\u0440\u0438\u0448\u0451\u043b? '}<span style={{ color: '#f59e0b' }}>{'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0441\u043d\u043e\u0432\u0430'}</span></>
+          )}
         </p>
       </div>
     </div>
@@ -831,11 +872,31 @@ export default function Auth({ onComplete }) {
     consumption: 34,
   })
   const [biometricEnabled, setBiometricEnabled] = useState(false)
+  const [otpLoading, setOtpLoading] = useState(false)
+  const [otpError, setOtpError] = useState('')
+
+  const sendOtp = async () => {
+    const fullPhone = country.code + phone.replace(/\D/g, '')
+    setOtpLoading(true)
+    setOtpError('')
+    const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone })
+    setOtpLoading(false)
+    if (error) {
+      setOtpError(error.message)
+      return false
+    }
+    return true
+  }
+
+  const handlePhoneNext = async () => {
+    const ok = await sendOtp()
+    if (ok) setStep(2)
+  }
 
   if (step === 1) {
     return (
       <div style={styles.container}>
-        <PhoneScreen phone={phone} setPhone={setPhone} country={country} setCountry={setCountry} onNext={() => setStep(2)} />
+        <PhoneScreen phone={phone} setPhone={setPhone} country={country} setCountry={setCountry} onNext={handlePhoneNext} loading={otpLoading} error={otpError} />
       </div>
     )
   }
@@ -843,7 +904,7 @@ export default function Auth({ onComplete }) {
   if (step === 2) {
     return (
       <div style={styles.container}>
-        <SmsScreen phone={phone} countryCode={country.code} onBack={() => setStep(1)} onNext={() => setStep(3)} />
+        <SmsScreen phone={phone} countryCode={country.code} onBack={() => setStep(1)} onNext={() => setStep(3)} onResend={sendOtp} />
       </div>
     )
   }

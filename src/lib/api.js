@@ -11,8 +11,17 @@ export async function fetchFuels(userId) {
 }
 
 export async function addFuel(userId, entry) {
+  // Get user_id from active Supabase session, not from props
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    const msg = 'No active session: ' + (authError ? authError.message : 'user is null')
+    alert(msg)
+    throw new Error(msg)
+  }
+  alert('user_id: ' + user.id)
+
   const row = {
-    user_id: userId,
+    user_id: user.id,
     vehicle_id: entry.vehicle_id || null,
     station: entry.station || '',
     date: entry.date || new Date().toISOString().slice(0, 10),

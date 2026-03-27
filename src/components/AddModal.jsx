@@ -211,6 +211,7 @@ export default function AddModal({ isOpen, onClose, userId, onFuelSaved, onTripS
       }
     } catch (err) {
       console.error('Failed to save ' + recordType + ':', err)
+      alert('Save error (' + recordType + '): ' + (err.message || JSON.stringify(err)))
       return
     } finally {
       setSaving(false)

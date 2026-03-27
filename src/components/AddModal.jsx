@@ -198,6 +198,7 @@ export default function AddModal({ isOpen, onClose, userId, onFuelSaved }) {
         if (onFuelSaved) onFuelSaved()
       } catch (err) {
         console.error('Failed to save fuel:', err)
+        alert('Failed to save fuel: ' + (err.message || JSON.stringify(err)))
         return
       } finally {
         setSaving(false)

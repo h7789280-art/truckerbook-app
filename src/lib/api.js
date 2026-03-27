@@ -11,18 +11,24 @@ export async function fetchFuels(userId) {
 }
 
 export async function addFuel(userId, entry) {
+  const row = {
+    user_id: userId,
+    vehicle_id: entry.vehicle_id || null,
+    station: entry.station || '',
+    date: entry.date || new Date().toISOString().slice(0, 10),
+    liters: parseFloat(entry.liters) || 0,
+    total_cost: parseFloat(entry.amount) || 0,
+    odometer: parseInt(entry.odometer, 10) || 0,
+  }
   const { data, error } = await supabase
     .from('fuel_entries')
-    .insert({
-      user_id: userId,
-      station: entry.station || '',
-      date: entry.date || new Date().toISOString().slice(0, 10),
-      liters: parseFloat(entry.liters) || 0,
-      total_cost: parseFloat(entry.amount) || 0,
-      odometer: parseInt(entry.odometer, 10) || 0,
-    })
+    .insert(row)
     .select()
-  if (error) throw error
+  if (error) {
+    console.error('addFuel error:', error)
+    alert('Fuel save error: ' + error.message + ' (code: ' + error.code + ')')
+    throw error
+  }
   return data
 }
 

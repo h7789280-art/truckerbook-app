@@ -130,7 +130,7 @@ export default function Fuel({ userId, refreshKey }) {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
   const monthEntries = entries.filter((e) => e.date >= monthStart)
-  const totalMonth = monthEntries.reduce((s, e) => s + (e.total_cost || 0), 0)
+  const totalMonth = monthEntries.reduce((s, e) => s + (e.cost || 0), 0)
   const totalLiters = monthEntries.reduce((s, e) => s + (e.liters || 0), 0)
 
   return (
@@ -190,7 +190,7 @@ export default function Fuel({ userId, refreshKey }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {entries.map((item) => {
-            const perLiter = item.liters > 0 ? (item.total_cost / item.liters).toFixed(1) : 0
+            const perLiter = item.liters > 0 ? (item.cost / item.liters).toFixed(1) : 0
             return (
               <SwipeRow key={item.id} onDelete={() => handleDelete(item.id)}>
                 <div
@@ -229,7 +229,7 @@ export default function Fuel({ userId, refreshKey }) {
                   </div>
                   <div style={{ textAlign: 'right', flexShrink: 0 }}>
                     <div style={{ color: '#f59e0b', fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>
-                      {formatNumber(Math.round(item.total_cost || 0))} {'\u20bd'}
+                      {formatNumber(Math.round(item.cost || 0))} {'\u20bd'}
                     </div>
                     <div style={{ color: '#64748b', fontSize: '11px', marginTop: '2px' }}>
                       {perLiter} {'\u20bd/\u043b'}

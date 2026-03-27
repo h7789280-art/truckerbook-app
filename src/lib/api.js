@@ -17,7 +17,7 @@ export async function addFuel(userId, entry) {
     station: entry.station || '',
     date: entry.date || new Date().toISOString().slice(0, 10),
     liters: parseFloat(entry.liters) || 0,
-    total_cost: parseFloat(entry.amount) || 0,
+    cost: parseFloat(entry.amount) || 0,
     odometer: parseInt(entry.odometer, 10) || 0,
   }
   const { data, error } = await supabase

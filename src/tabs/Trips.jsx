@@ -398,21 +398,33 @@ function TripsTab({ userId, refreshKey, theme }) {
 function CalcTab({ theme }) {
   const [km, setKm] = useState(820)
   const [rate, setRate] = useState(65000)
+  const [fuelPrice, setFuelPrice] = useState(60)
+  const [consumption, setConsumption] = useState(34)
+  const [tolls, setTolls] = useState(0)
 
   const calc = useMemo(() => {
-    const fuel = km * 34.4 / 100 * 58.9
-    const platon = km * 2.7
-    const food = km / 250 * 450
-    const housing = km / 800 * 1750
-    const totalExp = fuel + platon + food + housing
+    const fuel = km / 100 * consumption * fuelPrice
+    const platon = km * 2.84
+    const totalExp = fuel + platon + tolls
     const profit = rate - totalExp
     const minRate = totalExp * 1.2
-    const perKm = profit / km
-    return { fuel, platon, food, housing, totalExp, profit, minRate, perKm }
-  }, [km, rate])
+    const perKm = km > 0 ? profit / km : 0
+    return { fuel, platon, totalExp, profit, minRate, perKm }
+  }, [km, rate, fuelPrice, consumption, tolls])
 
   const profitable = calc.profit > 0
   const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
+  const inputStyle = {
+    width: '100%',
+    padding: '10px 12px',
+    borderRadius: '10px',
+    border: '1px solid ' + theme.border,
+    background: theme.bg,
+    color: theme.text,
+    fontSize: '15px',
+    fontFamily: 'monospace',
+    boxSizing: 'border-box',
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -450,17 +462,49 @@ function CalcTab({ theme }) {
         />
       </div>
 
-      {/* Cost breakdown */}
+      {/* Fuel price & consumption inputs */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+        <div style={card}>
+          <div style={{ color: theme.dim, fontSize: '12px', marginBottom: '6px' }}>{'\u0426\u0435\u043d\u0430 \u0442\u043e\u043f\u043b\u0438\u0432\u0430, \u20bd/\u043b'}</div>
+          <input
+            type="number"
+            value={fuelPrice}
+            onChange={e => setFuelPrice(Number(e.target.value) || 0)}
+            style={inputStyle}
+          />
+        </div>
+        <div style={card}>
+          <div style={{ color: theme.dim, fontSize: '12px', marginBottom: '6px' }}>{'\u0420\u0430\u0441\u0445\u043e\u0434, \u043b/100\u043a\u043c'}</div>
+          <input
+            type="number"
+            value={consumption}
+            onChange={e => setConsumption(Number(e.target.value) || 0)}
+            style={inputStyle}
+          />
+        </div>
+      </div>
+
+      {/* Tolls input */}
+      <div style={card}>
+        <div style={{ color: theme.dim, fontSize: '12px', marginBottom: '6px' }}>{'\ud83c\udd7f\ufe0f \u041f\u043b\u0430\u0442\u043d\u044b\u0435 \u0434\u043e\u0440\u043e\u0433\u0438, \u20bd'}</div>
+        <input
+          type="number"
+          value={tolls}
+          onChange={e => setTolls(Number(e.target.value) || 0)}
+          style={inputStyle}
+        />
+      </div>
+
+      {/* Cost breakdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
         {[
           { label: '\u26fd \u0422\u043e\u043f\u043b\u0438\u0432\u043e', value: calc.fuel, color: '#f59e0b' },
-          { label: '\ud83d\ude9b \u041f\u043b\u0430\u0442\u043e\u043d/\u0434\u043e\u0440\u043e\u0433\u0438', value: calc.platon, color: '#3b82f6' },
-          { label: '\ud83c\udf7d \u0415\u0434\u0430', value: calc.food, color: '#a855f7' },
-          { label: '\ud83c\udfe0 \u0416\u0438\u043b\u044c\u0451', value: calc.housing, color: '#06b6d4' },
+          { label: '\ud83d\ude9b \u041f\u043b\u0430\u0442\u043e\u043d', value: calc.platon, color: '#3b82f6' },
+          { label: '\ud83c\udd7f\ufe0f \u0414\u043e\u0440\u043e\u0433\u0438', value: tolls, color: '#a855f7' },
         ].map((item, i) => (
           <div key={i} style={card}>
-            <div style={{ color: theme.dim, fontSize: '12px', marginBottom: '6px' }}>{item.label}</div>
-            <div style={{ color: item.color, fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' }}>
+            <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '6px' }}>{item.label}</div>
+            <div style={{ color: item.color, fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
               {fmtFull(Math.round(item.value))} {'\u20bd'}
             </div>
           </div>

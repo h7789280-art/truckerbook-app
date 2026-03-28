@@ -46,6 +46,7 @@ export function ThemeProvider({ children }) {
   const [mode, setMode] = useState(() => {
     try { return localStorage.getItem('tb_theme') || 'dark' } catch { return 'dark' }
   })
+  const [, setTick] = useState(0)
 
   const theme = resolveTheme(mode)
 
@@ -68,19 +69,7 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     if (mode !== 'auto') return
-    const id = setInterval(() => {
-      const fresh = resolveTheme('auto')
-      const root = document.documentElement
-      root.style.setProperty('--bg', fresh.bg)
-      root.style.setProperty('--card', fresh.card)
-      root.style.setProperty('--card2', fresh.card2)
-      root.style.setProperty('--border', fresh.border)
-      root.style.setProperty('--text', fresh.text)
-      root.style.setProperty('--dim', fresh.dim)
-      root.style.setProperty('--nav-bg', fresh.navBg)
-      document.body.style.background = fresh.bg
-      document.body.style.color = fresh.text
-    }, 60000)
+    const id = setInterval(() => setTick(t => t + 1), 60000)
     return () => clearInterval(id)
   }, [mode])
 

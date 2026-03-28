@@ -49,7 +49,7 @@ function SwipeRow({ children, onDelete }) {
   if (showConfirm) {
     return (
       <div style={{
-        backgroundColor: '#111827',
+        backgroundColor: 'var(--card)',
         borderRadius: '12px',
         padding: '14px',
         border: '1px solid #ef4444',
@@ -57,14 +57,14 @@ function SwipeRow({ children, onDelete }) {
         alignItems: 'center',
         justifyContent: 'space-between',
       }}>
-        <span style={{ color: '#e2e8f0', fontSize: 14 }}>{'\u0423\u0434\u0430\u043b\u0438\u0442\u044c?'}</span>
+        <span style={{ color: 'var(--text)', fontSize: 14 }}>{'\u0423\u0434\u0430\u043b\u0438\u0442\u044c?'}</span>
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={() => setShowConfirm(false)}
             style={{
               padding: '6px 14px', borderRadius: 8,
-              border: '1px solid #1e2a3f', background: '#1a2235',
-              color: '#e2e8f0', fontSize: 13, cursor: 'pointer',
+              border: '1px solid var(--border)', background: 'var(--card2)',
+              color: 'var(--text)', fontSize: 13, cursor: 'pointer',
             }}
           >{'\u041e\u0442\u043c\u0435\u043d\u0430'}</button>
           <button
@@ -134,38 +134,38 @@ export default function Fuel({ userId, refreshKey }) {
   const totalLiters = monthEntries.reduce((s, e) => s + (e.liters || 0), 0)
 
   return (
-    <div style={{ padding: '16px', minHeight: '100vh', backgroundColor: '#0a0e1a' }}>
+    <div style={{ padding: '16px', minHeight: '100vh', backgroundColor: 'var(--bg)' }}>
       {/* Summary cards */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '24px' }}>
         <div
           style={{
             flex: 1,
-            backgroundColor: '#111827',
+            backgroundColor: 'var(--card)',
             borderRadius: '12px',
             padding: '16px',
-            border: '1px solid #1e2a3f',
+            border: '1px solid var(--border)',
           }}
         >
-          <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '4px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '4px' }}>
             {'\u0422\u041e\u041f\u041b\u0418\u0412\u041e/\u041c\u0415\u0421'}
           </div>
-          <div style={{ color: '#e2e8f0', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
+          <div style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
             {formatNumber(Math.round(totalMonth))} {'\u20bd'}
           </div>
         </div>
         <div
           style={{
             flex: 1,
-            backgroundColor: '#111827',
+            backgroundColor: 'var(--card)',
             borderRadius: '12px',
             padding: '16px',
-            border: '1px solid #1e2a3f',
+            border: '1px solid var(--border)',
           }}
         >
-          <div style={{ color: '#64748b', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '4px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '4px' }}>
             {'\u041b\u0418\u0422\u0420\u041e\u0412'}
           </div>
-          <div style={{ color: '#e2e8f0', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
+          <div style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
             {formatNumber(Math.round(totalLiters))}
           </div>
         </div>
@@ -173,18 +173,18 @@ export default function Fuel({ userId, refreshKey }) {
 
       {/* Section header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-        <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 600, letterSpacing: '0.5px' }}>
+        <div style={{ color: 'var(--dim)', fontSize: '13px', fontWeight: 600, letterSpacing: '0.5px' }}>
           {'\u0417\u0410\u041f\u0420\u0410\u0412\u041a\u0418'}
         </div>
       </div>
 
       {/* Fuel entries */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
           {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
         </div>
       ) : entries.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', fontSize: 14 }}>
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
           {'\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0437\u0430\u043f\u0440\u0430\u0432\u043e\u043a. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 + \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u0435\u0440\u0432\u0443\u044e'}
         </div>
       ) : (
@@ -195,10 +195,10 @@ export default function Fuel({ userId, refreshKey }) {
               <SwipeRow key={item.id} onDelete={() => handleDelete(item.id)}>
                 <div
                   style={{
-                    backgroundColor: '#111827',
+                    backgroundColor: 'var(--card)',
                     borderRadius: '12px',
                     padding: '14px',
-                    border: '1px solid #1e2a3f',
+                    border: '1px solid var(--border)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '12px',
@@ -208,7 +208,7 @@ export default function Fuel({ userId, refreshKey }) {
                     style={{
                       width: '42px',
                       height: '42px',
-                      backgroundColor: '#1a2235',
+                      backgroundColor: 'var(--card2)',
                       borderRadius: '10px',
                       display: 'flex',
                       alignItems: 'center',
@@ -220,10 +220,10 @@ export default function Fuel({ userId, refreshKey }) {
                     {'\u26fd\ufe0f'}
                   </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ color: '#e2e8f0', fontSize: '15px', fontWeight: 600 }}>
+                    <div style={{ color: 'var(--text)', fontSize: '15px', fontWeight: 600 }}>
                       {item.station || '\u0417\u0430\u043f\u0440\u0430\u0432\u043a\u0430'}
                     </div>
-                    <div style={{ color: '#64748b', fontSize: '12px', marginTop: '2px' }}>
+                    <div style={{ color: 'var(--dim)', fontSize: '12px', marginTop: '2px' }}>
                       {formatDate(item.date)} · {item.liters} {'\u043b'} · {formatNumber(item.odometer || 0)} {'\u043a\u043c'}
                     </div>
                   </div>
@@ -231,7 +231,7 @@ export default function Fuel({ userId, refreshKey }) {
                     <div style={{ color: '#f59e0b', fontSize: '15px', fontWeight: 700, fontFamily: 'monospace' }}>
                       {formatNumber(Math.round(item.cost || 0))} {'\u20bd'}
                     </div>
-                    <div style={{ color: '#64748b', fontSize: '11px', marginTop: '2px' }}>
+                    <div style={{ color: 'var(--dim)', fontSize: '11px', marginTop: '2px' }}>
                       {perLiter} {'\u20bd/\u043b'}
                     </div>
                   </div>

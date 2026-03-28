@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 
 const SUB_TABS = [
   { key: 'service', label: '\uD83D\uDD27 \u0421\u0435\u0440\u0432\u0438\u0441' },
@@ -84,8 +84,8 @@ const DOCUMENTS = [
 ]
 
 const cardStyle = {
-  background: '#111827',
-  border: '1px solid #1e2a3f',
+  background: 'var(--card)',
+  border: '1px solid var(--border)',
   borderRadius: '12px',
   padding: '16px',
 }
@@ -113,7 +113,7 @@ export default function Service() {
     : MAP_NOTES.filter(n => n.type === mapFilter)
 
   return (
-    <div style={{ padding: '16px', minHeight: '100vh', backgroundColor: '#0a0e1a', paddingBottom: '80px' }}>
+    <div style={{ padding: '16px', minHeight: '100vh', backgroundColor: 'var(--bg)', paddingBottom: '80px' }}>
       {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', overflowX: 'auto' }}>
         {SUB_TABS.map(t => (
@@ -123,9 +123,9 @@ export default function Service() {
             style={{
               background: activeTab === t.key
                 ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                : '#111827',
-              color: activeTab === t.key ? '#000' : '#64748b',
-              border: activeTab === t.key ? 'none' : '1px solid #1e2a3f',
+                : 'var(--card)',
+              color: activeTab === t.key ? '#000' : 'var(--dim)',
+              border: activeTab === t.key ? 'none' : '1px solid var(--border)',
               borderRadius: '20px',
               padding: '8px 14px',
               fontSize: '13px',
@@ -169,14 +169,14 @@ function ServiceTab() {
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
         <div style={{ ...cardStyle, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>{'\u0420\u0435\u043C\u043E\u043D\u0442'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u0420\u0435\u043C\u043E\u043D\u0442'}</div>
           <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444' }}>
             {totalRepair.toLocaleString('ru-RU')} {'\u20BD'}
           </div>
         </div>
         <div style={{ ...cardStyle, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '4px' }}>{'\u041E\u0434\u043E\u043C\u0435\u0442\u0440'}</div>
-          <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0' }}>
+          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u041E\u0434\u043E\u043C\u0435\u0442\u0440'}</div>
+          <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
             452 300 {'\u043A\u043C'}
           </div>
         </div>
@@ -197,14 +197,14 @@ function ServiceTab() {
           <div style={{ fontSize: '14px', fontWeight: 600, color: '#f59e0b' }}>
             {'\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0435 \u043C\u0430\u0441\u043B\u043E \u0447\u0435\u0440\u0435\u0437 3 700 \u043A\u043C'}
           </div>
-          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+          <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
             {'\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0437\u0430\u043C\u0435\u043D\u0430: 441 000 \u043A\u043C \u00B7 \u0418\u043D\u0442\u0435\u0440\u0432\u0430\u043B 15 000 \u043A\u043C'}
           </div>
         </div>
       </div>
 
       {/* Repair history */}
-      <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
         {'\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0440\u0435\u043C\u043E\u043D\u0442\u043E\u0432'}
       </div>
       <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
@@ -216,21 +216,21 @@ function ServiceTab() {
               alignItems: 'center',
               gap: '12px',
               padding: '14px 16px',
-              borderTop: i > 0 ? '1px solid #1e2a3f' : 'none',
+              borderTop: i > 0 ? '1px solid var(--border)' : 'none',
             }}
           >
             <div style={{
-              width: '40px', height: '40px', backgroundColor: '#1a2235',
+              width: '40px', height: '40px', backgroundColor: 'var(--card2)',
               borderRadius: '10px', display: 'flex', alignItems: 'center',
               justifyContent: 'center', fontSize: '20px', flexShrink: 0,
             }}>
               {r.icon}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {r.name}
               </div>
-              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
                 {r.date} &middot; {r.km.toLocaleString('ru-RU')} {'\u043A\u043C'} &middot; {r.place}
               </div>
             </div>
@@ -242,7 +242,7 @@ function ServiceTab() {
       </div>
 
       {/* Insurance */}
-      <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
         {'\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0438'}
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -258,16 +258,16 @@ function ServiceTab() {
                   {ins.type === '\u041E\u0421\u0410\u0413\u041E' ? '\uD83D\uDEE1' : '\uD83D\uDD12'}
                 </div>
                 <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: '#e2e8f0' }}>{ins.type}</div>
-                  <div style={{ fontSize: '12px', color: '#64748b' }}>{ins.company}</div>
+                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{ins.type}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--dim)' }}>{ins.company}</div>
                 </div>
               </div>
-              <div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'monospace', color: '#e2e8f0' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
                 {ins.cost.toLocaleString('ru-RU')} {'\u20BD'}
               </div>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '12px', color: '#64748b' }}>
+              <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
                 {ins.from} &mdash; {ins.to}
               </div>
               <div style={{
@@ -300,14 +300,14 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
         return (
           <div key={section.key} style={{ marginBottom: '16px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#e2e8f0' }}>{section.title}</div>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{section.title}</div>
               <div style={{ fontSize: '12px', fontWeight: 600, color: section.color }}>
                 {checked}/{total}
               </div>
             </div>
 
             {/* Progress bar */}
-            <div style={{ background: '#1e2a3f', borderRadius: '4px', height: '4px', marginBottom: '10px' }}>
+            <div style={{ background: 'var(--border)', borderRadius: '4px', height: '4px', marginBottom: '10px' }}>
               <div style={{
                 height: '4px', borderRadius: '4px', background: section.color,
                 width: `${pct}%`, transition: 'width 0.3s ease',
@@ -324,12 +324,12 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
                     style={{
                       display: 'flex', alignItems: 'center', gap: '12px',
                       padding: '12px 16px', cursor: 'pointer',
-                      borderTop: idx > 0 ? '1px solid #1e2a3f' : 'none',
+                      borderTop: idx > 0 ? '1px solid var(--border)' : 'none',
                     }}
                   >
                     <div style={{
                       width: '22px', height: '22px', borderRadius: '6px', flexShrink: 0,
-                      border: isChecked ? 'none' : '2px solid #1e2a3f',
+                      border: isChecked ? 'none' : '2px solid var(--border)',
                       background: isChecked ? section.color : 'transparent',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       transition: 'background 0.15s',
@@ -339,7 +339,7 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
                       )}
                     </div>
                     <span style={{
-                      fontSize: '14px', color: isChecked ? '#64748b' : '#e2e8f0',
+                      fontSize: '14px', color: isChecked ? 'var(--dim)' : 'var(--text)',
                       textDecoration: isChecked ? 'line-through' : 'none',
                       transition: 'color 0.15s',
                     }}>
@@ -383,17 +383,17 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
       <div style={{
         ...cardStyle, height: '200px', marginBottom: '16px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(135deg, #111827, #1a2235)',
+        background: 'linear-gradient(135deg, var(--card), var(--card2))',
         position: 'relative', overflow: 'hidden',
       }}>
         <div style={{
           position: 'absolute', inset: 0, opacity: 0.08,
-          background: 'repeating-linear-gradient(0deg, #1e2a3f, #1e2a3f 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, #1e2a3f, #1e2a3f 1px, transparent 1px, transparent 20px)',
+          background: 'repeating-linear-gradient(0deg, var(--border), var(--border) 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, var(--border), var(--border) 1px, transparent 1px, transparent 20px)',
         }} />
         <div style={{ textAlign: 'center', zIndex: 1 }}>
           <div style={{ fontSize: '40px', marginBottom: '8px' }}>{'\uD83D\uDDFA'}</div>
-          <div style={{ fontSize: '14px', color: '#64748b' }}>{'\u041A\u0430\u0440\u0442\u0430 \u0437\u0430\u043C\u0435\u0442\u043E\u043A'}</div>
-          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>Leaflet &middot; {'\u0441\u043A\u043E\u0440\u043E'}</div>
+          <div style={{ fontSize: '14px', color: 'var(--dim)' }}>{'\u041A\u0430\u0440\u0442\u0430 \u0437\u0430\u043C\u0435\u0442\u043E\u043A'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '4px' }}>Leaflet &middot; {'\u0441\u043A\u043E\u0440\u043E'}</div>
         </div>
       </div>
 
@@ -406,9 +406,9 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
             style={{
               background: mapFilter === f.key
                 ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                : '#111827',
-              color: mapFilter === f.key ? '#000' : '#64748b',
-              border: mapFilter === f.key ? 'none' : '1px solid #1e2a3f',
+                : 'var(--card)',
+              color: mapFilter === f.key ? '#000' : 'var(--dim)',
+              border: mapFilter === f.key ? 'none' : '1px solid var(--border)',
               borderRadius: '20px',
               padding: '6px 14px',
               fontSize: '13px',
@@ -429,27 +429,27 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
             style={{
               display: 'flex', alignItems: 'center', gap: '12px',
               padding: '14px 16px',
-              borderTop: i > 0 ? '1px solid #1e2a3f' : 'none',
+              borderTop: i > 0 ? '1px solid var(--border)' : 'none',
             }}
           >
             <div style={{
-              width: '40px', height: '40px', backgroundColor: '#1a2235',
+              width: '40px', height: '40px', backgroundColor: 'var(--card2)',
               borderRadius: '10px', display: 'flex', alignItems: 'center',
               justifyContent: 'center', fontSize: '20px', flexShrink: 0,
             }}>
               {note.icon}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {note.name}
               </div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
                 {note.desc}
               </div>
             </div>
             <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
               {[1, 2, 3, 4, 5].map(s => (
-                <span key={s} style={{ fontSize: '12px', color: s <= note.rating ? '#f59e0b' : '#1e2a3f' }}>
+                <span key={s} style={{ fontSize: '12px', color: s <= note.rating ? '#f59e0b' : 'var(--border)' }}>
                   {'\u2605'}
                 </span>
               ))}
@@ -466,7 +466,7 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
         textAlign: 'center',
       }}>
         <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'monospace', color: '#f59e0b' }}>4 827</div>
-        <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
           {'\u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0447\u0435\u043A \u043E\u0442 \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u0435\u0439'}
         </div>
       </div>
@@ -478,7 +478,7 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
 function DocsTab() {
   return (
     <>
-      <div style={{ fontSize: '13px', fontWeight: 600, color: '#64748b', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
         {'\u0424\u043E\u0442\u043E-\u0430\u0440\u0445\u0438\u0432 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u043E\u0432'}
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
@@ -493,8 +493,8 @@ function DocsTab() {
             }}
           >
             <div style={{ fontSize: '36px', marginBottom: '8px' }}>{doc.icon}</div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#e2e8f0' }}>{doc.label}</div>
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '4px' }}>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{doc.label}</div>
+            <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '4px' }}>
               {'\u041D\u0435\u0442 \u0444\u043E\u0442\u043E'}
             </div>
           </div>
@@ -508,7 +508,7 @@ function DocsTab() {
         display: 'flex', alignItems: 'center', gap: '10px',
       }}>
         <span style={{ fontSize: '20px' }}>{'\uD83D\uDCF7'}</span>
-        <div style={{ fontSize: '13px', color: '#64748b' }}>
+        <div style={{ fontSize: '13px', color: 'var(--dim)' }}>
           {'\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044E, \u0447\u0442\u043E\u0431\u044B \u0441\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442'}
         </div>
       </div>

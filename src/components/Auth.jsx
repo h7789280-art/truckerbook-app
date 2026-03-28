@@ -552,10 +552,10 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
 }
 
 // ===== SCREEN 3: PROFILE =====
-function ProfileScreen({ profile, setProfile, onNext }) {
+function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
   const brandList = Object.keys(BRANDS)
   const modelList = profile.brand ? BRANDS[profile.brand] || [] : []
-  const valid = profile.name && profile.brand && profile.model && profile.mileage
+  const valid = profile.name && profile.brand && profile.model && profile.mileage && !saving
 
   return (
     <div style={styles.inner}>
@@ -646,12 +646,16 @@ function ProfileScreen({ profile, setProfile, onNext }) {
         </div>
       </div>
 
+      {error && (
+        <p style={{ color: '#ef4444', fontSize: 14, textAlign: 'center', margin: '12px 0 0' }}>{error}</p>
+      )}
+
       <button
         style={{ ...(valid ? styles.btnPrimary : styles.btnDisabled), marginTop: 24 }}
         disabled={!valid}
         onClick={onNext}
       >
-        {'\u0414\u0430\u043b\u0435\u0435 \u2192'}
+        {saving ? '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435...' : '\u0414\u0430\u043b\u0435\u0435 \u2192'}
       </button>
     </div>
   )
@@ -875,6 +879,9 @@ export default function Auth({ onComplete }) {
   const [otpLoading, setOtpLoading] = useState(false)
   const [otpError, setOtpError] = useState('')
 
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileError, setProfileError] = useState('')
+
   const sendOtp = async () => {
     const fullPhone = country.code + phone.replace(/\D/g, '')
     setOtpLoading(true)
@@ -891,6 +898,49 @@ export default function Auth({ onComplete }) {
   const handlePhoneNext = async () => {
     const ok = await sendOtp()
     if (ok) setStep(2)
+  }
+
+  const saveProfileAndVehicle = async () => {
+    setProfileSaving(true)
+    setProfileError('')
+    try {
+      const { data: { user }, error: authErr } = await supabase.auth.getUser()
+      if (authErr || !user) throw new Error(authErr?.message || 'No user')
+
+      const fullPhone = country.code + phone.replace(/\D/g, '')
+
+      // Upsert profile (INSERT or UPDATE if exists)
+      const { error: profileErr } = await supabase
+        .from('profiles')
+        .upsert({
+          id: user.id,
+          name: profile.name,
+          phone: fullPhone,
+          plan: 'trial',
+          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        }, { onConflict: 'id' })
+      if (profileErr) throw profileErr
+
+      // Insert vehicle
+      const { error: vehicleErr } = await supabase
+        .from('vehicles')
+        .insert({
+          user_id: user.id,
+          brand: profile.brand,
+          model: profile.model,
+          odometer: parseInt(profile.mileage, 10) || 0,
+          plate_number: profile.plate || null,
+          fuel_consumption: profile.consumption || 34,
+        })
+      if (vehicleErr) throw vehicleErr
+
+      setStep(4)
+    } catch (err) {
+      console.error('saveProfileAndVehicle error:', err)
+      setProfileError(err.message || String(err))
+    } finally {
+      setProfileSaving(false)
+    }
   }
 
   if (step === 1) {
@@ -912,7 +962,7 @@ export default function Auth({ onComplete }) {
   if (step === 3) {
     return (
       <div style={styles.container}>
-        <ProfileScreen profile={profile} setProfile={setProfile} onNext={() => setStep(4)} />
+        <ProfileScreen profile={profile} setProfile={setProfile} onNext={saveProfileAndVehicle} saving={profileSaving} error={profileError} />
       </div>
     )
   }

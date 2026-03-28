@@ -274,93 +274,129 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         />
       </div>
 
-      {/* Vehicles list */}
-      <div style={{ marginBottom: '12px' }}>
+      {/* Main vehicle from profiles */}
+      <div style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{
           fontSize: '13px',
           fontWeight: 600,
           color: theme.dim,
           letterSpacing: '0.5px',
           textTransform: 'uppercase',
-          marginBottom: '8px',
+          marginBottom: '4px',
         }}>
-          {'\u041C\u0430\u0448\u0438\u043D\u044B'} ({vehicles.length})
+          {'\u041C\u0430\u0448\u0438\u043D\u0430'}
         </div>
-
-        {vehicles.map((v) => (
-          <div
-            key={v.id}
-            style={{
-              ...cardStyle,
-              marginBottom: '8px',
-              border: v.is_active
-                ? '2px solid #f59e0b'
-                : '1px solid ' + theme.border,
-            }}
-          >
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '8px',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '20px' }}>{'\uD83D\uDE9B'}</span>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text }}>
-                    {v.brand} {v.model}
-                  </div>
-                  {v.plate_number && (
-                    <div style={{ fontSize: '12px', color: theme.dim }}>{v.plate_number}</div>
-                  )}
-                  {v.driver_name && (
-                    <div style={{ fontSize: '12px', color: theme.dim }}>{'\uD83D\uDC64'} {v.driver_name}</div>
-                  )}
-                </div>
-              </div>
-              {v.is_active ? (
-                <span style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  color: '#f59e0b',
-                  padding: '4px 8px',
-                  borderRadius: '6px',
-                  background: '#f59e0b20',
-                }}>
-                  {'\u0410\u043A\u0442\u0438\u0432\u043D\u0430\u044F'}
-                </span>
-              ) : (
-                <button
-                  onClick={() => handleSetActive(v.id)}
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 600,
-                    color: theme.text,
-                    padding: '4px 10px',
-                    borderRadius: '6px',
-                    background: theme.card2 || theme.card,
-                    border: '1px solid ' + theme.border,
-                    cursor: 'pointer',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-                  }}
-                >
-                  {'\u0412\u044B\u0431\u0440\u0430\u0442\u044C'}
-                </button>
-              )}
-            </div>
-            <div style={{
-              display: 'flex',
-              gap: '12px',
-              fontSize: '12px',
-              color: theme.dim,
-            }}>
-              <span>{v.odometer ? v.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : ''}</span>
-              <span>{v.fuel_consumption ? v.fuel_consumption + ' \u043B/100\u043A\u043C' : ''}</span>
-              {v.year && <span>{v.year} \u0433.</span>}
-            </div>
-          </div>
-        ))}
+        <Row
+          label={'\u041C\u0430\u0440\u043A\u0430'}
+          value={profile?.brand}
+        />
+        <Row
+          label={'\u041C\u043E\u0434\u0435\u043B\u044C'}
+          value={profile?.model}
+        />
+        <Row
+          label={'\u041F\u0440\u043E\u0431\u0435\u0433'}
+          value={profile?.odometer ? profile.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : null}
+        />
+        <Row
+          label={'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}
+          value={profile?.plate_number}
+        />
+        <Row
+          label={'\u0420\u0430\u0441\u0445\u043E\u0434'}
+          value={profile?.fuel_consumption ? profile.fuel_consumption + ' \u043B/100\u043A\u043C' : null}
+        />
       </div>
+
+      {/* Extra vehicles from vehicles table */}
+      {vehicles.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: theme.dim,
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+          }}>
+            {'\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u043C\u0430\u0448\u0438\u043D\u044B'} ({vehicles.length})
+          </div>
+
+          {vehicles.map((v) => (
+            <div
+              key={v.id}
+              style={{
+                ...cardStyle,
+                marginBottom: '8px',
+                border: v.is_active
+                  ? '2px solid #f59e0b'
+                  : '1px solid ' + theme.border,
+              }}
+            >
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '8px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '20px' }}>{'\uD83D\uDE9B'}</span>
+                  <div>
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text }}>
+                      {v.brand} {v.model}
+                    </div>
+                    {v.plate_number && (
+                      <div style={{ fontSize: '12px', color: theme.dim }}>{v.plate_number}</div>
+                    )}
+                    {v.driver_name && (
+                      <div style={{ fontSize: '12px', color: theme.dim }}>{'\uD83D\uDC64'} {v.driver_name}</div>
+                    )}
+                  </div>
+                </div>
+                {v.is_active ? (
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    color: '#f59e0b',
+                    padding: '4px 8px',
+                    borderRadius: '6px',
+                    background: '#f59e0b20',
+                  }}>
+                    {'\u0410\u043A\u0442\u0438\u0432\u043D\u0430\u044F'}
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => handleSetActive(v.id)}
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      color: theme.text,
+                      padding: '4px 10px',
+                      borderRadius: '6px',
+                      background: theme.card2 || theme.card,
+                      border: '1px solid ' + theme.border,
+                      cursor: 'pointer',
+                      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                    }}
+                  >
+                    {'\u0412\u044B\u0431\u0440\u0430\u0442\u044C'}
+                  </button>
+                )}
+              </div>
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                fontSize: '12px',
+                color: theme.dim,
+              }}>
+                <span>{v.odometer ? v.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : ''}</span>
+                <span>{v.fuel_consumption ? v.fuel_consumption + ' \u043B/100\u043A\u043C' : ''}</span>
+                {v.year && <span>{v.year} \u0433.</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Add vehicle button */}
       <button

@@ -24,5 +24,19 @@ export function useProfile(userId) {
     return () => { cancelled = true }
   }, [userId])
 
-  return { profile, loading }
+  const refetch = () => {
+    if (!userId) return
+    setLoading(true)
+    supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single()
+      .then(({ data, error }) => {
+        if (!error && data) setProfile(data)
+        setLoading(false)
+      })
+  }
+
+  return { profile, loading, refetch }
 }

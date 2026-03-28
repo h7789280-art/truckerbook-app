@@ -863,8 +863,8 @@ function WelcomeScreen({ profile, biometricEnabled, onStart }) {
 }
 
 // ===== MAIN AUTH COMPONENT =====
-export default function Auth({ onComplete }) {
-  const [step, setStep] = useState(1)
+export default function Auth({ onComplete, onboardingOnly }) {
+  const [step, setStep] = useState(onboardingOnly ? 3 : 1)
   const [phone, setPhone] = useState('')
   const [country, setCountry] = useState(COUNTRIES[0])
   const [profile, setProfile] = useState({
@@ -907,7 +907,7 @@ export default function Auth({ onComplete }) {
       const { data: { user }, error: authErr } = await supabase.auth.getUser()
       if (authErr || !user) throw new Error(authErr?.message || 'No user')
 
-      const fullPhone = country.code + phone.replace(/\D/g, '')
+      const fullPhone = phone ? country.code + phone.replace(/\D/g, '') : (user.phone || '')
 
       // Upsert profile (INSERT or UPDATE if exists)
       const { error: profileErr } = await supabase

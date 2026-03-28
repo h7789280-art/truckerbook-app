@@ -16,7 +16,7 @@ import ProfileScreen from './components/ProfileScreen'
 function AppInner() {
   const { session, loading: authLoading } = useAuth()
   const userId = session?.user?.id
-  const { profile } = useProfile(userId)
+  const { profile, loading: profileLoading, refetch: refetchProfile } = useProfile(userId)
   const { theme } = useTheme()
   const [activeTab, setActiveTab] = useState('overview')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -37,7 +37,7 @@ function AppInner() {
     setBytRefreshKey((k) => k + 1)
   }, [])
 
-  if (authLoading) {
+  if (authLoading || (session && profileLoading)) {
     return (
       <div style={{
         minHeight: '100vh', background: theme.bg, display: 'flex',
@@ -50,7 +50,11 @@ function AppInner() {
   }
 
   if (!session) {
-    return <Auth onComplete={() => {}} />
+    return <Auth onComplete={() => refetchProfile()} />
+  }
+
+  if (!profile) {
+    return <Auth onComplete={() => refetchProfile()} onboardingOnly />
   }
 
   if (showProfile) {

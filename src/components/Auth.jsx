@@ -929,6 +929,11 @@ export default function Auth({ onComplete, onboardingOnly }) {
           id: user.id,
           name: profile.name,
           phone: fullPhone,
+          brand: profile.brand,
+          model: profile.model,
+          odometer: parseInt(profile.mileage, 10) || 0,
+          plate_number: profile.plate || null,
+          fuel_consumption: profile.consumption || 34,
           plan: 'trial',
           trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
         }, { onConflict: 'id' })

@@ -202,6 +202,61 @@ export async function fetchInsurance(userId) {
   return data || []
 }
 
+// --- Shifts ---
+
+export async function getActiveShift(userId) {
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .limit(1)
+    .single()
+  if (error && error.code === 'PGRST116') return null
+  if (error) throw error
+  return data
+}
+
+export async function startShift(userId, vehicleId, odometerStart, driverName) {
+  const row = {
+    user_id: userId,
+    vehicle_id: vehicleId || null,
+    odometer_start: parseInt(odometerStart, 10) || 0,
+    driver_name: driverName || '',
+    started_at: new Date().toISOString(),
+    status: 'active',
+  }
+  const { data, error } = await supabase
+    .from('shifts')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function endShift(shiftId, odometerEnd) {
+  const end = parseInt(odometerEnd, 10) || 0
+  const { data, error } = await supabase
+    .from('shifts')
+    .update({
+      ended_at: new Date().toISOString(),
+      odometer_end: end,
+      status: 'completed',
+    })
+    .eq('id', shiftId)
+    .select()
+  if (error) throw error
+  const shift = data?.[0]
+  if (shift && shift.odometer_start) {
+    const kmDriven = end - shift.odometer_start
+    await supabase
+      .from('shifts')
+      .update({ km_driven: kmDriven > 0 ? kmDriven : 0 })
+      .eq('id', shiftId)
+  }
+  return shift
+}
+
 // --- Route notes ---
 
 export async function fetchRouteNotes(userId) {

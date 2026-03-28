@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, getActiveShift, startShift, endShift } from '../lib/api'
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -50,6 +50,11 @@ export default function Overview({ userName, userId, onOpenProfile }) {
   const [monthData, setMonthData] = useState({ income: 0, fuelCost: 0, bytCost: 0, serviceCost: 0, tripCount: 0, totalKm: 0, avgConsumption: 0 })
   const [expenseBreakdown, setExpenseBreakdown] = useState([])
   const [reminders, setReminders] = useState([])
+  const [activeShift, setActiveShift] = useState(null)
+  const [shiftModal, setShiftModal] = useState(null) // 'start' | 'end' | null
+  const [shiftOdometer, setShiftOdometer] = useState('')
+  const [shiftElapsed, setShiftElapsed] = useState(0)
+  const shiftTimerRef = useRef(null)
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -148,6 +153,56 @@ export default function Overview({ userName, userId, onOpenProfile }) {
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  // Load active shift
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    getActiveShift(userId).then(shift => {
+      if (!cancelled) setActiveShift(shift)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [userId])
+
+  // Shift elapsed timer
+  useEffect(() => {
+    if (activeShift) {
+      const update = () => {
+        const started = new Date(activeShift.started_at).getTime()
+        setShiftElapsed(Math.floor((Date.now() - started) / 1000))
+      }
+      update()
+      shiftTimerRef.current = setInterval(update, 1000)
+    } else {
+      setShiftElapsed(0)
+      clearInterval(shiftTimerRef.current)
+    }
+    return () => clearInterval(shiftTimerRef.current)
+  }, [activeShift])
+
+  const handleStartShift = async () => {
+    if (!shiftOdometer) return
+    try {
+      const shift = await startShift(userId, null, shiftOdometer, profileName || '')
+      setActiveShift(shift)
+      setShiftModal(null)
+      setShiftOdometer('')
+    } catch (err) {
+      console.error('startShift error:', err)
+    }
+  }
+
+  const handleEndShift = async () => {
+    if (!shiftOdometer || !activeShift) return
+    try {
+      await endShift(activeShift.id, shiftOdometer)
+      setActiveShift(null)
+      setShiftModal(null)
+      setShiftOdometer('')
+    } catch (err) {
+      console.error('endShift error:', err)
+    }
+  }
 
   useEffect(() => {
     if (timerRunning) {
@@ -269,6 +324,160 @@ export default function Overview({ userName, userId, onOpenProfile }) {
           }} />
         </div>
       </div>
+
+      {/* Shift block */}
+      <div style={{ ...cardStyle, marginBottom: '12px' }}>
+        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {'\u0421\u043c\u0435\u043d\u0430'}</div>
+        {activeShift ? (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '14px' }}>
+                {'\u2705'} {'\u041d\u0430\u0447\u0430\u0442\u0430 \u0432 '}{new Date(activeShift.started_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+              </span>
+              <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#f59e0b' }}>
+                {formatTimer(shiftElapsed)}
+              </span>
+            </div>
+            <div style={{ fontSize: '13px', color: theme.dim, marginBottom: '12px' }}>
+              {'\u041e\u0434\u043e\u043c\u0435\u0442\u0440 \u043d\u0430\u0447\u0430\u043b\u0430: '}{formatNumber(activeShift.odometer_start || 0)}{' \u043a\u043c'}
+            </div>
+            <button
+              onClick={() => { setShiftModal('end'); setShiftOdometer('') }}
+              style={{
+                width: '100%',
+                padding: '14px',
+                border: 'none',
+                borderRadius: '12px',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#fff',
+                fontSize: '16px',
+                fontWeight: 700,
+                cursor: 'pointer',
+              }}
+            >
+              {'\u23f9'} {'\u0417\u0430\u043a\u043e\u043d\u0447\u0438\u0442\u044c \u0441\u043c\u0435\u043d\u0443'}
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => { setShiftModal('start'); setShiftOdometer('') }}
+            style={{
+              width: '100%',
+              padding: '14px',
+              border: 'none',
+              borderRadius: '12px',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#fff',
+              fontSize: '16px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {'\u25b6'} {'\u041d\u0430\u0447\u0430\u0442\u044c \u0441\u043c\u0435\u043d\u0443'}
+          </button>
+        )}
+      </div>
+
+      {/* Shift modal */}
+      {shiftModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '16px',
+        }} onClick={() => setShiftModal(null)}>
+          <div style={{
+            background: theme.card,
+            border: '1px solid ' + theme.border,
+            borderRadius: '16px',
+            padding: '24px',
+            width: '100%',
+            maxWidth: '360px',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: theme.text }}>
+              {shiftModal === 'start' ? '\u041d\u0430\u0447\u0430\u043b\u043e \u0441\u043c\u0435\u043d\u044b' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435 \u0441\u043c\u0435\u043d\u044b'}
+            </div>
+            <label style={{ fontSize: '14px', color: theme.dim, display: 'block', marginBottom: '6px' }}>
+              {'\u041f\u0440\u043e\u0431\u0435\u0433 (\u043a\u043c)'}
+            </label>
+            <input
+              type="number"
+              value={shiftOdometer}
+              onChange={e => setShiftOdometer(e.target.value)}
+              placeholder={'\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440'}
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '10px',
+                border: '1px solid ' + theme.border,
+                background: theme.bg,
+                color: theme.text,
+                fontSize: '18px',
+                fontFamily: 'monospace',
+                marginBottom: '12px',
+                boxSizing: 'border-box',
+              }}
+            />
+            {shiftModal === 'end' && shiftOdometer && activeShift && (
+              <div style={{
+                background: theme.bg,
+                borderRadius: '10px',
+                padding: '12px',
+                marginBottom: '12px',
+                textAlign: 'center',
+              }}>
+                <span style={{ fontSize: '13px', color: theme.dim }}>{'\u0417\u0430 \u0441\u043c\u0435\u043d\u0443: '}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>
+                  {Math.max(0, parseInt(shiftOdometer, 10) - (activeShift.odometer_start || 0))}{' \u043a\u043c'}
+                </span>
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShiftModal(null)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: 'transparent',
+                  color: theme.dim,
+                  fontSize: '15px',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\u041e\u0442\u043c\u0435\u043d\u0430'}
+              </button>
+              <button
+                onClick={shiftModal === 'start' ? handleStartShift : handleEndShift}
+                disabled={!shiftOdometer}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: shiftOdometer
+                    ? (shiftModal === 'start'
+                      ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                      : 'linear-gradient(135deg, #ef4444, #dc2626)')
+                    : theme.border,
+                  color: '#fff',
+                  fontSize: '15px',
+                  fontWeight: 700,
+                  cursor: shiftOdometer ? 'pointer' : 'default',
+                }}
+              >
+                {shiftModal === 'start' ? '\u041d\u0430\u0447\u0430\u0442\u044c' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>

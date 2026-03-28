@@ -86,7 +86,7 @@ function AppInner() {
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} />
       case 'service':
-        return <Service onLogout={() => {}} />
+        return <Service />
       default:
         return <Overview userName={userName} onOpenProfile={() => setShowProfile(true)} />
     }

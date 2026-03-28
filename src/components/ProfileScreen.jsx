@@ -51,6 +51,35 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     driver_name: '',
   })
 
+  // Edit main vehicle state
+  const [editingMain, setEditingMain] = useState(false)
+  const [mainForm, setMainForm] = useState({
+    brand: '',
+    model: '',
+    odometer: '',
+    plate_number: '',
+    fuel_consumption: 34,
+  })
+  const [savingMain, setSavingMain] = useState(false)
+
+  // Edit additional vehicle state
+  const [editingVehicleId, setEditingVehicleId] = useState(null)
+  const [vehicleForm, setVehicleForm] = useState({
+    brand: '',
+    model: '',
+    year: '',
+    odometer: '',
+    plate_number: '',
+    fuel_consumption: 34,
+    fuel_type: 'diesel',
+    driver_name: '',
+  })
+  const [savingVehicle, setSavingVehicle] = useState(false)
+
+  // Delete confirmation state
+  const [deleteConfirmId, setDeleteConfirmId] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
   const fetchVehicles = async (uid) => {
     if (!uid) return
     try {
@@ -154,6 +183,117 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
       setSaving(false)
     }
   }
+
+  // --- Edit main vehicle handlers ---
+  const startEditMain = () => {
+    setMainForm({
+      brand: profile?.brand || '',
+      model: profile?.model || '',
+      odometer: profile?.odometer ? String(profile.odometer) : '',
+      plate_number: profile?.plate_number || '',
+      fuel_consumption: profile?.fuel_consumption || 34,
+    })
+    setEditingMain(true)
+  }
+
+  const cancelEditMain = () => {
+    setEditingMain(false)
+  }
+
+  const saveMain = async () => {
+    setSavingMain(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          brand: mainForm.brand,
+          model: mainForm.model,
+          odometer: parseInt(mainForm.odometer, 10) || 0,
+          plate_number: mainForm.plate_number || null,
+          fuel_consumption: parseFloat(mainForm.fuel_consumption) || 34,
+        })
+        .eq('id', userId)
+      if (error) {
+        console.error('Update main vehicle error:', error)
+        alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
+        return
+      }
+      setEditingMain(false)
+      if (onBack) onBack()
+    } finally {
+      setSavingMain(false)
+    }
+  }
+
+  // --- Edit additional vehicle handlers ---
+  const startEditVehicle = (v) => {
+    setVehicleForm({
+      brand: v.brand || '',
+      model: v.model || '',
+      year: v.year ? String(v.year) : '',
+      odometer: v.odometer ? String(v.odometer) : '',
+      plate_number: v.plate_number || '',
+      fuel_consumption: v.fuel_consumption || 34,
+      fuel_type: v.fuel_type || 'diesel',
+      driver_name: v.driver_name || '',
+    })
+    setEditingVehicleId(v.id)
+  }
+
+  const cancelEditVehicle = () => {
+    setEditingVehicleId(null)
+  }
+
+  const saveVehicle = async (vehicleId) => {
+    setSavingVehicle(true)
+    try {
+      const { error } = await supabase
+        .from('vehicles')
+        .update({
+          brand: vehicleForm.brand,
+          model: vehicleForm.model,
+          year: vehicleForm.year ? parseInt(vehicleForm.year, 10) : null,
+          odometer: parseInt(vehicleForm.odometer, 10) || 0,
+          plate_number: vehicleForm.plate_number || null,
+          fuel_consumption: parseFloat(vehicleForm.fuel_consumption) || 34,
+          fuel_type: vehicleForm.fuel_type || 'diesel',
+          driver_name: vehicleForm.driver_name || null,
+        })
+        .eq('id', vehicleId)
+      if (error) {
+        console.error('Update vehicle error:', error)
+        alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
+        return
+      }
+      setEditingVehicleId(null)
+      await fetchVehicles(userId)
+    } finally {
+      setSavingVehicle(false)
+    }
+  }
+
+  // --- Delete vehicle handlers ---
+  const confirmDeleteVehicle = async (vehicleId) => {
+    setDeleting(true)
+    try {
+      const { error } = await supabase
+        .from('vehicles')
+        .delete()
+        .eq('id', vehicleId)
+      if (error) {
+        console.error('Delete vehicle error:', error)
+        alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
+        return
+      }
+      setDeleteConfirmId(null)
+      await fetchVehicles(userId)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  const mainBrandModels = mainForm.brand && BRANDS[mainForm.brand] ? BRANDS[mainForm.brand] : []
+  const vehBrandModels = vehicleForm.brand && BRANDS[vehicleForm.brand] ? BRANDS[vehicleForm.brand] : []
 
   const cardStyle = {
     background: theme.card,
@@ -275,37 +415,175 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
       </div>
 
       {/* Main vehicle from profiles */}
-      <div style={{ ...cardStyle, marginBottom: '12px' }}>
+      <div style={{ ...cardStyle, marginBottom: '12px', position: 'relative' }}>
         <div style={{
-          fontSize: '13px',
-          fontWeight: 600,
-          color: theme.dim,
-          letterSpacing: '0.5px',
-          textTransform: 'uppercase',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
           marginBottom: '4px',
         }}>
-          {'\u041C\u0430\u0448\u0438\u043D\u0430'}
+          <div style={{
+            fontSize: '13px',
+            fontWeight: 600,
+            color: theme.dim,
+            letterSpacing: '0.5px',
+            textTransform: 'uppercase',
+          }}>
+            {'\u041C\u0430\u0448\u0438\u043D\u0430'}
+          </div>
+          {!editingMain && (
+            <button
+              onClick={startEditMain}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '18px',
+                padding: '4px',
+                lineHeight: 1,
+              }}
+              title={'\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+            >{'\u270F\uFE0F'}</button>
+          )}
         </div>
-        <Row
-          label={'\u041C\u0430\u0440\u043A\u0430'}
-          value={profile?.brand}
-        />
-        <Row
-          label={'\u041C\u043E\u0434\u0435\u043B\u044C'}
-          value={profile?.model}
-        />
-        <Row
-          label={'\u041F\u0440\u043E\u0431\u0435\u0433'}
-          value={profile?.odometer ? profile.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : null}
-        />
-        <Row
-          label={'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}
-          value={profile?.plate_number}
-        />
-        <Row
-          label={'\u0420\u0430\u0441\u0445\u043E\u0434'}
-          value={profile?.fuel_consumption ? profile.fuel_consumption + ' \u043B/100\u043A\u043C' : null}
-        />
+        {editingMain ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div>
+              <label style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430'}</label>
+              <select
+                value={mainForm.brand}
+                onChange={(e) => setMainForm({ ...mainForm, brand: e.target.value, model: '' })}
+                style={inputStyle}
+              >
+                <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0443'}</option>
+                {Object.keys(BRANDS).map((b) => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C'}</label>
+              {mainBrandModels.length > 0 ? (
+                <select
+                  value={mainForm.model}
+                  onChange={(e) => setMainForm({ ...mainForm, model: e.target.value })}
+                  style={inputStyle}
+                >
+                  <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}</option>
+                  {mainBrandModels.map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={mainForm.model}
+                  onChange={(e) => setMainForm({ ...mainForm, model: e.target.value })}
+                  placeholder={'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}
+                  style={inputStyle}
+                />
+              )}
+            </div>
+            <div>
+              <label style={labelStyle}>{'\u041F\u0440\u043E\u0431\u0435\u0433 (\u043A\u043C)'}</label>
+              <input
+                type="number"
+                value={mainForm.odometer}
+                onChange={(e) => setMainForm({ ...mainForm, odometer: e.target.value })}
+                placeholder="0"
+                min="0"
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>{'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}</label>
+              <input
+                type="text"
+                value={mainForm.plate_number}
+                onChange={(e) => setMainForm({ ...mainForm, plate_number: e.target.value })}
+                placeholder={'\u0410123\u0411\u0412 77'}
+                style={inputStyle}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>{'\u0420\u0430\u0441\u0445\u043E\u0434: ' + mainForm.fuel_consumption + ' \u043B/100\u043A\u043C'}</label>
+              <input
+                type="range"
+                min="5"
+                max="60"
+                step="0.5"
+                value={mainForm.fuel_consumption}
+                onChange={(e) => setMainForm({ ...mainForm, fuel_consumption: parseFloat(e.target.value) })}
+                style={{ width: '100%', accentColor: '#f59e0b' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: theme.dim }}>
+                <span>5</span>
+                <span>60</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+              <button
+                onClick={saveMain}
+                disabled={savingMain}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff',
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: savingMain ? 'not-allowed' : 'pointer',
+                  opacity: savingMain ? 0.5 : 1,
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                {savingMain ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+              </button>
+              <button
+                onClick={cancelEditMain}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card2 || theme.card,
+                  color: theme.text,
+                  fontSize: '15px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Row
+              label={'\u041C\u0430\u0440\u043A\u0430'}
+              value={profile?.brand}
+            />
+            <Row
+              label={'\u041C\u043E\u0434\u0435\u043B\u044C'}
+              value={profile?.model}
+            />
+            <Row
+              label={'\u041F\u0440\u043E\u0431\u0435\u0433'}
+              value={profile?.odometer ? profile.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : null}
+            />
+            <Row
+              label={'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}
+              value={profile?.plate_number}
+            />
+            <Row
+              label={'\u0420\u0430\u0441\u0445\u043E\u0434'}
+              value={profile?.fuel_consumption ? profile.fuel_consumption + ' \u043B/100\u043A\u043C' : null}
+            />
+          </>
+        )}
       </div>
 
       {/* Extra vehicles from vehicles table */}
@@ -333,6 +611,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   : '1px solid ' + theme.border,
               }}
             >
+              {/* Header row with title + action icons */}
               <div style={{
                 display: 'flex',
                 justifyContent: 'space-between',
@@ -353,46 +632,230 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                     )}
                   </div>
                 </div>
-                {v.is_active ? (
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    color: '#f59e0b',
-                    padding: '4px 8px',
-                    borderRadius: '6px',
-                    background: '#f59e0b20',
-                  }}>
-                    {'\u0410\u043A\u0442\u0438\u0432\u043D\u0430\u044F'}
-                  </span>
-                ) : (
-                  <button
-                    onClick={() => handleSetActive(v.id)}
-                    style={{
-                      fontSize: '12px',
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  {editingVehicleId !== v.id && (
+                    <>
+                      <button
+                        onClick={() => startEditVehicle(v)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          padding: '4px',
+                          lineHeight: 1,
+                        }}
+                        title={'\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+                      >{'\u270F\uFE0F'}</button>
+                      <button
+                        onClick={() => setDeleteConfirmId(v.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '16px',
+                          padding: '4px',
+                          lineHeight: 1,
+                        }}
+                        title={'\u0423\u0434\u0430\u043B\u0438\u0442\u044C'}
+                      >{'\uD83D\uDDD1\uFE0F'}</button>
+                    </>
+                  )}
+                  {v.is_active ? (
+                    <span style={{
+                      fontSize: '11px',
                       fontWeight: 600,
-                      color: theme.text,
-                      padding: '4px 10px',
+                      color: '#f59e0b',
+                      padding: '4px 8px',
                       borderRadius: '6px',
-                      background: theme.card2 || theme.card,
-                      border: '1px solid ' + theme.border,
-                      cursor: 'pointer',
-                      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-                    }}
-                  >
-                    {'\u0412\u044B\u0431\u0440\u0430\u0442\u044C'}
-                  </button>
-                )}
+                      background: '#f59e0b20',
+                      marginLeft: '4px',
+                    }}>
+                      {'\u0410\u043A\u0442\u0438\u0432\u043D\u0430\u044F'}
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSetActive(v.id)}
+                      style={{
+                        fontSize: '12px',
+                        fontWeight: 600,
+                        color: theme.text,
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        background: theme.card2 || theme.card,
+                        border: '1px solid ' + theme.border,
+                        cursor: 'pointer',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                        marginLeft: '4px',
+                      }}
+                    >
+                      {'\u0412\u044B\u0431\u0440\u0430\u0442\u044C'}
+                    </button>
+                  )}
+                </div>
               </div>
-              <div style={{
-                display: 'flex',
-                gap: '12px',
-                fontSize: '12px',
-                color: theme.dim,
-              }}>
-                <span>{v.odometer ? v.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : ''}</span>
-                <span>{v.fuel_consumption ? v.fuel_consumption + ' \u043B/100\u043A\u043C' : ''}</span>
-                {v.year && <span>{v.year} \u0433.</span>}
-              </div>
+
+              {/* Edit mode for this vehicle */}
+              {editingVehicleId === v.id ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430'}</label>
+                    <select
+                      value={vehicleForm.brand}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value, model: '' })}
+                      style={inputStyle}
+                    >
+                      <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0443'}</option>
+                      {Object.keys(BRANDS).map((b) => (
+                        <option key={b} value={b}>{b}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C'}</label>
+                    {vehBrandModels.length > 0 ? (
+                      <select
+                        value={vehicleForm.model}
+                        onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                        style={inputStyle}
+                      >
+                        <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}</option>
+                        {vehBrandModels.map((m) => (
+                          <option key={m} value={m}>{m}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={vehicleForm.model}
+                        onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                        placeholder={'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}
+                        style={inputStyle}
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{'\u0413\u043E\u0434 \u0432\u044B\u043F\u0443\u0441\u043A\u0430'}</label>
+                    <input
+                      type="number"
+                      value={vehicleForm.year}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, year: e.target.value })}
+                      placeholder="2020"
+                      min="1990"
+                      max="2030"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{'\u041F\u0440\u043E\u0431\u0435\u0433 (\u043A\u043C)'}</label>
+                    <input
+                      type="number"
+                      value={vehicleForm.odometer}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, odometer: e.target.value })}
+                      placeholder="0"
+                      min="0"
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}</label>
+                    <input
+                      type="text"
+                      value={vehicleForm.plate_number}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, plate_number: e.target.value })}
+                      placeholder={'\u0410123\u0411\u0412 77'}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{'\u0418\u043C\u044F \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F'}</label>
+                    <input
+                      type="text"
+                      value={vehicleForm.driver_name}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, driver_name: e.target.value })}
+                      placeholder={'\u041F\u0451\u0442\u0440 \u0418\u0432\u0430\u043D\u043E\u0432'}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{'\u0420\u0430\u0441\u0445\u043E\u0434: ' + vehicleForm.fuel_consumption + ' \u043B/100\u043A\u043C'}</label>
+                    <input
+                      type="range"
+                      min="5"
+                      max="60"
+                      step="0.5"
+                      value={vehicleForm.fuel_consumption}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, fuel_consumption: parseFloat(e.target.value) })}
+                      style={{ width: '100%', accentColor: '#f59e0b' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: theme.dim }}>
+                      <span>5</span>
+                      <span>60</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>{'\u0422\u0438\u043F \u0442\u043E\u043F\u043B\u0438\u0432\u0430'}</label>
+                    <select
+                      value={vehicleForm.fuel_type}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, fuel_type: e.target.value })}
+                      style={inputStyle}
+                    >
+                      {FUEL_TYPES.map((ft) => (
+                        <option key={ft.value} value={ft.value}>{ft.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <button
+                      onClick={() => saveVehicle(v.id)}
+                      disabled={savingVehicle}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: 'none',
+                        background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                        color: '#fff',
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        cursor: savingVehicle ? 'not-allowed' : 'pointer',
+                        opacity: savingVehicle ? 0.5 : 1,
+                        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                      }}
+                    >
+                      {savingVehicle ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+                    </button>
+                    <button
+                      onClick={cancelEditVehicle}
+                      style={{
+                        flex: 1,
+                        padding: '12px',
+                        borderRadius: '10px',
+                        border: '1px solid ' + theme.border,
+                        background: theme.card2 || theme.card,
+                        color: theme.text,
+                        fontSize: '15px',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                      }}
+                    >
+                      {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  display: 'flex',
+                  gap: '12px',
+                  fontSize: '12px',
+                  color: theme.dim,
+                }}>
+                  <span>{v.odometer ? v.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : ''}</span>
+                  <span>{v.fuel_consumption ? v.fuel_consumption + ' \u043B/100\u043A\u043C' : ''}</span>
+                  {v.year && <span>{v.year} \u0433.</span>}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -452,6 +915,82 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           ? '\u0412\u044B\u0445\u043E\u0434...'
           : '\u0412\u044B\u0439\u0442\u0438'}
       </button>
+
+      {/* Delete confirmation modal */}
+      {deleteConfirmId && (() => {
+        const vDel = vehicles.find((v) => v.id === deleteConfirmId)
+        return (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.6)',
+            zIndex: 1001,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}>
+            <div style={{
+              background: theme.bg,
+              borderRadius: '16px',
+              padding: '24px',
+              width: '100%',
+              maxWidth: '360px',
+              border: '1px solid ' + theme.border,
+              textAlign: 'center',
+            }}>
+              <div style={{ fontSize: '40px', marginBottom: '12px' }}>{'\u26A0\uFE0F'}</div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>
+                {'\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043C\u0430\u0448\u0438\u043D\u0443 ' + (vDel ? vDel.brand + ' ' + vDel.model : '') + '?'}
+              </div>
+              <div style={{ fontSize: '14px', color: theme.dim, marginBottom: '20px' }}>
+                {'\u0412\u0441\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u044D\u0442\u043E\u0439 \u043C\u0430\u0448\u0438\u043D\u044B \u0431\u0443\u0434\u0443\u0442 \u043F\u043E\u0442\u0435\u0440\u044F\u043D\u044B.'}
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  onClick={() => confirmDeleteVehicle(deleteConfirmId)}
+                  disabled={deleting}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: '#ef4444',
+                    color: '#fff',
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    cursor: deleting ? 'not-allowed' : 'pointer',
+                    opacity: deleting ? 0.5 : 1,
+                    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                  }}
+                >
+                  {deleting ? '\u0423\u0434\u0430\u043B\u0435\u043D\u0438\u0435...' : '\u0423\u0434\u0430\u043B\u0438\u0442\u044C'}
+                </button>
+                <button
+                  onClick={() => setDeleteConfirmId(null)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    borderRadius: '10px',
+                    border: '1px solid ' + theme.border,
+                    background: theme.card2 || theme.card,
+                    color: theme.text,
+                    fontSize: '15px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                  }}
+                >
+                  {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Add vehicle modal */}
       {showAddForm && (

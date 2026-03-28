@@ -408,6 +408,72 @@ export async function deleteVehicleExpense(id) {
   if (error) throw error
 }
 
+// --- Trailers ---
+
+export async function getActiveTrailer(userId) {
+  const { data, error } = await supabase
+    .from('trailers')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .limit(1)
+    .single()
+  if (error && error.code === 'PGRST116') return null
+  if (error) throw error
+  return data
+}
+
+export async function getTrailerHistory(userId, limit = 5) {
+  const { data, error } = await supabase
+    .from('trailers')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'returned')
+    .order('picked_up_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
+export async function pickUpTrailer(userId, vehicleId, trailerNumber, driverName, notes) {
+  const row = {
+    user_id: userId,
+    vehicle_id: vehicleId || null,
+    trailer_number: trailerNumber,
+    driver_name: driverName || '',
+    notes: notes || '',
+    picked_up_at: new Date().toISOString(),
+    status: 'active',
+  }
+  const { data, error } = await supabase
+    .from('trailers')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function dropOffTrailer(trailerId) {
+  const { data, error } = await supabase
+    .from('trailers')
+    .update({
+      dropped_off_at: new Date().toISOString(),
+      status: 'returned',
+    })
+    .eq('id', trailerId)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function deleteTrailer(trailerId) {
+  const { error } = await supabase
+    .from('trailers')
+    .delete()
+    .eq('id', trailerId)
+  if (error) throw error
+}
+
 // --- Route notes ---
 
 export async function fetchRouteNotes(userId) {

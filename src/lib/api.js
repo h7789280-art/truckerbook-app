@@ -678,6 +678,67 @@ export async function deleteTireRecord(id) {
 
 // --- Route notes ---
 
+// --- Documents ---
+
+export async function uploadDocument(userId, vehicleId, file, docType, title, notes) {
+  const timestamp = Date.now()
+  const path = `${userId}/${docType}_${timestamp}.jpg`
+  const { error: uploadError } = await supabase.storage
+    .from('documents')
+    .upload(path, file, { contentType: file.type || 'image/jpeg' })
+  if (uploadError) throw uploadError
+  const { data: urlData } = supabase.storage
+    .from('documents')
+    .getPublicUrl(path)
+  const fileUrl = urlData.publicUrl
+
+  const row = {
+    user_id: userId,
+    vehicle_id: vehicleId || null,
+    type: docType || 'other',
+    title: title || '',
+    notes: notes || '',
+    file_url: fileUrl,
+    storage_path: path,
+  }
+  const { data, error } = await supabase
+    .from('documents')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function getDocuments(userId) {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function deleteDocument(docId) {
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('storage_path')
+    .eq('id', docId)
+    .single()
+
+  if (doc?.storage_path) {
+    await supabase.storage
+      .from('documents')
+      .remove([doc.storage_path])
+  }
+
+  const { error } = await supabase
+    .from('documents')
+    .delete()
+    .eq('id', docId)
+  if (error) throw error
+}
+
 export async function fetchRouteNotes(userId) {
   const { data, error } = await supabase
     .from('route_notes')

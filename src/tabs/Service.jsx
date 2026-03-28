@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import { supabase } from '../lib/supabase'
 
 const SUB_TABS = [
@@ -77,14 +77,31 @@ const MAP_FILTERS = [
   { key: 'food', label: '\uD83C\uDF7D' },
 ]
 
-const DOCUMENTS = [
-  { key: 'license', icon: '\uD83D\uDCB3', label: '\u041F\u0440\u0430\u0432\u0430' },
-  { key: 'sts', icon: '\uD83D\uDE9A', label: '\u0421\u0422\u0421' },
-  { key: 'osago', icon: '\uD83D\uDEE1', label: '\u041E\u0421\u0410\u0413\u041E' },
-  { key: 'kasko', icon: '\uD83D\uDD12', label: '\u041A\u0410\u0421\u041A\u041E' },
-  { key: 'contract', icon: '\uD83D\uDCC3', label: '\u0414\u043E\u0433\u043E\u0432\u043E\u0440' },
-  { key: 'pts', icon: '\uD83D\uDCD8', label: '\u041F\u0422\u0421' },
+const DOC_TYPES = [
+  { key: 'license', icon: '\uD83D\uDCC4', label: '\u0412\u0423' },
+  { key: 'sts', icon: '\uD83D\uDCC4', label: '\u0421\u0422\u0421' },
+  { key: 'osago', icon: '\uD83D\uDEE1\uFE0F', label: '\u041E\u0421\u0410\u0413\u041E' },
+  { key: 'kasko', icon: '\uD83D\uDEE1\uFE0F', label: '\u041A\u0410\u0421\u041A\u041E' },
+  { key: 'pts', icon: '\uD83D\uDCCB', label: '\u041F\u0422\u0421' },
+  { key: 'contract', icon: '\uD83D\uDCDD', label: '\u0414\u043E\u0433\u043E\u0432\u043E\u0440' },
+  { key: 'dopog', icon: '\u26A0\uFE0F', label: '\u0414\u041E\u041F\u041E\u0413' },
+  { key: 'bol', icon: '\uD83D\uDCE6', label: 'BOL' },
+  { key: 'other', icon: '\uD83D\uDCCE', label: '\u041F\u0440\u043E\u0447\u0435\u0435' },
 ]
+
+const DOC_TYPE_SELECT = [
+  { key: 'license', label: '\u0412\u043E\u0434\u0438\u0442\u0435\u043B\u044C\u0441\u043A\u043E\u0435 \u0443\u0434\u043E\u0441\u0442\u043E\u0432\u0435\u0440\u0435\u043D\u0438\u0435' },
+  { key: 'sts', label: '\u0421\u0422\u0421' },
+  { key: 'osago', label: '\u041E\u0421\u0410\u0413\u041E' },
+  { key: 'kasko', label: '\u041A\u0410\u0421\u041A\u041E' },
+  { key: 'pts', label: '\u041F\u0422\u0421' },
+  { key: 'contract', label: '\u0414\u043E\u0433\u043E\u0432\u043E\u0440' },
+  { key: 'dopog', label: '\u0414\u041E\u041F\u041E\u0413' },
+  { key: 'bol', label: 'BOL (Bill of Lading)' },
+  { key: 'other', label: '\u041F\u0440\u043E\u0447\u0435\u0435' },
+]
+
+const DOC_TYPE_MAP = Object.fromEntries(DOC_TYPES.map(d => [d.key, d]))
 
 const cardStyle = {
   background: 'var(--card)',
@@ -913,9 +930,15 @@ const PHOTO_TYPE_LABELS = {
 
 function DocsTab({ userId }) {
   const [vehiclePhotos, setVehiclePhotos] = useState([])
-  const [showAddModal, setShowAddModal] = useState(false)
+  const [showAddPhotoModal, setShowAddPhotoModal] = useState(false)
   const [fullscreenPhoto, setFullscreenPhoto] = useState(null)
   const [loadingPhotos, setLoadingPhotos] = useState(true)
+  // Documents state
+  const [documents, setDocuments] = useState([])
+  const [loadingDocs, setLoadingDocs] = useState(true)
+  const [showDocModal, setShowDocModal] = useState(false)
+  const [docFilter, setDocFilter] = useState('all')
+  const [expandedDoc, setExpandedDoc] = useState(null)
 
   const loadPhotos = useCallback(async () => {
     if (!userId) return
@@ -930,11 +953,25 @@ function DocsTab({ userId }) {
     }
   }, [userId])
 
+  const loadDocs = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoadingDocs(true)
+      const docs = await getDocuments(userId)
+      setDocuments(docs)
+    } catch (err) {
+      console.error('loadDocuments error:', err)
+    } finally {
+      setLoadingDocs(false)
+    }
+  }, [userId])
+
   useEffect(() => {
     loadPhotos()
-  }, [loadPhotos])
+    loadDocs()
+  }, [loadPhotos, loadDocs])
 
-  const handleDelete = async (photo) => {
+  const handleDeletePhoto = async (photo) => {
     if (!confirm('\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u043E\u0442\u043E?')) return
     try {
       await deleteVehiclePhoto(photo.id, photo.photo_url)
@@ -944,57 +981,186 @@ function DocsTab({ userId }) {
     }
   }
 
+  const handleDeleteDoc = async (doc) => {
+    if (!confirm('\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442?')) return
+    try {
+      await deleteDocument(doc.id)
+      setDocuments(prev => prev.filter(d => d.id !== doc.id))
+      if (expandedDoc === doc.id) setExpandedDoc(null)
+    } catch (err) {
+      console.error('deleteDocument error:', err)
+    }
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return ''
     const d = new Date(dateStr)
     return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
+  const filteredDocs = docFilter === 'all'
+    ? documents
+    : documents.filter(d => d.type === docFilter)
+
+  // Group documents by id to count photos per document title+type
+  const docPhotoCounts = {}
+  documents.forEach(d => {
+    const key = d.id
+    docPhotoCounts[key] = (docPhotoCounts[key] || 0) + 1
+  })
+
   return (
     <>
-      {/* Document archive */}
+      {/* ===== DOCUMENTS SECTION ===== */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
-        {'\u0424\u043E\u0442\u043E-\u0430\u0440\u0445\u0438\u0432 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u043E\u0432'}
+        {'\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u044B'}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
-        {DOCUMENTS.map(doc => (
-          <div
-            key={doc.key}
+
+      <button
+        onClick={() => setShowDocModal(true)}
+        style={{
+          width: '100%',
+          padding: '14px',
+          borderRadius: '12px',
+          border: 'none',
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          color: '#000',
+          fontSize: '15px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          marginBottom: '16px',
+        }}
+      >
+        {'+ \u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442'}
+      </button>
+
+      {/* Filter chips */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
+        <button
+          onClick={() => setDocFilter('all')}
+          style={{
+            background: docFilter === 'all' ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--card)',
+            color: docFilter === 'all' ? '#000' : 'var(--dim)',
+            border: docFilter === 'all' ? 'none' : '1px solid var(--border)',
+            borderRadius: '20px', padding: '6px 12px', fontSize: '12px',
+            fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
+          }}
+        >
+          {'\u0412\u0441\u0435'}
+        </button>
+        {DOC_TYPES.map(dt => (
+          <button
+            key={dt.key}
+            onClick={() => setDocFilter(dt.key)}
             style={{
-              ...cardStyle,
-              textAlign: 'center',
-              padding: '20px 12px',
-              cursor: 'pointer',
+              background: docFilter === dt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--card)',
+              color: docFilter === dt.key ? '#000' : 'var(--dim)',
+              border: docFilter === dt.key ? 'none' : '1px solid var(--border)',
+              borderRadius: '20px', padding: '6px 12px', fontSize: '12px',
+              fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
             }}
           >
-            <div style={{ fontSize: '36px', marginBottom: '8px' }}>{doc.icon}</div>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>{doc.label}</div>
-            <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '4px' }}>
-              {'\u041D\u0435\u0442 \u0444\u043E\u0442\u043E'}
-            </div>
-          </div>
+            {dt.icon + ' ' + dt.label}
+          </button>
         ))}
       </div>
 
-      {/* Hint */}
-      <div style={{
-        ...cardStyle, marginTop: '16px',
-        background: '#3b82f615', border: '1px solid #3b82f630',
-        display: 'flex', alignItems: 'center', gap: '10px',
-      }}>
-        <span style={{ fontSize: '20px' }}>{'\uD83D\uDCF7'}</span>
-        <div style={{ fontSize: '13px', color: 'var(--dim)' }}>
-          {'\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044E, \u0447\u0442\u043E\u0431\u044B \u0441\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442'}
+      {/* Documents list */}
+      {loadingDocs ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...'}
         </div>
-      </div>
+      ) : filteredDocs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
+          {'\u041D\u0435\u0442 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u043E\u0432'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+          {filteredDocs.map(doc => {
+            const docType = DOC_TYPE_MAP[doc.type] || DOC_TYPE_MAP['other']
+            const isExpanded = expandedDoc === doc.id
+            return (
+              <div key={doc.id} style={cardStyle}>
+                <div
+                  onClick={() => setExpandedDoc(isExpanded ? null : doc.id)}
+                  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '12px' }}
+                >
+                  <div style={{
+                    width: '40px', height: '40px', backgroundColor: 'var(--card2)',
+                    borderRadius: '10px', display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', fontSize: '20px', flexShrink: 0,
+                  }}>
+                    {docType.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {doc.title || docType.label}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
+                      {'\u0422\u0438\u043F: ' + docType.label + ' \u00b7 ' + formatDate(doc.created_at)}
+                    </div>
+                    {doc.file_url && (
+                      <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '1px' }}>
+                        {'\uD83D\uDCF7 1 \u0444\u043E\u0442\u043E'}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '16px', color: 'var(--dim)', flexShrink: 0, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>
+                    {'\u25BC'}
+                  </div>
+                </div>
+                {isExpanded && (
+                  <div style={{ marginTop: '12px', borderTop: '1px solid var(--border)', paddingTop: '12px' }}>
+                    {doc.notes && (
+                      <div style={{ fontSize: '13px', color: 'var(--text)', marginBottom: '10px' }}>
+                        {doc.notes}
+                      </div>
+                    )}
+                    {doc.file_url && (
+                      <img
+                        src={doc.file_url}
+                        alt=""
+                        style={{
+                          width: '100%', maxHeight: '300px', objectFit: 'contain',
+                          borderRadius: '8px', marginBottom: '10px', background: 'var(--bg)',
+                        }}
+                      />
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleDeleteDoc(doc) }}
+                      style={{
+                        width: '100%', padding: '10px', borderRadius: '10px',
+                        border: '1px solid #ef444440', background: '#ef444415',
+                        color: '#ef4444', fontSize: '13px', fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {'\uD83D\uDDD1\uFE0F \u0423\u0434\u0430\u043B\u0438\u0442\u044C'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
 
-      {/* Vehicle inspection photos section */}
+      {/* Add document modal */}
+      {showDocModal && (
+        <DocumentModal
+          userId={userId}
+          onClose={() => setShowDocModal(false)}
+          onSaved={() => { setShowDocModal(false); loadDocs() }}
+        />
+      )}
+
+      {/* ===== VEHICLE INSPECTION PHOTOS SECTION ===== */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
         {'\u0424\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438 \u043C\u0430\u0448\u0438\u043D\u044B'}
       </div>
 
       <button
-        onClick={() => setShowAddModal(true)}
+        onClick={() => setShowAddPhotoModal(true)}
         style={{
           width: '100%',
           padding: '14px',
@@ -1055,7 +1221,7 @@ function DocsTab({ userId }) {
                 )}
               </div>
               <button
-                onClick={(e) => { e.stopPropagation(); handleDelete(photo) }}
+                onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo) }}
                 style={{
                   position: 'absolute',
                   top: '6px',
@@ -1081,11 +1247,11 @@ function DocsTab({ userId }) {
       )}
 
       {/* Add photo modal */}
-      {showAddModal && (
+      {showAddPhotoModal && (
         <VehiclePhotoModal
           userId={userId}
-          onClose={() => setShowAddModal(false)}
-          onSaved={() => { setShowAddModal(false); loadPhotos() }}
+          onClose={() => setShowAddPhotoModal(false)}
+          onSaved={() => { setShowAddPhotoModal(false); loadPhotos() }}
         />
       )}
 
@@ -1132,6 +1298,205 @@ function DocsTab({ userId }) {
         </div>
       )}
     </>
+  )
+}
+
+/* ===== DOCUMENT UPLOAD MODAL ===== */
+function DocumentModal({ userId, onClose, onSaved }) {
+  const [docType, setDocType] = useState('license')
+  const [title, setTitle] = useState('')
+  const [notes, setNotes] = useState('')
+  const [photos, setPhotos] = useState([])
+  const [saving, setSaving] = useState(false)
+  const cameraRef = useRef(null)
+  const galleryRef = useRef(null)
+  const maxPhotos = 3
+
+  const handleFiles = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    const remaining = maxPhotos - photos.length
+    const toAdd = files.slice(0, remaining).map(f => ({ file: f, preview: URL.createObjectURL(f) }))
+    setPhotos(prev => [...prev, ...toAdd])
+    e.target.value = ''
+  }
+
+  const removePhoto = (idx) => {
+    setPhotos(prev => {
+      const removed = prev[idx]
+      if (removed.preview) URL.revokeObjectURL(removed.preview)
+      return prev.filter((_, i) => i !== idx)
+    })
+  }
+
+  const handleSave = async () => {
+    if (photos.length === 0) return
+    setSaving(true)
+    try {
+      for (const p of photos) {
+        await uploadDocument(userId, null, p.file, docType, title, notes)
+      }
+      photos.forEach(p => { if (p.preview) URL.revokeObjectURL(p.preview) })
+      onSaved()
+    } catch (err) {
+      console.error('save document error:', err)
+      alert('\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = { display: 'none' }
+  const btnPhotoStyle = {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '10px',
+    border: '1px solid var(--border)',
+    background: 'var(--bg)',
+    color: 'var(--text)',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: photos.length >= maxPhotos ? 'default' : 'pointer',
+    opacity: photos.length >= maxPhotos ? 0.4 : 1,
+    textAlign: 'center',
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9998,
+      background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: '480px',
+        background: 'var(--card)',
+        borderRadius: '20px 20px 0 0',
+        padding: '24px 20px',
+        maxHeight: '85vh',
+        overflowY: 'auto',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>
+            {'\uD83D\uDCC4 \u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442'}
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', color: 'var(--dim)',
+            fontSize: '22px', cursor: 'pointer', padding: '4px',
+          }}>{'\u2715'}</button>
+        </div>
+
+        {/* Document type select */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
+            {'\u0422\u0438\u043F \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430'}
+          </div>
+          <select
+            value={docType}
+            onChange={e => setDocType(e.target.value)}
+            style={{
+              width: '100%', padding: '10px 12px', borderRadius: '10px',
+              border: '1px solid var(--border)', background: 'var(--bg)',
+              color: 'var(--text)', fontSize: '14px',
+            }}
+          >
+            {DOC_TYPE_SELECT.map(t => (
+              <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Title */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
+            {'\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435'}
+          </div>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u041E\u0421\u0410\u0413\u041E 2026'}
+            style={{
+              width: '100%', padding: '10px 12px', borderRadius: '10px',
+              border: '1px solid var(--border)', background: 'var(--bg)',
+              color: 'var(--text)', fontSize: '14px', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Notes */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
+            {'\u0417\u0430\u043C\u0435\u0442\u043A\u0438 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}
+          </div>
+          <input
+            type="text"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder={'\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F'}
+            style={{
+              width: '100%', padding: '10px 12px', borderRadius: '10px',
+              border: '1px solid var(--border)', background: 'var(--bg)',
+              color: 'var(--text)', fontSize: '14px', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Photo picker */}
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '8px' }}>
+            {'\u0424\u043E\u0442\u043E (' + photos.length + '/' + maxPhotos + ')'}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={inputStyle} onChange={handleFiles} />
+            <input ref={galleryRef} type="file" accept="image/*" multiple style={inputStyle} onChange={handleFiles} />
+            <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && cameraRef.current?.click()}>
+              {'\uD83D\uDCF7 \u0421\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+            </button>
+            <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && galleryRef.current?.click()}>
+              {'\uD83D\uDDBC\uFE0F \u0418\u0437 \u0433\u0430\u043B\u0435\u0440\u0435\u0438'}
+            </button>
+          </div>
+          {photos.length > 0 && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {photos.map((p, i) => (
+                <div key={i} style={{ position: 'relative', width: '60px', height: '60px' }}>
+                  <img src={p.preview} alt="" style={{
+                    width: '60px', height: '60px', objectFit: 'cover',
+                    borderRadius: '8px', border: '1px solid var(--border)',
+                  }} />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    style={{
+                      position: 'absolute', top: '-6px', right: '-6px',
+                      width: '20px', height: '20px', borderRadius: '50%',
+                      background: '#ef4444', color: '#fff', border: 'none',
+                      fontSize: '12px', cursor: 'pointer', lineHeight: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >{'\u2715'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Save button */}
+        <button
+          onClick={handleSave}
+          disabled={photos.length === 0 || saving}
+          style={{
+            width: '100%', padding: '14px', borderRadius: '12px',
+            border: 'none',
+            background: photos.length === 0 ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: photos.length === 0 ? 'var(--dim)' : '#000',
+            fontSize: '15px', fontWeight: 700, cursor: photos.length === 0 ? 'default' : 'pointer',
+          }}
+        >
+          {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+        </button>
+      </div>
+    </div>
   )
 }
 

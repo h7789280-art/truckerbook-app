@@ -48,24 +48,31 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     plate_number: '',
     fuel_consumption: 34,
     fuel_type: 'diesel',
+    driver_name: '',
   })
 
-  const fetchVehicles = async () => {
-    if (!userId) return
-    const { data, error } = await supabase
-      .from('vehicles')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true })
-    if (error) {
-      console.log('ProfileScreen: vehicles fetch error', error)
-      return
+  const fetchVehicles = async (uid) => {
+    if (!uid) return
+    try {
+      const { data, error } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('user_id', uid)
+        .order('created_at', { ascending: true })
+      if (error) {
+        console.error('ProfileScreen: vehicles fetch error', error)
+        return
+      }
+      setVehicles(data || [])
+    } catch (err) {
+      console.error('ProfileScreen: vehicles fetch exception', err)
     }
-    setVehicles(data || [])
   }
 
   useEffect(() => {
-    fetchVehicles()
+    if (userId) {
+      fetchVehicles(userId)
+    }
   }, [userId])
 
   const handleLogout = async () => {
@@ -96,7 +103,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
       .from('vehicles')
       .update({ is_active: true })
       .eq('id', vehicleId)
-    await fetchVehicles()
+    await fetchVehicles(userId)
   }
 
   const handleAddVehicle = async () => {
@@ -122,6 +129,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         plate_number: formData.plate_number || null,
         fuel_consumption: parseFloat(formData.fuel_consumption) || 34,
         fuel_type: formData.fuel_type || 'diesel',
+        driver_name: formData.driver_name || null,
         is_active: false,
       }
       const { error } = await supabase.from('vehicles').insert(row)
@@ -139,8 +147,9 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         plate_number: '',
         fuel_consumption: 34,
         fuel_type: 'diesel',
+        driver_name: '',
       })
-      await fetchVehicles()
+      await fetchVehicles(userId)
     } finally {
       setSaving(false)
     }
@@ -303,6 +312,9 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   </div>
                   {v.plate_number && (
                     <div style={{ fontSize: '12px', color: theme.dim }}>{v.plate_number}</div>
+                  )}
+                  {v.driver_name && (
+                    <div style={{ fontSize: '12px', color: theme.dim }}>{'\uD83D\uDC64'} {v.driver_name}</div>
                   )}
                 </div>
               </div>
@@ -538,6 +550,20 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   value={formData.plate_number}
                   onChange={(e) => setFormData({ ...formData, plate_number: e.target.value })}
                   placeholder={'\u0410123\u0411\u0412 77'}
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* Driver name */}
+              <div>
+                <label style={labelStyle}>
+                  {'\u0418\u043C\u044F \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F'}
+                </label>
+                <input
+                  type="text"
+                  value={formData.driver_name}
+                  onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
+                  placeholder={'\u041F\u0451\u0442\u0440 \u0418\u0432\u0430\u043D\u043E\u0432'}
                   style={inputStyle}
                 />
               </div>

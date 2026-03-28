@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, getActiveShift, startShift, endShift } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats } from '../lib/api'
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -55,6 +55,9 @@ export default function Overview({ userName, userId, onOpenProfile }) {
   const [shiftOdometer, setShiftOdometer] = useState('')
   const [shiftElapsed, setShiftElapsed] = useState(0)
   const shiftTimerRef = useRef(null)
+  const [shiftPeriod, setShiftPeriod] = useState('week')
+  const [shiftStats, setShiftStats] = useState({ count: 0, totalKm: 0, totalHours: 0 })
+  const [shiftHistory, setShiftHistory] = useState([])
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -164,6 +167,25 @@ export default function Overview({ userName, userId, onOpenProfile }) {
     return () => { cancelled = true }
   }, [userId])
 
+  // Load shift analytics
+  const loadShiftAnalytics = useCallback(async () => {
+    if (!userId) return
+    try {
+      const [stats, history] = await Promise.all([
+        getShiftStats(userId, shiftPeriod),
+        getCompletedShifts(userId, 10),
+      ])
+      setShiftStats(stats)
+      setShiftHistory(history)
+    } catch (err) {
+      console.error('loadShiftAnalytics error:', err)
+    }
+  }, [userId, shiftPeriod])
+
+  useEffect(() => {
+    loadShiftAnalytics()
+  }, [loadShiftAnalytics])
+
   // Shift elapsed timer
   useEffect(() => {
     if (activeShift) {
@@ -199,6 +221,7 @@ export default function Overview({ userName, userId, onOpenProfile }) {
       setActiveShift(null)
       setShiftModal(null)
       setShiftOdometer('')
+      loadShiftAnalytics()
     } catch (err) {
       console.error('endShift error:', err)
     }
@@ -478,6 +501,104 @@ export default function Overview({ userName, userId, onOpenProfile }) {
           </div>
         </div>
       )}
+
+      {/* Shift analytics */}
+      <div style={{ ...cardStyle, marginBottom: '12px' }}>
+        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udcca'} {'\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430 \u0441\u043c\u0435\u043d'}</div>
+
+        {/* Period toggle */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+          {[
+            { key: 'week', label: '\u041d\u0435\u0434\u0435\u043b\u044f' },
+            { key: 'month', label: '\u041c\u0435\u0441\u044f\u0446' },
+          ].map(p => (
+            <button
+              key={p.key}
+              onClick={() => setShiftPeriod(p.key)}
+              style={{
+                flex: 1,
+                padding: '8px',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: shiftPeriod === p.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : theme.bg,
+                color: shiftPeriod === p.key ? '#fff' : theme.dim,
+                transition: 'all 0.2s',
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Stats cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+          {[
+            { label: '\u0421\u043c\u0435\u043d', value: String(shiftStats.count) },
+            { label: '\u041a\u043c', value: formatNumber(Math.round(shiftStats.totalKm)) },
+            { label: '\u0427\u0430\u0441\u043e\u0432', value: shiftStats.totalHours.toFixed(1) },
+          ].map((s, i) => (
+            <div key={i} style={{
+              background: theme.bg,
+              borderRadius: '10px',
+              padding: '10px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700 }}>{s.value}</div>
+              <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* History */}
+        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcc3'} {'\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0441\u043c\u0435\u043d'}</div>
+        {shiftHistory.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '16px 0', color: theme.dim, fontSize: '13px' }}>
+            {'\u041d\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0445 \u0441\u043c\u0435\u043d'}
+          </div>
+        ) : (
+          shiftHistory.map((sh, i) => {
+            const start = new Date(sh.started_at)
+            const end = sh.ended_at ? new Date(sh.ended_at) : null
+            const durationMin = end ? Math.round((end - start) / 60000) : 0
+            const durationH = Math.floor(durationMin / 60)
+            const durationM = durationMin % 60
+            const durationStr = durationH > 0
+              ? `${durationH} \u0447 ${durationM} \u043c\u0438\u043d`
+              : `${durationM} \u043c\u0438\u043d`
+            const dateStr = start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+            const timeStart = start.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+            const timeEnd = end ? end.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '\u2014'
+            const kmDriven = sh.km_driven || 0
+
+            return (
+              <div key={sh.id || i} style={{
+                background: theme.bg,
+                borderRadius: '10px',
+                padding: '12px',
+                marginBottom: i < shiftHistory.length - 1 ? '8px' : 0,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '13px' }}>{'\ud83d\udcc5'} {dateStr}</span>
+                  <span style={{ fontSize: '13px', color: theme.dim }}>
+                    {timeStart} {'\u2014'} {timeEnd} ({durationStr})
+                  </span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '12px', color: theme.dim }}>
+                    {'\u041e\u0434\u043e\u043c\u0435\u0442\u0440: '}{formatNumber(sh.odometer_start || 0)} {'\u2192'} {formatNumber(sh.odometer_end || 0)} {'\u043a\u043c'}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>
+                    +{formatNumber(kmDriven)} {'\u043a\u043c'}
+                  </span>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>

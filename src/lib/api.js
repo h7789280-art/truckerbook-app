@@ -257,6 +257,52 @@ export async function endShift(shiftId, odometerEnd) {
   return shift
 }
 
+export async function getCompletedShifts(userId, limit = 10) {
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .order('started_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
+export async function getShiftStats(userId, period) {
+  const now = new Date()
+  let since
+  if (period === 'month') {
+    since = new Date(now.getFullYear(), now.getMonth(), 1)
+  } else {
+    const day = now.getDay()
+    const diff = day === 0 ? 6 : day - 1
+    since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff)
+  }
+  since.setHours(0, 0, 0, 0)
+
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .gte('started_at', since.toISOString())
+    .order('started_at', { ascending: false })
+  if (error) throw error
+
+  const shifts = data || []
+  let totalKm = 0
+  let totalHours = 0
+  shifts.forEach(s => {
+    totalKm += s.km_driven || 0
+    if (s.started_at && s.ended_at) {
+      totalHours += (new Date(s.ended_at) - new Date(s.started_at)) / 3600000
+    }
+  })
+
+  return { count: shifts.length, totalKm, totalHours }
+}
+
 // --- Route notes ---
 
 export async function fetchRouteNotes(userId) {

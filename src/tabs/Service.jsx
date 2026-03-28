@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchRouteNotes } from '../lib/api'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto } from '../lib/api'
 import { supabase } from '../lib/supabase'
 
 const SUB_TABS = [
@@ -175,7 +175,7 @@ export default function Service({ userId }) {
           loading={loading}
         />
       )}
-      {activeTab === 'docs' && <DocsTab />}
+      {activeTab === 'docs' && <DocsTab userId={userId} />}
     </div>
   )
 }
@@ -515,9 +515,63 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes, totalNotes, loading })
 }
 
 /* ===== DOCS TAB ===== */
-function DocsTab() {
+
+const PHOTO_TYPES = [
+  { key: 'inspection', label: '\u041E\u0441\u043C\u043E\u0442\u0440' },
+  { key: 'damage', label: '\u041F\u043E\u0432\u0440\u0435\u0436\u0434\u0435\u043D\u0438\u0435' },
+  { key: 'before', label: '\u0414\u043E' },
+  { key: 'after', label: '\u041F\u043E\u0441\u043B\u0435' },
+]
+
+const PHOTO_TYPE_LABELS = {
+  inspection: '\u041E\u0441\u043C\u043E\u0442\u0440',
+  damage: '\u041F\u043E\u0432\u0440\u0435\u0436\u0434\u0435\u043D\u0438\u0435',
+  before: '\u0414\u043E',
+  after: '\u041F\u043E\u0441\u043B\u0435',
+}
+
+function DocsTab({ userId }) {
+  const [vehiclePhotos, setVehiclePhotos] = useState([])
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [fullscreenPhoto, setFullscreenPhoto] = useState(null)
+  const [loadingPhotos, setLoadingPhotos] = useState(true)
+
+  const loadPhotos = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoadingPhotos(true)
+      const photos = await getVehiclePhotos(userId)
+      setVehiclePhotos(photos)
+    } catch (err) {
+      console.error('loadVehiclePhotos error:', err)
+    } finally {
+      setLoadingPhotos(false)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    loadPhotos()
+  }, [loadPhotos])
+
+  const handleDelete = async (photo) => {
+    if (!confirm('\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u043E\u0442\u043E?')) return
+    try {
+      await deleteVehiclePhoto(photo.id, photo.photo_url)
+      setVehiclePhotos(prev => prev.filter(p => p.id !== photo.id))
+    } catch (err) {
+      console.error('deleteVehiclePhoto error:', err)
+    }
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
   return (
     <>
+      {/* Document archive */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
         {'\u0424\u043E\u0442\u043E-\u0430\u0440\u0445\u0438\u0432 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u043E\u0432'}
       </div>
@@ -552,6 +606,330 @@ function DocsTab() {
           {'\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043D\u0430 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044E, \u0447\u0442\u043E\u0431\u044B \u0441\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442'}
         </div>
       </div>
+
+      {/* Vehicle inspection photos section */}
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
+        {'\u0424\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438 \u043C\u0430\u0448\u0438\u043D\u044B'}
+      </div>
+
+      <button
+        onClick={() => setShowAddModal(true)}
+        style={{
+          width: '100%',
+          padding: '14px',
+          borderRadius: '12px',
+          border: 'none',
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          color: '#000',
+          fontSize: '15px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          marginBottom: '16px',
+        }}
+      >
+        {'\uD83D\uDCF7 \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0444\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438'}
+      </button>
+
+      {/* Photo gallery */}
+      {loadingPhotos ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...'}
+        </div>
+      ) : vehiclePhotos.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
+          {'\u041D\u0435\u0442 \u0444\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438'}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {vehiclePhotos.map(photo => (
+            <div key={photo.id} style={{ ...cardStyle, padding: '0', overflow: 'hidden', position: 'relative' }}>
+              <img
+                src={photo.photo_url}
+                alt=""
+                onClick={() => setFullscreenPhoto(photo)}
+                style={{
+                  width: '100%',
+                  height: '140px',
+                  objectFit: 'cover',
+                  cursor: 'pointer',
+                  display: 'block',
+                }}
+              />
+              <div style={{ padding: '8px 10px' }}>
+                <div style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  color: '#f59e0b',
+                  marginBottom: '2px',
+                }}>
+                  {PHOTO_TYPE_LABELS[photo.photo_type] || photo.photo_type}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--dim)' }}>
+                  {formatDate(photo.created_at)}
+                </div>
+                {photo.notes && (
+                  <div style={{ fontSize: '11px', color: 'var(--text)', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {photo.notes}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={(e) => { e.stopPropagation(); handleDelete(photo) }}
+                style={{
+                  position: 'absolute',
+                  top: '6px',
+                  right: '6px',
+                  width: '28px',
+                  height: '28px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: 'rgba(0,0,0,0.6)',
+                  color: '#fff',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {'\uD83D\uDDD1\uFE0F'}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add photo modal */}
+      {showAddModal && (
+        <VehiclePhotoModal
+          userId={userId}
+          onClose={() => setShowAddModal(false)}
+          onSaved={() => { setShowAddModal(false); loadPhotos() }}
+        />
+      )}
+
+      {/* Fullscreen photo viewer */}
+      {fullscreenPhoto && (
+        <div
+          onClick={() => setFullscreenPhoto(null)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.95)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '16px',
+          }}
+        >
+          <img
+            src={fullscreenPhoto.photo_url}
+            alt=""
+            style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }}
+          />
+          <div style={{ color: '#fff', fontSize: '14px', marginTop: '12px', textAlign: 'center' }}>
+            <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+              {PHOTO_TYPE_LABELS[fullscreenPhoto.photo_type] || fullscreenPhoto.photo_type}
+            </span>
+            {' \u00b7 '}{formatDate(fullscreenPhoto.created_at)}
+            {fullscreenPhoto.notes && <div style={{ marginTop: '4px', color: '#ccc' }}>{fullscreenPhoto.notes}</div>}
+          </div>
+          <button
+            onClick={() => setFullscreenPhoto(null)}
+            style={{
+              position: 'absolute', top: '16px', right: '16px',
+              width: '40px', height: '40px', borderRadius: '50%',
+              border: 'none', background: 'rgba(255,255,255,0.2)',
+              color: '#fff', fontSize: '20px', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            {'\u2715'}
+          </button>
+        </div>
+      )}
     </>
+  )
+}
+
+/* ===== VEHICLE PHOTO MODAL ===== */
+function VehiclePhotoModal({ userId, onClose, onSaved }) {
+  const [photoType, setPhotoType] = useState('inspection')
+  const [notes, setNotes] = useState('')
+  const [photos, setPhotos] = useState([])
+  const [saving, setSaving] = useState(false)
+  const cameraRef = useRef(null)
+  const galleryRef = useRef(null)
+  const maxPhotos = 5
+
+  const handleFiles = (e) => {
+    const files = Array.from(e.target.files || [])
+    if (files.length === 0) return
+    const remaining = maxPhotos - photos.length
+    const toAdd = files.slice(0, remaining).map(f => ({ file: f, preview: URL.createObjectURL(f) }))
+    setPhotos(prev => [...prev, ...toAdd])
+    e.target.value = ''
+  }
+
+  const removePhoto = (idx) => {
+    setPhotos(prev => {
+      const removed = prev[idx]
+      if (removed.preview) URL.revokeObjectURL(removed.preview)
+      return prev.filter((_, i) => i !== idx)
+    })
+  }
+
+  const handleSave = async () => {
+    if (photos.length === 0) return
+    setSaving(true)
+    try {
+      for (const p of photos) {
+        await uploadVehiclePhoto(userId, null, p.file, photoType, '', notes)
+      }
+      photos.forEach(p => { if (p.preview) URL.revokeObjectURL(p.preview) })
+      onSaved()
+    } catch (err) {
+      console.error('save vehicle photo error:', err)
+      alert('\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = { display: 'none' }
+  const btnPhotoStyle = {
+    flex: 1,
+    padding: '10px',
+    borderRadius: '10px',
+    border: '1px solid var(--border)',
+    background: 'var(--bg)',
+    color: 'var(--text)',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: photos.length >= maxPhotos ? 'default' : 'pointer',
+    opacity: photos.length >= maxPhotos ? 0.4 : 1,
+    textAlign: 'center',
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9998,
+      background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: '480px',
+        background: 'var(--card)',
+        borderRadius: '20px 20px 0 0',
+        padding: '24px 20px',
+        maxHeight: '85vh',
+        overflowY: 'auto',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>
+            {'\uD83D\uDE9A \u0424\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438'}
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', color: 'var(--dim)',
+            fontSize: '22px', cursor: 'pointer', padding: '4px',
+          }}>{'\u2715'}</button>
+        </div>
+
+        {/* Photo type select */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
+            {'\u0422\u0438\u043F \u0444\u043E\u0442\u043E'}
+          </div>
+          <select
+            value={photoType}
+            onChange={e => setPhotoType(e.target.value)}
+            style={{
+              width: '100%', padding: '10px 12px', borderRadius: '10px',
+              border: '1px solid var(--border)', background: 'var(--bg)',
+              color: 'var(--text)', fontSize: '14px',
+            }}
+          >
+            {PHOTO_TYPES.map(t => (
+              <option key={t.key} value={t.key}>{t.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Notes */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
+            {'\u0417\u0430\u043C\u0435\u0442\u043A\u0438 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}
+          </div>
+          <input
+            type="text"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u0446\u0430\u0440\u0430\u043F\u0438\u043D\u0430 \u043D\u0430 \u043B\u0435\u0432\u043E\u043C \u043A\u0440\u044B\u043B\u0435'}
+            style={{
+              width: '100%', padding: '10px 12px', borderRadius: '10px',
+              border: '1px solid var(--border)', background: 'var(--bg)',
+              color: 'var(--text)', fontSize: '14px', boxSizing: 'border-box',
+            }}
+          />
+        </div>
+
+        {/* Photo picker */}
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '8px' }}>
+            {'\u0424\u043E\u0442\u043E (' + photos.length + '/' + maxPhotos + ')'}
+          </div>
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={inputStyle} onChange={handleFiles} />
+            <input ref={galleryRef} type="file" accept="image/*" multiple style={inputStyle} onChange={handleFiles} />
+            <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && cameraRef.current?.click()}>
+              {'\uD83D\uDCF7 \u0421\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+            </button>
+            <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && galleryRef.current?.click()}>
+              {'\uD83D\uDDBC\uFE0F \u0418\u0437 \u0433\u0430\u043B\u0435\u0440\u0435\u0438'}
+            </button>
+          </div>
+          {photos.length > 0 && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {photos.map((p, i) => (
+                <div key={i} style={{ position: 'relative', width: '60px', height: '60px' }}>
+                  <img src={p.preview} alt="" style={{
+                    width: '60px', height: '60px', objectFit: 'cover',
+                    borderRadius: '8px', border: '1px solid var(--border)',
+                  }} />
+                  <button
+                    type="button"
+                    onClick={() => removePhoto(i)}
+                    style={{
+                      position: 'absolute', top: '-6px', right: '-6px',
+                      width: '20px', height: '20px', borderRadius: '50%',
+                      background: '#ef4444', color: '#fff', border: 'none',
+                      fontSize: '12px', cursor: 'pointer', lineHeight: 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}
+                  >{'\u2715'}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Save button */}
+        <button
+          onClick={handleSave}
+          disabled={photos.length === 0 || saving}
+          style={{
+            width: '100%', padding: '14px', borderRadius: '12px',
+            border: 'none',
+            background: photos.length === 0 ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: photos.length === 0 ? 'var(--dim)' : '#000',
+            fontSize: '15px', fontWeight: 700, cursor: photos.length === 0 ? 'default' : 'pointer',
+          }}
+        >
+          {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+        </button>
+      </div>
+    </div>
   )
 }

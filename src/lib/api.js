@@ -498,6 +498,72 @@ export async function deleteTrailer(trailerId) {
   if (error) throw error
 }
 
+// --- Vehicle photos ---
+
+export async function uploadVehiclePhoto(userId, vehicleId, file, photoType, driverName, notes) {
+  const timestamp = Date.now()
+  const path = `${userId}/${vehicleId}_${timestamp}.jpg`
+  const { error: uploadError } = await supabase.storage
+    .from('vehicle-photos')
+    .upload(path, file, { contentType: file.type || 'image/jpeg' })
+  if (uploadError) throw uploadError
+  const { data: urlData } = supabase.storage
+    .from('vehicle-photos')
+    .getPublicUrl(path)
+  const photoUrl = urlData.publicUrl
+
+  const row = {
+    user_id: userId,
+    vehicle_id: vehicleId || null,
+    photo_url: photoUrl,
+    photo_type: photoType || 'inspection',
+    driver_name: driverName || '',
+    notes: notes || '',
+    storage_path: path,
+  }
+  const { data, error } = await supabase
+    .from('vehicle_photos')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function getVehiclePhotos(userId, vehicleId) {
+  let query = supabase
+    .from('vehicle_photos')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (vehicleId) {
+    query = query.eq('vehicle_id', vehicleId)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function deleteVehiclePhoto(photoId, photoUrl) {
+  // Extract storage path from URL or use storage_path
+  const { data: photo } = await supabase
+    .from('vehicle_photos')
+    .select('storage_path')
+    .eq('id', photoId)
+    .single()
+
+  if (photo?.storage_path) {
+    await supabase.storage
+      .from('vehicle-photos')
+      .remove([photo.storage_path])
+  }
+
+  const { error } = await supabase
+    .from('vehicle_photos')
+    .delete()
+    .eq('id', photoId)
+  if (error) throw error
+}
+
 // --- Route notes ---
 
 export async function fetchRouteNotes(userId) {

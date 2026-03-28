@@ -139,6 +139,18 @@ export async function deleteBytExpense(id) {
   if (error) throw error
 }
 
+// --- Vehicles ---
+
+export async function fetchVehicles(userId) {
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
 // --- Service records ---
 
 export async function fetchServiceRecords(userId) {

@@ -12,6 +12,7 @@ import Auth from './components/Auth'
 import FAB from './components/FAB'
 import AddModal from './components/AddModal'
 import ProfileScreen from './components/ProfileScreen'
+import VehicleSwitcher from './components/VehicleSwitcher'
 
 function AppInner() {
   const { session, loading: authLoading } = useAuth()
@@ -24,6 +25,7 @@ function AppInner() {
   const [tripsRefreshKey, setTripsRefreshKey] = useState(0)
   const [bytRefreshKey, setBytRefreshKey] = useState(0)
   const [showProfile, setShowProfile] = useState(false)
+  const [activeVehicleId, setActiveVehicleId] = useState('main')
 
   const handleFuelSaved = useCallback(() => {
     setFuelRefreshKey((k) => k + 1)
@@ -81,18 +83,20 @@ function AppInner() {
 
   const userName = profile?.name || profile?.first_name || null
 
+  const vehicleId = activeVehicleId === 'main' ? null : activeVehicleId
+
   const renderTab = () => {
     switch (activeTab) {
       case 'fuel':
-        return <Fuel userId={userId} refreshKey={fuelRefreshKey} />
+        return <Fuel userId={userId} refreshKey={fuelRefreshKey} activeVehicleId={vehicleId} />
       case 'byt':
-        return <Byt userId={userId} refreshKey={bytRefreshKey} />
+        return <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={vehicleId} />
       case 'trips':
-        return <Trips userId={userId} refreshKey={tripsRefreshKey} />
+        return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} />
       case 'service':
-        return <Service userId={userId} />
+        return <Service userId={userId} activeVehicleId={vehicleId} />
       default:
-        return <Overview userName={userName} userId={userId} onOpenProfile={() => setShowProfile(true)} />
+        return <Overview userName={userName} userId={userId} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} />
     }
   }
 
@@ -111,6 +115,13 @@ function AppInner() {
       }}
     >
       <div style={{ flex: 1, paddingBottom: 64, overflow: 'auto' }}>
+        <VehicleSwitcher
+          userId={userId}
+          profile={profile}
+          activeVehicleId={activeVehicleId}
+          onSelect={setActiveVehicleId}
+          onAddVehicle={() => setShowProfile(true)}
+        />
         {renderTab()}
       </div>
       <FAB onClick={() => setIsModalOpen(true)} />

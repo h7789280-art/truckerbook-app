@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, addRouteNote, deleteRouteNote, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import { supabase } from '../lib/supabase'
 
 const SUB_TABS = [
@@ -69,14 +69,6 @@ const CHECKLIST_SECTIONS = [
   },
 ]
 
-const MAP_FILTERS = [
-  { key: 'all', label: '\u0412\u0441\u0435' },
-  { key: 'fuel', label: '\u26FD\uFE0F' },
-  { key: 'sto', label: '\uD83D\uDD27' },
-  { key: 'parking', label: '\uD83C\uDD7F\uFE0F' },
-  { key: 'food', label: '\uD83C\uDF7D' },
-]
-
 const DOC_TYPES = [
   { key: 'license', icon: '\uD83D\uDCC4', label: '\u0412\u0423' },
   { key: 'sts', icon: '\uD83D\uDCC4', label: '\u0421\u0422\u0421' },
@@ -113,7 +105,6 @@ const cardStyle = {
 export default function Service({ userId }) {
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
-  const [mapFilter, setMapFilter] = useState('all')
   const [repairs, setRepairs] = useState([])
   const [insurance, setInsurance] = useState([])
   const [routeNotes, setRouteNotes] = useState([])
@@ -164,10 +155,6 @@ export default function Service({ userId }) {
     return count
   }
 
-  const filteredNotes = mapFilter === 'all'
-    ? routeNotes
-    : routeNotes.filter(n => n.type === mapFilter)
-
   return (
     <div style={{ padding: '16px', minHeight: '100vh', backgroundColor: 'var(--bg)', paddingBottom: '80px' }}>
       {/* Sub-tabs */}
@@ -207,11 +194,9 @@ export default function Service({ userId }) {
       )}
       {activeTab === 'map' && (
         <MapTab
-          mapFilter={mapFilter}
-          setMapFilter={setMapFilter}
-          filteredNotes={filteredNotes}
-          totalNotes={routeNotes.length}
-          loading={loading}
+          userId={userId}
+          routeNotes={routeNotes}
+          onReload={loadData}
         />
       )}
       {activeTab === 'docs' && <DocsTab userId={userId} />}
@@ -800,32 +785,205 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
 }
 
 /* ===== MAP TAB ===== */
-function MapTab({ mapFilter, setMapFilter, filteredNotes, totalNotes, loading }) {
-  const TYPE_ICONS = { fuel: '\u26FD\uFE0F', sto: '\uD83D\uDD27', parking: '\uD83C\uDD7F\uFE0F', food: '\uD83C\uDF7D' }
+function MapTab({ userId, routeNotes, onReload }) {
+  const mapRef = useRef(null)
+  const mapInstanceRef = useRef(null)
+  const [mapReady, setMapReady] = useState(false)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [pendingLatLng, setPendingLatLng] = useState(null)
+  const [mapFilter, setMapFilter] = useState('all')
+  const [saving, setSaving] = useState(false)
+  const [addForm, setAddForm] = useState({ type: 'fuel', title: '', description: '' })
+
+  const MARKER_TYPES = {
+    fuel: { icon: '\u26FD', color: '#22c55e', label: '\u0417\u0430\u043F\u0440\u0430\u0432\u043A\u0430' },
+    sto: { icon: '\uD83D\uDD27', color: '#3b82f6', label: '\u0421\u0422\u041E' },
+    parking: { icon: '\uD83C\uDD7F\uFE0F', color: '#6b7280', label: '\u0421\u0442\u043E\u044F\u043D\u043A\u0430' },
+    food: { icon: '\uD83C\uDF7D', color: '#f59e0b', label: '\u041A\u0430\u0444\u0435' },
+    danger: { icon: '\u26A0\uFE0F', color: '#ef4444', label: '\u041E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C' },
+  }
+
+  const filteredNotes = mapFilter === 'all'
+    ? routeNotes
+    : routeNotes.filter(n => n.type === mapFilter)
+
+  useEffect(() => {
+    let cancelled = false
+    let L
+    async function initMap() {
+      L = await import('leaflet')
+      await import('leaflet/dist/leaflet.css')
+      if (cancelled || !mapRef.current || mapInstanceRef.current) return
+
+      const map = L.map(mapRef.current, { zoomControl: false }).setView([55.7558, 37.6173], 10)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(map)
+      L.control.zoom({ position: 'topright' }).addTo(map)
+      mapInstanceRef.current = map
+      setMapReady(true)
+
+      // Try to center on user location
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            if (!cancelled && mapInstanceRef.current) {
+              mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], 12)
+            }
+          },
+          () => {},
+          { enableHighAccuracy: false, timeout: 5000 }
+        )
+      }
+    }
+    initMap()
+    return () => {
+      cancelled = true
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+        setMapReady(false)
+      }
+    }
+  }, [])
+
+  // Handle long press / contextmenu for adding notes
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapReady) return
+
+    const onContextMenu = (e) => {
+      setPendingLatLng(e.latlng)
+      setAddForm({ type: 'fuel', title: '', description: '' })
+      setShowAddModal(true)
+    }
+
+    // Desktop: right-click / contextmenu
+    map.on('contextmenu', onContextMenu)
+
+    // Mobile: long press via touch events
+    const container = map.getContainer()
+    let touchTimer = null
+    let touchMoved = false
+
+    const onTouchStart = (e) => {
+      touchMoved = false
+      touchTimer = setTimeout(() => {
+        if (!touchMoved && e.touches.length === 1) {
+          const touch = e.touches[0]
+          const point = map.containerPointToLatLng([
+            touch.clientX - container.getBoundingClientRect().left,
+            touch.clientY - container.getBoundingClientRect().top,
+          ])
+          setPendingLatLng(point)
+          setAddForm({ type: 'fuel', title: '', description: '' })
+          setShowAddModal(true)
+        }
+      }, 600)
+    }
+    const onTouchMove = () => { touchMoved = true; clearTimeout(touchTimer) }
+    const onTouchEnd = () => { clearTimeout(touchTimer) }
+
+    container.addEventListener('touchstart', onTouchStart, { passive: true })
+    container.addEventListener('touchmove', onTouchMove, { passive: true })
+    container.addEventListener('touchend', onTouchEnd, { passive: true })
+
+    return () => {
+      map.off('contextmenu', onContextMenu)
+      container.removeEventListener('touchstart', onTouchStart)
+      container.removeEventListener('touchmove', onTouchMove)
+      container.removeEventListener('touchend', onTouchEnd)
+    }
+  }, [mapReady])
+
+  // Render markers
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (!map || !mapReady) return
+
+    // Clear existing markers
+    map.eachLayer((layer) => {
+      if (layer._isRouteNote) map.removeLayer(layer)
+    })
+
+    // Dynamic import for L
+    import('leaflet').then((L) => {
+      filteredNotes.forEach((note) => {
+        if (!note.lat || !note.lng) return
+        const mt = MARKER_TYPES[note.type] || MARKER_TYPES.fuel
+        const markerIcon = L.divIcon({
+          className: '',
+          html: `<div style="width:32px;height:32px;border-radius:50%;background:${mt.color};display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #fff;">${mt.icon}</div>`,
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -18],
+        })
+        const marker = L.marker([note.lat, note.lng], { icon: markerIcon }).addTo(map)
+        marker._isRouteNote = true
+        const popupContent = document.createElement('div')
+        popupContent.style.cssText = 'font-family:-apple-system,sans-serif;min-width:160px;'
+        popupContent.innerHTML = `
+          <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${mt.icon} ${note.title || mt.label}</div>
+          ${note.description ? `<div style="font-size:12px;color:#666;margin-bottom:8px;">${note.description}</div>` : ''}
+          <div style="font-size:11px;color:#999;margin-bottom:8px;">${mt.label}</div>
+        `
+        const delBtn = document.createElement('button')
+        delBtn.textContent = '\u0423\u0434\u0430\u043B\u0438\u0442\u044C'
+        delBtn.style.cssText = 'background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;width:100%;'
+        delBtn.onclick = async () => {
+          try {
+            await deleteRouteNote(note.id)
+            onReload()
+          } catch (err) {
+            console.error('Delete note error:', err)
+          }
+        }
+        popupContent.appendChild(delBtn)
+        marker.bindPopup(popupContent)
+      })
+    })
+  }, [filteredNotes, mapReady])
+
+  const handleLocateMe = () => {
+    if (!navigator.geolocation || !mapInstanceRef.current) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], 14)
+      },
+      () => alert('\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  const handleAddNote = async () => {
+    if (!pendingLatLng || !addForm.title.trim()) return
+    setSaving(true)
+    try {
+      await addRouteNote(userId, pendingLatLng.lat, pendingLatLng.lng, addForm.type, addForm.title.trim(), addForm.description.trim())
+      setShowAddModal(false)
+      setPendingLatLng(null)
+      onReload()
+    } catch (err) {
+      console.error('Add note error:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddBtnClick = () => {
+    const map = mapInstanceRef.current
+    if (!map) return
+    const center = map.getCenter()
+    setPendingLatLng(center)
+    setAddForm({ type: 'fuel', title: '', description: '' })
+    setShowAddModal(true)
+  }
 
   return (
-    <>
-      {/* Map placeholder */}
-      <div style={{
-        ...cardStyle, height: '200px', marginBottom: '16px',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(135deg, var(--card), var(--card2))',
-        position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', inset: 0, opacity: 0.08,
-          background: 'repeating-linear-gradient(0deg, var(--border), var(--border) 1px, transparent 1px, transparent 20px), repeating-linear-gradient(90deg, var(--border), var(--border) 1px, transparent 1px, transparent 20px)',
-        }} />
-        <div style={{ textAlign: 'center', zIndex: 1 }}>
-          <div style={{ fontSize: '40px', marginBottom: '8px' }}>{'\uD83D\uDDFA'}</div>
-          <div style={{ fontSize: '14px', color: 'var(--dim)' }}>{'\u041A\u0430\u0440\u0442\u0430 \u0437\u0430\u043C\u0435\u0442\u043E\u043A'}</div>
-          <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '4px' }}>Leaflet &middot; {'\u0441\u043A\u043E\u0440\u043E'}</div>
-        </div>
-      </div>
-
+    <div style={{ position: 'relative' }}>
       {/* Filters */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-        {MAP_FILTERS.map(f => (
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', overflowX: 'auto' }}>
+        {[{ key: 'all', label: '\u0412\u0441\u0435' }, ...Object.entries(MARKER_TYPES).map(([k, v]) => ({ key: k, label: v.icon + ' ' + v.label }))].map(f => (
           <button
             key={f.key}
             onClick={() => setMapFilter(f.key)}
@@ -836,10 +994,12 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes, totalNotes, loading })
               color: mapFilter === f.key ? '#000' : 'var(--dim)',
               border: mapFilter === f.key ? 'none' : '1px solid var(--border)',
               borderRadius: '20px',
-              padding: '6px 14px',
-              fontSize: '13px',
+              padding: '6px 12px',
+              fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+              flexShrink: 0,
             }}
           >
             {f.label}
@@ -847,68 +1007,157 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes, totalNotes, loading })
         ))}
       </div>
 
-      {/* Notes list */}
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
-          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
-        </div>
-      ) : filteredNotes.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
-          {'\u041D\u0435\u0442 \u0437\u0430\u043C\u0435\u0442\u043E\u043A'}
-        </div>
-      ) : (
-        <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
-          {filteredNotes.map((note, i) => (
-            <div
-              key={note.id || i}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '12px',
-                padding: '14px 16px',
-                borderTop: i > 0 ? '1px solid var(--border)' : 'none',
-              }}
-            >
-              <div style={{
-                width: '40px', height: '40px', backgroundColor: 'var(--card2)',
-                borderRadius: '10px', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '20px', flexShrink: 0,
-              }}>
-                {TYPE_ICONS[note.type] || '\uD83D\uDCCD'}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {note.name || note.title || '\u0417\u0430\u043C\u0435\u0442\u043A\u0430'}
-                </div>
-                <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
-                  {note.description || note.desc || ''}
-                </div>
-              </div>
-              {note.rating && (
-                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                  {[1, 2, 3, 4, 5].map(s => (
-                    <span key={s} style={{ fontSize: '12px', color: s <= note.rating ? '#f59e0b' : 'var(--border)' }}>
-                      {'\u2605'}
-                    </span>
-                  ))}
-                </div>
-              )}
+      {/* Map container */}
+      <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)' }}>
+        <div ref={mapRef} style={{ height: 'calc(100vh - 260px)', minHeight: '400px', width: '100%' }} />
+
+        {/* Locate me button */}
+        <button
+          onClick={handleLocateMe}
+          style={{
+            position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000,
+            width: '44px', height: '44px', borderRadius: '50%',
+            background: 'var(--card)', border: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '20px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}
+          title={'\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435'}
+        >
+          {'\uD83D\uDCCD'}
+        </button>
+
+        {/* Add note FAB */}
+        <button
+          onClick={handleAddBtnClick}
+          style={{
+            position: 'absolute', bottom: '16px', right: '16px', zIndex: 1000,
+            width: '48px', height: '48px', borderRadius: '50%',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            border: 'none', color: '#000', fontSize: '24px', fontWeight: 700,
+            cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+          title={'\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043C\u0435\u0442\u043A\u0443'}
+        >
+          +
+        </button>
+      </div>
+
+      {/* Stats */}
+      <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: 'var(--dim)' }}>
+        {'\u0417\u0430\u043C\u0435\u0442\u043E\u043A: '}{filteredNotes.length}
+        {mapFilter !== 'all' ? ` / ${routeNotes.length}` : ''}
+        {' \u00B7 \u0414\u043E\u043B\u0433\u0438\u0439 \u0442\u0430\u043F \u0438\u043B\u0438 + \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F'}
+      </div>
+
+      {/* Add note modal */}
+      {showAddModal && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 2000,
+          backgroundColor: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px',
+        }} onClick={() => setShowAddModal(false)}>
+          <div style={{
+            background: 'var(--card)', borderRadius: '16px', padding: '20px',
+            width: '100%', maxWidth: '360px', border: '1px solid var(--border)',
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+              {'\u041D\u043E\u0432\u0430\u044F \u0437\u0430\u043C\u0435\u0442\u043A\u0430'}
             </div>
-          ))}
+
+            {/* Type select */}
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u0422\u0438\u043F'}</div>
+              <select
+                value={addForm.type}
+                onChange={e => setAddForm(p => ({ ...p, type: e.target.value }))}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: '8px',
+                  background: 'var(--card2)', color: 'var(--text)',
+                  border: '1px solid var(--border)', fontSize: '14px',
+                }}
+              >
+                {Object.entries(MARKER_TYPES).map(([k, v]) => (
+                  <option key={k} value={k}>{v.icon} {v.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Title */}
+            <div style={{ marginBottom: '12px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435'}</div>
+              <input
+                type="text"
+                value={addForm.title}
+                onChange={e => setAddForm(p => ({ ...p, title: e.target.value }))}
+                placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u041B\u0443\u043A\u043E\u0439\u043B \u043D\u0430 \u041C\u041A\u0410\u0414'}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: '8px',
+                  background: 'var(--card2)', color: 'var(--text)',
+                  border: '1px solid var(--border)', fontSize: '14px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+
+            {/* Description */}
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+              <textarea
+                value={addForm.description}
+                onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))}
+                rows={3}
+                style={{
+                  width: '100%', padding: '10px 12px', borderRadius: '8px',
+                  background: 'var(--card2)', color: 'var(--text)',
+                  border: '1px solid var(--border)', fontSize: '14px',
+                  resize: 'vertical', boxSizing: 'border-box',
+                  fontFamily: '-apple-system, sans-serif',
+                }}
+              />
+            </div>
+
+            {/* Coords display */}
+            {pendingLatLng && (
+              <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '12px', fontFamily: 'monospace' }}>
+                {pendingLatLng.lat.toFixed(5)}, {pendingLatLng.lng.toFixed(5)}
+              </div>
+            )}
+
+            {/* Buttons */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => setShowAddModal(false)}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  background: 'var(--card2)', color: 'var(--dim)',
+                  border: '1px solid var(--border)', fontSize: '14px',
+                  fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+              </button>
+              <button
+                onClick={handleAddNote}
+                disabled={!addForm.title.trim() || saving}
+                style={{
+                  flex: 1, padding: '12px', borderRadius: '10px',
+                  background: addForm.title.trim() && !saving
+                    ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                    : 'var(--card2)',
+                  color: addForm.title.trim() && !saving ? '#000' : 'var(--dim)',
+                  border: 'none', fontSize: '14px', fontWeight: 700,
+                  cursor: addForm.title.trim() && !saving ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u044E...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
-
-      {/* Stats banner */}
-      <div style={{
-        ...cardStyle,
-        background: 'linear-gradient(135deg, #f59e0b10, #d9770610)',
-        border: '1px solid #f59e0b30',
-        textAlign: 'center',
-      }}>
-        <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'monospace', color: '#f59e0b' }}>{totalNotes}</div>
-        <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
-          {'\u0432\u0430\u0448\u0438\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A'}
-        </div>
-      </div>
-    </>
+    </div>
   )
 }
 

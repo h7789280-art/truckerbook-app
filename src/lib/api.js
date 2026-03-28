@@ -383,6 +383,45 @@ export async function endDrivingSession(sessionId) {
 
 // --- Route notes ---
 
+export async function getRouteNotes(userId) {
+  const { data, error } = await supabase
+    .from('route_notes')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function addRouteNote(userId, lat, lng, type, title, description) {
+  const row = {
+    user_id: userId,
+    lat,
+    lng,
+    type: type || 'fuel',
+    title: title || '',
+    description: description || '',
+  }
+  if (!navigator.onLine) return offlineInsert('route_notes', row)
+  const { data, error } = await supabase
+    .from('route_notes')
+    .insert(row)
+    .select()
+  if (error) {
+    console.error('addRouteNote error:', error)
+    throw error
+  }
+  return data
+}
+
+export async function deleteRouteNote(noteId) {
+  const { error } = await supabase
+    .from('route_notes')
+    .delete()
+    .eq('id', noteId)
+  if (error) throw error
+}
+
 // --- Vehicle expenses ---
 
 export async function addVehicleExpense(entry) {

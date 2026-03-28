@@ -14,6 +14,7 @@ import PinLock from './components/PinLock'
 import FAB from './components/FAB'
 import AddModal from './components/AddModal'
 import ProfileScreen from './components/ProfileScreen'
+import Paywall from './components/Paywall'
 import VehicleSwitcher from './components/VehicleSwitcher'
 
 function AppInner() {
@@ -83,6 +84,10 @@ function AppInner() {
         onUnlock={() => setPinUnlocked(true)}
       />
     )
+  }
+
+  if (profile.plan === 'expired') {
+    return <Paywall />
   }
 
   if (showProfile) {

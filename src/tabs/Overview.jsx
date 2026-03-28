@@ -331,6 +331,32 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
         )}
       </div>
 
+      {/* Trial banner */}
+      {profile?.plan === 'trial' && profile?.trial_ends_at && (() => {
+        const daysLeft = Math.max(0, Math.ceil((new Date(profile.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+        const isUrgent = daysLeft <= 2
+        return (
+          <div
+            onClick={() => alert('\u041e\u043f\u043b\u0430\u0442\u0430 \u0441\u043a\u043e\u0440\u043e')}
+            style={{
+              background: isUrgent ? '#ef4444' : '#f59e0b',
+              color: isUrgent ? '#fff' : '#000',
+              borderRadius: 10,
+              padding: '12px 16px',
+              marginBottom: 12,
+              textAlign: 'center',
+              fontWeight: 600,
+              fontSize: 15,
+              cursor: 'pointer',
+            }}
+          >
+            {isUrgent
+              ? `\u26a0\ufe0f Pro-\u0434\u043e\u0441\u0442\u0443\u043f: \u043e\u0441\u0442\u0430\u043b\u043e\u0441\u044c ${daysLeft} ${daysLeft === 1 ? '\u0434\u0435\u043d\u044c' : '\u0434\u043d\u044f'}!`
+              : `\u2b50 Pro-\u0434\u043e\u0441\u0442\u0443\u043f: \u043e\u0441\u0442\u0430\u043b\u043e\u0441\u044c ${daysLeft} ${daysLeft === 1 ? '\u0434\u0435\u043d\u044c' : daysLeft < 5 ? '\u0434\u043d\u044f' : '\u0434\u043d\u0435\u0439'}`}
+          </div>
+        )
+      })()}
+
       {/* Theme switcher */}
       <div style={{
         display: 'flex',

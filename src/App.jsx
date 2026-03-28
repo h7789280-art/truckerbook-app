@@ -114,7 +114,7 @@ function AppInner() {
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} />
       default:
-        return <Overview userName={userName} userId={userId} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} />
+        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} />
     }
   }
 

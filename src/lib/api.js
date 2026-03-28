@@ -303,6 +303,46 @@ export async function getShiftStats(userId, period) {
   return { count: shifts.length, totalKm, totalHours }
 }
 
+// --- Driving sessions ---
+
+export async function startDrivingSession(userId, vehicleId) {
+  const row = {
+    user_id: userId,
+    vehicle_id: vehicleId || null,
+    started_at: new Date().toISOString(),
+  }
+  const { data, error } = await supabase
+    .from('driving_sessions')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function endDrivingSession(sessionId) {
+  const now = new Date()
+  const { data: existing, error: fetchErr } = await supabase
+    .from('driving_sessions')
+    .select('started_at')
+    .eq('id', sessionId)
+    .single()
+  if (fetchErr) throw fetchErr
+
+  const startedAt = new Date(existing.started_at)
+  const durationMinutes = Math.round((now - startedAt) / 60000)
+
+  const { data, error } = await supabase
+    .from('driving_sessions')
+    .update({
+      ended_at: now.toISOString(),
+      duration_minutes: durationMinutes,
+    })
+    .eq('id', sessionId)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
 // --- Route notes ---
 
 export async function fetchRouteNotes(userId) {

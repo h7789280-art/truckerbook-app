@@ -67,6 +67,8 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   // Delete confirmation state
   const [deleteConfirmId, setDeleteConfirmId] = useState(null)
   const [deleting, setDeleting] = useState(false)
+  const [hosMode, setHosMode] = useState(profile?.hos_mode || 'cis')
+  const [savingHos, setSavingHos] = useState(false)
 
   const fetchVehicles = async (uid) => {
     if (!uid) return
@@ -281,6 +283,24 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   }
 
 
+  const handleHosMode = async (newMode) => {
+    if (newMode === hosMode || savingHos) return
+    setSavingHos(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ hos_mode: newMode })
+        .eq('id', userId)
+      if (error) {
+        console.error('Update hos_mode error:', error)
+        return
+      }
+      setHosMode(newMode)
+    } finally {
+      setSavingHos(false)
+    }
+  }
+
   const cardStyle = {
     background: theme.card,
     border: '1px solid ' + theme.border,
@@ -397,6 +417,42 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           label={'\u0422\u0435\u043B\u0435\u0444\u043E\u043D'}
           value={profile?.phone}
         />
+        {/* HOS mode toggle */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '12px 0',
+          borderBottom: '1px solid ' + theme.border,
+        }}>
+          <span style={{ fontSize: '14px', color: theme.dim }}>{'\u0420\u0435\u0436\u0438\u043C \u0432\u043E\u0436\u0434\u0435\u043D\u0438\u044F'}</span>
+          <div style={{ display: 'flex', gap: '4px', background: theme.bg, borderRadius: '10px', padding: '3px' }}>
+            {[
+              { key: 'cis', label: '\uD83C\uDDF7\uD83C\uDDFA \u0421\u041D\u0413' },
+              { key: 'usa', label: '\uD83C\uDDFA\uD83C\uDDF8 \u0421\u0428\u0410' },
+            ].map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => handleHosMode(opt.key)}
+                disabled={savingHos}
+                style={{
+                  padding: '6px 12px',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: savingHos ? 'not-allowed' : 'pointer',
+                  background: hosMode === opt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                  color: hosMode === opt.key ? '#fff' : theme.dim,
+                  transition: 'all 0.2s',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Main vehicle from profiles */}

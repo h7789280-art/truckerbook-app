@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, startDrivingSession, endDrivingSession } from '../lib/api'
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -40,11 +40,16 @@ const THEME_OPTIONS = [
   { key: 'auto', label: '\ud83d\udd04 \u0410\u0432\u0442\u043e' },
 ]
 
-export default function Overview({ userName, userId, onOpenProfile }) {
+export default function Overview({ userName, userId, profile, onOpenProfile }) {
   const { theme, mode, setMode } = useTheme()
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const intervalRef = useRef(null)
+  const [drivingSessionId, setDrivingSessionId] = useState(null)
+  const [hosWarning, setHosWarning] = useState(null)
+  const hosMode = profile?.hos_mode || 'cis'
+  const hosMaxSeconds = hosMode === 'usa' ? 39600 : 32400 // 11h or 9h
+  const hosBreak8hSeconds = 28800 // 8h
   const [profileName, setProfileName] = useState(userName || null)
   const [loading, setLoading] = useState(true)
   const [monthData, setMonthData] = useState({ income: 0, fuelCost: 0, bytCost: 0, serviceCost: 0, tripCount: 0, totalKm: 0, avgConsumption: 0 })
@@ -230,13 +235,57 @@ export default function Overview({ userName, userId, onOpenProfile }) {
   useEffect(() => {
     if (timerRunning) {
       intervalRef.current = setInterval(() => {
-        setSeconds(prev => prev + 1)
+        setSeconds(prev => {
+          const next = prev + 1
+          // HOS warnings
+          if (hosMode === 'cis') {
+            if (next === 30600) { // 8h30m
+              setHosWarning('\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C 30 \u043C\u0438\u043D\u0443\u0442 \u0434\u043E \u043B\u0438\u043C\u0438\u0442\u0430! \u041F\u043B\u0430\u043D\u0438\u0440\u0443\u0439\u0442\u0435 \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0443.')
+            }
+          } else {
+            if (next === 27000) { // 7h30m
+              setHosWarning('\u26A0\uFE0F \u0427\u0435\u0440\u0435\u0437 30 \u043C\u0438\u043D \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u043F\u0435\u0440\u0435\u0440\u044B\u0432 30 \u043C\u0438\u043D\u0443\u0442 (DOT)')
+            }
+            if (next === 37800) { // 10h30m
+              setHosWarning('\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C 30 \u043C\u0438\u043D\u0443\u0442 \u0434\u043E \u0441\u0443\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u043B\u0438\u043C\u0438\u0442\u0430!')
+            }
+          }
+          if (next >= hosMaxSeconds) {
+            setHosWarning('\uD83D\uDED1 \u041B\u0418\u041C\u0418\u0422 \u041F\u0420\u0415\u0412\u042B\u0428\u0415\u041D')
+          }
+          return next
+        })
       }, 1000)
     } else {
       clearInterval(intervalRef.current)
     }
     return () => clearInterval(intervalRef.current)
-  }, [timerRunning])
+  }, [timerRunning, hosMode, hosMaxSeconds])
+
+  const handleTimerToggle = async () => {
+    if (!timerRunning) {
+      // Start timer + save driving session
+      try {
+        const session = await startDrivingSession(userId, null)
+        setDrivingSessionId(session?.id || null)
+      } catch (err) {
+        console.error('startDrivingSession error:', err)
+      }
+      setHosWarning(null)
+      setTimerRunning(true)
+    } else {
+      // Stop timer + end driving session
+      setTimerRunning(false)
+      if (drivingSessionId) {
+        try {
+          await endDrivingSession(drivingSessionId)
+        } catch (err) {
+          console.error('endDrivingSession error:', err)
+        }
+        setDrivingSessionId(null)
+      }
+    }
+  }
 
   const greeting = getGreeting(profileName)
   const totalExpenses = monthData.fuelCost + monthData.bytCost + monthData.serviceCost
@@ -310,14 +359,21 @@ export default function Overview({ userName, userId, onOpenProfile }) {
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
           <span style={{ fontSize: '14px', color: theme.dim }}>{'\u23f1\ufe0f'} {'\u0412\u0440\u0435\u043c\u044f \u0437\u0430 \u0440\u0443\u043b\u0451\u043c'}</span>
-          <span style={{ fontSize: '12px', color: theme.dim }}>{'\u043c\u0430\u043a\u0441 9\u0447'}</span>
+          <span style={{ fontSize: '12px', color: theme.dim }}>
+            {hosMode === 'usa' ? '\u043c\u0430\u043a\u0441 11\u0447 (DOT)' : '\u043c\u0430\u043a\u0441 9\u0447'}
+          </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '32px', fontFamily: 'monospace', fontWeight: 700 }}>
+          <span style={{
+            fontSize: '32px',
+            fontFamily: 'monospace',
+            fontWeight: 700,
+            color: seconds >= hosMaxSeconds ? '#ef4444' : theme.text,
+          }}>
             {formatTimer(seconds)}
           </span>
           <button
-            onClick={() => setTimerRunning(prev => !prev)}
+            onClick={handleTimerToggle}
             style={{
               width: '48px',
               height: '48px',
@@ -337,15 +393,57 @@ export default function Overview({ userName, userId, onOpenProfile }) {
             {timerRunning ? '\u23f8' : '\u25b6'}
           </button>
         </div>
-        {/* Progress bar (9h = 32400s) */}
-        <div style={{ marginTop: '8px', background: theme.border, borderRadius: '4px', height: '4px', overflow: 'hidden' }}>
+        {/* Progress bar */}
+        <div style={{ marginTop: '8px', background: theme.border, borderRadius: '4px', height: '6px', overflow: 'hidden', position: 'relative' }}>
           <div style={{
-            width: `${Math.min((seconds / 32400) * 100, 100)}%`,
+            width: `${Math.min((seconds / hosMaxSeconds) * 100, 100)}%`,
             height: '100%',
-            background: seconds > 28800 ? '#ef4444' : '#f59e0b',
+            background: seconds >= hosMaxSeconds ? '#ef4444' : (hosMode === 'usa' && seconds >= hosBreak8hSeconds) ? '#f59e0b' : '#f59e0b',
             transition: 'width 1s linear',
           }} />
+          {hosMode === 'usa' && (
+            <div style={{
+              position: 'absolute',
+              top: 0,
+              left: `${(hosBreak8hSeconds / hosMaxSeconds) * 100}%`,
+              width: '2px',
+              height: '100%',
+              background: '#ef4444',
+              opacity: 0.7,
+            }} />
+          )}
         </div>
+        {hosMode === 'usa' && seconds >= hosBreak8hSeconds && seconds < hosMaxSeconds && (
+          <div style={{
+            marginTop: '6px',
+            fontSize: '12px',
+            color: '#f59e0b',
+            fontWeight: 600,
+          }}>
+            {'\u26A0\uFE0F \u041E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u043F\u0435\u0440\u0435\u0440\u044B\u0432 30 \u043C\u0438\u043D (DOT)'}
+          </div>
+        )}
+        {seconds >= hosMaxSeconds && (
+          <div style={{
+            marginTop: '6px',
+            fontSize: '13px',
+            color: '#ef4444',
+            fontWeight: 700,
+            textAlign: 'center',
+          }}>
+            {'\uD83D\uDED1 \u041B\u0418\u041C\u0418\u0422 \u041F\u0420\u0415\u0412\u042B\u0428\u0415\u041D'}
+          </div>
+        )}
+        {hosWarning && seconds < hosMaxSeconds && (
+          <div style={{
+            marginTop: '6px',
+            fontSize: '12px',
+            color: '#f59e0b',
+            fontWeight: 600,
+          }}>
+            {hosWarning}
+          </div>
+        )}
       </div>
 
       {/* Shift block */}

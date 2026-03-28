@@ -435,13 +435,27 @@ export async function getTrailerHistory(userId, limit = 5) {
   return data || []
 }
 
-export async function pickUpTrailer(userId, vehicleId, trailerNumber, driverName, notes) {
+export async function uploadTrailerPhoto(userId, trailerId, file) {
+  const timestamp = Date.now()
+  const path = `${userId}/${trailerId}_${timestamp}.jpg`
+  const { error: uploadError } = await supabase.storage
+    .from('trailer-photos')
+    .upload(path, file, { contentType: file.type || 'image/jpeg' })
+  if (uploadError) throw uploadError
+  const { data: urlData } = supabase.storage
+    .from('trailer-photos')
+    .getPublicUrl(path)
+  return urlData.publicUrl
+}
+
+export async function pickUpTrailer(userId, vehicleId, trailerNumber, driverName, notes, photos) {
   const row = {
     user_id: userId,
     vehicle_id: vehicleId || null,
     trailer_number: trailerNumber,
     driver_name: driverName || '',
     notes: notes || '',
+    photos: photos || [],
     picked_up_at: new Date().toISOString(),
     status: 'active',
   }
@@ -453,13 +467,23 @@ export async function pickUpTrailer(userId, vehicleId, trailerNumber, driverName
   return data?.[0]
 }
 
-export async function dropOffTrailer(trailerId) {
+export async function dropOffTrailer(trailerId, photos) {
+  const updateData = {
+    dropped_off_at: new Date().toISOString(),
+    status: 'returned',
+  }
+  if (photos && photos.length > 0) {
+    const { data: existing } = await supabase
+      .from('trailers')
+      .select('photos')
+      .eq('id', trailerId)
+      .single()
+    const existingPhotos = existing?.photos || []
+    updateData.photos = [...existingPhotos, ...photos]
+  }
   const { data, error } = await supabase
     .from('trailers')
-    .update({
-      dropped_off_at: new Date().toISOString(),
-      status: 'returned',
-    })
+    .update(updateData)
     .eq('id', trailerId)
     .select()
   if (error) throw error

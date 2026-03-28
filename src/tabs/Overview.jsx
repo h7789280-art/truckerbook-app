@@ -761,11 +761,12 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
           </div>
 
           {/* Mini cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {[
               { label: '\u041f\u0440\u043e\u0431\u0435\u0433', value: formatNumber(Math.round(monthData.totalKm)), unit: '\u043a\u043c', icon: '\ud83d\udea3' },
               { label: '\u0420\u0430\u0441\u0445\u043e\u0434', value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: '\u043b/100\u043a\u043c', icon: '\u26fd' },
               { label: '\u0420\u0435\u0439\u0441\u044b', value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a' },
+              { label: '\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c', value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: '\u20bd/\u043a\u043c', icon: '\ud83d\udcb0' },
             ].map((item, i) => (
               <div key={i} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
                 <div style={{ fontSize: '18px', marginBottom: '4px' }}>{item.icon}</div>

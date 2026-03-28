@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
+import { useOffline } from './hooks/useOffline'
 import { ThemeProvider, useTheme } from './lib/theme'
 import Overview from './tabs/Overview'
 import Fuel from './tabs/Fuel'
@@ -20,6 +21,7 @@ function AppInner() {
   const userId = session?.user?.id
   const { profile, loading: profileLoading, refetch: refetchProfile } = useProfile(userId)
   const { theme } = useTheme()
+  const { isOnline, syncStatus, syncedCount } = useOffline()
   const [activeTab, setActiveTab] = useState('overview')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [fuelRefreshKey, setFuelRefreshKey] = useState(0)
@@ -138,6 +140,30 @@ function AppInner() {
         position: 'relative',
       }}
     >
+      {!isOnline && (
+        <div style={{
+          background: '#ef4444',
+          color: '#fff',
+          textAlign: 'center',
+          padding: '8px 16px',
+          fontSize: 14,
+          fontWeight: 500,
+        }}>
+          {'\ud83d\udce1 \u041d\u0435\u0442 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f. \u0414\u0430\u043d\u043d\u044b\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u044e\u0442\u0441\u044f \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e.'}
+        </div>
+      )}
+      {syncStatus === 'done' && (
+        <div style={{
+          background: '#22c55e',
+          color: '#fff',
+          textAlign: 'center',
+          padding: '8px 16px',
+          fontSize: 14,
+          fontWeight: 500,
+        }}>
+          {'\u2705 \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u0432\u043e\u0441\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043e. \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u043e: ' + syncedCount + ' \u0437\u0430\u043f\u0438\u0441\u0435\u0439.'}
+        </div>
+      )}
       <div style={{ flex: 1, paddingBottom: 64, overflow: 'auto' }}>
         <VehicleSwitcher
           userId={userId}

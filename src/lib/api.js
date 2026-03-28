@@ -1,4 +1,10 @@
 import { supabase } from './supabase'
+import { addToSyncQueue } from './offlineDb'
+
+async function offlineInsert(table, row) {
+  await addToSyncQueue(table, 'insert', row)
+  return [{ ...row, id: 'offline-' + Date.now(), _offline: true }]
+}
 
 // --- Fuel ---
 
@@ -29,6 +35,7 @@ export async function addFuel(_userId, entry) {
     cost: parseFloat(entry.amount) || 0,
     odometer: parseInt(entry.odometer, 10) || 0,
   }
+  if (!navigator.onLine) return offlineInsert('fuel_entries', row)
   const { data, error } = await supabase
     .from('fuel_entries')
     .insert(row)
@@ -75,6 +82,7 @@ export async function addTrip(entry) {
     distance_km: parseFloat(entry.distance) || 0,
     income: parseFloat(entry.rate) || 0,
   }
+  if (!navigator.onLine) return offlineInsert('trips', row)
   const { data, error } = await supabase
     .from('trips')
     .insert(row)
@@ -121,6 +129,7 @@ export async function addBytExpense(entry) {
     date: entry.date || new Date().toISOString().slice(0, 10),
     amount: parseFloat(entry.amount) || 0,
   }
+  if (!navigator.onLine) return offlineInsert('byt_expenses', row)
   const { data, error } = await supabase
     .from('byt_expenses')
     .insert(row)
@@ -180,6 +189,7 @@ export async function addServiceRecord(entry) {
     odometer: parseInt(entry.odometer, 10) || 0,
     date: entry.date || new Date().toISOString().slice(0, 10),
   }
+  if (!navigator.onLine) return offlineInsert('service_records', row)
   const { data, error } = await supabase
     .from('service_records')
     .insert(row)
@@ -226,6 +236,10 @@ export async function startShift(userId, vehicleId, odometerStart, driverName) {
     driver_name: driverName || '',
     started_at: new Date().toISOString(),
     status: 'active',
+  }
+  if (!navigator.onLine) {
+    const result = await offlineInsert('shifts', row)
+    return result[0]
   }
   const { data, error } = await supabase
     .from('shifts')
@@ -363,6 +377,7 @@ export async function addVehicleExpense(entry) {
     amount: parseFloat(entry.amount) || 0,
     date: entry.date || new Date().toISOString().slice(0, 10),
   }
+  if (!navigator.onLine) return offlineInsert('vehicle_expenses', row)
   const { data, error } = await supabase
     .from('vehicle_expenses')
     .insert(row)

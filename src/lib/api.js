@@ -602,6 +602,80 @@ export async function deleteVehiclePhoto(photoId, photoUrl) {
   if (error) throw error
 }
 
+// --- Tire records ---
+
+export async function getTireRecords(userId) {
+  const { data, error } = await supabase
+    .from('tire_records')
+    .select('*')
+    .eq('user_id', userId)
+    .order('installed_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function addTireRecord(entry) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    console.error('No active session')
+    throw new Error('No active session')
+  }
+
+  const row = {
+    user_id: user.id,
+    vehicle_id: entry.vehicle_id || null,
+    brand: entry.brand || '',
+    model: entry.model || '',
+    position: entry.position || '',
+    installed_at: entry.installed_at || new Date().toISOString().slice(0, 10),
+    installed_odometer: parseInt(entry.installed_odometer, 10) || 0,
+    condition: entry.condition || 'new',
+    cost: parseFloat(entry.cost) || 0,
+    notes: entry.notes || '',
+  }
+  if (!navigator.onLine) return offlineInsert('tire_records', row)
+  const { data, error } = await supabase
+    .from('tire_records')
+    .insert(row)
+    .select()
+  if (error) {
+    console.error('addTireRecord error:', error)
+    throw error
+  }
+  return data
+}
+
+export async function updateTireRecord(id, entry) {
+  const updates = {}
+  if (entry.brand !== undefined) updates.brand = entry.brand
+  if (entry.model !== undefined) updates.model = entry.model
+  if (entry.position !== undefined) updates.position = entry.position
+  if (entry.installed_at !== undefined) updates.installed_at = entry.installed_at
+  if (entry.installed_odometer !== undefined) updates.installed_odometer = parseInt(entry.installed_odometer, 10) || 0
+  if (entry.condition !== undefined) updates.condition = entry.condition
+  if (entry.cost !== undefined) updates.cost = parseFloat(entry.cost) || 0
+  if (entry.notes !== undefined) updates.notes = entry.notes
+
+  const { data, error } = await supabase
+    .from('tire_records')
+    .update(updates)
+    .eq('id', id)
+    .select()
+  if (error) {
+    console.error('updateTireRecord error:', error)
+    throw error
+  }
+  return data
+}
+
+export async function deleteTireRecord(id) {
+  const { error } = await supabase
+    .from('tire_records')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
 // --- Route notes ---
 
 export async function fetchRouteNotes(userId) {

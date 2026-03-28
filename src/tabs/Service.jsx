@@ -1,13 +1,34 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord } from '../lib/api'
 import { supabase } from '../lib/supabase'
 
 const SUB_TABS = [
   { key: 'service', label: '\uD83D\uDD27 \u0421\u0435\u0440\u0432\u0438\u0441' },
+  { key: 'tires', label: '\uD83D\uDEDE \u0428\u0438\u043D\u044B' },
   { key: 'checklist', label: '\u2705 \u0427\u0435\u043A-\u043B\u0438\u0441\u0442' },
   { key: 'map', label: '\uD83D\uDDFA \u041A\u0430\u0440\u0442\u0430' },
   { key: 'docs', label: '\uD83D\uDCC4 \u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u044B' },
 ]
+
+const TIRE_POSITIONS = [
+  { key: 'front_left', label: '\u041F\u0435\u0440\u0435\u0434\u043D\u044F\u044F \u043B\u0435\u0432\u0430\u044F' },
+  { key: 'front_right', label: '\u041F\u0435\u0440\u0435\u0434\u043D\u044F\u044F \u043F\u0440\u0430\u0432\u0430\u044F' },
+  { key: 'rear_left_outer', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043B\u0435\u0432\u0430\u044F \u0432\u043D\u0435\u0448\u043D\u044F\u044F' },
+  { key: 'rear_left_inner', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043B\u0435\u0432\u0430\u044F \u0432\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F' },
+  { key: 'rear_right_outer', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043F\u0440\u0430\u0432\u0430\u044F \u0432\u043D\u0435\u0448\u043D\u044F\u044F' },
+  { key: 'rear_right_inner', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043F\u0440\u0430\u0432\u0430\u044F \u0432\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F' },
+  { key: 'spare', label: '\u0417\u0430\u043F\u0430\u0441\u043A\u0430' },
+]
+
+const TIRE_CONDITIONS = [
+  { key: 'new', label: '\u041D\u043E\u0432\u0430\u044F', color: '#22c55e' },
+  { key: 'good', label: '\u0425\u043E\u0440\u043E\u0448\u0430\u044F', color: '#22c55e' },
+  { key: 'worn', label: '\u0418\u0437\u043D\u043E\u0448\u0435\u043D\u0430', color: '#f59e0b' },
+  { key: 'replace', label: '\u0417\u0430\u043C\u0435\u043D\u0430', color: '#ef4444' },
+]
+
+const TIRE_POSITION_LABELS = Object.fromEntries(TIRE_POSITIONS.map(p => [p.key, p.label]))
+const TIRE_CONDITION_MAP = Object.fromEntries(TIRE_CONDITIONS.map(c => [c.key, c]))
 
 const CHECKLIST_SECTIONS = [
   {
@@ -159,6 +180,7 @@ export default function Service({ userId }) {
       </div>
 
       {activeTab === 'service' && <ServiceTab repairs={repairs} insurance={insurance} odometer={odometer} loading={loading} />}
+      {activeTab === 'tires' && <TiresTab userId={userId} odometer={odometer} />}
       {activeTab === 'checklist' && (
         <ChecklistTab
           checkedItems={checkedItems}
@@ -307,6 +329,365 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
         </div>
       )}
     </>
+  )
+}
+
+/* ===== TIRES TAB ===== */
+function TiresTab({ userId, odometer }) {
+  const [tires, setTires] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [showModal, setShowModal] = useState(false)
+  const [editTire, setEditTire] = useState(null)
+
+  const loadTires = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoading(true)
+      const data = await getTireRecords(userId)
+      setTires(data)
+    } catch (err) {
+      console.error('loadTires error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    loadTires()
+  }, [loadTires])
+
+  const handleDelete = async (id) => {
+    if (!confirm('\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0448\u0438\u043D\u0443?')) return
+    try {
+      await deleteTireRecord(id)
+      setTires(prev => prev.filter(t => t.id !== id))
+    } catch (err) {
+      console.error('deleteTire error:', err)
+    }
+  }
+
+  const handleEdit = (tire) => {
+    setEditTire(tire)
+    setShowModal(true)
+  }
+
+  const handleAdd = () => {
+    setEditTire(null)
+    setShowModal(true)
+  }
+
+  const handleSaved = () => {
+    setShowModal(false)
+    setEditTire(null)
+    loadTires()
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+        {'\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...'}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      <button
+        onClick={handleAdd}
+        style={{
+          width: '100%',
+          padding: '14px',
+          borderRadius: '12px',
+          border: 'none',
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+          color: '#000',
+          fontSize: '15px',
+          fontWeight: 700,
+          cursor: 'pointer',
+          marginBottom: '16px',
+        }}
+      >
+        {'+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0448\u0438\u043D\u0443'}
+      </button>
+
+      {tires.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
+          {'\u041D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043E \u0448\u0438\u043D\u0430\u0445'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {tires.map(tire => {
+            const cond = TIRE_CONDITION_MAP[tire.condition] || { label: tire.condition, color: 'var(--dim)' }
+            const posLabel = TIRE_POSITION_LABELS[tire.position] || tire.position || ''
+            const kmDriven = odometer && tire.installed_odometer
+              ? Math.max(0, odometer - tire.installed_odometer)
+              : null
+
+            return (
+              <div key={tire.id} style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      width: '40px', height: '40px', backgroundColor: 'var(--card2)',
+                      borderRadius: '10px', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '20px', flexShrink: 0,
+                    }}>
+                      {'\uD83D\uDEDE'}
+                    </div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {tire.brand}{tire.model ? ' ' + tire.model : ''} {'\u00b7'} {posLabel}
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
+                        {'\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430: '}{formatDate(tire.installed_at)}
+                        {tire.installed_odometer ? ` \u00b7 \u041F\u0440\u043E\u0431\u0435\u0433: ${tire.installed_odometer.toLocaleString('ru-RU')} \u043A\u043C` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '6px', flexShrink: 0, marginLeft: '8px' }}>
+                    <button
+                      onClick={() => handleEdit(tire)}
+                      style={{
+                        width: '32px', height: '32px', borderRadius: '8px',
+                        border: '1px solid var(--border)', background: 'var(--card2)',
+                        color: 'var(--text)', fontSize: '14px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >{'\u270F\uFE0F'}</button>
+                    <button
+                      onClick={() => handleDelete(tire.id)}
+                      style={{
+                        width: '32px', height: '32px', borderRadius: '8px',
+                        border: '1px solid var(--border)', background: 'var(--card2)',
+                        color: '#ef4444', fontSize: '14px', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}
+                    >{'\uD83D\uDDD1\uFE0F'}</button>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <div style={{
+                    fontSize: '12px', fontWeight: 600, color: cond.color,
+                    background: cond.color + '15', padding: '2px 10px', borderRadius: '8px',
+                  }}>
+                    {cond.label}
+                  </div>
+                  {kmDriven !== null && (
+                    <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+                      {'\u041F\u0440\u043E\u0435\u0445\u0430\u043B\u0430: '}{kmDriven.toLocaleString('ru-RU')}{' \u043A\u043C'}
+                    </div>
+                  )}
+                  {tire.cost > 0 && (
+                    <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+                      {tire.cost.toLocaleString('ru-RU')}{' \u20BD'}
+                    </div>
+                  )}
+                </div>
+                {tire.notes ? (
+                  <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '6px', fontStyle: 'italic' }}>
+                    {tire.notes}
+                  </div>
+                ) : null}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {showModal && (
+        <TireModal
+          userId={userId}
+          tire={editTire}
+          onClose={() => { setShowModal(false); setEditTire(null) }}
+          onSaved={handleSaved}
+        />
+      )}
+    </>
+  )
+}
+
+/* ===== TIRE MODAL ===== */
+function TireModal({ userId, tire, onClose, onSaved }) {
+  const [brand, setBrand] = useState(tire?.brand || '')
+  const [model, setModel] = useState(tire?.model || '')
+  const [position, setPosition] = useState(tire?.position || 'front_left')
+  const [installedAt, setInstalledAt] = useState(tire?.installed_at?.slice(0, 10) || new Date().toISOString().slice(0, 10))
+  const [installedOdometer, setInstalledOdometer] = useState(tire?.installed_odometer?.toString() || '')
+  const [condition, setCondition] = useState(tire?.condition || 'new')
+  const [cost, setCost] = useState(tire?.cost?.toString() || '')
+  const [notes, setNotes] = useState(tire?.notes || '')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!brand.trim()) return
+    setSaving(true)
+    try {
+      const entry = {
+        vehicle_id: null,
+        brand: brand.trim(),
+        model: model.trim(),
+        position,
+        installed_at: installedAt,
+        installed_odometer: installedOdometer,
+        condition,
+        cost: cost || '0',
+        notes: notes.trim(),
+      }
+      if (tire) {
+        await updateTireRecord(tire.id, entry)
+      } else {
+        await addTireRecord(entry)
+      }
+      onSaved()
+    } catch (err) {
+      console.error('saveTire error:', err)
+      alert('\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', borderRadius: '10px',
+    border: '1px solid var(--border)', background: 'var(--bg)',
+    color: 'var(--text)', fontSize: '14px', boxSizing: 'border-box',
+  }
+
+  const labelStyle = { color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, zIndex: 9998,
+      background: 'rgba(0,0,0,0.7)',
+      display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
+    }}>
+      <div style={{
+        width: '100%', maxWidth: '480px',
+        background: 'var(--card)',
+        borderRadius: '20px 20px 0 0',
+        padding: '24px 20px',
+        maxHeight: '85vh',
+        overflowY: 'auto',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>
+            {tire ? '\u270F\uFE0F \u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0448\u0438\u043D\u0443' : '\uD83D\uDEDE \u041D\u043E\u0432\u0430\u044F \u0448\u0438\u043D\u0430'}
+          </div>
+          <button onClick={onClose} style={{
+            background: 'none', border: 'none', color: 'var(--dim)',
+            fontSize: '22px', cursor: 'pointer', padding: '4px',
+          }}>{'\u2715'}</button>
+        </div>
+
+        {/* Brand */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430 \u0448\u0438\u043D\u044B *'}</div>
+          <input
+            type="text"
+            value={brand}
+            onChange={e => setBrand(e.target.value)}
+            placeholder="Michelin, Continental, Bridgestone..."
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Model */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+          <input
+            type="text"
+            value={model}
+            onChange={e => setModel(e.target.value)}
+            placeholder="X Line Energy, EcoPlus..."
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Position */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{'\u041F\u043E\u0437\u0438\u0446\u0438\u044F'}</div>
+          <select value={position} onChange={e => setPosition(e.target.value)} style={inputStyle}>
+            {TIRE_POSITIONS.map(p => (
+              <option key={p.key} value={p.key}>{p.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Installed date */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{'\u0414\u0430\u0442\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0438'}</div>
+          <input type="date" value={installedAt} onChange={e => setInstalledAt(e.target.value)} style={inputStyle} />
+        </div>
+
+        {/* Installed odometer */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{'\u041F\u0440\u043E\u0431\u0435\u0433 \u043F\u0440\u0438 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0435 (\u043A\u043C)'}</div>
+          <input
+            type="number"
+            value={installedOdometer}
+            onChange={e => setInstalledOdometer(e.target.value)}
+            placeholder="0"
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Condition */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{'\u0421\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435'}</div>
+          <select value={condition} onChange={e => setCondition(e.target.value)} style={inputStyle}>
+            {TIRE_CONDITIONS.map(c => (
+              <option key={c.key} value={c.key}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Cost */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{'\u0421\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+          <input
+            type="number"
+            value={cost}
+            onChange={e => setCost(e.target.value)}
+            placeholder="0"
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Notes */}
+        <div style={{ marginBottom: '16px' }}>
+          <div style={labelStyle}>{'\u0417\u0430\u043C\u0435\u0442\u043A\u0438 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+          <input
+            type="text"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u043A\u0443\u043F\u043B\u0435\u043D\u0430 \u0432 \u0410\u0432\u0442\u043E\u0414\u043E\u043A'}
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Save button */}
+        <button
+          onClick={handleSave}
+          disabled={!brand.trim() || saving}
+          style={{
+            width: '100%', padding: '14px', borderRadius: '12px',
+            border: 'none',
+            background: !brand.trim() ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: !brand.trim() ? 'var(--dim)' : '#000',
+            fontSize: '15px', fontWeight: 700,
+            cursor: !brand.trim() ? 'default' : 'pointer',
+          }}
+        >
+          {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+        </button>
+      </div>
+    </div>
   )
 }
 

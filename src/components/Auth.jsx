@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { hashPin } from './PinLock'
 
 const COUNTRIES = [
   // \u0421\u041d\u0413
@@ -668,12 +669,13 @@ function PinScreen({ onNext }) {
   const [pin2, setPin2] = useState('')
   const [shake, setShake] = useState(false)
   const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
 
   const currentPin = pinStep === 1 ? pin1 : pin2
   const setCurrentPin = pinStep === 1 ? setPin1 : setPin2
 
-  const handleDigit = (d) => {
-    if (currentPin.length >= 4) return
+  const handleDigit = async (d) => {
+    if (currentPin.length >= 4 || saving) return
     const next = currentPin + d
     setCurrentPin(next)
     setError('')
@@ -683,6 +685,17 @@ function PinScreen({ onNext }) {
         setTimeout(() => setPinStep(2), 300)
       } else {
         if (next === pin1) {
+          setSaving(true)
+          try {
+            const h = await hashPin(next)
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+              await supabase.from('profiles').update({ pin_hash: h }).eq('id', user.id)
+            }
+          } catch (e) {
+            console.error('Failed to save PIN hash:', e)
+          }
+          setSaving(false)
           setTimeout(() => onNext(), 300)
         } else {
           setShake(true)

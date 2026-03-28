@@ -9,6 +9,7 @@ import Trips from './tabs/Trips'
 import Service from './tabs/Service'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
+import PinLock from './components/PinLock'
 import FAB from './components/FAB'
 import AddModal from './components/AddModal'
 import ProfileScreen from './components/ProfileScreen'
@@ -27,6 +28,7 @@ function AppInner() {
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
   const [showProfile, setShowProfile] = useState(false)
   const [activeVehicleId, setActiveVehicleId] = useState('main')
+  const [pinUnlocked, setPinUnlocked] = useState(false)
 
   const handleFuelSaved = useCallback(() => {
     setFuelRefreshKey((k) => k + 1)
@@ -62,6 +64,17 @@ function AppInner() {
 
   if (!profile) {
     return <Auth onComplete={() => refetchProfile()} onboardingOnly />
+  }
+
+  if (profile.pin_hash && !pinUnlocked) {
+    return (
+      <PinLock
+        userId={userId}
+        pinHash={profile.pin_hash}
+        phone={session?.user?.phone || profile.phone || ''}
+        onUnlock={() => setPinUnlocked(true)}
+      />
+    )
   }
 
   if (showProfile) {

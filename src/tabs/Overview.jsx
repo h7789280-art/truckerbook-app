@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, startDrivingSession, endDrivingSession } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, startDrivingSession, endDrivingSession } from '../lib/api'
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -63,6 +63,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
   const [shiftPeriod, setShiftPeriod] = useState('week')
   const [shiftStats, setShiftStats] = useState({ count: 0, totalKm: 0, totalHours: 0 })
   const [shiftHistory, setShiftHistory] = useState([])
+  const [todaySummary, setTodaySummary] = useState(null)
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -181,12 +182,14 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
   const loadShiftAnalytics = useCallback(async () => {
     if (!userId) return
     try {
-      const [stats, history] = await Promise.all([
+      const [stats, history, today] = await Promise.all([
         getShiftStats(userId, shiftPeriod),
         getCompletedShifts(userId, 10),
+        getTodayShiftSummary(userId),
       ])
       setShiftStats(stats)
       setShiftHistory(history)
+      setTodaySummary(today)
     } catch (err) {
       console.error('loadShiftAnalytics error:', err)
     }
@@ -503,6 +506,29 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
           </button>
         )}
       </div>
+
+      {/* Today shift summary banner */}
+      {todaySummary && (
+        <div style={{
+          background: theme.card2,
+          border: '1px solid ' + theme.border,
+          borderRadius: '10px',
+          padding: '10px 14px',
+          marginBottom: '12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontSize: '13px',
+          color: theme.dim,
+        }}>
+          <span>{'\ud83d\ude9b'}</span>
+          <span>
+            {'\u0421\u0435\u0433\u043e\u0434\u043d\u044f: '}{todaySummary.count}{' '}{todaySummary.count === 1 ? '\u0441\u043c\u0435\u043d\u0430' : todaySummary.count < 5 ? '\u0441\u043c\u0435\u043d\u044b' : '\u0441\u043c\u0435\u043d'}
+            {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' \u043a\u043c'}
+            {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{'\u0447 '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{'\u043c\u0438\u043d'}
+          </span>
+        </div>
+      )}
 
       {/* Shift modal */}
       {shiftModal && (

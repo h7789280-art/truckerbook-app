@@ -284,6 +284,29 @@ export async function getCompletedShifts(userId, limit = 10) {
   return data || []
 }
 
+export async function getTodayShiftSummary(userId) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('status', 'completed')
+    .gte('started_at', today.toISOString())
+  if (error) throw error
+  const shifts = data || []
+  if (shifts.length === 0) return null
+  let totalKm = 0
+  let totalMinutes = 0
+  shifts.forEach(s => {
+    totalKm += s.km_driven || 0
+    if (s.started_at && s.ended_at) {
+      totalMinutes += Math.round((new Date(s.ended_at) - new Date(s.started_at)) / 60000)
+    }
+  })
+  return { count: shifts.length, totalKm, totalMinutes }
+}
+
 export async function getShiftStats(userId, period) {
   const now = new Date()
   let since

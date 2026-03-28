@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 const SUB_TABS = [
   { key: 'service', label: '\uD83D\uDD27 \u0421\u0435\u0440\u0432\u0438\u0441' },
@@ -90,7 +91,7 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service() {
+export default function Service({ onLogout }) {
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
   const [mapFilter, setMapFilter] = useState('all')
@@ -156,6 +157,9 @@ export default function Service() {
         />
       )}
       {activeTab === 'docs' && <DocsTab />}
+
+      {/* Logout button */}
+      <LogoutButton onLogout={onLogout} />
     </div>
   )
 }
@@ -471,6 +475,52 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
         </div>
       </div>
     </>
+  )
+}
+
+/* ===== LOGOUT BUTTON ===== */
+function LogoutButton({ onLogout }) {
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        alert(error.message)
+      } else if (onLogout) {
+        onLogout()
+      }
+    } catch (err) {
+      alert(String(err))
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
+  return (
+    <button
+      onClick={handleLogout}
+      disabled={loggingOut}
+      style={{
+        width: '100%',
+        padding: '14px',
+        borderRadius: '12px',
+        border: '1px solid #ef4444',
+        background: '#ef444415',
+        color: '#ef4444',
+        fontSize: '16px',
+        fontWeight: 600,
+        cursor: loggingOut ? 'not-allowed' : 'pointer',
+        opacity: loggingOut ? 0.5 : 1,
+        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+        marginTop: '24px',
+      }}
+    >
+      {loggingOut
+        ? '\u0412\u044B\u0445\u043E\u0434...'
+        : '\u0412\u044B\u0439\u0442\u0438 \u0438\u0437 \u0430\u043A\u043A\u0430\u0443\u043D\u0442\u0430'}
+    </button>
   )
 }
 

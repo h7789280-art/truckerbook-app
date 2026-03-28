@@ -42,7 +42,7 @@ const reminders = [
   { icon: '\ud83d\udd27', text: '\u0422\u041e', sub: '\u0447\u0435\u0440\u0435\u0437 7 700 \u043a\u043c' },
 ]
 
-export default function Overview({ userName }) {
+export default function Overview({ userName, onOpenProfile }) {
   const { theme, mode, setMode } = useTheme()
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -87,8 +87,23 @@ export default function Overview({ userName }) {
   return (
     <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
       {/* Greeting */}
-      <div style={{ fontSize: '20px', fontWeight: 600, marginBottom: '12px' }}>
-        {greeting.icon} {greeting.text}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+        <div style={{ fontSize: '20px', fontWeight: 600 }}>
+          {greeting.icon} {greeting.text}
+        </div>
+        {onOpenProfile && (
+          <button
+            onClick={onOpenProfile}
+            style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '22px',
+              padding: '4px',
+              lineHeight: 1,
+            }}
+          >{'\u2699\ufe0f'}</button>
+        )}
       </div>
 
       {/* Theme switcher */}

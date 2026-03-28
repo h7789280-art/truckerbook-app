@@ -11,6 +11,7 @@ import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import FAB from './components/FAB'
 import AddModal from './components/AddModal'
+import ProfileScreen from './components/ProfileScreen'
 
 function AppInner() {
   const { session, loading: authLoading } = useAuth()
@@ -22,6 +23,7 @@ function AppInner() {
   const [fuelRefreshKey, setFuelRefreshKey] = useState(0)
   const [tripsRefreshKey, setTripsRefreshKey] = useState(0)
   const [bytRefreshKey, setBytRefreshKey] = useState(0)
+  const [showProfile, setShowProfile] = useState(false)
 
   const handleFuelSaved = useCallback(() => {
     setFuelRefreshKey((k) => k + 1)
@@ -51,6 +53,28 @@ function AppInner() {
     return <Auth onComplete={() => {}} />
   }
 
+  if (showProfile) {
+    return (
+      <div
+        style={{
+          maxWidth: 480,
+          margin: '0 auto',
+          minHeight: '100vh',
+          background: theme.bg,
+          color: theme.text,
+          fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+        }}
+      >
+        <ProfileScreen
+          userId={userId}
+          profile={profile}
+          onBack={() => setShowProfile(false)}
+          onLogout={() => setShowProfile(false)}
+        />
+      </div>
+    )
+  }
+
   const userName = profile?.name || profile?.first_name || null
 
   const renderTab = () => {
@@ -62,9 +86,9 @@ function AppInner() {
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} />
       case 'service':
-        return <Service />
+        return <Service onLogout={() => {}} />
       default:
-        return <Overview userName={userName} />
+        return <Overview userName={userName} onOpenProfile={() => setShowProfile(true)} />
     }
   }
 

@@ -90,9 +90,9 @@ function AppInner() {
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} />
       case 'service':
-        return <Service />
+        return <Service userId={userId} />
       default:
-        return <Overview userName={userName} onOpenProfile={() => setShowProfile(true)} />
+        return <Overview userName={userName} userId={userId} onOpenProfile={() => setShowProfile(true)} />
     }
   }
 

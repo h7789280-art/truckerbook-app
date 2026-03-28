@@ -1,22 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { fetchServiceRecords, fetchInsurance, fetchRouteNotes } from '../lib/api'
+import { supabase } from '../lib/supabase'
 
 const SUB_TABS = [
   { key: 'service', label: '\uD83D\uDD27 \u0421\u0435\u0440\u0432\u0438\u0441' },
   { key: 'checklist', label: '\u2705 \u0427\u0435\u043A-\u043B\u0438\u0441\u0442' },
   { key: 'map', label: '\uD83D\uDDFA \u041A\u0430\u0440\u0442\u0430' },
   { key: 'docs', label: '\uD83D\uDCC4 \u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u044B' },
-]
-
-const REPAIRS = [
-  { name: '\u0417\u0430\u043C\u0435\u043D\u0430 \u043C\u0430\u0441\u043B\u0430 + \u0444\u0438\u043B\u044C\u0442\u0440', cost: 12500, date: '2026-03-10', km: 441000, place: '\u0421\u0422\u041E \u0414\u0430\u043B\u044C\u043D\u043E\u0431\u043E\u0439', icon: '\uD83D\uDEE2' },
-  { name: '\u0422\u043E\u0440\u043C\u043E\u0437\u043D\u044B\u0435 \u043A\u043E\u043B\u043E\u0434\u043A\u0438', cost: 28000, date: '2026-02-18', km: 435200, place: '\u0421\u0422\u041E \u041C\u0430\u0433\u0438\u0441\u0442\u0440\u0430\u043B\u044C', icon: '\uD83D\uDEA8' },
-  { name: '4 \u0448\u0438\u043D\u044B Michelin', cost: 64000, date: '2026-01-25', km: 428000, place: 'TyreMax', icon: '\u26AA' },
-  { name: '\u0413\u0435\u043D\u0435\u0440\u0430\u0442\u043E\u0440', cost: 35000, date: '2025-12-14', km: 419500, place: '\u0410\u0432\u0442\u043E\u044D\u043B\u0435\u043A\u0442\u0440\u0438\u043A', icon: '\u26A1' },
-]
-
-const INSURANCE = [
-  { type: '\u041E\u0421\u0410\u0413\u041E', company: '\u0420\u0415\u0421\u041E-\u0413\u0430\u0440\u0430\u043D\u0442\u0438\u044F', cost: 18500, from: '2026-01-15', to: '2027-01-14', daysLeft: 294, color: '#22c55e' },
-  { type: '\u041A\u0410\u0421\u041A\u041E', company: '\u0418\u043D\u0433\u043E\u0441\u0441\u0442\u0440\u0430\u0445', cost: 95000, from: '2026-02-01', to: '2027-01-31', daysLeft: 311, color: '#3b82f6' },
 ]
 
 const CHECKLIST_SECTIONS = [
@@ -66,14 +56,6 @@ const MAP_FILTERS = [
   { key: 'food', label: '\uD83C\uDF7D' },
 ]
 
-const MAP_NOTES = [
-  { type: 'fuel', icon: '\u26FD\uFE0F', name: '\u041B\u0443\u043A\u043E\u0439\u043B \u041C7 \u043A\u043C 342', desc: '\u0414\u0438\u0437\u0435\u043B\u044C 56.20 \u20BD/\u043B, \u0435\u0441\u0442\u044C AdBlue', rating: 4 },
-  { type: 'sto', icon: '\uD83D\uDD27', name: '\u0421\u0422\u041E \u0414\u0430\u043B\u044C\u043D\u043E\u0431\u043E\u0439', desc: '\u0411\u044B\u0441\u0442\u0440\u044B\u0439 \u0440\u0435\u043C\u043E\u043D\u0442, \u0430\u0434\u0435\u043A\u0432\u0430\u0442\u043D\u044B\u0435 \u0446\u0435\u043D\u044B', rating: 5 },
-  { type: 'parking', icon: '\uD83C\uDD7F\uFE0F', name: '\u0421\u0442\u043E\u044F\u043D\u043A\u0430 \u0422\u0440\u0430\u043D\u0437\u0438\u0442', desc: '\u041E\u0445\u0440\u0430\u043D\u044F\u0435\u043C\u0430\u044F, 200 \u20BD/\u043D\u043E\u0447\u044C, \u0434\u0443\u0448', rating: 4 },
-  { type: 'food', icon: '\uD83C\uDF7D', name: '\u041A\u0430\u0444\u0435 \u0423 \u041F\u0435\u0442\u0440\u043E\u0432\u0438\u0447\u0430', desc: '\u0414\u043E\u043C\u0430\u0448\u043D\u044F\u044F \u0435\u0434\u0430, \u043A\u043E\u043C\u043F\u043B\u0435\u043A\u0441 350 \u20BD', rating: 5 },
-  { type: 'fuel', icon: '\u26FD\uFE0F', name: 'BP \u0422\u0440\u0430\u0441\u0441\u0430 \u0414\u043E\u043D', desc: '\u041A\u0430\u0447\u0435\u0441\u0442\u0432\u0435\u043D\u043D\u043E\u0435 \u0442\u043E\u043F\u043B\u0438\u0432\u043E, \u0434\u043E\u0440\u043E\u0433\u043E', rating: 3 },
-]
-
 const DOCUMENTS = [
   { key: 'license', icon: '\uD83D\uDCB3', label: '\u041F\u0440\u0430\u0432\u0430' },
   { key: 'sts', icon: '\uD83D\uDE9A', label: '\u0421\u0422\u0421' },
@@ -90,10 +72,46 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service() {
+export default function Service({ userId }) {
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
   const [mapFilter, setMapFilter] = useState('all')
+  const [repairs, setRepairs] = useState([])
+  const [insurance, setInsurance] = useState([])
+  const [routeNotes, setRouteNotes] = useState([])
+  const [odometer, setOdometer] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const loadData = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoading(true)
+      const [serviceRecs, insuranceRecs, notes] = await Promise.all([
+        fetchServiceRecords(userId).catch(() => []),
+        fetchInsurance(userId).catch(() => []),
+        fetchRouteNotes(userId).catch(() => []),
+      ])
+      setRepairs(serviceRecs)
+      setInsurance(insuranceRecs)
+      setRouteNotes(notes)
+
+      // Get odometer from profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('odometer')
+        .eq('id', userId)
+        .single()
+      if (profile?.odometer) setOdometer(profile.odometer)
+    } catch (err) {
+      console.error('Service loadData error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   const toggleCheck = (sectionKey, idx) => {
     const key = `${sectionKey}_${idx}`
@@ -109,8 +127,8 @@ export default function Service() {
   }
 
   const filteredNotes = mapFilter === 'all'
-    ? MAP_NOTES
-    : MAP_NOTES.filter(n => n.type === mapFilter)
+    ? routeNotes
+    : routeNotes.filter(n => n.type === mapFilter)
 
   return (
     <div style={{ padding: '16px', minHeight: '100vh', backgroundColor: 'var(--bg)', paddingBottom: '80px' }}>
@@ -140,7 +158,7 @@ export default function Service() {
         ))}
       </div>
 
-      {activeTab === 'service' && <ServiceTab />}
+      {activeTab === 'service' && <ServiceTab repairs={repairs} insurance={insurance} odometer={odometer} loading={loading} />}
       {activeTab === 'checklist' && (
         <ChecklistTab
           checkedItems={checkedItems}
@@ -153,6 +171,8 @@ export default function Service() {
           mapFilter={mapFilter}
           setMapFilter={setMapFilter}
           filteredNotes={filteredNotes}
+          totalNotes={routeNotes.length}
+          loading={loading}
         />
       )}
       {activeTab === 'docs' && <DocsTab />}
@@ -161,8 +181,17 @@ export default function Service() {
 }
 
 /* ===== SERVICE TAB ===== */
-function ServiceTab() {
-  const totalRepair = REPAIRS.reduce((s, r) => s + r.cost, 0)
+function ServiceTab({ repairs, insurance, odometer, loading }) {
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+        {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+      </div>
+    )
+  }
+
+  const totalRepair = repairs.reduce((s, r) => s + (r.cost || 0), 0)
+  const today = new Date()
 
   return (
     <>
@@ -177,28 +206,7 @@ function ServiceTab() {
         <div style={{ ...cardStyle, textAlign: 'center' }}>
           <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u041E\u0434\u043E\u043C\u0435\u0442\u0440'}</div>
           <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
-            452 300 {'\u043A\u043C'}
-          </div>
-        </div>
-      </div>
-
-      {/* Oil banner */}
-      <div style={{
-        ...cardStyle,
-        background: '#f59e0b15',
-        border: '1px solid #f59e0b40',
-        marginBottom: '16px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '10px',
-      }}>
-        <span style={{ fontSize: '24px' }}>{'\uD83D\uDEE2'}</span>
-        <div>
-          <div style={{ fontSize: '14px', fontWeight: 600, color: '#f59e0b' }}>
-            {'\u0421\u043B\u0435\u0434\u0443\u044E\u0449\u0435\u0435 \u043C\u0430\u0441\u043B\u043E \u0447\u0435\u0440\u0435\u0437 3 700 \u043A\u043C'}
-          </div>
-          <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
-            {'\u041F\u043E\u0441\u043B\u0435\u0434\u043D\u044F\u044F \u0437\u0430\u043C\u0435\u043D\u0430: 441 000 \u043A\u043C \u00B7 \u0418\u043D\u0442\u0435\u0440\u0432\u0430\u043B 15 000 \u043A\u043C'}
+            {odometer ? odometer.toLocaleString('ru-RU') : '\u2014'} {'\u043A\u043C'}
           </div>
         </div>
       </div>
@@ -207,79 +215,97 @@ function ServiceTab() {
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
         {'\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0440\u0435\u043C\u043E\u043D\u0442\u043E\u0432'}
       </div>
-      <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
-        {REPAIRS.map((r, i) => (
-          <div
-            key={i}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '14px 16px',
-              borderTop: i > 0 ? '1px solid var(--border)' : 'none',
-            }}
-          >
-            <div style={{
-              width: '40px', height: '40px', backgroundColor: 'var(--card2)',
-              borderRadius: '10px', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: '20px', flexShrink: 0,
-            }}>
-              {r.icon}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {r.name}
+      {repairs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
+          {'\u041D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043E \u0440\u0435\u043C\u043E\u043D\u0442\u0435'}
+        </div>
+      ) : (
+        <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
+          {repairs.map((r, i) => (
+            <div
+              key={r.id || i}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px 16px',
+                borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+              }}
+            >
+              <div style={{
+                width: '40px', height: '40px', backgroundColor: 'var(--card2)',
+                borderRadius: '10px', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '20px', flexShrink: 0,
+              }}>
+                {'\uD83D\uDD27'}
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
-                {r.date} &middot; {r.km.toLocaleString('ru-RU')} {'\u043A\u043C'} &middot; {r.place}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {r.description || r.name || '\u0420\u0435\u043C\u043E\u043D\u0442'}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
+                  {r.date || ''} {r.odometer ? `\u00b7 ${r.odometer.toLocaleString('ru-RU')} \u043A\u043C` : ''} {r.place ? `\u00b7 ${r.place}` : ''}
+                </div>
+              </div>
+              <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
+                {(r.cost || 0).toLocaleString('ru-RU')} {'\u20BD'}
               </div>
             </div>
-            <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
-              {r.cost.toLocaleString('ru-RU')} {'\u20BD'}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Insurance */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
         {'\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0438'}
       </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {INSURANCE.map((ins, i) => (
-          <div key={i} style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{
-                  width: '36px', height: '36px', backgroundColor: `${ins.color}20`,
-                  borderRadius: '10px', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: '16px', flexShrink: 0,
-                }}>
-                  {ins.type === '\u041E\u0421\u0410\u0413\u041E' ? '\uD83D\uDEE1' : '\uD83D\uDD12'}
+      {insurance.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
+          {'\u041D\u0435\u0442 \u0441\u0442\u0440\u0430\u0445\u043E\u0432\u043E\u043A'}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {insurance.map((ins, i) => {
+            const daysLeft = ins.date_to ? Math.ceil((new Date(ins.date_to) - today) / (1000 * 60 * 60 * 24)) : null
+            const insColor = daysLeft !== null && daysLeft < 30 ? '#ef4444' : '#22c55e'
+            return (
+              <div key={ins.id || i} style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '36px', height: '36px', backgroundColor: `${insColor}20`,
+                      borderRadius: '10px', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '16px', flexShrink: 0,
+                    }}>
+                      {'\uD83D\uDEE1'}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{ins.type || '\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430'}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--dim)' }}>{ins.company || ''}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
+                    {(ins.cost || 0).toLocaleString('ru-RU')} {'\u20BD'}
+                  </div>
                 </div>
-                <div>
-                  <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{ins.type}</div>
-                  <div style={{ fontSize: '12px', color: 'var(--dim)' }}>{ins.company}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+                    {ins.date_from || ''} {'\u2014'} {ins.date_to || ''}
+                  </div>
+                  {daysLeft !== null && (
+                    <div style={{
+                      fontSize: '12px', fontWeight: 600, color: insColor,
+                      background: `${insColor}15`, padding: '2px 8px', borderRadius: '8px',
+                    }}>
+                      {daysLeft > 0 ? `${daysLeft} \u0434\u043D` : '\u0418\u0441\u0442\u0435\u043A\u043B\u0430'}
+                    </div>
+                  )}
                 </div>
               </div>
-              <div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
-                {ins.cost.toLocaleString('ru-RU')} {'\u20BD'}
-              </div>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
-                {ins.from} &mdash; {ins.to}
-              </div>
-              <div style={{
-                fontSize: '12px', fontWeight: 600, color: ins.color,
-                background: `${ins.color}15`, padding: '2px 8px', borderRadius: '8px',
-              }}>
-                {ins.daysLeft} {'\u0434\u043D'}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+            )
+          })}
+        </div>
+      )}
     </>
   )
 }
@@ -376,7 +402,9 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
 }
 
 /* ===== MAP TAB ===== */
-function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
+function MapTab({ mapFilter, setMapFilter, filteredNotes, totalNotes, loading }) {
+  const TYPE_ICONS = { fuel: '\u26FD\uFE0F', sto: '\uD83D\uDD27', parking: '\uD83C\uDD7F\uFE0F', food: '\uD83C\uDF7D' }
+
   return (
     <>
       {/* Map placeholder */}
@@ -422,41 +450,53 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
       </div>
 
       {/* Notes list */}
-      <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
-        {filteredNotes.map((note, i) => (
-          <div
-            key={i}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '12px',
-              padding: '14px 16px',
-              borderTop: i > 0 ? '1px solid var(--border)' : 'none',
-            }}
-          >
-            <div style={{
-              width: '40px', height: '40px', backgroundColor: 'var(--card2)',
-              borderRadius: '10px', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: '20px', flexShrink: 0,
-            }}>
-              {note.icon}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {note.name}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+        </div>
+      ) : filteredNotes.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
+          {'\u041D\u0435\u0442 \u0437\u0430\u043C\u0435\u0442\u043E\u043A'}
+        </div>
+      ) : (
+        <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
+          {filteredNotes.map((note, i) => (
+            <div
+              key={note.id || i}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '14px 16px',
+                borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+              }}
+            >
+              <div style={{
+                width: '40px', height: '40px', backgroundColor: 'var(--card2)',
+                borderRadius: '10px', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: '20px', flexShrink: 0,
+              }}>
+                {TYPE_ICONS[note.type] || '\uD83D\uDCCD'}
               </div>
-              <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
-                {note.desc}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {note.name || note.title || '\u0417\u0430\u043C\u0435\u0442\u043A\u0430'}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
+                  {note.description || note.desc || ''}
+                </div>
               </div>
+              {note.rating && (
+                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                  {[1, 2, 3, 4, 5].map(s => (
+                    <span key={s} style={{ fontSize: '12px', color: s <= note.rating ? '#f59e0b' : 'var(--border)' }}>
+                      {'\u2605'}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-              {[1, 2, 3, 4, 5].map(s => (
-                <span key={s} style={{ fontSize: '12px', color: s <= note.rating ? '#f59e0b' : 'var(--border)' }}>
-                  {'\u2605'}
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Stats banner */}
       <div style={{
@@ -465,9 +505,9 @@ function MapTab({ mapFilter, setMapFilter, filteredNotes }) {
         border: '1px solid #f59e0b30',
         textAlign: 'center',
       }}>
-        <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'monospace', color: '#f59e0b' }}>4 827</div>
+        <div style={{ fontSize: '28px', fontWeight: 700, fontFamily: 'monospace', color: '#f59e0b' }}>{totalNotes}</div>
         <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
-          {'\u043F\u0440\u043E\u0432\u0435\u0440\u0435\u043D\u043D\u044B\u0445 \u0442\u043E\u0447\u0435\u043A \u043E\u0442 \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u0435\u0439'}
+          {'\u0432\u0430\u0448\u0438\u0445 \u0437\u0430\u043C\u0435\u0442\u043E\u043A'}
         </div>
       </div>
     </>

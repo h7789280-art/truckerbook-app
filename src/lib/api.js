@@ -138,3 +138,39 @@ export async function deleteBytExpense(id) {
     .eq('id', id)
   if (error) throw error
 }
+
+// --- Service records ---
+
+export async function fetchServiceRecords(userId) {
+  const { data, error } = await supabase
+    .from('service_records')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+// --- Insurance ---
+
+export async function fetchInsurance(userId) {
+  const { data, error } = await supabase
+    .from('insurance')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date_to', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+// --- Route notes ---
+
+export async function fetchRouteNotes(userId) {
+  const { data, error } = await supabase
+    .from('route_notes')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}

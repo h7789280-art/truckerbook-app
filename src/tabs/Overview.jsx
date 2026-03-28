@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useTheme } from '../lib/theme'
+import { supabase } from '../lib/supabase'
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -46,6 +47,20 @@ export default function Overview({ userName }) {
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const intervalRef = useRef(null)
+  const [profileName, setProfileName] = useState(userName || null)
+
+  useEffect(() => {
+    if (userName) { setProfileName(userName); return }
+    let cancelled = false
+    supabase.auth.getUser().then(({ data }) => {
+      if (cancelled || !data?.user) return
+      supabase.from('profiles').select('name').eq('id', data.user.id).single()
+        .then(({ data: profile }) => {
+          if (!cancelled && profile?.name) setProfileName(profile.name)
+        })
+    })
+    return () => { cancelled = true }
+  }, [userName])
 
   useEffect(() => {
     if (timerRunning) {
@@ -58,7 +73,7 @@ export default function Overview({ userName }) {
     return () => clearInterval(intervalRef.current)
   }, [timerRunning])
 
-  const greeting = getGreeting(userName)
+  const greeting = getGreeting(profileName)
 
   const cardStyle = {
     background: theme.card,
@@ -156,16 +171,16 @@ export default function Overview({ userName }) {
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
           <div>
             <div style={dimText}>{'\u0414\u043e\u0445\u043e\u0434'}</div>
-            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>263 000 \u20bd</div>
+            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>{'263 000 \u20bd'}</div>
           </div>
           <div style={{ textAlign: 'right' }}>
             <div style={dimText}>{'\u0420\u0430\u0441\u0445\u043e\u0434'}</div>
-            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>253 104 \u20bd</div>
+            <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>{'253 104 \u20bd'}</div>
           </div>
         </div>
         <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
           <div style={dimText}>{'\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c'}</div>
-          <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>+9 896 \u20bd</div>
+          <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>{'+9 896 \u20bd'}</div>
         </div>
       </div>
 

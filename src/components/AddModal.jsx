@@ -320,7 +320,7 @@ export default function AddModal({ isOpen, onClose, userId, onFuelSaved, onTripS
               key={t.key}
               onClick={() => {
                 setRecordType(t.key)
-                setForm({})
+                setForm(t.key === 'byt' ? { category: 'food' } : {})
               }}
               style={{
                 padding: '8px 14px',

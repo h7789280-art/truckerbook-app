@@ -1,19 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-
-const BRANDS = {
-  'Volvo': ['FH', 'FH16', 'FM', 'FMX', 'FE', 'FL'],
-  'MAN': ['TGX', 'TGS', 'TGM', 'TGL'],
-  'DAF': ['XF', 'XG', 'XG+', 'CF', 'LF'],
-  'Scania': ['R', 'S', 'G', 'P', 'L'],
-  'Mercedes-Benz': ['Actros', 'Arocs', 'Atego', 'Antos', 'Econic'],
-  'Renault': ['T', 'T High', 'C', 'D', 'D Wide', 'K'],
-  'Iveco': ['S-Way', 'X-Way', 'T-Way', 'Eurocargo', 'Daily'],
-  '\u041a\u0430\u043c\u0410\u0417': ['5490', '54901', '65115', '6520', '43118'],
-  '\u041c\u0410\u0417': ['5440', '6430', '6501', '5550'],
-  '\u0413\u0410\u0417': ['3309', '3310', '33104', '33106'],
-}
+import BrandComboBox from './BrandComboBox'
 
 const FUEL_TYPES = [
   { value: 'diesel', label: '\u0414\u0438\u0437\u0435\u043B\u044C' },
@@ -292,8 +280,6 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     }
   }
 
-  const mainBrandModels = mainForm.brand && BRANDS[mainForm.brand] ? BRANDS[mainForm.brand] : []
-  const vehBrandModels = vehicleForm.brand && BRANDS[vehicleForm.brand] ? BRANDS[vehicleForm.brand] : []
 
   const cardStyle = {
     background: theme.card,
@@ -337,7 +323,6 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     display: 'block',
   }
 
-  const brandModels = formData.brand && BRANDS[formData.brand] ? BRANDS[formData.brand] : []
 
   return (
     <div style={{
@@ -450,39 +435,26 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div>
               <label style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430'}</label>
-              <select
+              <BrandComboBox
                 value={mainForm.brand}
-                onChange={(e) => setMainForm({ ...mainForm, brand: e.target.value, model: '' })}
-                style={inputStyle}
-              >
-                <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0443'}</option>
-                {Object.keys(BRANDS).map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
+                onChange={(v) => setMainForm({ ...mainForm, brand: v })}
+                inputStyle={inputStyle}
+                dropdownBg={theme.card}
+                dropdownBorder={theme.border}
+                textColor={theme.text}
+                dimColor={theme.dim}
+                hoverBg={theme.card2 || theme.card}
+              />
             </div>
             <div>
               <label style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C'}</label>
-              {mainBrandModels.length > 0 ? (
-                <select
-                  value={mainForm.model}
-                  onChange={(e) => setMainForm({ ...mainForm, model: e.target.value })}
-                  style={inputStyle}
-                >
-                  <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}</option>
-                  {mainBrandModels.map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
-                </select>
-              ) : (
-                <input
-                  type="text"
-                  value={mainForm.model}
-                  onChange={(e) => setMainForm({ ...mainForm, model: e.target.value })}
-                  placeholder={'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}
-                  style={inputStyle}
-                />
-              )}
+              <input
+                type="text"
+                value={mainForm.model}
+                onChange={(e) => setMainForm({ ...mainForm, model: e.target.value })}
+                placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: FH, Actros, 5490'}
+                style={inputStyle}
+              />
             </div>
             <div>
               <label style={labelStyle}>{'\u041F\u0440\u043E\u0431\u0435\u0433 (\u043A\u043C)'}</label>
@@ -700,39 +672,26 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div>
                     <label style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430'}</label>
-                    <select
+                    <BrandComboBox
                       value={vehicleForm.brand}
-                      onChange={(e) => setVehicleForm({ ...vehicleForm, brand: e.target.value, model: '' })}
-                      style={inputStyle}
-                    >
-                      <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0443'}</option>
-                      {Object.keys(BRANDS).map((b) => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setVehicleForm({ ...vehicleForm, brand: v })}
+                      inputStyle={inputStyle}
+                      dropdownBg={theme.card}
+                      dropdownBorder={theme.border}
+                      textColor={theme.text}
+                      dimColor={theme.dim}
+                      hoverBg={theme.card2 || theme.card}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C'}</label>
-                    {vehBrandModels.length > 0 ? (
-                      <select
-                        value={vehicleForm.model}
-                        onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
-                        style={inputStyle}
-                      >
-                        <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}</option>
-                        {vehBrandModels.map((m) => (
-                          <option key={m} value={m}>{m}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={vehicleForm.model}
-                        onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
-                        placeholder={'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}
-                        style={inputStyle}
-                      />
-                    )}
+                    <input
+                      type="text"
+                      value={vehicleForm.model}
+                      onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
+                      placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: FH, Actros, 5490'}
+                      style={inputStyle}
+                    />
                   </div>
                   <div>
                     <label style={labelStyle}>{'\u0413\u043E\u0434 \u0432\u044B\u043F\u0443\u0441\u043A\u0430'}</label>
@@ -1045,16 +1004,16 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                 <label style={labelStyle}>
                   {'\u041C\u0430\u0440\u043A\u0430 *'}
                 </label>
-                <select
+                <BrandComboBox
                   value={formData.brand}
-                  onChange={(e) => setFormData({ ...formData, brand: e.target.value, model: '' })}
-                  style={inputStyle}
-                >
-                  <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u0430\u0440\u043A\u0443'}</option>
-                  {Object.keys(BRANDS).map((b) => (
-                    <option key={b} value={b}>{b}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setFormData({ ...formData, brand: v })}
+                  inputStyle={inputStyle}
+                  dropdownBg={theme.card}
+                  dropdownBorder={theme.border}
+                  textColor={theme.text}
+                  dimColor={theme.dim}
+                  hoverBg={theme.card2 || theme.card}
+                />
               </div>
 
               {/* Model */}
@@ -1062,26 +1021,13 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                 <label style={labelStyle}>
                   {'\u041C\u043E\u0434\u0435\u043B\u044C *'}
                 </label>
-                {brandModels.length > 0 ? (
-                  <select
-                    value={formData.model}
-                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                    style={inputStyle}
-                  >
-                    <option value="">{'\u0412\u044B\u0431\u0435\u0440\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}</option>
-                    {brandModels.map((m) => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    type="text"
-                    value={formData.model}
-                    onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                    placeholder={'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043C\u043E\u0434\u0435\u043B\u044C'}
-                    style={inputStyle}
-                  />
-                )}
+                <input
+                  type="text"
+                  value={formData.model}
+                  onChange={(e) => setFormData({ ...formData, model: e.target.value })}
+                  placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: FH, Actros, 5490'}
+                  style={inputStyle}
+                />
               </div>
 
               {/* Year */}

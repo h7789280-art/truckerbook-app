@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { hashPin } from './PinLock'
+import BrandComboBox from './BrandComboBox'
 
 const COUNTRIES = [
   // \u0421\u041d\u0413
@@ -72,18 +73,6 @@ const COUNTRIES = [
   { flag: '\ud83c\uddf2\ud83c\uddf3', code: '+976', name: '\u041c\u043e\u043d\u0433\u043e\u043b\u0438\u044f', id: 'mn' },
 ]
 
-const BRANDS = {
-  'Volvo': ['FH', 'FH16', 'FM', 'FMX', 'FE', 'FL'],
-  'MAN': ['TGX', 'TGS', 'TGM', 'TGL'],
-  'DAF': ['XF', 'XG', 'XG+', 'CF', 'LF'],
-  'Scania': ['R', 'S', 'G', 'P', 'L'],
-  'Mercedes-Benz': ['Actros', 'Arocs', 'Atego', 'Antos', 'Econic'],
-  'Renault': ['T', 'T High', 'C', 'D', 'D Wide', 'K'],
-  'Iveco': ['S-Way', 'X-Way', 'T-Way', 'Eurocargo', 'Daily'],
-  '\u041a\u0430\u043c\u0410\u0417': ['5490', '54901', '65115', '6520', '43118'],
-  '\u041c\u0410\u0417': ['5440', '6430', '6501', '5550'],
-  '\u0413\u0410\u0417': ['3309', '3310', '33104', '33106'],
-}
 
 const styles = {
   container: {
@@ -554,8 +543,6 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
 
 // ===== SCREEN 3: PROFILE =====
 function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
-  const brandList = Object.keys(BRANDS)
-  const modelList = profile.brand ? BRANDS[profile.brand] || [] : []
   const valid = profile.name && profile.brand && profile.model && profile.mileage && !saving
 
   return (
@@ -580,31 +567,26 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
 
         <div>
           <label style={styles.label}>{'\u041c\u0430\u0440\u043a\u0430'}</label>
-          <select
-            style={styles.select}
+          <BrandComboBox
             value={profile.brand}
-            onChange={(e) => setProfile({ ...profile, brand: e.target.value, model: '' })}
-          >
-            <option value="">{'\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043c\u0430\u0440\u043a\u0443'}</option>
-            {brandList.map((b) => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
+            onChange={(v) => setProfile({ ...profile, brand: v })}
+            inputStyle={styles.input}
+            dropdownBg="#1a2235"
+            dropdownBorder="#1e2a3f"
+            textColor="#e2e8f0"
+            dimColor="#64748b"
+            hoverBg="#111827"
+          />
         </div>
 
         <div>
           <label style={styles.label}>{'\u041c\u043e\u0434\u0435\u043b\u044c'}</label>
-          <select
-            style={styles.select}
+          <input
+            style={styles.input}
+            placeholder={'\u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440: FH, Actros, 5490'}
             value={profile.model}
             onChange={(e) => setProfile({ ...profile, model: e.target.value })}
-            disabled={!profile.brand}
-          >
-            <option value="">{'\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u043c\u043e\u0434\u0435\u043b\u044c'}</option>
-            {modelList.map((m) => (
-              <option key={m} value={m}>{m}</option>
-            ))}
-          </select>
+          />
         </div>
 
         <div>

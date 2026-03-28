@@ -2,7 +2,7 @@ import { useTheme } from '../lib/theme'
 
 const TABS = [
   { key: 'overview', label: '\u041e\u0411\u0417\u041e\u0420', icon: '\ud83d\udcca' },
-  { key: 'fuel', label: '\u0422\u041e\u041f\u041b\u0418\u0412\u041e', icon: '\u26fd' },
+  { key: 'fuel', label: '\u041c\u0410\u0428\u0418\u041d\u0410', icon: '\ud83d\udcb0' },
   { key: 'byt', label: '\u0411\u042b\u0422', icon: '\ud83c\udfe8' },
   { key: 'trips', label: '\u0420\u0415\u0419\u0421\u042b', icon: '\ud83d\ude9b' },
   { key: 'service', label: '\u0421\u0415\u0420\u0412\u0418\u0421', icon: '\ud83d\udd27' },

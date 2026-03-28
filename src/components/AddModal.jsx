@@ -10,6 +10,11 @@ const OVERVIEW_MENU = [
   { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: '\u0420\u0430\u0441\u0445\u043E\u0434 \u043D\u0430 \u043C\u0430\u0448\u0438\u043D\u0443' },
 ]
 
+const VEHICLE_MENU = [
+  { key: 'fuel', icon: '\u26FD\uFE0F', label: '\u0417\u0430\u043F\u0440\u0430\u0432\u043A\u0430' },
+  { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: '\u0420\u0430\u0441\u0445\u043E\u0434 \u043D\u0430 \u043C\u0430\u0448\u0438\u043D\u0443' },
+]
+
 const SERVICE_MENU = [
   { key: 'repair', icon: '\uD83D\uDD27', label: '\u0420\u0435\u043C\u043E\u043D\u0442 / \u0422\u041E' },
   { key: 'insurance', icon: '\uD83D\uDEE1', label: '\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430' },
@@ -211,7 +216,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     setForm({})
     setSaving(false)
     if (activeTab === 'fuel') {
-      setFormType('fuel')
+      setFormType(null)
     } else if (activeTab === 'byt') {
       setFormType('byt')
       setForm({ category: 'food' })
@@ -298,8 +303,8 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     boxSizing: 'border-box',
   }
 
-  const showMenu = formType === null && (activeTab === 'overview' || activeTab === 'service')
-  const menuItems = activeTab === 'service' ? SERVICE_MENU : OVERVIEW_MENU
+  const showMenu = formType === null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel')
+  const menuItems = activeTab === 'service' ? SERVICE_MENU : activeTab === 'fuel' ? VEHICLE_MENU : OVERVIEW_MENU
 
   const renderMenuBtn = (item) => (
     <button
@@ -341,7 +346,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     ? '\u0427\u0442\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C?'
     : (FORM_TITLES[formType] || '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C')
 
-  const canGoBack = formType !== null && (activeTab === 'overview' || activeTab === 'service')
+  const canGoBack = formType !== null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel')
 
   return (
     <>

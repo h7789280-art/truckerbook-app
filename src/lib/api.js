@@ -400,6 +400,14 @@ export async function fetchVehicleExpensesByMonth(userId, year, month) {
   return data || []
 }
 
+export async function deleteVehicleExpense(id) {
+  const { error } = await supabase
+    .from('vehicle_expenses')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
 // --- Route notes ---
 
 export async function fetchRouteNotes(userId) {

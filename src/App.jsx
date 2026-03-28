@@ -49,6 +49,7 @@ function AppInner() {
 
   const handleVehicleExpenseSaved = useCallback(() => {
     setOverviewRefreshKey((k) => k + 1)
+    setFuelRefreshKey((k) => k + 1)
   }, [])
 
   if (authLoading || (session && profileLoading)) {

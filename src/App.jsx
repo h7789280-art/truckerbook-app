@@ -26,6 +26,7 @@ function AppInner() {
   const [tripsRefreshKey, setTripsRefreshKey] = useState(0)
   const [bytRefreshKey, setBytRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
+  const [overviewRefreshKey, setOverviewRefreshKey] = useState(0)
   const [showProfile, setShowProfile] = useState(false)
   const [activeVehicleId, setActiveVehicleId] = useState('main')
   const [pinUnlocked, setPinUnlocked] = useState(false)
@@ -44,6 +45,10 @@ function AppInner() {
 
   const handleServiceSaved = useCallback(() => {
     setServiceRefreshKey((k) => k + 1)
+  }, [])
+
+  const handleVehicleExpenseSaved = useCallback(() => {
+    setOverviewRefreshKey((k) => k + 1)
   }, [])
 
   if (authLoading || (session && profileLoading)) {
@@ -114,7 +119,7 @@ function AppInner() {
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} />
       default:
-        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} />
+        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} />
     }
   }
 
@@ -153,6 +158,7 @@ function AppInner() {
         onTripSaved={handleTripSaved}
         onBytSaved={handleBytSaved}
         onServiceSaved={handleServiceSaved}
+        onVehicleExpenseSaved={handleVehicleExpenseSaved}
       />
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
     </div>

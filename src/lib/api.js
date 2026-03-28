@@ -101,6 +101,7 @@ export async function fetchBytExpenses(userId) {
     .from('byt_expenses')
     .select('*')
     .eq('user_id', userId)
+    .eq('visibility', 'personal')
     .order('date', { ascending: false })
   if (error) throw error
   return data || []
@@ -341,6 +342,62 @@ export async function endDrivingSession(sessionId) {
     .select()
   if (error) throw error
   return data?.[0]
+}
+
+// --- Route notes ---
+
+// --- Vehicle expenses ---
+
+export async function addVehicleExpense(entry) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    console.error('No active session')
+    throw new Error('No active session')
+  }
+
+  const row = {
+    user_id: user.id,
+    vehicle_id: entry.vehicle_id || null,
+    category: entry.category || 'other',
+    description: entry.description || '',
+    amount: parseFloat(entry.amount) || 0,
+    date: entry.date || new Date().toISOString().slice(0, 10),
+  }
+  const { data, error } = await supabase
+    .from('vehicle_expenses')
+    .insert(row)
+    .select()
+  if (error) {
+    console.error('addVehicleExpense error:', error)
+    throw error
+  }
+  return data
+}
+
+export async function fetchVehicleExpenses(userId) {
+  const { data, error } = await supabase
+    .from('vehicle_expenses')
+    .select('*')
+    .eq('user_id', userId)
+    .order('date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchVehicleExpensesByMonth(userId, year, month) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`
+  const endMonth = month === 12 ? 1 : month + 1
+  const endYear = month === 12 ? year + 1 : year
+  const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+  const { data, error } = await supabase
+    .from('vehicle_expenses')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', start)
+    .lt('date', end)
+    .order('date', { ascending: false })
+  if (error) throw error
+  return data || []
 }
 
 // --- Route notes ---

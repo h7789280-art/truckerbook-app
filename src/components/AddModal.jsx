@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { addFuel, addTrip, addBytExpense, addServiceRecord } from '../lib/api'
+import { addFuel, addTrip, addBytExpense, addServiceRecord, addVehicleExpense } from '../lib/api'
 import { useTheme } from '../lib/theme'
 
 const OVERVIEW_MENU = [
@@ -7,6 +7,7 @@ const OVERVIEW_MENU = [
   { key: 'byt', icon: '\uD83C\uDF7D', label: '\u0411\u044B\u0442\u043E\u0432\u043E\u0439 \u0440\u0430\u0441\u0445\u043E\u0434' },
   { key: 'trip', icon: '\uD83D\uDE9B', label: '\u0420\u0435\u0439\u0441' },
   { key: 'repair', icon: '\uD83D\uDD27', label: '\u0420\u0435\u043C\u043E\u043D\u0442 / \u0422\u041E' },
+  { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: '\u0420\u0430\u0441\u0445\u043E\u0434 \u043D\u0430 \u043C\u0430\u0448\u0438\u043D\u0443' },
 ]
 
 const SERVICE_MENU = [
@@ -22,12 +23,25 @@ const BYT_CATEGORIES = [
   { value: 'other', label: '\u041F\u0440\u043E\u0447\u0435\u0435' },
 ]
 
+const VEHICLE_EXPENSE_CATEGORIES = [
+  { value: 'def', label: '\uD83D\uDCA7 DEF / \u0436\u0438\u0434\u043A\u043E\u0441\u0442\u0438' },
+  { value: 'oil', label: '\uD83D\uDEE2 \u041C\u0430\u0441\u043B\u043E, \u0444\u0438\u043B\u044C\u0442\u0440\u044B' },
+  { value: 'parts', label: '\uD83D\uDD27 \u0417\u0430\u043F\u0447\u0430\u0441\u0442\u0438' },
+  { value: 'equipment', label: '\uD83D\uDCE6 \u041E\u0431\u043E\u0440\u0443\u0434\u043E\u0432\u0430\u043D\u0438\u0435 \u0432 \u0430\u0432\u0442\u043E' },
+  { value: 'supplies', label: '\uD83E\uDDE4 \u0420\u0430\u0441\u0445\u043E\u0434\u043D\u0438\u043A\u0438' },
+  { value: 'hotel', label: '\uD83C\uDFE8 \u041C\u043E\u0442\u0435\u043B\u044C (\u0432\u044B\u043D\u0443\u0436\u0434\u0435\u043D\u043D\u044B\u0439)' },
+  { value: 'toll', label: '\uD83C\uDD7F\uFE0F \u041F\u043B\u0430\u0442\u043D\u044B\u0435 \u0434\u043E\u0440\u043E\u0433\u0438' },
+  { value: 'platon', label: '\uD83D\uDE9B \u041F\u043B\u0430\u0442\u043E\u043D' },
+  { value: 'other', label: '\uD83D\uDCE6 \u041F\u0440\u043E\u0447\u0435\u0435' },
+]
+
 const FORM_TITLES = {
   fuel: '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u0430\u0432\u043A\u0443',
   byt: '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0440\u0430\u0441\u0445\u043E\u0434',
   trip: '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0440\u0435\u0439\u0441',
   repair: '\u0420\u0435\u043C\u043E\u043D\u0442 / \u0422\u041E',
   insurance: '\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430',
+  vehicle_expense: '\u0420\u0430\u0441\u0445\u043E\u0434 \u043D\u0430 \u043C\u0430\u0448\u0438\u043D\u0443',
 }
 
 function FieldGroup({ label, children, theme }) {
@@ -162,7 +176,31 @@ function RepairFields({ form, onChange, theme, inputStyle }) {
   )
 }
 
-export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved }) {
+function VehicleExpenseFields({ form, onChange, theme, inputStyle }) {
+  const selectStyle = { ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }
+  return (
+    <>
+      <FieldGroup label={'\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F'} theme={theme}>
+        <select style={selectStyle} value={form.category || 'def'} onChange={(e) => onChange('category', e.target.value)}>
+          {VEHICLE_EXPENSE_CATEGORIES.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+      </FieldGroup>
+      <FieldGroup label={'\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435'} theme={theme}>
+        <input style={inputStyle} placeholder={'\u0427\u0442\u043E \u043A\u0443\u043F\u0438\u043B\u0438'} value={form.description || ''} onChange={(e) => onChange('description', e.target.value)} />
+      </FieldGroup>
+      <FieldGroup label={'\u0414\u0430\u0442\u0430'} theme={theme}>
+        <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
+      </FieldGroup>
+      <FieldGroup label={'\u0421\u0443\u043C\u043C\u0430'} theme={theme}>
+        <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
+      </FieldGroup>
+    </>
+  )
+}
+
+export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved, onVehicleExpenseSaved }) {
   const { theme } = useTheme()
   const [formType, setFormType] = useState(null)
   const [form, setForm] = useState({})
@@ -190,7 +228,9 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
 
   const selectType = (type) => {
     setFormType(type)
-    setForm(type === 'byt' ? { category: 'food' } : {})
+    if (type === 'byt') setForm({ category: 'food' })
+    else if (type === 'vehicle_expense') setForm({ category: 'def' })
+    else setForm({})
   }
 
   const handleSave = async () => {
@@ -215,6 +255,14 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
       } else if (formType === 'repair') {
         await addServiceRecord(entry)
         if (onServiceSaved) onServiceSaved()
+      } else if (formType === 'vehicle_expense') {
+        const veData = {
+          ...entry,
+          category: entry.category || 'def',
+          date: entry.date || new Date().toISOString().slice(0, 10),
+        }
+        await addVehicleExpense(veData)
+        if (onVehicleExpenseSaved) onVehicleExpenseSaved()
       }
     } catch (err) {
       console.error('Failed to save ' + formType + ':', err)
@@ -284,6 +332,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
       case 'trip': return <TripFields {...props} />
       case 'byt': return <BytFields {...props} />
       case 'repair': return <RepairFields {...props} />
+      case 'vehicle_expense': return <VehicleExpenseFields {...props} />
       default: return null
     }
   }

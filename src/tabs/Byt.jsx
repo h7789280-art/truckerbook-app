@@ -4,10 +4,9 @@ import { fetchBytExpenses, deleteBytExpense } from '../lib/api'
 const CATEGORIES = [
   { key: 'all', icon: '', label: '\u0412\u0441\u0435' },
   { key: 'food', icon: '\ud83c\udf7d', label: '\u0415\u0434\u0430', color: '#f59e0b' },
-  { key: 'hotel', icon: '\ud83c\udfe8', label: '\u041e\u0442\u0435\u043b\u044c', color: '#3b82f6' },
   { key: 'shower', icon: '\ud83d\udebf', label: '\u0414\u0443\u0448', color: '#06b6d4' },
   { key: 'laundry', icon: '\ud83e\uddfa', label: '\u0421\u0442\u0438\u0440\u043a\u0430', color: '#a855f7' },
-  { key: 'supplies', icon: '\ud83d\udd27', label: '\u0420\u0430\u0441\u0445\u043e\u0434\u043d\u0438\u043a\u0438', color: '#ef4444' },
+  { key: 'personal', icon: '\ud83d\uded2', label: '\u041b\u0438\u0447\u043d\u043e\u0435', color: '#3b82f6' },
   { key: 'other', icon: '\ud83d\udce6', label: '\u041f\u0440\u043e\u0447\u0435\u0435', color: '#22c55e' },
 ]
 
@@ -89,6 +88,9 @@ export default function Byt({ userId, refreshKey }) {
 
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
+      <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: '0 0 16px 0' }}>
+        {'\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b'}
+      </h2>
       {/* Pie chart + legend */}
       {grandTotal > 0 && (
         <div style={{

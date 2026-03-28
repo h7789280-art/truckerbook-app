@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, startDrivingSession, endDrivingSession } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, startDrivingSession, endDrivingSession } from '../lib/api'
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -40,7 +40,7 @@ const THEME_OPTIONS = [
   { key: 'auto', label: '\ud83d\udd04 \u0410\u0432\u0442\u043e' },
 ]
 
-export default function Overview({ userName, userId, profile, onOpenProfile }) {
+export default function Overview({ userName, userId, profile, onOpenProfile, refreshKey }) {
   const { theme, mode, setMode } = useTheme()
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -84,12 +84,13 @@ export default function Overview({ userName, userId, profile, onOpenProfile }) {
       const now = new Date()
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
 
-      const [fuels, trips, bytExps, serviceRecs, insuranceRecs] = await Promise.all([
+      const [fuels, trips, bytExps, serviceRecs, insuranceRecs, vehicleExps] = await Promise.all([
         fetchFuels(userId),
         fetchTrips(userId),
         fetchBytExpenses(userId),
         fetchServiceRecords(userId).catch(() => []),
         fetchInsurance(userId).catch(() => []),
+        fetchVehicleExpenses(userId).catch(() => []),
       ])
 
       // Filter to current month
@@ -97,10 +98,12 @@ export default function Overview({ userName, userId, profile, onOpenProfile }) {
       const monthTrips = trips.filter(e => (e.created_at || '').slice(0, 10) >= monthStart)
       const monthByt = bytExps.filter(e => e.date >= monthStart)
       const monthService = serviceRecs.filter(e => e.date >= monthStart)
+      const monthVehicleExp = vehicleExps.filter(e => e.date >= monthStart)
 
       const fuelCost = monthFuels.reduce((s, e) => s + (e.cost || 0), 0)
       const bytCost = monthByt.reduce((s, e) => s + (e.amount || 0), 0)
       const serviceCost = monthService.reduce((s, e) => s + (e.cost || 0), 0)
+      const vehicleExpCost = monthVehicleExp.reduce((s, e) => s + (e.amount || 0), 0)
       const income = monthTrips.reduce((s, t) => s + (t.income || 0), 0)
       const totalKm = monthTrips.reduce((s, t) => s + (t.distance_km || 0), 0)
       const totalLiters = monthFuels.reduce((s, e) => s + (e.liters || 0), 0)
@@ -111,6 +114,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile }) {
         fuelCost,
         bytCost,
         serviceCost,
+        vehicleExpCost,
         tripCount: monthTrips.length,
         totalKm,
         avgConsumption,
@@ -120,6 +124,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile }) {
       const breakdown = []
       if (fuelCost > 0) breakdown.push({ label: '\u0422\u043e\u043f\u043b', value: fuelCost, color: '#f59e0b' })
       if (serviceCost > 0) breakdown.push({ label: '\u0420\u0435\u043c', value: serviceCost, color: '#ef4444' })
+      if (vehicleExpCost > 0) breakdown.push({ label: '\u041c\u0430\u0448\u0438\u043d\u0430', value: vehicleExpCost, color: '#8b5cf6' })
       // Group byt by category
       const bytByCategory = {}
       monthByt.forEach(e => {
@@ -160,7 +165,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile }) {
 
   useEffect(() => {
     loadData()
-  }, [loadData])
+  }, [loadData, refreshKey])
 
   // Load active shift
   useEffect(() => {
@@ -288,7 +293,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile }) {
   }
 
   const greeting = getGreeting(profileName)
-  const totalExpenses = monthData.fuelCost + monthData.bytCost + monthData.serviceCost
+  const totalExpenses = monthData.fuelCost + monthData.bytCost + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
   const maxExpense = expenseBreakdown.length > 0 ? Math.max(...expenseBreakdown.map(e => e.value)) : 0
 

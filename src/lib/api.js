@@ -163,6 +163,33 @@ export async function fetchServiceRecords(userId) {
   return data || []
 }
 
+export async function addServiceRecord(entry) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    console.error('No active session')
+    throw new Error('No active session')
+  }
+
+  const row = {
+    user_id: user.id,
+    vehicle_id: entry.vehicle_id || null,
+    description: entry.name || '',
+    service_station: entry.sto || '',
+    cost: parseFloat(entry.amount) || 0,
+    odometer: parseInt(entry.odometer, 10) || 0,
+    date: entry.date || new Date().toISOString().slice(0, 10),
+  }
+  const { data, error } = await supabase
+    .from('service_records')
+    .insert(row)
+    .select()
+  if (error) {
+    console.error('addServiceRecord error:', error)
+    throw error
+  }
+  return data
+}
+
 // --- Insurance ---
 
 export async function fetchInsurance(userId) {

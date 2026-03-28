@@ -42,8 +42,11 @@ function FieldGroup({ label, children, theme }) {
 }
 
 function PhotoVoicePlaceholder({ theme }) {
-  const handleStub = () => {
-    alert('\u0421\u043A\u043E\u0440\u043E! \u0424\u043E\u0442\u043E \u0438 \u0433\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0432\u0432\u043E\u0434 \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0435')
+  const handlePhoto = () => {
+    alert('\u0424\u043E\u0442\u043E \u0447\u0435\u043A\u043E\u0432 \u2014 \u0441\u043A\u043E\u0440\u043E! \u0424\u0443\u043D\u043A\u0446\u0438\u044F \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0435.')
+  }
+  const handleVoice = () => {
+    alert('\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0432\u0432\u043E\u0434 \u2014 \u0441\u043A\u043E\u0440\u043E! \u0424\u0443\u043D\u043A\u0446\u0438\u044F \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0435.')
   }
   const btnStyle = {
     display: 'inline-flex',
@@ -56,12 +59,15 @@ function PhotoVoicePlaceholder({ theme }) {
     color: theme.dim,
     fontSize: 13,
     cursor: 'pointer',
-    opacity: 0.6,
+    opacity: 0.7,
+    transition: 'opacity 0.2s',
   }
+  const handleHover = (e) => { e.currentTarget.style.opacity = '1' }
+  const handleLeave = (e) => { e.currentTarget.style.opacity = '0.7' }
   return (
     <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-      <button style={btnStyle} onClick={handleStub}>{'\uD83D\uDCF7 \u0424\u043E\u0442\u043E'}</button>
-      <button style={btnStyle} onClick={handleStub}>{'\uD83C\uDFA4 \u0413\u043E\u043B\u043E\u0441'}</button>
+      <button type="button" style={btnStyle} onClick={handlePhoto} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{'\uD83D\uDCF7 \u0424\u043E\u0442\u043E'}</button>
+      <button type="button" style={btnStyle} onClick={handleVoice} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{'\uD83C\uDFA4 \u0413\u043E\u043B\u043E\u0441'}</button>
     </div>
   )
 }

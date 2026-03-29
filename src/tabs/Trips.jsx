@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto } from '../lib/api'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels } from '../lib/api'
 import { useTheme } from '../lib/theme'
 
 function fmt(n) {
@@ -608,12 +608,346 @@ function TripsTab({ userId, refreshKey, theme }) {
   )
 }
 
-export default function Trips({ userId, refreshKey }) {
+function IFTATab({ userId, theme }) {
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3))
+  const [fuelData, setFuelData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [stateMiles, setStateMiles] = useState({})
+  const [taxRates, setTaxRates] = useState({})
+  const DEFAULT_TAX_RATE = 0.55
+
+  const storageKey = 'ifta_' + userId + '_' + year + '_Q' + quarter
+
+  // Load saved miles from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setStateMiles(parsed.miles || {})
+        setTaxRates(parsed.rates || {})
+      } else {
+        setStateMiles({})
+        setTaxRates({})
+      }
+    } catch { setStateMiles({}); setTaxRates({}) }
+  }, [storageKey])
+
+  // Save to localStorage on change
+  useEffect(() => {
+    if (Object.keys(stateMiles).length > 0 || Object.keys(taxRates).length > 0) {
+      localStorage.setItem(storageKey, JSON.stringify({ miles: stateMiles, rates: taxRates }))
+    }
+  }, [stateMiles, taxRates, storageKey])
+
+  // Load fuel entries
+  useEffect(() => {
+    if (!userId) return
+    setLoading(true)
+    fetchFuels(userId).then(data => {
+      setFuelData(data || [])
+    }).catch(err => {
+      console.error('IFTA fuel load error:', err)
+    }).finally(() => setLoading(false))
+  }, [userId])
+
+  // Filter fuel entries for selected quarter
+  const quarterStart = new Date(year, (quarter - 1) * 3, 1)
+  const quarterEnd = new Date(year, quarter * 3, 1)
+
+  const quarterFuels = useMemo(() => {
+    return fuelData.filter(f => {
+      if (!f.date || !f.state) return false
+      const d = new Date(f.date)
+      return d >= quarterStart && d < quarterEnd
+    })
+  }, [fuelData, year, quarter])
+
+  // Group gallons by state
+  const gallonsByState = useMemo(() => {
+    const map = {}
+    quarterFuels.forEach(f => {
+      const st = (f.state || '').toUpperCase()
+      if (!st) return
+      // liters -> gallons (1 gallon = 3.78541 liters)
+      const gallons = (f.liters || 0) / 3.78541
+      map[st] = (map[st] || 0) + gallons
+    })
+    return map
+  }, [quarterFuels])
+
+  // Collect all states (from fuel + from manually entered miles)
+  const allStates = useMemo(() => {
+    const set = new Set()
+    Object.keys(gallonsByState).forEach(s => set.add(s))
+    Object.keys(stateMiles).forEach(s => { if (stateMiles[s]) set.add(s) })
+    const arr = Array.from(set)
+    arr.sort()
+    return arr
+  }, [gallonsByState, stateMiles])
+
+  const totalGallons = allStates.reduce((s, st) => s + (gallonsByState[st] || 0), 0)
+  const totalMiles = allStates.reduce((s, st) => s + (parseFloat(stateMiles[st]) || 0), 0)
+  const overallMpg = totalGallons > 0 ? totalMiles / totalGallons : 0
+
+  const [addStateInput, setAddStateInput] = useState('')
+
+  const handleAddState = () => {
+    const st = addStateInput.trim().toUpperCase()
+    if (st && st.length === 2 && !stateMiles[st]) {
+      setStateMiles(prev => ({ ...prev, [st]: '' }))
+      setAddStateInput('')
+    }
+  }
+
+  const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
+  const inputStyle = {
+    width: '70px',
+    padding: '6px 8px',
+    borderRadius: '8px',
+    border: '1px solid ' + theme.border,
+    background: theme.bg,
+    color: theme.text,
+    fontSize: '13px',
+    fontFamily: 'monospace',
+    textAlign: 'right',
+    boxSizing: 'border-box',
+  }
+
+  const years = []
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y)
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {/* Quarter selector */}
+      <div style={card}>
+        <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '12px' }}>
+          <select
+            value={year}
+            onChange={e => setYear(parseInt(e.target.value))}
+            style={{
+              padding: '8px 12px', borderRadius: '8px', border: '1px solid ' + theme.border,
+              background: theme.bg, color: theme.text, fontSize: '14px', fontWeight: 600,
+            }}
+          >
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <div style={{ display: 'flex', gap: '4px', flex: 1 }}>
+            {[1, 2, 3, 4].map(q => (
+              <button
+                key={q}
+                onClick={() => setQuarter(q)}
+                style={{
+                  flex: 1,
+                  padding: '8px 4px',
+                  borderRadius: '8px',
+                  border: q === quarter ? '2px solid #f59e0b' : '1px solid ' + theme.border,
+                  background: q === quarter ? '#f59e0b22' : 'transparent',
+                  color: q === quarter ? '#f59e0b' : theme.dim,
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Q{q}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div style={{ color: theme.dim, fontSize: '12px' }}>
+          {['Jan\u2013Mar', 'Apr\u2013Jun', 'Jul\u2013Sep', 'Oct\u2013Dec'][quarter - 1]} {year}
+        </div>
+      </div>
+
+      {/* Summary cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+        {[
+          { label: 'Total Gallons', value: totalGallons.toFixed(1), color: theme.text },
+          { label: 'Total Miles', value: totalMiles.toLocaleString('en-US'), color: theme.text },
+          { label: 'Avg MPG', value: overallMpg > 0 ? overallMpg.toFixed(2) : '\u2014', color: '#3b82f6' },
+        ].map((item, i) => (
+          <div key={i} style={{ background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
+            <div style={{ color: theme.dim, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{item.label}</div>
+            <div style={{ color: item.color, fontSize: '18px', fontWeight: 700, fontFamily: 'monospace' }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* IFTA Table */}
+      <div style={{ ...card, padding: '12px', overflowX: 'auto' }}>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '20px', color: theme.dim, fontSize: 14 }}>Loading...</div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid ' + theme.border }}>
+                {['State', 'Gallons', 'Miles', 'Tax Rate', 'Tax Owed'].map((h, i) => (
+                  <th key={i} style={{
+                    padding: '8px 6px', textAlign: i === 0 ? 'left' : 'right',
+                    color: theme.dim, fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {allStates.length === 0 ? (
+                <tr>
+                  <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: theme.dim }}>
+                    No fuel entries with state data for this quarter
+                  </td>
+                </tr>
+              ) : allStates.map(st => {
+                const gallons = gallonsByState[st] || 0
+                const miles = parseFloat(stateMiles[st]) || 0
+                const rate = parseFloat(taxRates[st]) || DEFAULT_TAX_RATE
+                const taxableGallons = overallMpg > 0 ? miles / overallMpg : 0
+                const taxOwed = (taxableGallons - gallons) * rate
+                return (
+                  <tr key={st} style={{ borderBottom: '1px solid ' + theme.border }}>
+                    <td style={{ padding: '10px 6px', color: theme.text, fontWeight: 700 }}>{st}</td>
+                    <td style={{ padding: '10px 6px', textAlign: 'right', fontFamily: 'monospace', color: theme.text }}>{gallons.toFixed(1)}</td>
+                    <td style={{ padding: '10px 2px', textAlign: 'right' }}>
+                      <input
+                        type="number"
+                        value={stateMiles[st] || ''}
+                        onChange={e => setStateMiles(prev => ({ ...prev, [st]: e.target.value }))}
+                        placeholder="0"
+                        style={inputStyle}
+                      />
+                    </td>
+                    <td style={{ padding: '10px 2px', textAlign: 'right' }}>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={taxRates[st] !== undefined ? taxRates[st] : ''}
+                        onChange={e => setTaxRates(prev => ({ ...prev, [st]: e.target.value }))}
+                        placeholder={DEFAULT_TAX_RATE.toFixed(2)}
+                        style={{ ...inputStyle, width: '60px' }}
+                      />
+                    </td>
+                    <td style={{
+                      padding: '10px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700,
+                      color: miles === 0 ? theme.dim : taxOwed < 0 ? '#22c55e' : taxOwed > 0 ? '#ef4444' : theme.text,
+                    }}>
+                      {miles === 0 ? '\u2014' : (taxOwed >= 0 ? '' : '-') + '$' + Math.abs(taxOwed).toFixed(2)}
+                    </td>
+                  </tr>
+                )
+              })}
+              {allStates.length > 0 && (
+                <tr style={{ borderTop: '2px solid ' + theme.border }}>
+                  <td style={{ padding: '10px 6px', color: '#f59e0b', fontWeight: 700 }}>TOTAL</td>
+                  <td style={{ padding: '10px 6px', textAlign: 'right', fontFamily: 'monospace', color: '#f59e0b', fontWeight: 700 }}>
+                    {totalGallons.toFixed(1)}
+                  </td>
+                  <td style={{ padding: '10px 6px', textAlign: 'right', fontFamily: 'monospace', color: '#f59e0b', fontWeight: 700 }}>
+                    {totalMiles.toLocaleString('en-US')}
+                  </td>
+                  <td style={{ padding: '10px 6px', textAlign: 'right', fontFamily: 'monospace', color: theme.dim }}>
+                    {overallMpg > 0 ? overallMpg.toFixed(2) + ' mpg' : '\u2014'}
+                  </td>
+                  <td style={{
+                    padding: '10px 6px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700,
+                    color: (() => {
+                      const total = allStates.reduce((s, st) => {
+                        const miles = parseFloat(stateMiles[st]) || 0
+                        if (miles === 0) return s
+                        const g = gallonsByState[st] || 0
+                        const r = parseFloat(taxRates[st]) || DEFAULT_TAX_RATE
+                        const tg = overallMpg > 0 ? miles / overallMpg : 0
+                        return s + (tg - g) * r
+                      }, 0)
+                      return total < 0 ? '#22c55e' : total > 0 ? '#ef4444' : theme.text
+                    })(),
+                  }}>
+                    {(() => {
+                      const total = allStates.reduce((s, st) => {
+                        const miles = parseFloat(stateMiles[st]) || 0
+                        if (miles === 0) return s
+                        const g = gallonsByState[st] || 0
+                        const r = parseFloat(taxRates[st]) || DEFAULT_TAX_RATE
+                        const tg = overallMpg > 0 ? miles / overallMpg : 0
+                        return s + (tg - g) * r
+                      }, 0)
+                      return (total >= 0 ? '' : '-') + '$' + Math.abs(total).toFixed(2)
+                    })()}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Add state */}
+      <div style={{ ...card, display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <input
+          type="text"
+          maxLength={2}
+          value={addStateInput}
+          onChange={e => setAddStateInput(e.target.value.toUpperCase())}
+          placeholder="e.g. TX"
+          style={{
+            flex: 1, padding: '10px 12px', borderRadius: '10px',
+            border: '1px solid ' + theme.border, background: theme.bg,
+            color: theme.text, fontSize: '14px', textTransform: 'uppercase',
+            boxSizing: 'border-box',
+          }}
+        />
+        <button
+          onClick={handleAddState}
+          disabled={!addStateInput.trim() || addStateInput.trim().length !== 2}
+          style={{
+            padding: '10px 20px', borderRadius: '10px', border: 'none',
+            background: addStateInput.trim().length === 2 ? 'linear-gradient(135deg, #f59e0b, #d97706)' : theme.border,
+            color: '#fff', fontSize: '14px', fontWeight: 600, cursor: addStateInput.trim().length === 2 ? 'pointer' : 'default',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          + Add State Miles
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export default function Trips({ userId, refreshKey, profile }) {
   const { theme } = useTheme()
+  const showIfta = profile?.hos_mode === 'usa' || profile?.units === 'imperial'
+  const [subTab, setSubTab] = useState('trips')
+
+  const tabBtn = (key) => ({
+    flex: 1,
+    padding: '10px 4px',
+    borderRadius: '10px',
+    border: subTab === key ? '2px solid #f59e0b' : '1px solid ' + theme.border,
+    background: subTab === key ? '#f59e0b22' : 'transparent',
+    color: subTab === key ? '#f59e0b' : theme.dim,
+    fontSize: '13px',
+    fontWeight: 700,
+    cursor: 'pointer',
+    textAlign: 'center',
+  })
 
   return (
     <div style={{ padding: '16px', paddingBottom: '80px' }}>
-      <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} />
+      {showIfta && (
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+          <button onClick={() => setSubTab('trips')} style={tabBtn('trips', null)}>
+            {'\ud83d\ude9a \u0420\u0415\u0419\u0421\u042b'}
+          </button>
+          <button onClick={() => setSubTab('ifta')} style={tabBtn('ifta', null)}>
+            {'\ud83d\udcca IFTA'}
+          </button>
+        </div>
+      )}
+      {subTab === 'trips' || !showIfta ? (
+        <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} />
+      ) : (
+        <IFTATab userId={userId} theme={theme} />
+      )}
     </div>
   )
 }

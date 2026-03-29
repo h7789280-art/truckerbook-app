@@ -123,7 +123,7 @@ function AppInner() {
       case 'byt':
         return <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={vehicleId} />
       case 'trips':
-        return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} />
+        return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} />
       default:

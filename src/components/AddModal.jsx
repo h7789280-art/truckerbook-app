@@ -1,52 +1,63 @@
 import { useState, useEffect } from 'react'
 import { addFuel, addTrip, addBytExpense, addServiceRecord, addVehicleExpense } from '../lib/api'
 import { useTheme } from '../lib/theme'
+import { useLanguage } from '../lib/i18n'
 
-const OVERVIEW_MENU = [
-  { key: 'fuel', icon: '\u26FD\uFE0F', label: '\u0417\u0430\u043F\u0440\u0430\u0432\u043A\u0430' },
-  { key: 'byt', icon: '\uD83C\uDF7D', label: '\u0411\u044B\u0442\u043E\u0432\u043E\u0439 \u0440\u0430\u0441\u0445\u043E\u0434' },
-  { key: 'trip', icon: '\uD83D\uDE9B', label: '\u0420\u0435\u0439\u0441' },
-  { key: 'repair', icon: '\uD83D\uDD27', label: '\u0420\u0435\u043C\u043E\u043D\u0442 / \u0422\u041E' },
-  { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: '\u0420\u0430\u0441\u0445\u043E\u0434 \u043D\u0430 \u043C\u0430\u0448\u0438\u043D\u0443' },
-]
+function getMenuItems(activeTab, t) {
+  const OVERVIEW_MENU = [
+    { key: 'fuel', icon: '\u26FD\uFE0F', label: t('addModal.refueling') },
+    { key: 'byt', icon: '\uD83C\uDF7D', label: t('addModal.bytExpense') },
+    { key: 'trip', icon: '\uD83D\uDE9B', label: t('addModal.trip') },
+    { key: 'repair', icon: '\uD83D\uDD27', label: t('addModal.repairTo') },
+    { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: t('addModal.vehicleExpense') },
+  ]
+  const VEHICLE_MENU = [
+    { key: 'fuel', icon: '\u26FD\uFE0F', label: t('addModal.refueling') },
+    { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: t('addModal.vehicleExpense') },
+  ]
+  const SERVICE_MENU = [
+    { key: 'repair', icon: '\uD83D\uDD27', label: t('addModal.repairTo') },
+    { key: 'insurance', icon: '\uD83D\uDEE1', label: t('addModal.insurance') },
+  ]
+  if (activeTab === 'service') return SERVICE_MENU
+  if (activeTab === 'fuel') return VEHICLE_MENU
+  return OVERVIEW_MENU
+}
 
-const VEHICLE_MENU = [
-  { key: 'fuel', icon: '\u26FD\uFE0F', label: '\u0417\u0430\u043F\u0440\u0430\u0432\u043A\u0430' },
-  { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: '\u0420\u0430\u0441\u0445\u043E\u0434 \u043D\u0430 \u043C\u0430\u0448\u0438\u043D\u0443' },
-]
+function getFormTitle(formType, t) {
+  const titles = {
+    fuel: t('addModal.addRefueling'),
+    byt: t('addModal.addExpense'),
+    trip: t('addModal.addTrip'),
+    repair: t('addModal.repairTo'),
+    insurance: t('addModal.insurance'),
+    vehicle_expense: t('addModal.vehicleExpense'),
+  }
+  return titles[formType] || t('addModal.addEntry')
+}
 
-const SERVICE_MENU = [
-  { key: 'repair', icon: '\uD83D\uDD27', label: '\u0420\u0435\u043C\u043E\u043D\u0442 / \u0422\u041E' },
-  { key: 'insurance', icon: '\uD83D\uDEE1', label: '\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430' },
-]
+function getBytCategories(t) {
+  return [
+    { value: 'food', label: t('addModal.catFood') },
+    { value: 'shower', label: t('addModal.catShower') },
+    { value: 'laundry', label: t('addModal.catLaundry') },
+    { value: 'personal', label: t('addModal.catPersonal') },
+    { value: 'other', label: t('addModal.catOther') },
+  ]
+}
 
-const BYT_CATEGORIES = [
-  { value: 'food', label: '\u0415\u0434\u0430' },
-  { value: 'shower', label: '\u0414\u0443\u0448' },
-  { value: 'laundry', label: '\u0421\u0442\u0438\u0440\u043A\u0430' },
-  { value: 'personal', label: '\u041B\u0438\u0447\u043D\u043E\u0435' },
-  { value: 'other', label: '\u041F\u0440\u043E\u0447\u0435\u0435' },
-]
-
-const VEHICLE_EXPENSE_CATEGORIES = [
-  { value: 'def', label: '\uD83D\uDCA7 DEF / \u0436\u0438\u0434\u043A\u043E\u0441\u0442\u0438' },
-  { value: 'oil', label: '\uD83D\uDEE2 \u041C\u0430\u0441\u043B\u043E, \u0444\u0438\u043B\u044C\u0442\u0440\u044B' },
-  { value: 'parts', label: '\uD83D\uDD27 \u0417\u0430\u043F\u0447\u0430\u0441\u0442\u0438' },
-  { value: 'equipment', label: '\uD83D\uDCE6 \u041E\u0431\u043E\u0440\u0443\u0434\u043E\u0432\u0430\u043D\u0438\u0435 \u0432 \u0430\u0432\u0442\u043E' },
-  { value: 'supplies', label: '\uD83E\uDDE4 \u0420\u0430\u0441\u0445\u043E\u0434\u043D\u0438\u043A\u0438' },
-  { value: 'hotel', label: '\uD83C\uDFE8 \u041C\u043E\u0442\u0435\u043B\u044C (\u0432\u044B\u043D\u0443\u0436\u0434\u0435\u043D\u043D\u044B\u0439)' },
-  { value: 'toll', label: '\uD83C\uDD7F\uFE0F \u041F\u043B\u0430\u0442\u043D\u044B\u0435 \u0434\u043E\u0440\u043E\u0433\u0438' },
-  { value: 'platon', label: '\uD83D\uDE9B \u041F\u043B\u0430\u0442\u043E\u043D' },
-  { value: 'other', label: '\uD83D\uDCE6 \u041F\u0440\u043E\u0447\u0435\u0435' },
-]
-
-const FORM_TITLES = {
-  fuel: '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043F\u0440\u0430\u0432\u043A\u0443',
-  byt: '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0440\u0430\u0441\u0445\u043E\u0434',
-  trip: '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0440\u0435\u0439\u0441',
-  repair: '\u0420\u0435\u043C\u043E\u043D\u0442 / \u0422\u041E',
-  insurance: '\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430',
-  vehicle_expense: '\u0420\u0430\u0441\u0445\u043E\u0434 \u043D\u0430 \u043C\u0430\u0448\u0438\u043D\u0443',
+function getVehicleExpenseCategories(t) {
+  return [
+    { value: 'def', label: t('addModal.catDef') },
+    { value: 'oil', label: t('addModal.catOil') },
+    { value: 'parts', label: t('addModal.catParts') },
+    { value: 'equipment', label: t('addModal.catEquipment') },
+    { value: 'supplies', label: t('addModal.catSupplies') },
+    { value: 'hotel', label: t('addModal.catHotel') },
+    { value: 'toll', label: t('addModal.catToll') },
+    { value: 'platon', label: t('addModal.catPlaton') },
+    { value: 'other', label: t('addModal.catOtherVehicle') },
+  ]
 }
 
 function FieldGroup({ label, children, theme }) {
@@ -60,12 +71,12 @@ function FieldGroup({ label, children, theme }) {
   )
 }
 
-function PhotoVoicePlaceholder({ theme }) {
+function PhotoVoicePlaceholder({ theme, t }) {
   const handlePhoto = () => {
-    alert('\u0424\u043E\u0442\u043E \u0447\u0435\u043A\u043E\u0432 \u2014 \u0441\u043A\u043E\u0440\u043E! \u0424\u0443\u043D\u043A\u0446\u0438\u044F \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0435.')
+    alert(t('addModal.photoSoon'))
   }
   const handleVoice = () => {
-    alert('\u0413\u043E\u043B\u043E\u0441\u043E\u0432\u043E\u0439 \u0432\u0432\u043E\u0434 \u2014 \u0441\u043A\u043E\u0440\u043E! \u0424\u0443\u043D\u043A\u0446\u0438\u044F \u0432 \u0440\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0435.')
+    alert(t('addModal.voiceSoon'))
   }
   const btnStyle = {
     display: 'inline-flex',
@@ -85,17 +96,17 @@ function PhotoVoicePlaceholder({ theme }) {
   const handleLeave = (e) => { e.currentTarget.style.opacity = '0.7' }
   return (
     <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-      <button type="button" style={btnStyle} onClick={handlePhoto} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{'\uD83D\uDCF7 \u0424\u043E\u0442\u043E'}</button>
-      <button type="button" style={btnStyle} onClick={handleVoice} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{'\uD83C\uDFA4 \u0413\u043E\u043B\u043E\u0441'}</button>
+      <button type="button" style={btnStyle} onClick={handlePhoto} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{t('addModal.photo')}</button>
+      <button type="button" style={btnStyle} onClick={handleVoice} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{t('addModal.voice')}</button>
     </div>
   )
 }
 
-function FuelFields({ form, onChange, theme, inputStyle, geoState }) {
+function FuelFields({ form, onChange, theme, inputStyle, geoState, t }) {
   return (
     <>
-      <FieldGroup label={'\u0410\u0417\u0421'} theme={theme}>
-        <input style={inputStyle} placeholder={'\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0441\u0442\u0430\u043d\u0446\u0438\u0438'} value={form.station || ''} onChange={(e) => onChange('station', e.target.value)} />
+      <FieldGroup label={t('addModal.station')} theme={theme}>
+        <input style={inputStyle} placeholder={t('addModal.stationPlaceholder')} value={form.station || ''} onChange={(e) => onChange('station', e.target.value)} />
       </FieldGroup>
       {geoState && (
         <div style={{
@@ -109,108 +120,110 @@ function FuelFields({ form, onChange, theme, inputStyle, geoState }) {
           {'\uD83D\uDCCD ' + geoState}
         </div>
       )}
-      <FieldGroup label={'\u0414\u0430\u0442\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u041B\u0438\u0442\u0440\u044B'} theme={theme}>
+      <FieldGroup label={t('addModal.liters')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.liters || ''} onChange={(e) => onChange('liters', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0421\u0443\u043C\u043C\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.amount')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u041F\u0440\u043E\u0431\u0435\u0433'} theme={theme}>
+      <FieldGroup label={t('addModal.odometer')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.odometer || ''} onChange={(e) => onChange('odometer', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function TripFields({ form, onChange, theme, inputStyle }) {
+function TripFields({ form, onChange, theme, inputStyle, t }) {
   return (
     <>
-      <FieldGroup label={'\u041E\u0442\u043A\u0443\u0434\u0430'} theme={theme}>
-        <input style={inputStyle} placeholder={'\u0413\u043E\u0440\u043E\u0434 \u043E\u0442\u043F\u0440\u0430\u0432\u043B\u0435\u043D\u0438\u044F'} value={form.from || ''} onChange={(e) => onChange('from', e.target.value)} />
+      <FieldGroup label={t('addModal.from')} theme={theme}>
+        <input style={inputStyle} placeholder={t('addModal.fromPlaceholder')} value={form.from || ''} onChange={(e) => onChange('from', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u041A\u0443\u0434\u0430'} theme={theme}>
-        <input style={inputStyle} placeholder={'\u0413\u043E\u0440\u043E\u0434 \u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u0438\u044F'} value={form.to || ''} onChange={(e) => onChange('to', e.target.value)} />
+      <FieldGroup label={t('addModal.to')} theme={theme}>
+        <input style={inputStyle} placeholder={t('addModal.toPlaceholder')} value={form.to || ''} onChange={(e) => onChange('to', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0414\u0430\u0442\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0420\u0430\u0441\u0441\u0442\u043E\u044F\u043D\u0438\u0435, \u043A\u043C'} theme={theme}>
+      <FieldGroup label={t('addModal.distanceKm')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.distance || ''} onChange={(e) => onChange('distance', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0414\u043E\u0445\u043E\u0434, \u20BD'} theme={theme}>
+      <FieldGroup label={t('addModal.incomeRub')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.rate || ''} onChange={(e) => onChange('rate', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function BytFields({ form, onChange, theme, inputStyle }) {
+function BytFields({ form, onChange, theme, inputStyle, t }) {
   const selectStyle = { ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }
+  const categories = getBytCategories(t)
   return (
     <>
-      <FieldGroup label={'\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F'} theme={theme}>
+      <FieldGroup label={t('addModal.category')} theme={theme}>
         <select style={selectStyle} value={form.category || 'food'} onChange={(e) => onChange('category', e.target.value)}>
-          {BYT_CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
       </FieldGroup>
-      <FieldGroup label={'\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435'} theme={theme}>
-        <input style={inputStyle} placeholder={'\u0427\u0442\u043E \u043A\u0443\u043F\u0438\u043B\u0438'} value={form.name || ''} onChange={(e) => onChange('name', e.target.value)} />
+      <FieldGroup label={t('addModal.description')} theme={theme}>
+        <input style={inputStyle} placeholder={t('addModal.whatBought')} value={form.name || ''} onChange={(e) => onChange('name', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0414\u0430\u0442\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0421\u0443\u043C\u043C\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.amount')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function RepairFields({ form, onChange, theme, inputStyle }) {
+function RepairFields({ form, onChange, theme, inputStyle, t }) {
   return (
     <>
-      <FieldGroup label={'\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435 \u0440\u0430\u0431\u043E\u0442\u044B'} theme={theme}>
-        <input style={inputStyle} placeholder={'\u0427\u0442\u043E \u0441\u0434\u0435\u043B\u0430\u043B\u0438'} value={form.name || ''} onChange={(e) => onChange('name', e.target.value)} />
+      <FieldGroup label={t('addModal.workDescription')} theme={theme}>
+        <input style={inputStyle} placeholder={t('addModal.whatDone')} value={form.name || ''} onChange={(e) => onChange('name', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0421\u0422\u041E'} theme={theme}>
-        <input style={inputStyle} placeholder={'\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435 \u0441\u0435\u0440\u0432\u0438\u0441\u0430'} value={form.sto || ''} onChange={(e) => onChange('sto', e.target.value)} />
+      <FieldGroup label={t('addModal.sto')} theme={theme}>
+        <input style={inputStyle} placeholder={t('addModal.stoPlaceholder')} value={form.sto || ''} onChange={(e) => onChange('sto', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0414\u0430\u0442\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0421\u0443\u043C\u043C\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.amount')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u041F\u0440\u043E\u0431\u0435\u0433'} theme={theme}>
+      <FieldGroup label={t('addModal.odometer')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.odometer || ''} onChange={(e) => onChange('odometer', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function VehicleExpenseFields({ form, onChange, theme, inputStyle }) {
+function VehicleExpenseFields({ form, onChange, theme, inputStyle, t }) {
   const selectStyle = { ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }
+  const categories = getVehicleExpenseCategories(t)
   return (
     <>
-      <FieldGroup label={'\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F'} theme={theme}>
+      <FieldGroup label={t('addModal.category')} theme={theme}>
         <select style={selectStyle} value={form.category || 'def'} onChange={(e) => onChange('category', e.target.value)}>
-          {VEHICLE_EXPENSE_CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <option key={c.value} value={c.value}>{c.label}</option>
           ))}
         </select>
       </FieldGroup>
-      <FieldGroup label={'\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435'} theme={theme}>
-        <input style={inputStyle} placeholder={'\u0427\u0442\u043E \u043A\u0443\u043F\u0438\u043B\u0438'} value={form.description || ''} onChange={(e) => onChange('description', e.target.value)} />
+      <FieldGroup label={t('addModal.description')} theme={theme}>
+        <input style={inputStyle} placeholder={t('addModal.whatBought')} value={form.description || ''} onChange={(e) => onChange('description', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0414\u0430\u0442\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={'\u0421\u0443\u043C\u043C\u0430'} theme={theme}>
+      <FieldGroup label={t('addModal.amount')} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
     </>
@@ -219,6 +232,7 @@ function VehicleExpenseFields({ form, onChange, theme, inputStyle }) {
 
 export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved, onVehicleExpenseSaved }) {
   const { theme } = useTheme()
+  const { t } = useLanguage()
   const [formType, setFormType] = useState(null)
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
@@ -350,7 +364,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   }
 
   const showMenu = formType === null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel')
-  const menuItems = activeTab === 'service' ? SERVICE_MENU : activeTab === 'fuel' ? VEHICLE_MENU : OVERVIEW_MENU
+  const menuItems = getMenuItems(activeTab, t)
 
   const renderMenuBtn = (item) => (
     <button
@@ -377,7 +391,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   )
 
   const renderForm = () => {
-    const props = { form, onChange: handleChange, theme, inputStyle }
+    const props = { form, onChange: handleChange, theme, inputStyle, t }
     switch (formType) {
       case 'fuel': return <FuelFields {...props} geoState={geoState} />
       case 'trip': return <TripFields {...props} />
@@ -389,8 +403,8 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   }
 
   const headerTitle = showMenu
-    ? '\u0427\u0442\u043E \u0434\u043E\u0431\u0430\u0432\u0438\u0442\u044C?'
-    : (FORM_TITLES[formType] || '\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043F\u0438\u0441\u044C')
+    ? t('addModal.whatToAdd')
+    : getFormTitle(formType, t)
 
   const canGoBack = formType !== null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel')
 
@@ -466,7 +480,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
         ) : (
           <>
             {renderForm()}
-            <PhotoVoicePlaceholder theme={theme} />
+            <PhotoVoicePlaceholder theme={theme} t={t} />
             <button
               onClick={handleSave}
               disabled={saving}
@@ -484,7 +498,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
                 opacity: saving ? 0.7 : 1,
               }}
             >
-              {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u2713 \u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+              {saving ? t('addModal.saving') : t('addModal.save')}
             </button>
           </>
         )}

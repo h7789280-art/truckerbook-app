@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useOffline } from './hooks/useOffline'
 import { ThemeProvider, useTheme } from './lib/theme'
-import { LanguageProvider } from './lib/i18n'
+import { LanguageProvider, useLanguage } from './lib/i18n'
 import { supabase } from './lib/supabase'
 import Overview from './tabs/Overview'
 import Fuel from './tabs/Fuel'
@@ -20,12 +20,176 @@ import Paywall from './components/Paywall'
 import VehicleSwitcher from './components/VehicleSwitcher'
 import BrandComboBox from './components/BrandComboBox'
 
+const WELCOME_COUNTRIES = [
+  { value: 'RU', flag: '\uD83C\uDDF7\uD83C\uDDFA', label: '\u0420\u043E\u0441\u0441\u0438\u044F' },
+  { value: 'US', flag: '\uD83C\uDDFA\uD83C\uDDF8', label: 'USA' },
+  { value: 'UA', flag: '\uD83C\uDDFA\uD83C\uDDE6', label: '\u0423\u043A\u0440\u0430\u0457\u043D\u0430' },
+  { value: 'BY', flag: '\uD83C\uDDE7\uD83C\uDDFE', label: '\u0411\u0435\u043B\u0430\u0440\u0443\u0441\u044C' },
+  { value: 'KZ', flag: '\uD83C\uDDF0\uD83C\uDDFF', label: '\u041A\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043D' },
+  { value: 'UZ', flag: '\uD83C\uDDFA\uD83C\uDDFF', label: '\u0423\u0437\u0431\u0435\u043A\u0438\u0441\u0442\u0430\u043D' },
+  { value: 'DE', flag: '\uD83C\uDDE9\uD83C\uDDEA', label: 'Deutschland' },
+  { value: 'FR', flag: '\uD83C\uDDEB\uD83C\uDDF7', label: 'France' },
+  { value: 'ES', flag: '\uD83C\uDDEA\uD83C\uDDF8', label: 'Espa\u00F1a' },
+  { value: 'TR', flag: '\uD83C\uDDF9\uD83C\uDDF7', label: 'T\u00FCrkiye' },
+  { value: 'PL', flag: '\uD83C\uDDF5\uD83C\uDDF1', label: 'Polska' },
+]
+
+const WELCOME_LANGUAGES = [
+  { value: 'ru', flag: '\uD83C\uDDF7\uD83C\uDDFA', label: '\u0420\u0443\u0441\u0441\u043A\u0438\u0439' },
+  { value: 'en', flag: '\uD83C\uDDFA\uD83C\uDDF8', label: 'English' },
+  { value: 'uk', flag: '\uD83C\uDDFA\uD83C\uDDE6', label: '\u0423\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u0430' },
+  { value: 'es', flag: '\uD83C\uDDEA\uD83C\uDDF8', label: 'Espa\u00F1ol' },
+  { value: 'de', flag: '\uD83C\uDDE9\uD83C\uDDEA', label: 'Deutsch' },
+  { value: 'fr', flag: '\uD83C\uDDEB\uD83C\uDDF7', label: 'Fran\u00E7ais' },
+  { value: 'tr', flag: '\uD83C\uDDF9\uD83C\uDDF7', label: 'T\u00FCrk\u00E7e' },
+  { value: 'pl', flag: '\uD83C\uDDF5\uD83C\uDDF1', label: 'Polski' },
+]
+
+const LANG_TO_COUNTRY = { ru: 'RU', en: 'US', uk: 'UA', de: 'DE', fr: 'FR', es: 'ES', tr: 'TR', pl: 'PL' }
+
+const CONTINUE_LABELS = {
+  ru: '\u0414\u0430\u043B\u0435\u0435',
+  en: 'Continue',
+  uk: '\u0414\u0430\u043B\u0456',
+  es: 'Continuar',
+  de: 'Weiter',
+  fr: 'Continuer',
+  tr: 'Devam',
+  pl: 'Dalej',
+}
+
+function detectBrowserLang() {
+  try {
+    const nav = (navigator.language || '').toLowerCase().split('-')[0]
+    if (['ru', 'en', 'uk', 'es', 'de', 'fr', 'tr', 'pl'].includes(nav)) return nav
+  } catch {}
+  return 'en'
+}
+
+function WelcomeSetup({ onComplete }) {
+  const detectedLang = detectBrowserLang()
+  const [selectedLang, setSelectedLang] = useState(detectedLang)
+  const [selectedCountry, setSelectedCountry] = useState(LANG_TO_COUNTRY[detectedLang] || 'US')
+
+  const handleContinue = () => {
+    try {
+      localStorage.setItem('truckerbook_lang', selectedLang)
+      localStorage.setItem('truckerbook_country', selectedCountry)
+    } catch {}
+    onComplete(selectedLang)
+  }
+
+  const selectStyle = {
+    width: '100%',
+    padding: '14px 16px',
+    background: '#111827',
+    border: '1px solid #1e2a3f',
+    borderRadius: 12,
+    color: '#e2e8f0',
+    fontSize: 16,
+    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+    outline: 'none',
+    cursor: 'pointer',
+    appearance: 'none',
+    WebkitAppearance: 'none',
+    backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'12\' viewBox=\'0 0 12 12\'%3E%3Cpath fill=\'%2364748b\' d=\'M6 8L1 3h10z\'/%3E%3C/svg%3E")',
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 14px center',
+  }
+
+  return (
+    <div style={{
+      minHeight: '100vh',
+      background: '#0a0e1a',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+      padding: 24,
+    }}>
+      <div style={{
+        maxWidth: 360,
+        width: '100%',
+        textAlign: 'center',
+      }}>
+        <div style={{ fontSize: 48, marginBottom: 8 }}>{'\uD83D\uDE9B'}</div>
+        <h1 style={{
+          fontSize: 24,
+          fontWeight: 700,
+          color: '#e2e8f0',
+          margin: '0 0 4px',
+        }}>TruckerBook</h1>
+        <p style={{
+          fontSize: 14,
+          color: '#64748b',
+          margin: '0 0 32px',
+        }}>Trucker accounting app</p>
+
+        <div style={{ textAlign: 'left', marginBottom: 16 }}>
+          <label style={{ fontSize: 13, color: '#64748b', marginBottom: 6, display: 'block' }}>
+            {'\uD83C\uDF0D'} Country / {'\u0421\u0442\u0440\u0430\u043D\u0430'}
+          </label>
+          <select
+            value={selectedCountry}
+            onChange={(e) => setSelectedCountry(e.target.value)}
+            style={selectStyle}
+          >
+            {WELCOME_COUNTRIES.map((c) => (
+              <option key={c.value} value={c.value}>{c.flag + ' ' + c.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ textAlign: 'left', marginBottom: 32 }}>
+          <label style={{ fontSize: 13, color: '#64748b', marginBottom: 6, display: 'block' }}>
+            {'\uD83D\uDDE3\uFE0F'} Language / {'\u042F\u0437\u044B\u043A'}
+          </label>
+          <select
+            value={selectedLang}
+            onChange={(e) => {
+              const newLang = e.target.value
+              setSelectedLang(newLang)
+              if (LANG_TO_COUNTRY[newLang]) setSelectedCountry(LANG_TO_COUNTRY[newLang])
+            }}
+            style={selectStyle}
+          >
+            {WELCOME_LANGUAGES.map((l) => (
+              <option key={l.value} value={l.value}>{l.flag + ' ' + l.label}</option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          onClick={handleContinue}
+          style={{
+            width: '100%',
+            padding: 16,
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            border: 'none',
+            borderRadius: 14,
+            color: '#fff',
+            fontSize: 17,
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          {CONTINUE_LABELS[selectedLang] || 'Continue'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function AppInner() {
   const { session, loading: authLoading } = useAuth()
   const userId = session?.user?.id
   const { profile, loading: profileLoading, refetch: refetchProfile } = useProfile(userId)
   const { theme } = useTheme()
+  const { setLang } = useLanguage()
   const { isOnline, syncStatus, syncedCount } = useOffline()
+  const [setupDone, setSetupDone] = useState(() => {
+    try { return !!localStorage.getItem('truckerbook_country') } catch { return false }
+  })
   const userRole = profile?.role || 'driver'
   const [activeTab, setActiveTab] = useState(userRole === 'job_seeker' ? 'jobs' : 'overview')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -74,6 +238,13 @@ function AppInner() {
         {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
       </div>
     )
+  }
+
+  if (!setupDone) {
+    return <WelcomeSetup onComplete={(chosenLang) => {
+      setLang(chosenLang)
+      setSetupDone(true)
+    }} />
   }
 
   if (!session) {

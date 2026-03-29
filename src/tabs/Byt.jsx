@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchBytExpenses, deleteBytExpense } from '../lib/api'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -27,6 +27,7 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 
 export default function Byt({ userId, refreshKey }) {
   const { t } = useLanguage()
+  const cs = getCurrencySymbol()
 
   const CATEGORIES = useMemo(() => [
     { key: 'all', icon: '', label: t('byt.all') },
@@ -134,7 +135,7 @@ export default function Byt({ userId, refreshKey }) {
                 fontFamily: 'monospace',
                 color: 'var(--text, #e2e8f0)',
               }}>
-                {grandTotal.toLocaleString('ru-RU')}{'\u20bd'}
+                {grandTotal.toLocaleString('ru-RU')}{cs}
               </div>
             </div>
           </div>
@@ -159,7 +160,7 @@ export default function Byt({ userId, refreshKey }) {
                   fontWeight: 600,
                   color: 'var(--text, #e2e8f0)',
                 }}>
-                  {s.total.toLocaleString('ru-RU')}{'\u20bd'}
+                  {s.total.toLocaleString('ru-RU')}{cs}
                 </span>
               </div>
             ))}
@@ -265,7 +266,7 @@ export default function Byt({ userId, refreshKey }) {
                   color: isFree ? '#22c55e' : 'var(--text, #e2e8f0)',
                   flexShrink: 0,
                 }}>
-                  {isFree ? t('byt.free') : `${entry.amount.toLocaleString('ru-RU')}\u20bd`}
+                  {isFree ? t('byt.free') : `${entry.amount.toLocaleString('ru-RU')}${cs}`}
                 </div>
                 <button
                   onClick={() => handleDelete(entry.id)}

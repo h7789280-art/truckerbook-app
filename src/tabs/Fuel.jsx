@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchFuels, deleteFuel, fetchVehicleExpenses, deleteVehicleExpense } from '../lib/api'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 
 function formatNumber(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -31,6 +31,8 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 
 export default function Fuel({ userId, refreshKey }) {
   const { t } = useLanguage()
+  const cs = getCurrencySymbol()
+  const unitSys = getUnits()
   const CATEGORIES = useMemo(() => [
     { key: 'all', icon: '', label: t('fuel.all') },
     { key: 'fuel', icon: '\u26fd', label: t('fuel.fuelCat'), color: '#f59e0b' },
@@ -99,7 +101,7 @@ export default function Fuel({ userId, refreshKey }) {
       source: 'fuel',
       category: 'fuel',
       name: e.station || t('fuel.refueling'),
-      subtitle: e.liters ? `${e.liters} ${t('fuel.litersShort')} \u00b7 ${formatNumber(e.odometer || 0)} ${t('trips.km')}` : '',
+      subtitle: e.liters ? `${e.liters} ${unitSys === 'imperial' ? 'gal' : t('fuel.litersShort')} \u00b7 ${formatNumber(e.odometer || 0)} ${unitSys === 'imperial' ? 'mi' : t('trips.km')}` : '',
       date: e.date,
       amount: e.cost || 0,
     })),
@@ -158,7 +160,7 @@ export default function Fuel({ userId, refreshKey }) {
             {t('fuel.forMonth')}
           </div>
           <div style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
-            {formatNumber(Math.round(grandTotal))} {'\u20bd'}
+            {formatNumber(Math.round(grandTotal))} {cs}
           </div>
         </div>
         <div style={{
@@ -216,7 +218,7 @@ export default function Fuel({ userId, refreshKey }) {
                 fontFamily: 'monospace',
                 color: 'var(--text, #e2e8f0)',
               }}>
-                {grandTotal.toLocaleString('ru-RU')}{'\u20bd'}
+                {grandTotal.toLocaleString('ru-RU')}{cs}
               </div>
             </div>
           </div>
@@ -239,7 +241,7 @@ export default function Fuel({ userId, refreshKey }) {
                   fontWeight: 600,
                   color: 'var(--text, #e2e8f0)',
                 }}>
-                  {s.total.toLocaleString('ru-RU')}{'\u20bd'}
+                  {s.total.toLocaleString('ru-RU')}{cs}
                 </span>
               </div>
             ))}
@@ -345,7 +347,7 @@ export default function Fuel({ userId, refreshKey }) {
                   color: 'var(--text, #e2e8f0)',
                   flexShrink: 0,
                 }}>
-                  {formatNumber(Math.round(entry.amount))}{'\u20bd'}
+                  {formatNumber(Math.round(entry.amount))}{cs}
                 </div>
                 <button
                   onClick={() => entry.source === 'fuel'

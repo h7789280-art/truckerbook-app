@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels } from '../lib/api'
 import { useTheme } from '../lib/theme'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 
 function fmt(n) {
   if (n >= 1000) {
@@ -497,6 +497,7 @@ function TrailerBlock({ userId, theme }) {
 
 function TripsTab({ userId, refreshKey, theme }) {
   const { t } = useLanguage()
+  const cs = getCurrencySymbol()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -544,7 +545,7 @@ function TripsTab({ userId, refreshKey, theme }) {
             {t('trips.income')}
           </div>
           <div style={{ color: '#22c55e', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
-            {fmt(totalIncome)} {'\u20bd'}
+            {fmt(totalIncome)} {cs}
           </div>
         </div>
         <div style={miniCard}>
@@ -586,7 +587,7 @@ function TripsTab({ userId, refreshKey, theme }) {
                 </div>
               </div>
               <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
-                +{fmtFull(trip.income || 0)} {'\u20bd'}
+                +{fmtFull(trip.income || 0)} {cs}
               </div>
             </div>
             <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>

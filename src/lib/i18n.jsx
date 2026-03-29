@@ -3808,5 +3808,56 @@ export function useLanguage() {
   return ctx
 }
 
+// Country -> currency + units mapping
+export const COUNTRY_DEFAULTS = {
+  RU: { currency: 'RUB', symbol: '\u20bd', units: 'metric' },
+  US: { currency: 'USD', symbol: '$', units: 'imperial' },
+  UA: { currency: 'UAH', symbol: '\u20b4', units: 'metric' },
+  BY: { currency: 'BYN', symbol: 'Br', units: 'metric' },
+  KZ: { currency: 'KZT', symbol: '\u20b8', units: 'metric' },
+  UZ: { currency: 'UZS', symbol: '\u0441\u0443\u043c', units: 'metric' },
+  DE: { currency: 'EUR', symbol: '\u20ac', units: 'metric' },
+  FR: { currency: 'EUR', symbol: '\u20ac', units: 'metric' },
+  ES: { currency: 'EUR', symbol: '\u20ac', units: 'metric' },
+  TR: { currency: 'TRY', symbol: '\u20ba', units: 'metric' },
+  PL: { currency: 'PLN', symbol: 'z\u0142', units: 'metric' },
+}
+
+export const ALL_CURRENCIES = [
+  { code: 'RUB', symbol: '\u20bd', label: 'RUB \u20bd' },
+  { code: 'USD', symbol: '$', label: 'USD $' },
+  { code: 'UAH', symbol: '\u20b4', label: 'UAH \u20b4' },
+  { code: 'BYN', symbol: 'Br', label: 'BYN Br' },
+  { code: 'KZT', symbol: '\u20b8', label: 'KZT \u20b8' },
+  { code: 'UZS', symbol: '\u0441\u0443\u043c', label: 'UZS \u0441\u0443\u043c' },
+  { code: 'EUR', symbol: '\u20ac', label: 'EUR \u20ac' },
+  { code: 'TRY', symbol: '\u20ba', label: 'TRY \u20ba' },
+  { code: 'PLN', symbol: 'z\u0142', label: 'PLN z\u0142' },
+]
+
+export function getCurrencySymbol() {
+  try {
+    const cur = localStorage.getItem('truckerbook_currency') || 'RUB'
+    const found = ALL_CURRENCIES.find(c => c.code === cur)
+    return found ? found.symbol : '\u20bd'
+  } catch { return '\u20bd' }
+}
+
+export function getUnits() {
+  try {
+    return localStorage.getItem('truckerbook_units') || 'metric'
+  } catch { return 'metric' }
+}
+
+export function applyCountryDefaults(countryCode) {
+  const defaults = COUNTRY_DEFAULTS[countryCode]
+  if (defaults) {
+    try {
+      localStorage.setItem('truckerbook_currency', defaults.currency)
+      localStorage.setItem('truckerbook_units', defaults.units)
+    } catch {}
+  }
+}
+
 export { translations }
 export default translations

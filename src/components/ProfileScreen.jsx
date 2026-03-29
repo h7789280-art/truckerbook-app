@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/theme'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, applyCountryDefaults, COUNTRY_DEFAULTS, ALL_CURRENCIES, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import BrandComboBox from './BrandComboBox'
 
@@ -73,6 +73,12 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   const [savingHos, setSavingHos] = useState(false)
   const [country, setCountry] = useState(() => {
     try { return localStorage.getItem('truckerbook_country') || 'RU' } catch { return 'RU' }
+  })
+  const [currency, setCurrency] = useState(() => {
+    try { return localStorage.getItem('truckerbook_currency') || 'RUB' } catch { return 'RUB' }
+  })
+  const [units, setUnitsState] = useState(() => {
+    try { return localStorage.getItem('truckerbook_units') || 'metric' } catch { return 'metric' }
   })
 
   const fetchVehicles = async (uid) => {
@@ -445,6 +451,12 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
             const v = e.target.value
             setCountry(v)
             try { localStorage.setItem('truckerbook_country', v) } catch {}
+            applyCountryDefaults(v)
+            const defaults = COUNTRY_DEFAULTS[v]
+            if (defaults) {
+              setCurrency(defaults.currency)
+              setUnitsState(defaults.units)
+            }
           }}
           style={{
             flex: 1,
@@ -473,6 +485,70 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           <option value="ES">{'\uD83C\uDDEA\uD83C\uDDF8 Espa\u00F1a'}</option>
           <option value="TR">{'\uD83C\uDDF9\uD83C\uDDF7 T\u00FCrkiye'}</option>
           <option value="PL">{'\uD83C\uDDF5\uD83C\uDDF1 Polska'}</option>
+        </select>
+      </div>
+
+      {/* Currency & Units selects */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '16px',
+        justifyContent: 'center',
+      }}>
+        <span style={{ fontSize: '18px' }}>{'\uD83D\uDCB1'}</span>
+        <select
+          value={currency}
+          onChange={(e) => {
+            const v = e.target.value
+            setCurrency(v)
+            try { localStorage.setItem('truckerbook_currency', v) } catch {}
+          }}
+          style={{
+            flex: 1,
+            padding: '8px 10px',
+            borderRadius: '8px',
+            border: '1px solid ' + theme.border,
+            background: theme.card,
+            color: theme.text,
+            fontSize: '14px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            outline: 'none',
+            cursor: 'pointer',
+            maxWidth: '160px',
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+          onBlur={(e) => e.target.style.borderColor = theme.border}
+        >
+          {ALL_CURRENCIES.map(c => (
+            <option key={c.code} value={c.code}>{c.label}</option>
+          ))}
+        </select>
+        <select
+          value={units}
+          onChange={(e) => {
+            const v = e.target.value
+            setUnitsState(v)
+            try { localStorage.setItem('truckerbook_units', v) } catch {}
+          }}
+          style={{
+            flex: 1,
+            padding: '8px 10px',
+            borderRadius: '8px',
+            border: '1px solid ' + theme.border,
+            background: theme.card,
+            color: theme.text,
+            fontSize: '14px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            outline: 'none',
+            cursor: 'pointer',
+            maxWidth: '200px',
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+          onBlur={(e) => e.target.style.borderColor = theme.border}
+        >
+          <option value="metric">{'Metric (\u043A\u043C, \u043B)'}</option>
+          <option value="imperial">{'Imperial (mi, gal)'}</option>
         </select>
       </div>
 

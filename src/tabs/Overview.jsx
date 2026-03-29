@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession } from '../lib/api'
 
 function getGreeting(name, t) {
@@ -37,6 +37,8 @@ function getMonthName(date) {
 export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey }) {
   const { theme, mode, setMode } = useTheme()
   const { t } = useLanguage()
+  const cs = getCurrencySymbol()
+  const unitSys = getUnits()
   const THEME_OPTIONS = [
     { key: 'light', label: t('overview.themeDay') },
     { key: 'dark', label: t('overview.themeNight') },
@@ -524,7 +526,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </span>
             </div>
             <div style={{ fontSize: '13px', color: theme.dim, marginBottom: '12px' }}>
-              {t('overview.odometerStart')}{formatNumber(activeShift.odometer_start || 0)}{' \u043a\u043c'}
+              {t('overview.odometerStart')}{formatNumber(activeShift.odometer_start || 0)}{' '}{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
             </div>
             <button
               onClick={() => { setShiftModal('end'); setShiftOdometer('') }}
@@ -580,7 +582,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           <span>{'\ud83d\ude9b'}</span>
           <span>
             {t('overview.today') + ' '}{todaySummary.count}{' '}{todaySummary.count === 1 ? '\u0441\u043c\u0435\u043d\u0430' : todaySummary.count < 5 ? '\u0441\u043c\u0435\u043d\u044b' : '\u0441\u043c\u0435\u043d'}
-            {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' \u043a\u043c'}
+            {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' '}{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
             {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{'\u0447 '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{'\u043c\u0438\u043d'}
           </span>
         </div>
@@ -678,7 +680,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               }}>
                 <span style={{ fontSize: '13px', color: theme.dim }}>{t('overview.forShift')}</span>
                 <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>
-                  {Math.max(0, parseInt(shiftOdometer, 10) - (activeShift.odometer_start || 0))}{' \u043a\u043c'}
+                  {Math.max(0, parseInt(shiftOdometer, 10) - (activeShift.odometer_start || 0))}{' '}{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
                 </span>
               </div>
             )}
@@ -814,7 +816,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   {driverName ? (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <span style={{ fontSize: '13px', fontWeight: 600, color: isTeamDriving ? driverColor : theme.text }}>
-                        {driverName} {'\u2014'} {formatNumber(kmDriven)} {'\u043a\u043c'}, {durationStr}
+                        {driverName} {'\u2014'} {formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}, {durationStr}
                       </span>
                       <span style={{ fontSize: '12px', color: theme.dim }}>{dateStr}</span>
                     </div>
@@ -832,7 +834,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       {!driverName && ` (${durationStr})`}
                     </span>
                     <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>
-                      +{formatNumber(kmDriven)} {'\u043a\u043c'}
+                      +{formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
                     </span>
                   </div>
                 </div>
@@ -884,7 +886,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <div style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{formatNumber(Math.round(d.totalKm))}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{'\u043a\u043c'}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</div>
                     </div>
                     <div style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{d.count}</div>
@@ -915,20 +917,20 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               <div>
                 <div style={dimText}>{t('overview.income')}</div>
                 <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
-                  {formatNumber(Math.round(monthData.income))} {'\u20bd'}
+                  {formatNumber(Math.round(monthData.income))} {cs}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={dimText}>{t('overview.expense')}</div>
                 <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
-                  {formatNumber(Math.round(totalExpenses))} {'\u20bd'}
+                  {formatNumber(Math.round(totalExpenses))} {cs}
                 </div>
               </div>
             </div>
             <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
               <div style={dimText}>{t('overview.netProfit')}</div>
               <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: profit >= 0 ? '#22c55e' : '#ef4444' }}>
-                {profit >= 0 ? '+' : ''}{formatNumber(Math.round(profit))} {'\u20bd'}
+                {profit >= 0 ? '+' : ''}{formatNumber(Math.round(profit))} {cs}
               </div>
             </div>
           </div>
@@ -936,10 +938,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Mini cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {[
-              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: '\u043a\u043c', icon: '\ud83d\udea3' },
-              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: '\u043b/100\u043a\u043c', icon: '\u26fd' },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udea3' },
+              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd' },
               { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a' },
-              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: '\u20bd/\u043a\u043c', icon: '\ud83d\udcb0' },
+              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0' },
             ].map((item, i) => (
               <div key={i} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
                 <div style={{ fontSize: '18px', marginBottom: '4px' }}>{item.icon}</div>

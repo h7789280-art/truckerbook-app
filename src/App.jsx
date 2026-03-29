@@ -3,7 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useOffline } from './hooks/useOffline'
 import { ThemeProvider, useTheme } from './lib/theme'
-import { LanguageProvider, useLanguage } from './lib/i18n'
+import { LanguageProvider, useLanguage, applyCountryDefaults } from './lib/i18n'
 import { supabase } from './lib/supabase'
 import Overview from './tabs/Overview'
 import Fuel from './tabs/Fuel'
@@ -76,6 +76,7 @@ function WelcomeSetup({ onComplete }) {
       localStorage.setItem('truckerbook_lang', selectedLang)
       localStorage.setItem('truckerbook_country', selectedCountry)
     } catch {}
+    applyCountryDefaults(selectedCountry)
     onComplete(selectedLang)
   }
 

@@ -34,7 +34,7 @@ function getMonthName(date) {
   return months[date.getMonth()] + ' ' + date.getFullYear()
 }
 
-export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey }) {
+export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey, onExtraNav, userRole }) {
   const { theme, mode, setMode } = useTheme()
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
@@ -348,19 +348,45 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         <div style={{ fontSize: '20px', fontWeight: 600 }}>
           {greeting.icon} {greeting.text}
         </div>
-        {onOpenProfile && (
-          <button
-            onClick={onOpenProfile}
-            style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              fontSize: '22px',
-              padding: '4px',
-              lineHeight: 1,
-            }}
-          >{'\u2699\ufe0f'}</button>
-        )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {onExtraNav && userRole !== 'job_seeker' && (
+            <>
+              <button
+                onClick={() => onExtraNav('jobs')}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '18px', padding: '4px', lineHeight: 1,
+                }}
+                title={'\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438'}
+              >{'\ud83d\udcbc'}</button>
+              <button
+                onClick={() => onExtraNav('news')}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '18px', padding: '4px', lineHeight: 1,
+                }}
+                title={'\u041d\u043e\u0432\u043e\u0441\u0442\u0438'}
+              >{'\ud83d\udcf0'}</button>
+              <button
+                onClick={() => onExtraNav('marketplace')}
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '18px', padding: '4px', lineHeight: 1,
+                }}
+                title={'\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441'}
+              >{'\ud83d\udce2'}</button>
+            </>
+          )}
+          {onOpenProfile && (
+            <button
+              onClick={onOpenProfile}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '22px', padding: '4px', lineHeight: 1,
+              }}
+            >{'\u2699\ufe0f'}</button>
+          )}
+        </div>
       </div>
 
       {/* Trial banner */}

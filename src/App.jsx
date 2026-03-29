@@ -196,6 +196,17 @@ function AppInner() {
   })
   const userRole = profile?.role || 'driver'
   const [activeTab, setActiveTab] = useState(userRole === 'job_seeker' ? 'jobs' : 'overview')
+  const [prevTab, setPrevTab] = useState('overview')
+  const isExtraTab = ['jobs', 'news', 'marketplace'].includes(activeTab) && userRole !== 'job_seeker'
+
+  const handleExtraTabNav = useCallback((tab) => {
+    setPrevTab(activeTab)
+    setActiveTab(tab)
+  }, [activeTab])
+
+  const handleBackFromExtra = useCallback(() => {
+    setActiveTab(prevTab)
+  }, [prevTab])
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [fuelRefreshKey, setFuelRefreshKey] = useState(0)
   const [tripsRefreshKey, setTripsRefreshKey] = useState(0)
@@ -389,12 +400,14 @@ function AppInner() {
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} />
+      case 'jobs':
+        return <Jobs refreshKey={0} profile={profile} />
       case 'news':
         return <News />
       case 'marketplace':
         return <Marketplace />
       default:
-        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} />
+        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} />
     }
   }
 
@@ -591,6 +604,30 @@ function AppInner() {
             onSelect={setActiveVehicleId}
             onAddVehicle={() => setShowProfile(true)}
           />
+        )}
+        {isExtraTab && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px 16px',
+            gap: 12,
+          }}>
+            <button
+              onClick={handleBackFromExtra}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: 16,
+                fontWeight: 600,
+                color: '#f59e0b',
+                padding: '4px 0',
+                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+              }}
+            >
+              {'\u2190 ' + (activeTab === 'jobs' ? '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438' : activeTab === 'news' ? '\u041d\u043e\u0432\u043e\u0441\u0442\u0438' : '\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441')}
+            </button>
+          </div>
         )}
         {renderTab()}
       </div>

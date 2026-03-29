@@ -541,6 +541,142 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
   )
 }
 
+// ===== SCREEN 2.5: ROLE SELECTION =====
+function RoleScreen({ role, setRole, onNext }) {
+  const roles = [
+    { value: 'driver', icon: '\ud83d\ude9b', title: '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', desc: '\u0415\u0441\u0442\u044c \u043c\u0430\u0448\u0438\u043d\u0430, \u0432\u0435\u0434\u0443 \u0443\u0447\u0451\u0442' },
+    { value: 'company', icon: '\ud83c\udfe2', title: '\u041a\u043e\u043c\u043f\u0430\u043d\u0438\u044f', desc: '\u0423\u043f\u0440\u0430\u0432\u043b\u044f\u044e \u043f\u0430\u0440\u043a\u043e\u043c \u043c\u0430\u0448\u0438\u043d' },
+    { value: 'job_seeker', icon: '\ud83d\udd0d', title: '\u0418\u0449\u0443 \u0440\u0430\u0431\u043e\u0442\u0443', desc: '\u041d\u0443\u0436\u043d\u0430 \u0440\u0430\u0431\u043e\u0442\u0430 \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u043c' },
+  ]
+
+  return (
+    <div style={styles.inner}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
+        <div style={{ fontSize: 48 }}>{'\ud83d\udc64'}</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
+          {'\u041a\u0442\u043e \u0432\u044b?'}
+        </h2>
+        <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 32px' }}>
+          {'\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0430\u0448\u0443 \u0440\u043e\u043b\u044c'}
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+          {roles.map((r) => (
+            <button
+              key={r.value}
+              onClick={() => setRole(r.value)}
+              style={{
+                ...styles.card,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 16,
+                padding: '20px 20px',
+                cursor: 'pointer',
+                border: role === r.value ? '2px solid #f59e0b' : '1px solid #1e2a3f',
+                background: role === r.value ? '#1a1500' : '#111827',
+                textAlign: 'left',
+                width: '100%',
+              }}
+            >
+              <div style={{ fontSize: 36, flexShrink: 0 }}>{r.icon}</div>
+              <div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: '#e2e8f0' }}>{r.title}</div>
+                <div style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>{r.desc}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <button
+          style={{ ...(role ? styles.btnPrimary : styles.btnDisabled), marginTop: 32, width: '100%' }}
+          disabled={!role}
+          onClick={onNext}
+        >
+          {'\u0414\u0430\u043b\u0435\u0435 \u2192'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ===== SCREEN 3b: JOB SEEKER MINI-PROFILE =====
+function JobSeekerProfileScreen({ profile, setProfile, onNext, saving, error }) {
+  const valid = profile.name && !saving
+
+  const cdlOptions = ['B', 'C', 'CE', 'D', 'CDL-A', 'CDL-B']
+
+  return (
+    <div style={styles.inner}>
+      <div style={{ textAlign: 'center', marginBottom: 24 }}>
+        <div style={{ fontSize: 48 }}>{'\ud83d\udd0d'}</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, margin: '12px 0 4px' }}>
+          {'\u0420\u0430\u0441\u0441\u043a\u0430\u0436\u0438\u0442\u0435 \u043e \u0441\u0435\u0431\u0435'}
+        </h2>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
+        <div>
+          <label style={styles.label}>{'\u0418\u043c\u044f'}</label>
+          <input
+            style={styles.input}
+            placeholder={'\u0418\u0432\u0430\u043d'}
+            value={profile.name}
+            onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label style={styles.label}>{'\u0413\u043e\u0440\u043e\u0434'}</label>
+          <input
+            style={styles.input}
+            placeholder={'\u041c\u043e\u0441\u043a\u0432\u0430'}
+            value={profile.city || ''}
+            onChange={(e) => setProfile({ ...profile, city: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label style={styles.label}>{'\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f \u043f\u0440\u0430\u0432'}</label>
+          <select
+            style={styles.select}
+            value={profile.cdl_category || ''}
+            onChange={(e) => setProfile({ ...profile, cdl_category: e.target.value })}
+          >
+            <option value="">{'\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435...'}</option>
+            {cdlOptions.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label style={styles.label}>{'\u0421\u0442\u0430\u0436 \u0432\u043e\u0436\u0434\u0435\u043d\u0438\u044f (\u043b\u0435\u0442)'}</label>
+          <input
+            style={styles.input}
+            type="number"
+            placeholder="5"
+            min="0"
+            value={profile.experience_years || ''}
+            onChange={(e) => setProfile({ ...profile, experience_years: e.target.value })}
+          />
+        </div>
+      </div>
+
+      {error && (
+        <p style={{ color: '#ef4444', fontSize: 14, textAlign: 'center', margin: '12px 0 0' }}>{error}</p>
+      )}
+
+      <button
+        style={{ ...(valid ? styles.btnPrimary : styles.btnDisabled), marginTop: 24 }}
+        disabled={!valid}
+        onClick={onNext}
+      >
+        {saving ? '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435...' : '\u0414\u0430\u043b\u0435\u0435 \u2192'}
+      </button>
+    </div>
+  )
+}
+
 // ===== SCREEN 3: PROFILE =====
 function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
   const valid = profile.name && profile.brand && profile.model && profile.mileage && !saving
@@ -772,9 +908,11 @@ function BiometricScreen({ onEnable, onSkip }) {
   )
 }
 
-// ===== SCREEN 6: WELCOME =====
-function WelcomeScreen({ profile, biometricEnabled, onStart }) {
-  const features = [
+// ===== SCREEN 7: WELCOME =====
+function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
+  const isJobSeeker = role === 'job_seeker'
+
+  const driverFeatures = [
     { icon: '\u26fd', label: '\u0423\u0447\u0451\u0442 \u0442\u043e\u043f\u043b\u0438\u0432\u0430' },
     { icon: '\ud83d\udccd', label: '\u0420\u0435\u0439\u0441\u044b' },
     { icon: '\ud83d\udd27', label: '\u0421\u0435\u0440\u0432\u0438\u0441' },
@@ -782,6 +920,14 @@ function WelcomeScreen({ profile, biometricEnabled, onStart }) {
     { icon: '\u2705', label: '\u0427\u0435\u043a-\u043b\u0438\u0441\u0442' },
     { icon: '\ud83d\uddfa\ufe0f', label: '\u041a\u0430\u0440\u0442\u0430' },
   ]
+
+  const jobSeekerFeatures = [
+    { icon: '\ud83d\udcbc', label: '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438' },
+    { icon: '\ud83d\udcf0', label: '\u041d\u043e\u0432\u043e\u0441\u0442\u0438' },
+    { icon: '\ud83d\udecd\ufe0f', label: '\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441' },
+  ]
+
+  const features = isJobSeeker ? jobSeekerFeatures : driverFeatures
 
   const formattedMileage = Number(profile.mileage || 0).toLocaleString('ru-RU')
 
@@ -792,9 +938,11 @@ function WelcomeScreen({ profile, biometricEnabled, onStart }) {
         <h2 style={{ fontSize: 24, fontWeight: 700, margin: '16px 0 4px', textAlign: 'center' }}>
           {'\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c, ' + profile.name + '!'}
         </h2>
-        <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
-          {profile.brand + ' ' + profile.model + ' \u00b7 ' + formattedMileage + ' \u043a\u043c'}
-        </p>
+        {!isJobSeeker && (
+          <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
+            {profile.brand + ' ' + profile.model + ' \u00b7 ' + formattedMileage + ' \u043a\u043c'}
+          </p>
+        )}
 
         <div style={{
           display: 'flex',
@@ -812,23 +960,31 @@ function WelcomeScreen({ profile, biometricEnabled, onStart }) {
           </span>
         </div>
 
-        <div style={{
-          ...styles.card,
-          width: '100%',
-          marginTop: 24,
-          background: 'linear-gradient(135deg, #1a1500, #111827)',
-          borderColor: '#3d2f00',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontSize: 20 }}>{'\ud83d\udd13'}</span>
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>
-              {'7 \u0434\u043d\u0435\u0439 Pro \u2014 \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e'}
-            </span>
+        {!isJobSeeker && (
+          <div style={{
+            ...styles.card,
+            width: '100%',
+            marginTop: 24,
+            background: 'linear-gradient(135deg, #1a1500, #111827)',
+            borderColor: '#3d2f00',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: 20 }}>{'\ud83d\udd13'}</span>
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>
+                {'7 \u0434\u043d\u0435\u0439 Pro \u2014 \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e'}
+              </span>
+            </div>
+            <p style={{ color: '#64748b', fontSize: 13, margin: '8px 0 0' }}>
+              {'\u041f\u043e\u043b\u043d\u044b\u0439 \u0434\u043e\u0441\u0442\u0443\u043f \u043a\u043e \u0432\u0441\u0435\u043c \u0444\u0443\u043d\u043a\u0446\u0438\u044f\u043c'}
+            </p>
           </div>
-          <p style={{ color: '#64748b', fontSize: 13, margin: '8px 0 0' }}>
-            {'\u041f\u043e\u043b\u043d\u044b\u0439 \u0434\u043e\u0441\u0442\u0443\u043f \u043a\u043e \u0432\u0441\u0435\u043c \u0444\u0443\u043d\u043a\u0446\u0438\u044f\u043c'}
+        )}
+
+        {isJobSeeker && (
+          <p style={{ color: '#64748b', fontSize: 14, margin: '24px 0 0', textAlign: 'center' }}>
+            {'\u041d\u0430\u0439\u0434\u0438 \u0440\u0430\u0431\u043e\u0442\u0443 \u043c\u0435\u0447\u0442\u044b!'}
           </p>
-        </div>
+        )}
 
         <div style={{
           display: 'grid',
@@ -858,10 +1014,12 @@ function WelcomeScreen({ profile, biometricEnabled, onStart }) {
 }
 
 // ===== MAIN AUTH COMPONENT =====
+// Flow: 1=Phone, 2=SMS, 3=Role, 4=Profile (driver/company) or JobSeekerProfile, 5=PIN, 6=Biometric, 7=Welcome
 export default function Auth({ onComplete, onboardingOnly }) {
   const [step, setStep] = useState(onboardingOnly ? 3 : 1)
   const [phone, setPhone] = useState('')
   const [country, setCountry] = useState(COUNTRIES[0])
+  const [role, setRole] = useState('')
   const [profile, setProfile] = useState({
     name: '',
     brand: '',
@@ -869,6 +1027,9 @@ export default function Auth({ onComplete, onboardingOnly }) {
     mileage: '',
     plate: '',
     consumption: 34,
+    city: '',
+    cdl_category: '',
+    experience_years: '',
   })
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [otpLoading, setOtpLoading] = useState(false)
@@ -904,37 +1065,52 @@ export default function Auth({ onComplete, onboardingOnly }) {
 
       const fullPhone = phone ? country.code + phone.replace(/\D/g, '') : (user.phone || '')
 
-      // Upsert profile (INSERT or UPDATE if exists)
+      const isJobSeeker = role === 'job_seeker'
+
+      // Upsert profile
+      const profileData = {
+        id: user.id,
+        name: profile.name,
+        phone: fullPhone,
+        role: role,
+        city: profile.city || null,
+        cdl_category: profile.cdl_category || null,
+        experience_years: profile.experience_years ? parseInt(profile.experience_years, 10) : null,
+      }
+
+      if (isJobSeeker) {
+        profileData.plan = 'job_seeker'
+      } else {
+        profileData.brand = profile.brand
+        profileData.model = profile.model
+        profileData.odometer = parseInt(profile.mileage, 10) || 0
+        profileData.plate_number = profile.plate || null
+        profileData.fuel_consumption = profile.consumption || 34
+        profileData.plan = 'trial'
+        profileData.trial_ends_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      }
+
       const { error: profileErr } = await supabase
         .from('profiles')
-        .upsert({
-          id: user.id,
-          name: profile.name,
-          phone: fullPhone,
-          brand: profile.brand,
-          model: profile.model,
-          odometer: parseInt(profile.mileage, 10) || 0,
-          plate_number: profile.plate || null,
-          fuel_consumption: profile.consumption || 34,
-          plan: 'trial',
-          trial_ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        }, { onConflict: 'id' })
+        .upsert(profileData, { onConflict: 'id' })
       if (profileErr) throw profileErr
 
-      // Insert vehicle
-      const { error: vehicleErr } = await supabase
-        .from('vehicles')
-        .insert({
-          user_id: user.id,
-          brand: profile.brand,
-          model: profile.model,
-          odometer: parseInt(profile.mileage, 10) || 0,
-          plate_number: profile.plate || null,
-          fuel_consumption: profile.consumption || 34,
-        })
-      if (vehicleErr) throw vehicleErr
+      // Insert vehicle only for driver/company
+      if (!isJobSeeker) {
+        const { error: vehicleErr } = await supabase
+          .from('vehicles')
+          .insert({
+            user_id: user.id,
+            brand: profile.brand,
+            model: profile.model,
+            odometer: parseInt(profile.mileage, 10) || 0,
+            plate_number: profile.plate || null,
+            fuel_consumption: profile.consumption || 34,
+          })
+        if (vehicleErr) throw vehicleErr
+      }
 
-      setStep(4)
+      setStep(5)
     } catch (err) {
       console.error('saveProfileAndVehicle error:', err)
       setProfileError(err.message || String(err))
@@ -962,15 +1138,22 @@ export default function Auth({ onComplete, onboardingOnly }) {
   if (step === 3) {
     return (
       <div style={styles.container}>
-        <ProfileScreen profile={profile} setProfile={setProfile} onNext={saveProfileAndVehicle} saving={profileSaving} error={profileError} />
+        <RoleScreen role={role} setRole={setRole} onNext={() => setStep(4)} />
       </div>
     )
   }
 
   if (step === 4) {
+    if (role === 'job_seeker') {
+      return (
+        <div style={styles.container}>
+          <JobSeekerProfileScreen profile={profile} setProfile={setProfile} onNext={saveProfileAndVehicle} saving={profileSaving} error={profileError} />
+        </div>
+      )
+    }
     return (
       <div style={styles.container}>
-        <PinScreen onNext={() => setStep(5)} />
+        <ProfileScreen profile={profile} setProfile={setProfile} onNext={saveProfileAndVehicle} saving={profileSaving} error={profileError} />
       </div>
     )
   }
@@ -978,9 +1161,17 @@ export default function Auth({ onComplete, onboardingOnly }) {
   if (step === 5) {
     return (
       <div style={styles.container}>
+        <PinScreen onNext={() => setStep(6)} />
+      </div>
+    )
+  }
+
+  if (step === 6) {
+    return (
+      <div style={styles.container}>
         <BiometricScreen
-          onEnable={() => { setBiometricEnabled(true); setStep(6) }}
-          onSkip={() => setStep(6)}
+          onEnable={() => { setBiometricEnabled(true); setStep(7) }}
+          onSkip={() => setStep(7)}
         />
       </div>
     )
@@ -992,6 +1183,7 @@ export default function Auth({ onComplete, onboardingOnly }) {
         profile={profile}
         biometricEnabled={biometricEnabled}
         onStart={onComplete}
+        role={role}
       />
     </div>
   )

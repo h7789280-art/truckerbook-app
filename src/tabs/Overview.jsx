@@ -60,6 +60,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
   const [shiftOdometer, setShiftOdometer] = useState('')
   const [shiftElapsed, setShiftElapsed] = useState(0)
   const shiftTimerRef = useRef(null)
+  const [shiftPhoto, setShiftPhoto] = useState(null)
+  const [shiftPhotoPreview, setShiftPhotoPreview] = useState(null)
   const [shiftPeriod, setShiftPeriod] = useState('week')
   const [shiftStats, setShiftStats] = useState({ count: 0, totalKm: 0, totalHours: 0 })
   const [shiftHistory, setShiftHistory] = useState([])
@@ -220,11 +222,26 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
     try {
       const shift = await startShift(userId, null, shiftOdometer, profileName || '')
       setActiveShift(shift)
-      setShiftModal(null)
-      setShiftOdometer('')
+      closeShiftModal()
     } catch (err) {
       console.error('startShift error:', err)
     }
+  }
+
+  const closeShiftModal = () => {
+    setShiftModal(null)
+    setShiftOdometer('')
+    if (shiftPhotoPreview) URL.revokeObjectURL(shiftPhotoPreview)
+    setShiftPhoto(null)
+    setShiftPhotoPreview(null)
+  }
+
+  const handleShiftPhotoChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (shiftPhotoPreview) URL.revokeObjectURL(shiftPhotoPreview)
+    setShiftPhoto(file)
+    setShiftPhotoPreview(URL.createObjectURL(file))
   }
 
   const handleEndShift = async () => {
@@ -232,8 +249,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
     try {
       await endShift(activeShift.id, shiftOdometer)
       setActiveShift(null)
-      setShiftModal(null)
-      setShiftOdometer('')
+      closeShiftModal()
       loadShiftAnalytics()
     } catch (err) {
       console.error('endShift error:', err)
@@ -567,7 +583,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
           justifyContent: 'center',
           zIndex: 1000,
           padding: '16px',
-        }} onClick={() => setShiftModal(null)}>
+        }} onClick={() => closeShiftModal()}>
           <div style={{
             background: theme.card,
             border: '1px solid ' + theme.border,
@@ -601,6 +617,43 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
                 boxSizing: 'border-box',
               }}
             />
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '12px',
+              borderRadius: '10px',
+              border: '1px dashed ' + theme.border,
+              background: theme.bg,
+              color: theme.dim,
+              fontSize: '14px',
+              cursor: 'pointer',
+              marginBottom: '12px',
+              justifyContent: 'center',
+            }}>
+              <span>{'\ud83d\udcf7'}</span>
+              <span>{shiftPhoto ? shiftPhoto.name : '\u0424\u043e\u0442\u043e \u043e\u0434\u043e\u043c\u0435\u0442\u0440\u0430 (\u043a\u0430\u043c\u0435\u0440\u0430 \u0438\u043b\u0438 \u0433\u0430\u043b\u0435\u0440\u0435\u044f)'}</span>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleShiftPhotoChange}
+                style={{ display: 'none' }}
+              />
+            </label>
+            {shiftPhotoPreview && (
+              <div style={{ marginBottom: '12px', textAlign: 'center' }}>
+                <img
+                  src={shiftPhotoPreview}
+                  alt="Odometer preview"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '200px',
+                    borderRadius: '10px',
+                    objectFit: 'contain',
+                  }}
+                />
+              </div>
+            )}
             {shiftModal === 'end' && shiftOdometer && activeShift && (
               <div style={{
                 background: theme.bg,
@@ -617,7 +670,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
             )}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
-                onClick={() => setShiftModal(null)}
+                onClick={() => closeShiftModal()}
                 style={{
                   flex: 1,
                   padding: '12px',

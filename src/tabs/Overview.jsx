@@ -1,15 +1,16 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
+import { useLanguage } from '../lib/i18n'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession } from '../lib/api'
 
-function getGreeting(name) {
+function getGreeting(name, t) {
   const h = new Date().getHours()
-  const n = name || '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c'
-  if (h >= 6 && h < 12) return { text: `\u0414\u043e\u0431\u0440\u043e\u0435 \u0443\u0442\u0440\u043e, ${n}!`, icon: '\u2600\ufe0f' }
-  if (h >= 12 && h < 18) return { text: `\u0414\u043e\u0431\u0440\u044b\u0439 \u0434\u0435\u043d\u044c, ${n}!`, icon: '\ud83d\udc4b' }
-  if (h >= 18 && h < 23) return { text: `\u0414\u043e\u0431\u0440\u044b\u0439 \u0432\u0435\u0447\u0435\u0440, ${n}!`, icon: '\ud83c\udf05' }
-  return { text: `\u0414\u043e\u0431\u0440\u043e\u0439 \u043d\u043e\u0447\u0438, ${n}!`, icon: '\ud83c\udf19' }
+  const n = name || ''
+  if (h >= 6 && h < 12) return { text: `${t('greeting.morning')}, ${n}!`, icon: '\u2600\ufe0f' }
+  if (h >= 12 && h < 18) return { text: `${t('greeting.afternoon')}, ${n}!`, icon: '\ud83d\udc4b' }
+  if (h >= 18 && h < 23) return { text: `${t('greeting.evening')}, ${n}!`, icon: '\ud83c\udf05' }
+  return { text: `${t('greeting.night')}, ${n}!`, icon: '\ud83c\udf19' }
 }
 
 function formatTimer(seconds) {
@@ -33,15 +34,15 @@ function getMonthName(date) {
   return months[date.getMonth()] + ' ' + date.getFullYear()
 }
 
-const THEME_OPTIONS = [
-  { key: 'light', label: '\u2600\ufe0f \u0414\u0435\u043d\u044c' },
-  { key: 'dark', label: '\ud83c\udf19 \u041d\u043e\u0447\u044c' },
-  { key: 'red_night', label: '\ud83d\udd34 \u041a\u0440\u0430\u0441\u043d\u0430\u044f' },
-  { key: 'auto', label: '\ud83d\udd04 \u0410\u0432\u0442\u043e' },
-]
-
 export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey }) {
   const { theme, mode, setMode } = useTheme()
+  const { t } = useLanguage()
+  const THEME_OPTIONS = [
+    { key: 'light', label: t('overview.themeDay') },
+    { key: 'dark', label: t('overview.themeNight') },
+    { key: 'red_night', label: t('overview.themeRed') },
+    { key: 'auto', label: t('overview.themeAuto') },
+  ]
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
   const intervalRef = useRef(null)
@@ -125,21 +126,21 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
       // Expense breakdown for chart
       const breakdown = []
-      if (fuelCost > 0) breakdown.push({ label: '\u0422\u043e\u043f\u043b', value: fuelCost, color: '#f59e0b' })
-      if (serviceCost > 0) breakdown.push({ label: '\u0420\u0435\u043c', value: serviceCost, color: '#ef4444' })
-      if (vehicleExpCost > 0) breakdown.push({ label: '\u041c\u0430\u0448\u0438\u043d\u0430', value: vehicleExpCost, color: '#8b5cf6' })
+      if (fuelCost > 0) breakdown.push({ label: t('overview.fuelShort'), value: fuelCost, color: '#f59e0b' })
+      if (serviceCost > 0) breakdown.push({ label: t('overview.repairShort'), value: serviceCost, color: '#ef4444' })
+      if (vehicleExpCost > 0) breakdown.push({ label: t('overview.vehicleShort'), value: vehicleExpCost, color: '#8b5cf6' })
       // Group byt by category
       const bytByCategory = {}
       monthByt.forEach(e => {
         const cat = e.category || 'other'
         bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
       })
-      if (bytByCategory.food) breakdown.push({ label: '\u0415\u0434\u0430', value: bytByCategory.food, color: '#22c55e' })
-      if (bytByCategory.hotel) breakdown.push({ label: '\u0416\u0438\u043b\u044c\u0451', value: bytByCategory.hotel, color: '#3b82f6' })
+      if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
+      if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
       const otherByt = Object.entries(bytByCategory)
         .filter(([k]) => k !== 'food' && k !== 'hotel')
         .reduce((s, [, v]) => s + v, 0)
-      if (otherByt > 0) breakdown.push({ label: '\u041f\u0440\u043e\u0447', value: otherByt, color: '#06b6d4' })
+      if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
       setExpenseBreakdown(breakdown)
 
       // Reminders from insurance
@@ -164,7 +165,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, t])
 
   useEffect(() => {
     loadData()
@@ -324,7 +325,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     }
   }
 
-  const greeting = getGreeting(profileName)
+  const greeting = getGreeting(profileName, t)
   const totalExpenses = monthData.fuelCost + monthData.bytCost + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
   const maxExpense = expenseBreakdown.length > 0 ? Math.max(...expenseBreakdown.map(e => e.value)) : 0
@@ -366,7 +367,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         const isUrgent = daysLeft <= 2
         return (
           <div
-            onClick={() => alert('\u041e\u043f\u043b\u0430\u0442\u0430 \u0441\u043a\u043e\u0440\u043e')}
+            onClick={() => alert(t('overview.paymentSoon'))}
             style={{
               background: isUrgent ? '#ef4444' : '#f59e0b',
               color: isUrgent ? '#fff' : '#000',
@@ -380,8 +381,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             }}
           >
             {isUrgent
-              ? `\u26a0\ufe0f Pro-\u0434\u043e\u0441\u0442\u0443\u043f: \u043e\u0441\u0442\u0430\u043b\u043e\u0441\u044c ${daysLeft} ${daysLeft === 1 ? '\u0434\u0435\u043d\u044c' : '\u0434\u043d\u044f'}!`
-              : `\u2b50 Pro-\u0434\u043e\u0441\u0442\u0443\u043f: \u043e\u0441\u0442\u0430\u043b\u043e\u0441\u044c ${daysLeft} ${daysLeft === 1 ? '\u0434\u0435\u043d\u044c' : daysLeft < 5 ? '\u0434\u043d\u044f' : '\u0434\u043d\u0435\u0439'}`}
+              ? `\u26a0\ufe0f ${t('overview.proAccessLeft')}${daysLeft} ${daysLeft === 1 ? t('overview.day1') : t('overview.days234')}!`
+              : `\u2b50 ${t('overview.proAccessLeft')}${daysLeft} ${daysLeft === 1 ? t('overview.day1') : daysLeft < 5 ? t('overview.days234') : t('overview.days5')}`}
           </div>
         )
       })()}
@@ -396,10 +397,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         padding: '4px',
         border: '1px solid ' + theme.border,
       }}>
-        {THEME_OPTIONS.map(t => (
+        {THEME_OPTIONS.map(opt => (
           <button
-            key={t.key}
-            onClick={() => setMode(t.key)}
+            key={opt.key}
+            onClick={() => setMode(opt.key)}
             style={{
               flex: 1,
               padding: '8px 4px',
@@ -408,12 +409,12 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               fontSize: '12px',
               fontWeight: 600,
               cursor: 'pointer',
-              background: mode === t.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-              color: mode === t.key ? '#fff' : theme.dim,
+              background: mode === opt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+              color: mode === opt.key ? '#fff' : theme.dim,
               transition: 'all 0.2s',
             }}
           >
-            {t.label}
+            {opt.label}
           </button>
         ))}
       </div>
@@ -421,9 +422,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       {/* Driving timer */}
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '14px', color: theme.dim }}>{'\u23f1\ufe0f'} {'\u0412\u0440\u0435\u043c\u044f \u0437\u0430 \u0440\u0443\u043b\u0451\u043c'}</span>
+          <span style={{ fontSize: '14px', color: theme.dim }}>{'\u23f1\ufe0f'} {t('overview.drivingTime')}</span>
           <span style={{ fontSize: '12px', color: theme.dim }}>
-            {hosMode === 'usa' ? '\u043c\u0430\u043a\u0441 11\u0447 (DOT)' : '\u043c\u0430\u043a\u0441 9\u0447'}
+            {hosMode === 'usa' ? t('overview.maxUsa') : t('overview.maxCis')}
           </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -483,7 +484,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             color: '#f59e0b',
             fontWeight: 600,
           }}>
-            {'\u26A0\uFE0F \u041E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u043F\u0435\u0440\u0435\u0440\u044B\u0432 30 \u043C\u0438\u043D (DOT)'}
+            {'\u26A0\uFE0F ' + t('overview.break30min')}
           </div>
         )}
         {seconds >= hosMaxSeconds && (
@@ -494,7 +495,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             fontWeight: 700,
             textAlign: 'center',
           }}>
-            {'\uD83D\uDED1 \u041B\u0418\u041C\u0418\u0422 \u041F\u0420\u0415\u0412\u042B\u0428\u0415\u041D'}
+            {'\uD83D\uDED1 ' + t('overview.limitExceeded')}
           </div>
         )}
         {hosWarning && seconds < hosMaxSeconds && (
@@ -511,19 +512,19 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
       {/* Shift block */}
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
-        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {'\u0421\u043c\u0435\u043d\u0430'}</div>
+        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {t('overview.shift')}</div>
         {activeShift ? (
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <span style={{ fontSize: '14px' }}>
-                {'\u2705'} {'\u041d\u0430\u0447\u0430\u0442\u0430 \u0432 '}{new Date(activeShift.started_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                {'\u2705'} {t('overview.startedAt')}{new Date(activeShift.started_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
               </span>
               <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#f59e0b' }}>
                 {formatTimer(shiftElapsed)}
               </span>
             </div>
             <div style={{ fontSize: '13px', color: theme.dim, marginBottom: '12px' }}>
-              {'\u041e\u0434\u043e\u043c\u0435\u0442\u0440 \u043d\u0430\u0447\u0430\u043b\u0430: '}{formatNumber(activeShift.odometer_start || 0)}{' \u043a\u043c'}
+              {t('overview.odometerStart')}{formatNumber(activeShift.odometer_start || 0)}{' \u043a\u043c'}
             </div>
             <button
               onClick={() => { setShiftModal('end'); setShiftOdometer('') }}
@@ -539,7 +540,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 cursor: 'pointer',
               }}
             >
-              {'\u23f9'} {'\u0417\u0430\u043a\u043e\u043d\u0447\u0438\u0442\u044c \u0441\u043c\u0435\u043d\u0443'}
+              {'\u23f9'} {t('overview.endShift')}
             </button>
           </div>
         ) : (
@@ -557,7 +558,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               cursor: 'pointer',
             }}
           >
-            {'\u25b6'} {'\u041d\u0430\u0447\u0430\u0442\u044c \u0441\u043c\u0435\u043d\u0443'}
+            {'\u25b6'} {t('overview.startShift')}
           </button>
         )}
       </div>
@@ -578,7 +579,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         }}>
           <span>{'\ud83d\ude9b'}</span>
           <span>
-            {'\u0421\u0435\u0433\u043e\u0434\u043d\u044f: '}{todaySummary.count}{' '}{todaySummary.count === 1 ? '\u0441\u043c\u0435\u043d\u0430' : todaySummary.count < 5 ? '\u0441\u043c\u0435\u043d\u044b' : '\u0441\u043c\u0435\u043d'}
+            {t('overview.today') + ' '}{todaySummary.count}{' '}{todaySummary.count === 1 ? '\u0441\u043c\u0435\u043d\u0430' : todaySummary.count < 5 ? '\u0441\u043c\u0435\u043d\u044b' : '\u0441\u043c\u0435\u043d'}
             {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' \u043a\u043c'}
             {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{'\u0447 '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{'\u043c\u0438\u043d'}
           </span>
@@ -606,16 +607,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             maxWidth: '360px',
           }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: theme.text }}>
-              {shiftModal === 'start' ? '\u041d\u0430\u0447\u0430\u043b\u043e \u0441\u043c\u0435\u043d\u044b' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0435 \u0441\u043c\u0435\u043d\u044b'}
+              {shiftModal === 'start' ? t('overview.startShiftTitle') : t('overview.endShiftTitle')}
             </div>
             <label style={{ fontSize: '14px', color: theme.dim, display: 'block', marginBottom: '6px' }}>
-              {'\u041f\u0440\u043e\u0431\u0435\u0433 (\u043a\u043c)'}
+              {t('overview.mileageKm')}
             </label>
             <input
               type="number"
               value={shiftOdometer}
               onChange={e => setShiftOdometer(e.target.value)}
-              placeholder={'\u0422\u0435\u043a\u0443\u0449\u0438\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440'}
+              placeholder={t('overview.currentOdometer')}
               autoFocus
               style={{
                 width: '100%',
@@ -645,7 +646,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               justifyContent: 'center',
             }}>
               <span>{'\ud83d\udcf7'}</span>
-              <span>{shiftPhoto ? shiftPhoto.name : '\u0424\u043e\u0442\u043e \u043e\u0434\u043e\u043c\u0435\u0442\u0440\u0430 (\u043a\u0430\u043c\u0435\u0440\u0430 \u0438\u043b\u0438 \u0433\u0430\u043b\u0435\u0440\u0435\u044f)'}</span>
+              <span>{shiftPhoto ? shiftPhoto.name : t('overview.odometerPhoto')}</span>
               <input
                 type="file"
                 accept="image/*"
@@ -675,7 +676,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 marginBottom: '12px',
                 textAlign: 'center',
               }}>
-                <span style={{ fontSize: '13px', color: theme.dim }}>{'\u0417\u0430 \u0441\u043c\u0435\u043d\u0443: '}</span>
+                <span style={{ fontSize: '13px', color: theme.dim }}>{t('overview.forShift')}</span>
                 <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>
                   {Math.max(0, parseInt(shiftOdometer, 10) - (activeShift.odometer_start || 0))}{' \u043a\u043c'}
                 </span>
@@ -695,7 +696,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   cursor: 'pointer',
                 }}
               >
-                {'\u041e\u0442\u043c\u0435\u043d\u0430'}
+                {t('common.cancel')}
               </button>
               <button
                 onClick={shiftModal === 'start' ? handleStartShift : handleEndShift}
@@ -716,7 +717,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   cursor: shiftOdometer ? 'pointer' : 'default',
                 }}
               >
-                {shiftModal === 'start' ? '\u041d\u0430\u0447\u0430\u0442\u044c' : '\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u044c'}
+                {shiftModal === 'start' ? t('overview.start') : t('overview.finish')}
               </button>
             </div>
           </div>
@@ -725,13 +726,13 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
       {/* Shift analytics */}
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
-        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udcca'} {'\u0410\u043d\u0430\u043b\u0438\u0442\u0438\u043a\u0430 \u0441\u043c\u0435\u043d'}</div>
+        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udcca'} {t('overview.shiftAnalytics')}</div>
 
         {/* Period toggle */}
         <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
           {[
-            { key: 'week', label: '\u041d\u0435\u0434\u0435\u043b\u044f' },
-            { key: 'month', label: '\u041c\u0435\u0441\u044f\u0446' },
+            { key: 'week', label: t('overview.week') },
+            { key: 'month', label: t('overview.month') },
           ].map(p => (
             <button
               key={p.key}
@@ -757,9 +758,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         {/* Stats cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
           {[
-            { label: '\u0421\u043c\u0435\u043d', value: String(shiftStats.count) },
-            { label: '\u041a\u043c', value: formatNumber(Math.round(shiftStats.totalKm)) },
-            { label: '\u0427\u0430\u0441\u043e\u0432', value: shiftStats.totalHours.toFixed(1) },
+            { label: t('overview.shiftsLabel'), value: String(shiftStats.count) },
+            { label: t('overview.kmLabel'), value: formatNumber(Math.round(shiftStats.totalKm)) },
+            { label: t('overview.hoursLabel'), value: shiftStats.totalHours.toFixed(1) },
           ].map((s, i) => (
             <div key={i} style={{
               background: theme.bg,
@@ -774,10 +775,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
 
         {/* History (team driving: color-coded by driver) */}
-        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcc3'} {'\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0441\u043c\u0435\u043d'}</div>
+        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcc3'} {t('overview.shiftHistory')}</div>
         {shiftHistory.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '16px 0', color: theme.dim, fontSize: '13px' }}>
-            {'\u041d\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0445 \u0441\u043c\u0435\u043d'}
+            {t('overview.noCompletedShifts')}
           </div>
         ) : (() => {
             const DRIVER_COLORS = ['#f59e0b', '#3b82f6']
@@ -863,7 +864,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         })
         return (
           <div style={{ ...cardStyle, marginBottom: '12px' }}>
-            <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udc65'} {'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u044f\u043c'}</div>
+            <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udc65'} {t('overview.driverStats')}</div>
             {driverStats.map((d, i) => {
               const hours = Math.floor(d.totalMinutes / 60)
               const mins = Math.round(d.totalMinutes % 60)
@@ -891,7 +892,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     </div>
                     <div style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{timeStr}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{'\u0437\u0430 \u0440\u0443\u043b\u0451\u043c'}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.behindWheel')}</div>
                     </div>
                   </div>
                 </div>
@@ -903,7 +904,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
-          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+          {t('common.loading')}
         </div>
       ) : (
         <>
@@ -912,20 +913,20 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcc5'} {getMonthName(new Date())}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <div>
-                <div style={dimText}>{'\u0414\u043e\u0445\u043e\u0434'}</div>
+                <div style={dimText}>{t('overview.income')}</div>
                 <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
                   {formatNumber(Math.round(monthData.income))} {'\u20bd'}
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={dimText}>{'\u0420\u0430\u0441\u0445\u043e\u0434'}</div>
+                <div style={dimText}>{t('overview.expense')}</div>
                 <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
                   {formatNumber(Math.round(totalExpenses))} {'\u20bd'}
                 </div>
               </div>
             </div>
             <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
-              <div style={dimText}>{'\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c'}</div>
+              <div style={dimText}>{t('overview.netProfit')}</div>
               <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: profit >= 0 ? '#22c55e' : '#ef4444' }}>
                 {profit >= 0 ? '+' : ''}{formatNumber(Math.round(profit))} {'\u20bd'}
               </div>
@@ -935,10 +936,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Mini cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {[
-              { label: '\u041f\u0440\u043e\u0431\u0435\u0433', value: formatNumber(Math.round(monthData.totalKm)), unit: '\u043a\u043c', icon: '\ud83d\udea3' },
-              { label: '\u0420\u0430\u0441\u0445\u043e\u0434', value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: '\u043b/100\u043a\u043c', icon: '\u26fd' },
-              { label: '\u0420\u0435\u0439\u0441\u044b', value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a' },
-              { label: '\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c', value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: '\u20bd/\u043a\u043c', icon: '\ud83d\udcb0' },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: '\u043a\u043c', icon: '\ud83d\udea3' },
+              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: '\u043b/100\u043a\u043c', icon: '\u26fd' },
+              { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a' },
+              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: '\u20bd/\u043a\u043c', icon: '\ud83d\udcb0' },
             ].map((item, i) => (
               <div key={i} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
                 <div style={{ fontSize: '18px', marginBottom: '4px' }}>{item.icon}</div>
@@ -952,7 +953,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Expenses chart */}
           {expenseBreakdown.length > 0 && (
             <div style={{ ...cardStyle, marginBottom: '12px' }}>
-              <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {'\u0420\u0430\u0441\u0445\u043e\u0434\u044b'}</div>
+              <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.expenses')}</div>
               <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '8px' }}>
                 {expenseBreakdown.map((e, i) => (
                   <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
@@ -977,7 +978,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Reminders */}
           {reminders.length > 0 && (
             <div style={{ ...cardStyle }}>
-              <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udd14'} {'\u041d\u0430\u043f\u043e\u043c\u0438\u043d\u0430\u043d\u0438\u044f'}</div>
+              <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udd14'} {t('overview.reminders')}</div>
               {reminders.map((r, i) => (
                 <div key={i} style={{
                   display: 'flex',

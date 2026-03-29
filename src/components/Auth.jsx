@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { hashPin } from './PinLock'
 import BrandComboBox from './BrandComboBox'
+import { useLanguage } from '../lib/i18n'
 
 const COUNTRIES = [
   // \u0421\u041d\u0413
@@ -283,6 +284,7 @@ function PinDots({ length, shake, total = 4 }) {
 
 // ===== SCREEN 1: PHONE =====
 function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, error }) {
+  const { t } = useLanguage()
   // E.164: total digits (country code + number) must be 7-15
   const phoneDigits = phone.replace(/\D/g, '')
   const codeDigits = country.code.replace(/\D/g, '')
@@ -322,10 +324,10 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, er
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
         <div style={styles.logo}>{'\u0422\u0411'}</div>
         <h1 style={styles.title}>TRUCKERBOOK</h1>
-        <p style={styles.subtitle}>{'\u041f\u043e\u043b\u043d\u044b\u0439 \u0443\u0447\u0451\u0442 \u0434\u043b\u044f \u0434\u0430\u043b\u044c\u043d\u043e\u0431\u043e\u0439\u0449\u0438\u043a\u0430'}</p>
+        <p style={styles.subtitle}>{t('auth.subtitle')}</p>
 
         <div style={{ marginTop: 40 }}>
-          <label style={styles.label}>{'\u041d\u043e\u043c\u0435\u0440 \u0442\u0435\u043b\u0435\u0444\u043e\u043d\u0430'}</label>
+          <label style={styles.label}>{t('auth.phoneLabel')}</label>
           <div style={{ display: 'flex', gap: 8 }}>
             <div ref={dropdownRef} style={{ position: 'relative', flexShrink: 0 }}>
               <button
@@ -373,7 +375,7 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, er
                       type="text"
                       value={search}
                       onChange={(e) => setSearch(e.target.value)}
-                      placeholder={'\u041f\u043e\u0438\u0441\u043a \u0441\u0442\u0440\u0430\u043d\u044b...'}
+                      placeholder={t('auth.searchCountry')}
                       style={{
                         width: '100%',
                         padding: '10px 12px',
@@ -414,7 +416,7 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, er
                     ))}
                     {filtered.length === 0 && (
                       <div style={{ padding: '16px 14px', color: '#64748b', fontSize: 14, textAlign: 'center' }}>
-                        {'\u041d\u0438\u0447\u0435\u0433\u043e \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u043e'}
+                        {t('auth.nothingFound')}
                       </div>
                     )}
                   </div>
@@ -441,12 +443,12 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, er
           disabled={!valid || loading}
           onClick={onNext}
         >
-          {loading ? '\u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...' : '\u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043e\u0434'}
+          {loading ? t('auth.sending') : t('auth.getCode')}
         </button>
 
         <p style={{ fontSize: 11, color: '#64748b', textAlign: 'center', marginTop: 16 }}>
-          {'\u041d\u0430\u0436\u0438\u043c\u0430\u044f \u041f\u043e\u043b\u0443\u0447\u0438\u0442\u044c \u043a\u043e\u0434, \u0432\u044b \u043f\u0440\u0438\u043d\u0438\u043c\u0430\u0435\u0442\u0435 '}
-          <span style={{ color: '#f59e0b', cursor: 'pointer' }}>{'\u0423\u0441\u043b\u043e\u0432\u0438\u044f \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u0438\u044f'}</span>
+          {t('auth.termsNote')}
+          <span style={{ color: '#f59e0b', cursor: 'pointer' }}>{t('auth.terms')}</span>
         </p>
       </div>
     </div>
@@ -455,6 +457,7 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, er
 
 // ===== SCREEN 2: SMS CODE =====
 function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
+  const { t } = useLanguage()
   const [code, setCode] = useState('')
   const [error, setError] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
@@ -501,15 +504,15 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
   return (
     <div style={styles.inner}>
       <button style={styles.backBtn} onClick={onBack}>
-        {'\u2190 \u041d\u0430\u0437\u0430\u0434'}
+        {t('auth.back')}
       </button>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\udcf1'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
-          {'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0434 \u0438\u0437 SMS'}
+          {t('auth.smsTitle')}
         </h2>
         <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
-          {'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u043b\u0438 \u043d\u0430 ' + countryCode + ' ' + phone}
+          {t('auth.sentTo') + countryCode + ' ' + phone}
         </p>
 
         {errorMsg && (
@@ -525,15 +528,15 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
           disabled={code.length < 6 || loading}
           onClick={handleConfirm}
         >
-          {loading ? '\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430...' : '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c'}
+          {loading ? t('auth.checking') : t('auth.confirm')}
         </button>
 
         <p
           style={{ fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 20, cursor: 'pointer' }}
           onClick={handleResend}
         >
-          {resending ? '\u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...' : (
-            <>{'\u041d\u0435 \u043f\u0440\u0438\u0448\u0451\u043b? '}<span style={{ color: '#f59e0b' }}>{'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0441\u043d\u043e\u0432\u0430'}</span></>
+          {resending ? t('auth.resending') : (
+            <>{t('auth.didntReceive')}<span style={{ color: '#f59e0b' }}>{t('auth.resend')}</span></>
           )}
         </p>
       </div>
@@ -543,10 +546,11 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
 
 // ===== SCREEN 2.5: ROLE SELECTION =====
 function RoleScreen({ role, setRole, onNext }) {
+  const { t } = useLanguage()
   const roles = [
-    { value: 'driver', icon: '\ud83d\ude9b', title: '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', desc: '\u0415\u0441\u0442\u044c \u043c\u0430\u0448\u0438\u043d\u0430, \u0432\u0435\u0434\u0443 \u0443\u0447\u0451\u0442' },
-    { value: 'company', icon: '\ud83c\udfe2', title: '\u041a\u043e\u043c\u043f\u0430\u043d\u0438\u044f', desc: '\u0423\u043f\u0440\u0430\u0432\u043b\u044f\u044e \u043f\u0430\u0440\u043a\u043e\u043c \u043c\u0430\u0448\u0438\u043d' },
-    { value: 'job_seeker', icon: '\ud83d\udd0d', title: '\u0418\u0449\u0443 \u0440\u0430\u0431\u043e\u0442\u0443', desc: '\u041d\u0443\u0436\u043d\u0430 \u0440\u0430\u0431\u043e\u0442\u0430 \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u043c' },
+    { value: 'driver', icon: '\ud83d\ude9b', title: t('roles.driver'), desc: t('roles.driverDesc') },
+    { value: 'company', icon: '\ud83c\udfe2', title: t('roles.company'), desc: t('roles.companyDesc') },
+    { value: 'job_seeker', icon: '\ud83d\udd0d', title: t('roles.jobSeeker'), desc: t('roles.jobSeekerDesc') },
   ]
 
   return (
@@ -554,10 +558,10 @@ function RoleScreen({ role, setRole, onNext }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\udc64'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
-          {'\u041a\u0442\u043e \u0432\u044b?'}
+          {t('auth.whoAreYou')}
         </h2>
         <p style={{ color: '#64748b', fontSize: 14, margin: '0 0 32px' }}>
-          {'\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0432\u0430\u0448\u0443 \u0440\u043e\u043b\u044c'}
+          {t('auth.chooseRole')}
         </p>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
@@ -592,7 +596,7 @@ function RoleScreen({ role, setRole, onNext }) {
           disabled={!role}
           onClick={onNext}
         >
-          {'\u0414\u0430\u043b\u0435\u0435 \u2192'}
+          {t('auth.nextArrow')}
         </button>
       </div>
     </div>
@@ -601,6 +605,7 @@ function RoleScreen({ role, setRole, onNext }) {
 
 // ===== SCREEN 3b: JOB SEEKER MINI-PROFILE =====
 function JobSeekerProfileScreen({ profile, setProfile, onNext, saving, error }) {
+  const { t } = useLanguage()
   const valid = profile.name && !saving
 
   const cdlOptions = ['B', 'C', 'CE', 'D', 'CDL-A', 'CDL-B']
@@ -610,39 +615,39 @@ function JobSeekerProfileScreen({ profile, setProfile, onNext, saving, error }) 
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\udd0d'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, margin: '12px 0 4px' }}>
-          {'\u0420\u0430\u0441\u0441\u043a\u0430\u0436\u0438\u0442\u0435 \u043e \u0441\u0435\u0431\u0435'}
+          {t('auth.tellAboutYourself')}
         </h2>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
         <div>
-          <label style={styles.label}>{'\u0418\u043c\u044f'}</label>
+          <label style={styles.label}>{t('auth.name')}</label>
           <input
             style={styles.input}
-            placeholder={'\u0418\u0432\u0430\u043d'}
+            placeholder={t('auth.namePlaceholder')}
             value={profile.name}
             onChange={(e) => setProfile({ ...profile, name: e.target.value })}
           />
         </div>
 
         <div>
-          <label style={styles.label}>{'\u0413\u043e\u0440\u043e\u0434'}</label>
+          <label style={styles.label}>{t('auth.city')}</label>
           <input
             style={styles.input}
-            placeholder={'\u041c\u043e\u0441\u043a\u0432\u0430'}
+            placeholder={t('auth.cityPlaceholder')}
             value={profile.city || ''}
             onChange={(e) => setProfile({ ...profile, city: e.target.value })}
           />
         </div>
 
         <div>
-          <label style={styles.label}>{'\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f \u043f\u0440\u0430\u0432'}</label>
+          <label style={styles.label}>{t('auth.cdlCategory')}</label>
           <select
             style={styles.select}
             value={profile.cdl_category || ''}
             onChange={(e) => setProfile({ ...profile, cdl_category: e.target.value })}
           >
-            <option value="">{'\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435...'}</option>
+            <option value="">{t('auth.choose')}</option>
             {cdlOptions.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -650,7 +655,7 @@ function JobSeekerProfileScreen({ profile, setProfile, onNext, saving, error }) 
         </div>
 
         <div>
-          <label style={styles.label}>{'\u0421\u0442\u0430\u0436 \u0432\u043e\u0436\u0434\u0435\u043d\u0438\u044f (\u043b\u0435\u0442)'}</label>
+          <label style={styles.label}>{t('auth.drivingExperience')}</label>
           <input
             style={styles.input}
             type="number"
@@ -671,7 +676,7 @@ function JobSeekerProfileScreen({ profile, setProfile, onNext, saving, error }) 
         disabled={!valid}
         onClick={onNext}
       >
-        {saving ? '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435...' : '\u0414\u0430\u043b\u0435\u0435 \u2192'}
+        {saving ? t('common.saving') : t('auth.nextArrow')}
       </button>
     </div>
   )
@@ -679,6 +684,7 @@ function JobSeekerProfileScreen({ profile, setProfile, onNext, saving, error }) 
 
 // ===== SCREEN 3: PROFILE =====
 function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
+  const { t } = useLanguage()
   const valid = profile.name && profile.brand && profile.model && profile.mileage && !saving
 
   return (
@@ -686,23 +692,23 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\ude9b'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, margin: '12px 0 4px' }}>
-          {'\u0420\u0430\u0441\u0441\u043a\u0430\u0436\u0438\u0442\u0435 \u043e \u0441\u0435\u0431\u0435'}
+          {t('auth.tellAboutYourself')}
         </h2>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16, flex: 1 }}>
         <div>
-          <label style={styles.label}>{'\u0418\u043c\u044f'}</label>
+          <label style={styles.label}>{t('auth.name')}</label>
           <input
             style={styles.input}
-            placeholder={'\u0418\u0432\u0430\u043d'}
+            placeholder={t('auth.namePlaceholder')}
             value={profile.name}
             onChange={(e) => setProfile({ ...profile, name: e.target.value })}
           />
         </div>
 
         <div>
-          <label style={styles.label}>{'\u041c\u0430\u0440\u043a\u0430'}</label>
+          <label style={styles.label}>{t('vehicle.brand')}</label>
           <BrandComboBox
             value={profile.brand}
             onChange={(v) => setProfile({ ...profile, brand: v })}
@@ -716,17 +722,17 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
         </div>
 
         <div>
-          <label style={styles.label}>{'\u041c\u043e\u0434\u0435\u043b\u044c'}</label>
+          <label style={styles.label}>{t('vehicle.model')}</label>
           <input
             style={styles.input}
-            placeholder={'\u041d\u0430\u043f\u0440\u0438\u043c\u0435\u0440: FH, Actros, 5490'}
+            placeholder={t('auth.modelPlaceholder')}
             value={profile.model}
             onChange={(e) => setProfile({ ...profile, model: e.target.value })}
           />
         </div>
 
         <div>
-          <label style={styles.label}>{'\u041f\u0440\u043e\u0431\u0435\u0433, \u043a\u043c'}</label>
+          <label style={styles.label}>{t('vehicle.mileage')}</label>
           <input
             style={styles.input}
             type="number"
@@ -737,10 +743,10 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
         </div>
 
         <div>
-          <label style={styles.label}>{'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440 (\u043d\u0435\u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u043e)'}</label>
+          <label style={styles.label}>{t('auth.plateOptional')}</label>
           <input
             style={styles.input}
-            placeholder={'\u0410123\u0411\u0412 77'}
+            placeholder={t('auth.platePlaceholder')}
             value={profile.plate}
             onChange={(e) => setProfile({ ...profile, plate: e.target.value })}
           />
@@ -748,7 +754,7 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
 
         <div>
           <label style={styles.label}>
-            {'\u0420\u0430\u0441\u0445\u043e\u0434, \u043b/100\u043a\u043c: '}{profile.consumption}
+            {t('auth.consumptionLabel')}{profile.consumption}
           </label>
           <input
             type="range"
@@ -774,7 +780,7 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
         disabled={!valid}
         onClick={onNext}
       >
-        {saving ? '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435...' : '\u0414\u0430\u043b\u0435\u0435 \u2192'}
+        {saving ? t('common.saving') : t('auth.nextArrow')}
       </button>
     </div>
   )
@@ -782,6 +788,7 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
 
 // ===== SCREEN 4: CREATE PIN =====
 function PinScreen({ onNext }) {
+  const { t } = useLanguage()
   const [pinStep, setPinStep] = useState(1)
   const [pin1, setPin1] = useState('')
   const [pin2, setPin2] = useState('')
@@ -817,7 +824,7 @@ function PinScreen({ onNext }) {
           setTimeout(() => onNext(), 300)
         } else {
           setShake(true)
-          setError('\u041d\u0435 \u0441\u043e\u0432\u043f\u0430\u0434\u0430\u044e\u0442!')
+          setError(t('auth.pinMismatch'))
           setTimeout(() => {
             setShake(false)
             setPin2('')
@@ -838,7 +845,7 @@ function PinScreen({ onNext }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\udd12'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
-          {pinStep === 1 ? '\u041f\u0440\u0438\u0434\u0443\u043c\u0430\u0439\u0442\u0435 PIN-\u043a\u043e\u0434' : '\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 PIN-\u043a\u043e\u0434'}
+          {pinStep === 1 ? t('auth.createPinTitle') : t('auth.repeatPinTitle')}
         </h2>
 
         {error && (
@@ -860,6 +867,7 @@ function PinScreen({ onNext }) {
 
 // ===== SCREEN 5: BIOMETRIC =====
 function BiometricScreen({ onEnable, onSkip }) {
+  const { t } = useLanguage()
   return (
     <div style={styles.inner}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
@@ -891,17 +899,17 @@ function BiometricScreen({ onEnable, onSkip }) {
         </div>
 
         <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 8px', textAlign: 'center' }}>
-          {'\u0412\u0445\u043e\u0434 \u043f\u043e \u043b\u0438\u0446\u0443 \u0438\u043b\u0438 \u043e\u0442\u043f\u0435\u0447\u0430\u0442\u043a\u0443'}
+          {t('auth.biometricTitle')}
         </h2>
         <p style={{ color: '#64748b', fontSize: 14, textAlign: 'center', margin: '0 0 40px', lineHeight: 1.5 }}>
-          {'\u0412\u043c\u0435\u0441\u0442\u043e PIN-\u043a\u043e\u0434\u0430 \u043c\u043e\u0436\u043d\u043e \u0432\u0445\u043e\u0434\u0438\u0442\u044c \u043f\u043e Face ID \u0438\u043b\u0438 \u043e\u0442\u043f\u0435\u0447\u0430\u0442\u043a\u0443'}
+          {t('auth.biometricDesc')}
         </p>
 
         <button style={styles.btnPrimary} onClick={onEnable}>
-          {'\u0412\u043a\u043b\u044e\u0447\u0438\u0442\u044c'}
+          {t('auth.enable')}
         </button>
         <button style={styles.btnSecondary} onClick={onSkip}>
-          {'\u041f\u043e\u0437\u0436\u0435'}
+          {t('auth.later')}
         </button>
       </div>
     </div>
@@ -910,21 +918,22 @@ function BiometricScreen({ onEnable, onSkip }) {
 
 // ===== SCREEN 7: WELCOME =====
 function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
+  const { t } = useLanguage()
   const isJobSeeker = role === 'job_seeker'
 
   const driverFeatures = [
-    { icon: '\u26fd', label: '\u0423\u0447\u0451\u0442 \u0442\u043e\u043f\u043b\u0438\u0432\u0430' },
-    { icon: '\ud83d\udccd', label: '\u0420\u0435\u0439\u0441\u044b' },
-    { icon: '\ud83d\udd27', label: '\u0421\u0435\u0440\u0432\u0438\u0441' },
-    { icon: '\ud83c\udfe8', label: '\u0411\u044b\u0442' },
-    { icon: '\u2705', label: '\u0427\u0435\u043a-\u043b\u0438\u0441\u0442' },
-    { icon: '\ud83d\uddfa\ufe0f', label: '\u041a\u0430\u0440\u0442\u0430' },
+    { icon: '\u26fd', label: t('auth.fuelTracking') },
+    { icon: '\ud83d\udccd', label: t('auth.tripsFeature') },
+    { icon: '\ud83d\udd27', label: t('auth.serviceFeature') },
+    { icon: '\ud83c\udfe8', label: t('auth.bytFeature') },
+    { icon: '\u2705', label: t('auth.checklist') },
+    { icon: '\ud83d\uddfa\ufe0f', label: t('auth.mapFeature') },
   ]
 
   const jobSeekerFeatures = [
-    { icon: '\ud83d\udcbc', label: '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438' },
-    { icon: '\ud83d\udcf0', label: '\u041d\u043e\u0432\u043e\u0441\u0442\u0438' },
-    { icon: '\ud83d\udecd\ufe0f', label: '\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441' },
+    { icon: '\ud83d\udcbc', label: t('tabs.jobs') },
+    { icon: '\ud83d\udcf0', label: t('tabs.news') },
+    { icon: '\ud83d\udecd\ufe0f', label: t('tabs.marketplace') },
   ]
 
   const features = isJobSeeker ? jobSeekerFeatures : driverFeatures
@@ -936,7 +945,7 @@ function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 48 }}>
         <div style={{ fontSize: 56 }}>{'\ud83c\udf89'}</div>
         <h2 style={{ fontSize: 24, fontWeight: 700, margin: '16px 0 4px', textAlign: 'center' }}>
-          {'\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c, ' + profile.name + '!'}
+          {t('welcome.title').slice(0, -1) + ', ' + profile.name + '!'}
         </h2>
         {!isJobSeeker && (
           <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
@@ -956,7 +965,7 @@ function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
         }}>
           <span style={{ color: '#22c55e', fontSize: 14 }}>{'\u2713'}</span>
           <span style={{ color: '#22c55e', fontSize: 13, fontWeight: 600 }}>
-            {biometricEnabled ? 'Face ID \u0432\u043a\u043b\u044e\u0447\u0451\u043d' : 'PIN \u0443\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d'}
+            {biometricEnabled ? t('auth.faceIdEnabled') : t('auth.pinSet')}
           </span>
         </div>
 
@@ -971,18 +980,18 @@ function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span style={{ fontSize: 20 }}>{'\ud83d\udd13'}</span>
               <span style={{ fontSize: 16, fontWeight: 700, color: '#f59e0b' }}>
-                {'7 \u0434\u043d\u0435\u0439 Pro \u2014 \u0431\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e'}
+                {t('auth.proTrial')}
               </span>
             </div>
             <p style={{ color: '#64748b', fontSize: 13, margin: '8px 0 0' }}>
-              {'\u041f\u043e\u043b\u043d\u044b\u0439 \u0434\u043e\u0441\u0442\u0443\u043f \u043a\u043e \u0432\u0441\u0435\u043c \u0444\u0443\u043d\u043a\u0446\u0438\u044f\u043c'}
+              {t('auth.fullAccess')}
             </p>
           </div>
         )}
 
         {isJobSeeker && (
           <p style={{ color: '#64748b', fontSize: 14, margin: '24px 0 0', textAlign: 'center' }}>
-            {'\u041d\u0430\u0439\u0434\u0438 \u0440\u0430\u0431\u043e\u0442\u0443 \u043c\u0435\u0447\u0442\u044b!'}
+            {t('auth.findDreamJob')}
           </p>
         )}
 
@@ -1006,7 +1015,7 @@ function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
         </div>
 
         <button style={{ ...styles.btnPrimary, marginTop: 32 }} onClick={onStart}>
-          {'\u041f\u043e\u0435\u0445\u0430\u043b\u0438! \ud83d\ude80'}
+          {t('auth.letsGo') + ' \ud83d\ude80'}
         </button>
       </div>
     </div>

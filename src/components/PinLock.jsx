@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 
 const styles = {
@@ -144,6 +145,7 @@ function Dots({ length, shake, total = 4 }) {
 
 // ===== SCREEN: ENTER PIN =====
 function EnterPinScreen({ onSuccess, onForgot, pinHash }) {
+  const { t } = useLanguage()
   const [pin, setPin] = useState('')
   const [shake, setShake] = useState(false)
   const [error, setError] = useState('')
@@ -165,13 +167,13 @@ function EnterPinScreen({ onSuccess, onForgot, pinHash }) {
         setAttempts(newAttempts)
         setShake(true)
         if (newAttempts >= MAX_ATTEMPTS) {
-          setError('\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e \u043f\u043e\u043f\u044b\u0442\u043e\u043a')
+          setError(t('pin.tooManyAttempts'))
           setTimeout(() => {
             setShake(false)
             onForgot()
           }, 800)
         } else {
-          setError('\u041d\u0435\u0432\u0435\u0440\u043d\u044b\u0439 PIN (' + (MAX_ATTEMPTS - newAttempts) + ' \u043e\u0441\u0442.')
+          setError(t('pin.wrongPin') + ' (' + (MAX_ATTEMPTS - newAttempts) + ' ' + t('pin.attemptsLeft'))
           setTimeout(() => {
             setShake(false)
             setPin('')
@@ -192,7 +194,7 @@ function EnterPinScreen({ onSuccess, onForgot, pinHash }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\udd12'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
-          {'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 PIN-\u043a\u043e\u0434'}
+          {t('pin.enterPin')}
         </h2>
 
         {error && (
@@ -214,7 +216,7 @@ function EnterPinScreen({ onSuccess, onForgot, pinHash }) {
             padding: 8,
           }}
         >
-          {'\u0417\u0430\u0431\u044b\u043b PIN?'}
+          {t('pin.forgotPin')}
         </button>
       </div>
     </div>
@@ -223,6 +225,7 @@ function EnterPinScreen({ onSuccess, onForgot, pinHash }) {
 
 // ===== SCREEN: SMS VERIFY (6 digits) =====
 function SmsVerifyScreen({ phone, onBack, onVerified }) {
+  const { t } = useLanguage()
   const [code, setCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(false)
@@ -295,15 +298,15 @@ function SmsVerifyScreen({ phone, onBack, onVerified }) {
     <div style={styles.inner}>
       <style>{shakeKeyframes}</style>
       <button style={styles.backBtn} onClick={onBack}>
-        {'\u2190 \u041d\u0430\u0437\u0430\u0434'}
+        {t('pin.back')}
       </button>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\udcf1'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
-          {'\u0421\u0431\u0440\u043e\u0441 PIN-\u043a\u043e\u0434\u0430'}
+          {t('pin.resetPin')}
         </h2>
         <p style={{ color: '#64748b', fontSize: 14, margin: 0, textAlign: 'center' }}>
-          {'\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0434 \u0438\u0437 SMS'}
+          {t('pin.enterSmsCode')}
         </p>
         <p style={{ color: '#64748b', fontSize: 13, margin: '4px 0 0' }}>
           {maskedPhone}
@@ -321,19 +324,19 @@ function SmsVerifyScreen({ phone, onBack, onVerified }) {
           disabled={code.length < 6 || loading}
           onClick={handleConfirm}
         >
-          {loading ? '\u041f\u0440\u043e\u0432\u0435\u0440\u043a\u0430...' : '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c'}
+          {loading ? t('pin.checking') : t('pin.confirm')}
         </button>
 
         <p style={{ fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 20 }}>
           {cooldown > 0 ? (
-            <span>{'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u043e \u0447\u0435\u0440\u0435\u0437 ' + cooldown + ' \u0441\u0435\u043a'}</span>
+            <span>{t('pin.resendIn') + cooldown + t('pin.sec')}</span>
           ) : (
             <span
               style={{ cursor: 'pointer' }}
               onClick={sendOtp}
             >
-              {sendingOtp ? '\u041e\u0442\u043f\u0440\u0430\u0432\u043a\u0430...' : (
-                <>{'\u041d\u0435 \u043f\u0440\u0438\u0448\u0451\u043b? '}<span style={{ color: '#f59e0b' }}>{'\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c \u0441\u043d\u043e\u0432\u0430'}</span></>
+              {sendingOtp ? t('pin.sending') : (
+                <>{t('pin.didntReceive')}<span style={{ color: '#f59e0b' }}>{t('pin.resend')}</span></>
               )}
             </span>
           )}
@@ -345,6 +348,7 @@ function SmsVerifyScreen({ phone, onBack, onVerified }) {
 
 // ===== SCREEN: CREATE NEW PIN (4 digits, enter twice) =====
 function NewPinScreen({ userId, onComplete }) {
+  const { t } = useLanguage()
   const [pinStep, setPinStep] = useState(1)
   const [pin1, setPin1] = useState('')
   const [pin2, setPin2] = useState('')
@@ -381,7 +385,7 @@ function NewPinScreen({ userId, onComplete }) {
           }
         } else {
           setShake(true)
-          setError('PIN \u043d\u0435 \u0441\u043e\u0432\u043f\u0430\u0434\u0430\u0435\u0442')
+          setError(t('pin.pinMismatch'))
           setTimeout(() => {
             setShake(false)
             setPin2('')
@@ -402,14 +406,14 @@ function NewPinScreen({ userId, onComplete }) {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 60 }}>
         <div style={{ fontSize: 48 }}>{'\ud83d\udd10'}</div>
         <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
-          {pinStep === 1 ? '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043d\u043e\u0432\u044b\u0439 PIN' : '\u041f\u043e\u0432\u0442\u043e\u0440\u0438\u0442\u0435 PIN'}
+          {pinStep === 1 ? t('pin.newPin') : t('pin.repeatPin')}
         </h2>
 
         {error && (
           <p style={{ color: '#ef4444', fontSize: 14, margin: '8px 0 0' }}>{error}</p>
         )}
         {saving && (
-          <p style={{ color: '#64748b', fontSize: 14, margin: '8px 0 0' }}>{'\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435...'}</p>
+          <p style={{ color: '#64748b', fontSize: 14, margin: '8px 0 0' }}>{t('common.saving')}</p>
         )}
 
         <Dots length={currentPin.length} shake={shake} />

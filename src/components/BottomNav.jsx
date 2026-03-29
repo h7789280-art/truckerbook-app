@@ -1,21 +1,23 @@
 import { useTheme } from '../lib/theme'
-
-const DRIVER_TABS = [
-  { key: 'overview', label: '\u041e\u0411\u0417\u041e\u0420', icon: '\ud83d\udcca' },
-  { key: 'fuel', label: '\u041c\u0410\u0428\u0418\u041d\u0410', icon: '\ud83d\udcb0' },
-  { key: 'byt', label: '\u0411\u042b\u0422', icon: '\ud83c\udfe8' },
-  { key: 'trips', label: '\u0420\u0415\u0419\u0421\u042b', icon: '\ud83d\ude9b' },
-  { key: 'service', label: '\u0421\u0415\u0420\u0412\u0418\u0421', icon: '\ud83d\udd27' },
-]
-
-const JOB_SEEKER_TABS = [
-  { key: 'jobs', label: '\u0412\u0410\u041a\u0410\u041d\u0421\u0418\u0418', icon: '\ud83d\udcbc' },
-  { key: 'news', label: '\u041d\u041e\u0412\u041e\u0421\u0422\u0418', icon: '\ud83d\udcf0' },
-  { key: 'marketplace', label: '\u041c\u0410\u0420\u041a\u0415\u0422', icon: '\ud83d\udce2' },
-]
+import { useLanguage } from '../lib/i18n'
 
 export default function BottomNav({ activeTab, onTabChange, role }) {
   const { theme } = useTheme()
+  const { t } = useLanguage()
+
+  const DRIVER_TABS = [
+    { key: 'overview', label: t('tabs.overview').toUpperCase(), icon: '\ud83d\udcca' },
+    { key: 'fuel', label: t('tabs.fuel').toUpperCase(), icon: '\ud83d\udcb0' },
+    { key: 'byt', label: t('tabs.byt').toUpperCase(), icon: '\ud83c\udfe8' },
+    { key: 'trips', label: t('tabs.trips').toUpperCase(), icon: '\ud83d\ude9b' },
+    { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
+  ]
+
+  const JOB_SEEKER_TABS = [
+    { key: 'jobs', label: t('tabs.jobs').toUpperCase(), icon: '\ud83d\udcbc' },
+    { key: 'news', label: t('tabs.news').toUpperCase(), icon: '\ud83d\udcf0' },
+    { key: 'marketplace', label: t('tabs.marketplace').toUpperCase(), icon: '\ud83d\udce2' },
+  ]
 
   return (
     <nav

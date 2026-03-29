@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/theme'
+import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 
 export default function Paywall({ userId }) {
   const { theme } = useTheme()
+  const { t } = useLanguage()
   const [stats, setStats] = useState(null)
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export default function Paywall({ userId }) {
   }, [userId])
 
   const handlePayment = () => {
-    alert('\u041e\u043f\u043b\u0430\u0442\u0430 \u0431\u0443\u0434\u0435\u0442 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0430 \u0432 \u0431\u043b\u0438\u0436\u0430\u0439\u0448\u0435\u0435 \u0432\u0440\u0435\u043c\u044f')
+    alert(t('paywall.paymentSoon'))
   }
 
   return (
@@ -49,7 +51,7 @@ export default function Paywall({ userId }) {
         textAlign: 'center',
         marginBottom: 12,
       }}>
-        {'\u041f\u0440\u043e\u0431\u043d\u044b\u0439 \u043f\u0435\u0440\u0438\u043e\u0434 \u0437\u0430\u043a\u043e\u043d\u0447\u0438\u043b\u0441\u044f'}
+        {t('paywall.trialEnded')}
       </h1>
       <p style={{
         fontSize: 15,
@@ -58,7 +60,7 @@ export default function Paywall({ userId }) {
         marginBottom: 20,
         lineHeight: 1.5,
       }}>
-        {'\u0412\u0430\u0448\u0438 \u0434\u0430\u043d\u043d\u044b\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u044b \u0438 \u0431\u0443\u0434\u0443\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u043f\u043e\u0441\u043b\u0435 \u043e\u043f\u043b\u0430\u0442\u044b'}
+        {t('paywall.dataSaved')}
       </p>
 
       {stats && (stats.fuel > 0 || stats.trips > 0 || stats.byt > 0) && (
@@ -77,25 +79,25 @@ export default function Paywall({ userId }) {
             marginBottom: 10,
             textAlign: 'center',
           }}>
-            {'\u0417\u0430 7 \u0434\u043d\u0435\u0439 \u0432\u044b \u0437\u0430\u043f\u0438\u0441\u0430\u043b\u0438:'}
+            {t('paywall.trialStats')}
           </p>
           <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
             {stats.fuel > 0 && (
               <div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: '#f59e0b' }}>{stats.fuel}</div>
-                <div style={{ fontSize: 12, color: theme.dim }}>{'\u0437\u0430\u043f\u0440\u0430\u0432\u043e\u043a'}</div>
+                <div style={{ fontSize: 12, color: theme.dim }}>{t('paywall.fuelEntries')}</div>
               </div>
             )}
             {stats.trips > 0 && (
               <div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: '#3b82f6' }}>{stats.trips}</div>
-                <div style={{ fontSize: 12, color: theme.dim }}>{'\u0440\u0435\u0439\u0441\u043e\u0432'}</div>
+                <div style={{ fontSize: 12, color: theme.dim }}>{t('paywall.tripsCount')}</div>
               </div>
             )}
             {stats.byt > 0 && (
               <div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: '#22c55e' }}>{stats.byt}</div>
-                <div style={{ fontSize: 12, color: theme.dim }}>{'\u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432'}</div>
+                <div style={{ fontSize: 12, color: theme.dim }}>{t('paywall.expensesCount')}</div>
               </div>
             )}
           </div>
@@ -118,7 +120,7 @@ export default function Paywall({ userId }) {
           marginBottom: 12,
         }}
       >
-        {'\u041f\u0440\u043e\u0434\u043e\u043b\u0436\u0438\u0442\u044c \u0437\u0430 249 \u20bd/\u043c\u0435\u0441'}
+        {t('paywall.monthlyBtn')}
       </button>
 
       <button
@@ -137,7 +139,7 @@ export default function Paywall({ userId }) {
           marginBottom: 32,
         }}
       >
-        {'\u0413\u043e\u0434\u043e\u0432\u043e\u0439 \u043f\u043b\u0430\u043d \u2014 1\u00a0990 \u20bd (\u0441\u043a\u0438\u0434\u043a\u0430 33%)'}
+        {t('paywall.yearlyBtn')}
       </button>
 
       <p style={{
@@ -145,7 +147,7 @@ export default function Paywall({ userId }) {
         color: theme.dim,
         textAlign: 'center',
       }}>
-        {'\u0415\u0441\u0442\u044c \u0432\u043e\u043f\u0440\u043e\u0441\u044b? \u041d\u0430\u043f\u0438\u0448\u0438\u0442\u0435 \u043d\u0430\u043c'}
+        {t('paywall.questions')}
       </p>
     </div>
   )

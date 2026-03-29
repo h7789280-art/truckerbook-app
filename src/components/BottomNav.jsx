@@ -1,6 +1,6 @@
 import { useTheme } from '../lib/theme'
 
-const TABS = [
+const DRIVER_TABS = [
   { key: 'overview', label: '\u041e\u0411\u0417\u041e\u0420', icon: '\ud83d\udcca' },
   { key: 'fuel', label: '\u041c\u0410\u0428\u0418\u041d\u0410', icon: '\ud83d\udcb0' },
   { key: 'byt', label: '\u0411\u042b\u0422', icon: '\ud83c\udfe8' },
@@ -8,7 +8,13 @@ const TABS = [
   { key: 'service', label: '\u0421\u0415\u0420\u0412\u0418\u0421', icon: '\ud83d\udd27' },
 ]
 
-export default function BottomNav({ activeTab, onTabChange }) {
+const JOB_SEEKER_TABS = [
+  { key: 'jobs', label: '\u0412\u0410\u041a\u0410\u041d\u0421\u0418\u0418', icon: '\ud83d\udcbc' },
+  { key: 'news', label: '\u041d\u041e\u0412\u041e\u0421\u0422\u0418', icon: '\ud83d\udcf0' },
+  { key: 'marketplace', label: '\u041c\u0410\u0420\u041a\u0415\u0422', icon: '\ud83d\udce2' },
+]
+
+export default function BottomNav({ activeTab, onTabChange, role }) {
   const { theme } = useTheme()
 
   return (
@@ -29,7 +35,7 @@ export default function BottomNav({ activeTab, onTabChange }) {
         zIndex: 100,
       }}
     >
-      {TABS.map((tab) => {
+      {(role === 'job_seeker' ? JOB_SEEKER_TABS : DRIVER_TABS).map((tab) => {
         const isActive = activeTab === tab.key
         return (
           <button

@@ -23,7 +23,8 @@ function AppInner() {
   const { profile, loading: profileLoading, refetch: refetchProfile } = useProfile(userId)
   const { theme } = useTheme()
   const { isOnline, syncStatus, syncedCount } = useOffline()
-  const [activeTab, setActiveTab] = useState('overview')
+  const userRole = profile?.role || 'driver'
+  const [activeTab, setActiveTab] = useState(userRole === 'job_seeker' ? 'jobs' : 'overview')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [fuelRefreshKey, setFuelRefreshKey] = useState(0)
   const [tripsRefreshKey, setTripsRefreshKey] = useState(0)
@@ -90,7 +91,7 @@ function AppInner() {
     && profile.trial_ends_at
     && new Date(profile.trial_ends_at).getTime() < Date.now()
 
-  if (profile.plan === 'expired' || isTrialExpired) {
+  if (userRole !== 'job_seeker' && (profile.plan === 'expired' || isTrialExpired)) {
     return <Paywall userId={userId} />
   }
 
@@ -120,7 +121,51 @@ function AppInner() {
 
   const vehicleId = activeVehicleId === 'main' ? null : activeVehicleId
 
+  const LockedTab = () => (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '80px 24px', textAlign: 'center',
+    }}>
+      <span style={{ fontSize: 48, marginBottom: 16 }}>{'\ud83d\udd12'}</span>
+      <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: theme.text }}>
+        {'\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043f\u043e\u0441\u043b\u0435 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438 \u043c\u0430\u0448\u0438\u043d\u044b'}
+      </p>
+      <button
+        onClick={() => alert('\u0424\u0443\u043d\u043a\u0446\u0438\u044f \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d\u0438\u044f \u043c\u0430\u0448\u0438\u043d\u044b \u0431\u0443\u0434\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0430 \u0432 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u043c \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0438')}
+        style={{
+          marginTop: 16, padding: '12px 24px', background: '#f59e0b',
+          color: '#fff', border: 'none', borderRadius: 12, fontSize: 15,
+          fontWeight: 600, cursor: 'pointer',
+        }}
+      >
+        {'\u0423\u0441\u0442\u0440\u043e\u0438\u043b\u0438\u0441\u044c \u043d\u0430 \u0440\u0430\u0431\u043e\u0442\u0443? \u2192 \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043c\u0430\u0448\u0438\u043d\u0443'}
+      </button>
+    </div>
+  )
+
+  const JobSeekerStub = ({ title }) => (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '80px 24px', textAlign: 'center',
+    }}>
+      <p style={{ fontSize: 20, fontWeight: 600, color: theme.text }}>{title}</p>
+      <p style={{ fontSize: 14, color: theme.dim, marginTop: 8 }}>{'\u0421\u043a\u043e\u0440\u043e'}</p>
+    </div>
+  )
+
   const renderTab = () => {
+    if (userRole === 'job_seeker') {
+      switch (activeTab) {
+        case 'jobs':
+          return <JobSeekerStub title={'\ud83d\udcbc \u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
+        case 'news':
+          return <JobSeekerStub title={'\ud83d\udcf0 \u041d\u043e\u0432\u043e\u0441\u0442\u0438 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
+        case 'marketplace':
+          return <JobSeekerStub title={'\ud83d\udce2 \u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
+        default:
+          return <LockedTab />
+      }
+    }
     switch (activeTab) {
       case 'fuel':
         return <Fuel userId={userId} refreshKey={fuelRefreshKey} activeVehicleId={vehicleId} />
@@ -174,29 +219,35 @@ function AppInner() {
         </div>
       )}
       <div style={{ flex: 1, paddingBottom: 64, overflow: 'auto' }}>
-        <VehicleSwitcher
-          userId={userId}
-          profile={profile}
-          activeVehicleId={activeVehicleId}
-          onSelect={setActiveVehicleId}
-          onAddVehicle={() => setShowProfile(true)}
-        />
+        {userRole !== 'job_seeker' && (
+          <VehicleSwitcher
+            userId={userId}
+            profile={profile}
+            activeVehicleId={activeVehicleId}
+            onSelect={setActiveVehicleId}
+            onAddVehicle={() => setShowProfile(true)}
+          />
+        )}
         {renderTab()}
       </div>
-      <FAB onClick={() => setIsModalOpen(true)} />
-      <AddModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        userId={userId}
-        activeTab={activeTab}
-        activeVehicleId={vehicleId}
-        onFuelSaved={handleFuelSaved}
-        onTripSaved={handleTripSaved}
-        onBytSaved={handleBytSaved}
-        onServiceSaved={handleServiceSaved}
-        onVehicleExpenseSaved={handleVehicleExpenseSaved}
-      />
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
+      {userRole !== 'job_seeker' && (
+        <>
+          <FAB onClick={() => setIsModalOpen(true)} />
+          <AddModal
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            userId={userId}
+            activeTab={activeTab}
+            activeVehicleId={vehicleId}
+            onFuelSaved={handleFuelSaved}
+            onTripSaved={handleTripSaved}
+            onBytSaved={handleBytSaved}
+            onServiceSaved={handleServiceSaved}
+            onVehicleExpenseSaved={handleVehicleExpenseSaved}
+          />
+        </>
+      )}
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} role={userRole} />
     </div>
   )
 }

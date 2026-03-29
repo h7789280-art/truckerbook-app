@@ -71,6 +71,9 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   const [deleting, setDeleting] = useState(false)
   const [hosMode, setHosMode] = useState(profile?.hos_mode || 'cis')
   const [savingHos, setSavingHos] = useState(false)
+  const [country, setCountry] = useState(() => {
+    try { return localStorage.getItem('truckerbook_country') || 'RU' } catch { return 'RU' }
+  })
 
   const fetchVehicles = async (uid) => {
     if (!uid) return
@@ -397,6 +400,80 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         <div style={{ fontSize: '13px', color: theme.dim, marginTop: '4px' }}>
           {profile?.plan === 'trial' ? 'Trial' : profile?.plan === 'pro' ? 'Pro' : profile?.plan || ''}
         </div>
+      </div>
+
+      {/* Language & Country selectors */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '16px',
+        justifyContent: 'center',
+      }}>
+        <span style={{ fontSize: '18px' }}>{'\uD83C\uDF0D'}</span>
+        <select
+          value={lang}
+          onChange={(e) => setLang(e.target.value)}
+          style={{
+            flex: 1,
+            padding: '8px 10px',
+            borderRadius: '8px',
+            border: '1px solid ' + theme.border,
+            background: theme.card,
+            color: theme.text,
+            fontSize: '14px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            outline: 'none',
+            cursor: 'pointer',
+            maxWidth: '160px',
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+          onBlur={(e) => e.target.style.borderColor = theme.border}
+        >
+          <option value="ru">{'\uD83C\uDDF7\uD83C\uDDFA \u0420\u0443\u0441\u0441\u043A\u0438\u0439'}</option>
+          <option value="en">{'\uD83C\uDDFA\uD83C\uDDF8 English'}</option>
+          <option value="uk">{'\uD83C\uDDFA\uD83C\uDDE6 \u0423\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u0430'}</option>
+          <option value="es">{'\uD83C\uDDEA\uD83C\uDDF8 Espa\u00F1ol'}</option>
+          <option value="de">{'\uD83C\uDDE9\uD83C\uDDEA Deutsch'}</option>
+          <option value="fr">{'\uD83C\uDDEB\uD83C\uDDF7 Fran\u00E7ais'}</option>
+          <option value="tr">{'\uD83C\uDDF9\uD83C\uDDF7 T\u00FCrk\u00E7e'}</option>
+          <option value="pl">{'\uD83C\uDDF5\uD83C\uDDF1 Polski'}</option>
+        </select>
+        <select
+          value={country}
+          onChange={(e) => {
+            const v = e.target.value
+            setCountry(v)
+            try { localStorage.setItem('truckerbook_country', v) } catch {}
+          }}
+          style={{
+            flex: 1,
+            padding: '8px 10px',
+            borderRadius: '8px',
+            border: '1px solid ' + theme.border,
+            background: theme.card,
+            color: theme.text,
+            fontSize: '14px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            outline: 'none',
+            cursor: 'pointer',
+            maxWidth: '160px',
+          }}
+          onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
+          onBlur={(e) => e.target.style.borderColor = theme.border}
+        >
+          <option value="RU">{'\uD83C\uDDF7\uD83C\uDDFA \u0420\u043E\u0441\u0441\u0438\u044F'}</option>
+          <option value="US">{'\uD83C\uDDFA\uD83C\uDDF8 USA'}</option>
+          <option value="UA">{'\uD83C\uDDFA\uD83C\uDDE6 \u0423\u043A\u0440\u0430\u0457\u043D\u0430'}</option>
+          <option value="BY">{'\uD83C\uDDE7\uD83C\uDDFE \u0411\u0435\u043B\u0430\u0440\u0443\u0441\u044C'}</option>
+          <option value="KZ">{'\uD83C\uDDF0\uD83C\uDDFF \u041A\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043D'}</option>
+          <option value="UZ">{'\uD83C\uDDFA\uD83C\uDDFF \u0423\u0437\u0431\u0435\u043A\u0438\u0441\u0442\u0430\u043D'}</option>
+          <option value="DE">{'\uD83C\uDDE9\uD83C\uDDEA Deutschland'}</option>
+          <option value="FR">{'\uD83C\uDDEB\uD83C\uDDF7 France'}</option>
+          <option value="ES">{'\uD83C\uDDEA\uD83C\uDDF8 Espa\u00F1a'}</option>
+          <option value="TR">{'\uD83C\uDDF9\uD83C\uDDF7 T\u00FCrkiye'}</option>
+          <option value="PL">{'\uD83C\uDDF5\uD83C\uDDF1 Polska'}</option>
+        </select>
       </div>
 
       {/* Profile info */}
@@ -909,51 +986,6 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         <span style={{ fontSize: '20px' }}>+</span>
         {'\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043C\u0430\u0448\u0438\u043D\u0443'}
       </button>
-
-      {/* Language switcher */}
-      <div style={{
-        background: theme.card,
-        borderRadius: '12px',
-        border: '1px solid ' + theme.border,
-        padding: '14px 16px',
-        marginBottom: '12px',
-      }}>
-        <span style={{ fontSize: '15px', fontWeight: 600, color: theme.text, display: 'block', marginBottom: '10px' }}>
-          {'\u042f\u0437\u044b\u043a / Language'}
-        </span>
-        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px' }}>
-          {[
-            { code: 'ru', label: '\ud83c\uddf7\ud83c\uddfa RU' },
-            { code: 'en', label: '\ud83c\uddfa\ud83c\uddf8 EN' },
-            { code: 'uk', label: '\ud83c\uddfa\ud83c\udde6 UK' },
-            { code: 'es', label: '\ud83c\uddea\ud83c\uddf8 ES' },
-            { code: 'de', label: '\ud83c\udde9\ud83c\uddea DE' },
-            { code: 'fr', label: '\ud83c\uddeb\ud83c\uddf7 FR' },
-            { code: 'tr', label: '\ud83c\uddf9\ud83c\uddf7 TR' },
-            { code: 'pl', label: '\ud83c\uddf5\ud83c\uddf1 PL' },
-          ].map(({ code, label }) => (
-            <button
-              key={code}
-              onClick={() => setLang(code)}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '8px',
-                border: lang === code ? '2px solid #f59e0b' : '1px solid ' + theme.border,
-                background: lang === code ? '#f59e0b20' : theme.card2,
-                color: lang === code ? '#f59e0b' : theme.dim,
-                fontSize: '13px',
-                fontWeight: lang === code ? 700 : 500,
-                cursor: 'pointer',
-                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-                whiteSpace: 'nowrap',
-                flexShrink: 0,
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Logout button */}
       <button

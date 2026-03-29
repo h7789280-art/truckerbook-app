@@ -835,3 +835,66 @@ export async function fetchRouteNotes(userId) {
   if (error) throw error
   return data || []
 }
+
+// --- Job applications ---
+
+export async function applyToJob(jobId, userId) {
+  const row = {
+    job_id: jobId,
+    applicant_id: userId,
+    status: 'new',
+  }
+  const { data, error } = await supabase
+    .from('job_applications')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function checkApplication(jobId, userId) {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .select('id')
+    .eq('job_id', jobId)
+    .eq('applicant_id', userId)
+    .limit(1)
+  if (error) throw error
+  return data && data.length > 0
+}
+
+// --- Job bookmarks ---
+
+export async function toggleBookmark(userId, jobId) {
+  const { data: existing, error: checkErr } = await supabase
+    .from('job_bookmarks')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('job_id', jobId)
+    .limit(1)
+  if (checkErr) throw checkErr
+
+  if (existing && existing.length > 0) {
+    const { error } = await supabase
+      .from('job_bookmarks')
+      .delete()
+      .eq('id', existing[0].id)
+    if (error) throw error
+    return false
+  } else {
+    const { error } = await supabase
+      .from('job_bookmarks')
+      .insert({ user_id: userId, job_id: jobId })
+    if (error) throw error
+    return true
+  }
+}
+
+export async function getBookmarks(userId) {
+  const { data, error } = await supabase
+    .from('job_bookmarks')
+    .select('job_id')
+    .eq('user_id', userId)
+  if (error) throw error
+  return (data || []).map(b => b.job_id)
+}

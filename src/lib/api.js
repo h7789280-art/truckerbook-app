@@ -341,6 +341,21 @@ export async function getShiftStats(userId, period) {
   return { count: shifts.length, totalKm, totalHours }
 }
 
+// --- Vehicle shifts (team driving) ---
+
+export async function getVehicleShifts(vehicleId, limit = 20) {
+  if (!vehicleId) return []
+  const { data, error } = await supabase
+    .from('shifts')
+    .select('*')
+    .eq('vehicle_id', vehicleId)
+    .eq('status', 'completed')
+    .order('started_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return data || []
+}
+
 // --- Driving sessions ---
 
 export async function startDrivingSession(userId, vehicleId) {

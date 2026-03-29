@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, startDrivingSession, endDrivingSession } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession } from '../lib/api'
 
 function getGreeting(name) {
   const h = new Date().getHours()
@@ -40,7 +40,7 @@ const THEME_OPTIONS = [
   { key: 'auto', label: '\ud83d\udd04 \u0410\u0432\u0442\u043e' },
 ]
 
-export default function Overview({ userName, userId, profile, onOpenProfile, refreshKey }) {
+export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey }) {
   const { theme, mode, setMode } = useTheme()
   const [timerRunning, setTimerRunning] = useState(false)
   const [seconds, setSeconds] = useState(0)
@@ -180,22 +180,34 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
     return () => { cancelled = true }
   }, [userId])
 
-  // Load shift analytics
+  // Load shift analytics (with team driving support)
   const loadShiftAnalytics = useCallback(async () => {
     if (!userId) return
     try {
-      const [stats, history, today] = await Promise.all([
+      const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
+      const [stats, userHistory, today, vehicleHistory] = await Promise.all([
         getShiftStats(userId, shiftPeriod),
         getCompletedShifts(userId, 10),
         getTodayShiftSummary(userId),
+        vehicleId ? getVehicleShifts(vehicleId, 20) : Promise.resolve([]),
       ])
       setShiftStats(stats)
-      setShiftHistory(history)
+      // Merge user shifts with vehicle shifts (team driving), deduplicate by id
+      const merged = vehicleId && vehicleHistory.length > 0
+        ? [...vehicleHistory]
+        : userHistory
+      const seen = new Set()
+      const deduped = merged.filter(s => {
+        if (seen.has(s.id)) return false
+        seen.add(s.id)
+        return true
+      }).sort((a, b) => new Date(b.started_at) - new Date(a.started_at))
+      setShiftHistory(deduped)
       setTodaySummary(today)
     } catch (err) {
       console.error('loadShiftAnalytics error:', err)
     }
-  }, [userId, shiftPeriod])
+  }, [userId, shiftPeriod, activeVehicleId])
 
   useEffect(() => {
     loadShiftAnalytics()
@@ -220,7 +232,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
   const handleStartShift = async () => {
     if (!shiftOdometer) return
     try {
-      const shift = await startShift(userId, null, shiftOdometer, profileName || '')
+      const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
+      const shift = await startShift(userId, vehicleId, shiftOdometer, profileName || '')
       setActiveShift(shift)
       closeShiftModal()
     } catch (err) {
@@ -760,52 +773,72 @@ export default function Overview({ userName, userId, profile, onOpenProfile, ref
           ))}
         </div>
 
-        {/* History */}
+        {/* History (team driving: color-coded by driver) */}
         <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcc3'} {'\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0441\u043c\u0435\u043d'}</div>
         {shiftHistory.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '16px 0', color: theme.dim, fontSize: '13px' }}>
             {'\u041d\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0445 \u0441\u043c\u0435\u043d'}
           </div>
-        ) : (
-          shiftHistory.map((sh, i) => {
-            const start = new Date(sh.started_at)
-            const end = sh.ended_at ? new Date(sh.ended_at) : null
-            const durationMin = end ? Math.round((end - start) / 60000) : 0
-            const durationH = Math.floor(durationMin / 60)
-            const durationM = durationMin % 60
-            const durationStr = durationH > 0
-              ? `${durationH} \u0447 ${durationM} \u043c\u0438\u043d`
-              : `${durationM} \u043c\u0438\u043d`
-            const dateStr = start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
-            const timeStart = start.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-            const timeEnd = end ? end.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '\u2014'
-            const kmDriven = sh.km_driven || 0
+        ) : (() => {
+            const DRIVER_COLORS = ['#f59e0b', '#3b82f6']
+            const driverNames = [...new Set(shiftHistory.map(s => s.driver_name || '').filter(Boolean))]
+            const isTeamDriving = driverNames.length > 1
+            const driverColorMap = {}
+            driverNames.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
 
-            return (
-              <div key={sh.id || i} style={{
-                background: theme.bg,
-                borderRadius: '10px',
-                padding: '12px',
-                marginBottom: i < shiftHistory.length - 1 ? '8px' : 0,
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '13px' }}>{'\ud83d\udcc5'} {dateStr}</span>
-                  <span style={{ fontSize: '13px', color: theme.dim }}>
-                    {timeStart} {'\u2014'} {timeEnd} ({durationStr})
-                  </span>
+            return shiftHistory.map((sh, i) => {
+              const start = new Date(sh.started_at)
+              const end = sh.ended_at ? new Date(sh.ended_at) : null
+              const durationMin = end ? Math.round((end - start) / 60000) : 0
+              const durationH = Math.floor(durationMin / 60)
+              const durationM = durationMin % 60
+              const durationStr = durationH > 0
+                ? `${durationH}\u0447 ${durationM}\u043c\u0438\u043d`
+                : `${durationM}\u043c\u0438\u043d`
+              const dateStr = start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+              const timeStart = start.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+              const timeEnd = end ? end.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '\u2014'
+              const kmDriven = sh.km_driven || 0
+              const driverName = sh.driver_name || ''
+              const driverColor = driverColorMap[driverName] || theme.dim
+
+              return (
+                <div key={sh.id || i} style={{
+                  background: theme.bg,
+                  borderRadius: '10px',
+                  padding: '12px',
+                  marginBottom: i < shiftHistory.length - 1 ? '8px' : 0,
+                  borderLeft: isTeamDriving ? `3px solid ${driverColor}` : 'none',
+                }}>
+                  {driverName ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: isTeamDriving ? driverColor : theme.text }}>
+                        {driverName} {'\u2014'} {formatNumber(kmDriven)} {'\u043a\u043c'}, {durationStr}
+                      </span>
+                      <span style={{ fontSize: '12px', color: theme.dim }}>{dateStr}</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px' }}>{'\ud83d\udcc5'} {dateStr}</span>
+                      <span style={{ fontSize: '13px', color: theme.dim }}>
+                        {timeStart} {'\u2014'} {timeEnd} ({durationStr})
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: theme.dim }}>
+                      {timeStart} {'\u2014'} {timeEnd}
+                      {!driverName && ` (${durationStr})`}
+                    </span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>
+                      +{formatNumber(kmDriven)} {'\u043a\u043c'}
+                    </span>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '12px', color: theme.dim }}>
-                    {'\u041e\u0434\u043e\u043c\u0435\u0442\u0440: '}{formatNumber(sh.odometer_start || 0)} {'\u2192'} {formatNumber(sh.odometer_end || 0)} {'\u043a\u043c'}
-                  </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>
-                    +{formatNumber(kmDriven)} {'\u043a\u043c'}
-                  </span>
-                </div>
-              </div>
-            )
-          })
-        )}
+              )
+            })
+          })()
+        }
       </div>
 
       {loading ? (

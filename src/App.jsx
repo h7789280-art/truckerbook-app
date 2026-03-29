@@ -11,6 +11,7 @@ import Byt from './tabs/Byt'
 import Trips from './tabs/Trips'
 import Service from './tabs/Service'
 import Jobs from './tabs/Jobs'
+import News from './tabs/News'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import PinLock from './components/PinLock'
@@ -371,7 +372,7 @@ function AppInner() {
         case 'jobs':
           return <Jobs refreshKey={0} profile={profile} />
         case 'news':
-          return <JobSeekerStub title={'\ud83d\udcf0 \u041d\u043e\u0432\u043e\u0441\u0442\u0438 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
+          return <News />
         case 'marketplace':
           return <JobSeekerStub title={'\ud83d\udce2 \u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
         default:
@@ -387,6 +388,8 @@ function AppInner() {
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} />
+      case 'news':
+        return <News />
       default:
         return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} />
     }

@@ -1064,6 +1064,21 @@ export async function fetchApplicationsForJob(jobId) {
   return data || []
 }
 
+export async function fetchNews(country, category) {
+  let query = supabase
+    .from('news_articles')
+    .select('*')
+    .in('country', [country, 'ALL'])
+    .order('published_at', { ascending: false })
+    .limit(50)
+  if (category) {
+    query = query.eq('category', category)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
 export async function updateApplicationStatus(id, status) {
   const { data, error } = await supabase
     .from('job_applications')

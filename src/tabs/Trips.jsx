@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels } from '../lib/api'
 import { useTheme } from '../lib/theme'
+import { useLanguage } from '../lib/i18n'
 
 function fmt(n) {
   if (n >= 1000) {
@@ -27,6 +28,7 @@ function formatDateTime(dateStr) {
 }
 
 function PhotoPicker({ photos, setPhotos, theme, maxPhotos = 5 }) {
+  const { t } = useLanguage()
   const cameraRef = { current: null }
   const galleryRef = { current: null }
 
@@ -65,7 +67,7 @@ function PhotoPicker({ photos, setPhotos, theme, maxPhotos = 5 }) {
   return (
     <div style={{ marginBottom: '16px' }}>
       <div style={{ color: theme.dim, fontSize: '12px', marginBottom: '8px' }}>
-        {'\u0424\u043e\u0442\u043e (' + photos.length + '/' + maxPhotos + ')'}
+        {t('trips.photo') + ' (' + photos.length + '/' + maxPhotos + ')'}
       </div>
       <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
         <input
@@ -89,14 +91,14 @@ function PhotoPicker({ photos, setPhotos, theme, maxPhotos = 5 }) {
           style={btnStyle}
           onClick={() => photos.length < maxPhotos && cameraRef.current?.click()}
         >
-          {'\ud83d\udcf7 \u0421\u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0440\u043e\u0432\u0430\u0442\u044c'}
+          {'\ud83d\udcf7 ' + t('trips.takePhoto')}
         </button>
         <button
           type="button"
           style={btnStyle}
           onClick={() => photos.length < maxPhotos && galleryRef.current?.click()}
         >
-          {'\ud83d\uddbc\ufe0f \u0418\u0437 \u0433\u0430\u043b\u0435\u0440\u0435\u0438'}
+          {'\ud83d\uddbc\ufe0f ' + t('trips.fromGallery')}
         </button>
       </div>
       {photos.length > 0 && (
@@ -130,6 +132,7 @@ function PhotoPicker({ photos, setPhotos, theme, maxPhotos = 5 }) {
 }
 
 function TrailerBlock({ userId, theme }) {
+  const { t } = useLanguage()
   const [active, setActive] = useState(null)
   const [history, setHistory] = useState([])
   const [showModal, setShowModal] = useState(false)
@@ -267,10 +270,10 @@ function TrailerBlock({ userId, theme }) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <div style={{ color: theme.text, fontSize: '16px', fontWeight: 600 }}>
-                {'\ud83d\ude9b \u0422\u0440\u0435\u0439\u043b\u0435\u0440: '}{active.trailer_number}
+                {'\ud83d\ude9b ' + t('trips.trailer') + ': '}{active.trailer_number}
               </div>
               <div style={{ color: theme.dim, fontSize: '13px', marginTop: '4px' }}>
-                {'\u0417\u0430\u0431\u0440\u0430\u043d: '}{formatDateTime(active.picked_up_at)}
+                {t('trips.pickedUp') + ': '}{formatDateTime(active.picked_up_at)}
                 {active.photos && active.photos.length > 0 && (
                   <span style={{ marginLeft: '8px' }}>{'\ud83d\udcf7 ' + active.photos.length}</span>
                 )}
@@ -289,7 +292,7 @@ function TrailerBlock({ userId, theme }) {
                 cursor: 'pointer',
               }}
             >
-              {'\u0421\u0434\u0430\u0442\u044c'}
+              {t('trips.dropOff')}
             </button>
           </div>
         </div>
@@ -308,7 +311,7 @@ function TrailerBlock({ userId, theme }) {
             width: '100%',
           }}
         >
-          {'\ud83d\ude9b \u0417\u0430\u0431\u0440\u0430\u0442\u044c \u0442\u0440\u0435\u0439\u043b\u0435\u0440'}
+          {'\ud83d\ude9b ' + t('trips.pickUpTrailer')}
         </button>
       )}
 
@@ -316,7 +319,7 @@ function TrailerBlock({ userId, theme }) {
       {history.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           <div style={{ color: theme.dim, fontSize: '12px', fontWeight: 600, letterSpacing: '0.5px' }}>
-            {'\u0418\u0421\u0422\u041e\u0420\u0418\u042f'}
+            {t('trips.history')}
           </div>
           {history.map((t) => {
             const photoCount = (t.photos && t.photos.length) || 0
@@ -372,7 +375,7 @@ function TrailerBlock({ userId, theme }) {
         </div>
       ) : (
         <div style={{ color: theme.dim, fontSize: '13px', textAlign: 'center', padding: '8px 0' }}>
-          {'\u041d\u0435\u0442 \u0438\u0441\u0442\u043e\u0440\u0438\u0438 \u0442\u0440\u0435\u0439\u043b\u0435\u0440\u043e\u0432'}
+          {t('trips.noTrailerHistory')}
         </div>
       )}
 
@@ -381,18 +384,18 @@ function TrailerBlock({ userId, theme }) {
         <div style={modalOverlay} onClick={() => { if (!uploading) { setShowModal(false); setPickupPhotos([]); } }}>
           <div style={modalBox} onClick={e => e.stopPropagation()}>
             <div style={{ color: theme.text, fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>
-              {'\ud83d\ude9b \u0417\u0430\u0431\u0440\u0430\u0442\u044c \u0442\u0440\u0435\u0439\u043b\u0435\u0440'}
+              {'\ud83d\ude9b ' + t('trips.pickUpTrailer')}
             </div>
             <input
               type="text"
-              placeholder={'\u041d\u043e\u043c\u0435\u0440 \u0442\u0440\u0435\u0439\u043b\u0435\u0440\u0430 *'}
+              placeholder={t('trips.trailerNumber')}
               value={trailerNumber}
               onChange={e => setTrailerNumber(e.target.value)}
               style={inputStyle}
             />
             <input
               type="text"
-              placeholder={'\u0417\u0430\u043c\u0435\u0442\u043a\u0438'}
+              placeholder={t('trips.notes')}
               value={notes}
               onChange={e => setNotes(e.target.value)}
               style={inputStyle}
@@ -414,7 +417,7 @@ function TrailerBlock({ userId, theme }) {
                   cursor: 'pointer',
                 }}
               >
-                {'\u041e\u0442\u043c\u0435\u043d\u0430'}
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handlePickUp}
@@ -431,7 +434,7 @@ function TrailerBlock({ userId, theme }) {
                   cursor: trailerNumber.trim() && !uploading ? 'pointer' : 'default',
                 }}
               >
-                {uploading ? '\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...' : '\u0417\u0430\u0431\u0440\u0430\u0442\u044c'}
+                {uploading ? t('trips.uploading') : t('trips.pickUp')}
               </button>
             </div>
           </div>
@@ -443,10 +446,10 @@ function TrailerBlock({ userId, theme }) {
         <div style={modalOverlay} onClick={() => { if (!uploading) { setShowDropOffModal(false); setDropoffPhotos([]) } }}>
           <div style={modalBox} onClick={e => e.stopPropagation()}>
             <div style={{ color: theme.text, fontSize: '18px', fontWeight: 700, marginBottom: '16px' }}>
-              {'\ud83d\ude9b \u0421\u0434\u0430\u0442\u044c \u0442\u0440\u0435\u0439\u043b\u0435\u0440'}
+              {'\ud83d\ude9b ' + t('trips.dropOffTrailer')}
             </div>
             <div style={{ color: theme.dim, fontSize: '14px', marginBottom: '16px' }}>
-              {'\u0422\u0440\u0435\u0439\u043b\u0435\u0440: '}<span style={{ color: theme.text, fontWeight: 600 }}>{active?.trailer_number}</span>
+              {t('trips.trailer') + ': '}<span style={{ color: theme.text, fontWeight: 600 }}>{active?.trailer_number}</span>
             </div>
             <PhotoPicker photos={dropoffPhotos} setPhotos={setDropoffPhotos} theme={theme} />
             <div style={{ display: 'flex', gap: '10px' }}>
@@ -465,7 +468,7 @@ function TrailerBlock({ userId, theme }) {
                   cursor: 'pointer',
                 }}
               >
-                {'\u041e\u0442\u043c\u0435\u043d\u0430'}
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleDropOff}
@@ -482,7 +485,7 @@ function TrailerBlock({ userId, theme }) {
                   cursor: uploading ? 'default' : 'pointer',
                 }}
               >
-                {uploading ? '\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...' : '\u0421\u0434\u0430\u0442\u044c'}
+                {uploading ? t('trips.uploading') : t('trips.dropOff')}
               </button>
             </div>
           </div>
@@ -493,6 +496,7 @@ function TrailerBlock({ userId, theme }) {
 }
 
 function TripsTab({ userId, refreshKey, theme }) {
+  const { t } = useLanguage()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -537,7 +541,7 @@ function TripsTab({ userId, refreshKey, theme }) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <div style={miniCard}>
           <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
-            {'\u0414\u043e\u0445\u043e\u0434'}
+            {t('trips.income')}
           </div>
           <div style={{ color: '#22c55e', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
             {fmt(totalIncome)} {'\u20bd'}
@@ -545,7 +549,7 @@ function TripsTab({ userId, refreshKey, theme }) {
         </div>
         <div style={miniCard}>
           <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
-            {'\u041a\u041c'}
+            {t('trips.kmLabel')}
           </div>
           <div style={{ color: theme.text, fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
             {fmt(totalKm)}
@@ -556,18 +560,18 @@ function TripsTab({ userId, refreshKey, theme }) {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: theme.dim, fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
-          {'\u0420\u0415\u0419\u0421\u042b'}
+          {t('trips.tripsHeader')}
         </div>
       </div>
 
       {/* Trip cards */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
-          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+          {t('common.loading')}
         </div>
       ) : entries.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
-          {'\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0440\u0435\u0439\u0441\u043e\u0432. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 + \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043f\u0435\u0440\u0432\u044b\u0439'}
+          {t('trips.noTrips')}
         </div>
       ) : (
         entries.map((trip) => (
@@ -578,7 +582,7 @@ function TripsTab({ userId, refreshKey, theme }) {
                   {trip.origin || '?'} {'\u2192'} {trip.destination || '?'}
                 </div>
                 <div style={{ color: theme.dim, fontSize: '13px', marginTop: '4px' }}>
-                  {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {'\u043a\u043c'}
+                  {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {t('trips.km')}
                 </div>
               </div>
               <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
@@ -598,7 +602,7 @@ function TripsTab({ userId, refreshKey, theme }) {
                   cursor: 'pointer',
                 }}
               >
-                {'\u0423\u0434\u0430\u043b\u0438\u0442\u044c'}
+                {t('trips.delete')}
               </button>
             </div>
           </div>
@@ -609,6 +613,7 @@ function TripsTab({ userId, refreshKey, theme }) {
 }
 
 function IFTATab({ userId, theme }) {
+  const { t } = useLanguage()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3))
@@ -764,9 +769,9 @@ function IFTATab({ userId, theme }) {
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
         {[
-          { label: 'Total Gallons', value: totalGallons.toFixed(1), color: theme.text },
-          { label: 'Total Miles', value: totalMiles.toLocaleString('en-US'), color: theme.text },
-          { label: 'Avg MPG', value: overallMpg > 0 ? overallMpg.toFixed(2) : '\u2014', color: '#3b82f6' },
+          { label: t('trips.totalGallons'), value: totalGallons.toFixed(1), color: theme.text },
+          { label: t('trips.totalMiles'), value: totalMiles.toLocaleString('en-US'), color: theme.text },
+          { label: t('trips.avgMpg'), value: overallMpg > 0 ? overallMpg.toFixed(2) : '\u2014', color: '#3b82f6' },
         ].map((item, i) => (
           <div key={i} style={{ background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '12px', textAlign: 'center' }}>
             <div style={{ color: theme.dim, fontSize: '10px', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{item.label}</div>
@@ -778,12 +783,12 @@ function IFTATab({ userId, theme }) {
       {/* IFTA Table */}
       <div style={{ ...card, padding: '12px', overflowX: 'auto' }}>
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '20px', color: theme.dim, fontSize: 14 }}>Loading...</div>
+          <div style={{ textAlign: 'center', padding: '20px', color: theme.dim, fontSize: 14 }}>{t('common.loading')}</div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
             <thead>
               <tr style={{ borderBottom: '2px solid ' + theme.border }}>
-                {['State', 'Gallons', 'Miles', 'Tax Rate', 'Tax Owed'].map((h, i) => (
+                {[t('trips.state'), t('trips.gallons'), t('trips.miles'), t('trips.taxRate'), t('trips.taxOwed')].map((h, i) => (
                   <th key={i} style={{
                     padding: '8px 6px', textAlign: i === 0 ? 'left' : 'right',
                     color: theme.dim, fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase',
@@ -795,7 +800,7 @@ function IFTATab({ userId, theme }) {
               {allStates.length === 0 ? (
                 <tr>
                   <td colSpan={5} style={{ padding: '20px', textAlign: 'center', color: theme.dim }}>
-                    No fuel entries with state data for this quarter
+                    {t('trips.noFuelData')}
                   </td>
                 </tr>
               ) : allStates.map(st => {
@@ -906,7 +911,7 @@ function IFTATab({ userId, theme }) {
             whiteSpace: 'nowrap',
           }}
         >
-          + Add State Miles
+          {t('trips.addStateMiles')}
         </button>
       </div>
     </div>
@@ -915,6 +920,7 @@ function IFTATab({ userId, theme }) {
 
 export default function Trips({ userId, refreshKey, profile }) {
   const { theme } = useTheme()
+  const { t } = useLanguage()
   const showIfta = profile?.hos_mode === 'usa' || profile?.units === 'imperial'
   const [subTab, setSubTab] = useState('trips')
 
@@ -936,10 +942,10 @@ export default function Trips({ userId, refreshKey, profile }) {
       {showIfta && (
         <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
           <button onClick={() => setSubTab('trips')} style={tabBtn('trips', null)}>
-            {'\ud83d\ude9a \u0420\u0415\u0419\u0421\u042b'}
+            {'\ud83d\ude9a ' + t('trips.tripsSubTab')}
           </button>
           <button onClick={() => setSubTab('ifta')} style={tabBtn('ifta', null)}>
-            {'\ud83d\udcca IFTA'}
+            {'\ud83d\udcca ' + t('trips.iftaSubTab')}
           </button>
         </div>
       )}

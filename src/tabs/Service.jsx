@@ -1,99 +1,135 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, addRouteNote, deleteRouteNote, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { useLanguage } from '../lib/i18n'
 
-const SUB_TABS = [
-  { key: 'service', label: '\uD83D\uDD27 \u0421\u0435\u0440\u0432\u0438\u0441' },
-  { key: 'tires', label: '\uD83D\uDEDE \u0428\u0438\u043D\u044B' },
-  { key: 'checklist', label: '\u2705 \u0427\u0435\u043A-\u043B\u0438\u0441\u0442' },
-  { key: 'map', label: '\uD83D\uDDFA \u041A\u0430\u0440\u0442\u0430' },
-  { key: 'docs', label: '\uD83D\uDCC4 \u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u044B' },
-]
+function getSubTabs(t) {
+  return [
+    { key: 'service', label: '\uD83D\uDD27 ' + t('service.service') },
+    { key: 'tires', label: '\uD83D\uDEDE ' + t('service.tires') },
+    { key: 'checklist', label: '\u2705 ' + t('service.checklist') },
+    { key: 'map', label: '\uD83D\uDDFA ' + t('service.map') },
+    { key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') },
+  ]
+}
 
-const TIRE_POSITIONS = [
-  { key: 'front_left', label: '\u041F\u0435\u0440\u0435\u0434\u043D\u044F\u044F \u043B\u0435\u0432\u0430\u044F' },
-  { key: 'front_right', label: '\u041F\u0435\u0440\u0435\u0434\u043D\u044F\u044F \u043F\u0440\u0430\u0432\u0430\u044F' },
-  { key: 'rear_left_outer', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043B\u0435\u0432\u0430\u044F \u0432\u043D\u0435\u0448\u043D\u044F\u044F' },
-  { key: 'rear_left_inner', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043B\u0435\u0432\u0430\u044F \u0432\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F' },
-  { key: 'rear_right_outer', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043F\u0440\u0430\u0432\u0430\u044F \u0432\u043D\u0435\u0448\u043D\u044F\u044F' },
-  { key: 'rear_right_inner', label: '\u0417\u0430\u0434\u043D\u044F\u044F \u043F\u0440\u0430\u0432\u0430\u044F \u0432\u043D\u0443\u0442\u0440\u0435\u043D\u043D\u044F\u044F' },
-  { key: 'spare', label: '\u0417\u0430\u043F\u0430\u0441\u043A\u0430' },
-]
+function getTirePositions(t) {
+  return [
+    { key: 'front_left', label: t('service.frontLeft') },
+    { key: 'front_right', label: t('service.frontRight') },
+    { key: 'rear_left_outer', label: t('service.rearLeftOuter') },
+    { key: 'rear_left_inner', label: t('service.rearLeftInner') },
+    { key: 'rear_right_outer', label: t('service.rearRightOuter') },
+    { key: 'rear_right_inner', label: t('service.rearRightInner') },
+    { key: 'spare', label: t('service.spare') },
+  ]
+}
 
-const TIRE_CONDITIONS = [
-  { key: 'new', label: '\u041D\u043E\u0432\u0430\u044F', color: '#22c55e' },
-  { key: 'good', label: '\u0425\u043E\u0440\u043E\u0448\u0430\u044F', color: '#22c55e' },
-  { key: 'worn', label: '\u0418\u0437\u043D\u043E\u0448\u0435\u043D\u0430', color: '#f59e0b' },
-  { key: 'replace', label: '\u0417\u0430\u043C\u0435\u043D\u0430', color: '#ef4444' },
-]
+function getTireConditions(t) {
+  return [
+    { key: 'new', label: t('service.condNew'), color: '#22c55e' },
+    { key: 'good', label: t('service.condGood'), color: '#22c55e' },
+    { key: 'worn', label: t('service.condWorn'), color: '#f59e0b' },
+    { key: 'replace', label: t('service.condReplace'), color: '#ef4444' },
+  ]
+}
 
-const TIRE_POSITION_LABELS = Object.fromEntries(TIRE_POSITIONS.map(p => [p.key, p.label]))
-const TIRE_CONDITION_MAP = Object.fromEntries(TIRE_CONDITIONS.map(c => [c.key, c]))
+function getChecklistSections(t) {
+  return [
+    {
+      key: 'pdd',
+      title: '\uD83D\uDEA8 ' + t('service.pddRequired'),
+      color: '#ef4444',
+      items: [
+        t('service.fireExtinguisher'), t('service.firstAidKit'),
+        t('service.warningSign'), t('service.wheelChocks'),
+        t('service.vest'), t('service.tachograph'),
+        t('service.driverCard'), t('service.waybill'),
+        t('service.adr'),
+      ],
+    },
+    {
+      key: 'recommended',
+      title: '\u26A1\uFE0F ' + t('service.recommended'),
+      color: '#f59e0b',
+      items: [
+        t('service.towRope'), t('service.jumperCables'),
+        t('service.bulbs'), t('service.fuses'),
+        t('service.tools'), t('service.jack'),
+        t('service.chains'), t('service.canister'),
+        t('service.flashlight'),
+      ],
+    },
+    {
+      key: 'comfort',
+      title: '\uD83C\uDFE0 ' + t('service.comfort'),
+      color: '#3b82f6',
+      items: [
+        t('service.antifreeze'), t('service.rags'),
+        t('service.gloves'), t('service.tape'),
+        t('service.zipTies'), t('service.wd40'),
+        t('service.personalKit'), t('service.powerbank'),
+        t('service.thermos'), t('service.sleepingBag'),
+      ],
+    },
+  ]
+}
 
-const CHECKLIST_SECTIONS = [
-  {
-    key: 'pdd',
-    title: '\uD83D\uDEA8 \u041E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E\u0435 \u041F\u0414\u0414',
-    color: '#ef4444',
-    items: [
-      '\u041E\u0433\u043D\u0435\u0442\u0443\u0448\u0438\u0442\u0435\u043B\u044C', '\u0410\u043F\u0442\u0435\u0447\u043A\u0430',
-      '\u0417\u043D\u0430\u043A \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0438', '\u0423\u043F\u043E\u0440\u044B',
-      '\u0416\u0438\u043B\u0435\u0442', '\u0422\u0430\u0445\u043E\u0433\u0440\u0430\u0444',
-      '\u041A\u0430\u0440\u0442\u0430 \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F', '\u041F\u0443\u0442\u0435\u0432\u043E\u0439 \u043B\u0438\u0441\u0442',
-      '\u0414\u041E\u041F\u041E\u0413',
-    ],
-  },
-  {
-    key: 'recommended',
-    title: '\u26A1\uFE0F \u0420\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u0443\u0435\u0442\u0441\u044F',
-    color: '#f59e0b',
-    items: [
-      '\u0422\u0440\u043E\u0441', '\u041F\u0440\u043E\u0432\u043E\u0434\u0430',
-      '\u041B\u0430\u043C\u043F\u043E\u0447\u043A\u0438', '\u041F\u0440\u0435\u0434\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u0435\u043B\u0438',
-      '\u0418\u043D\u0441\u0442\u0440\u0443\u043C\u0435\u043D\u0442\u044B', '\u0414\u043E\u043C\u043A\u0440\u0430\u0442',
-      '\u0426\u0435\u043F\u0438', '\u041A\u0430\u043D\u0438\u0441\u0442\u0440\u0430',
-      '\u0424\u043E\u043D\u0430\u0440\u044C',
-    ],
-  },
-  {
-    key: 'comfort',
-    title: '\uD83C\uDFE0 \u041A\u043E\u043C\u0444\u043E\u0440\u0442',
-    color: '#3b82f6',
-    items: [
-      '\u041D\u0435\u0437\u0430\u043C\u0435\u0440\u0437\u0430\u0439\u043A\u0430', '\u0422\u0440\u044F\u043F\u043A\u0438',
-      '\u041F\u0435\u0440\u0447\u0430\u0442\u043A\u0438', '\u0421\u043A\u043E\u0442\u0447',
-      '\u0421\u0442\u044F\u0436\u043A\u0438', 'WD-40',
-      '\u0410\u043F\u0442\u0435\u0447\u043A\u0430 \u043B\u0438\u0447\u043D\u0430\u044F', 'Powerbank',
-      '\u0422\u0435\u0440\u043C\u043E\u0441', '\u0421\u043F\u0430\u043B\u044C\u043D\u0438\u043A',
-    ],
-  },
-]
+function getDocTypes(t) {
+  return [
+    { key: 'license', icon: '\uD83D\uDCC4', label: t('service.docLicense') },
+    { key: 'sts', icon: '\uD83D\uDCC4', label: t('service.docSts') },
+    { key: 'osago', icon: '\uD83D\uDEE1\uFE0F', label: t('service.docOsago') },
+    { key: 'kasko', icon: '\uD83D\uDEE1\uFE0F', label: t('service.docKasko') },
+    { key: 'pts', icon: '\uD83D\uDCCB', label: t('service.docPts') },
+    { key: 'contract', icon: '\uD83D\uDCDD', label: t('service.docContract') },
+    { key: 'dopog', icon: '\u26A0\uFE0F', label: t('service.docDopog') },
+    { key: 'bol', icon: '\uD83D\uDCE6', label: t('service.docBol') },
+    { key: 'other', icon: '\uD83D\uDCCE', label: t('service.docOther') },
+  ]
+}
 
-const DOC_TYPES = [
-  { key: 'license', icon: '\uD83D\uDCC4', label: '\u0412\u0423' },
-  { key: 'sts', icon: '\uD83D\uDCC4', label: '\u0421\u0422\u0421' },
-  { key: 'osago', icon: '\uD83D\uDEE1\uFE0F', label: '\u041E\u0421\u0410\u0413\u041E' },
-  { key: 'kasko', icon: '\uD83D\uDEE1\uFE0F', label: '\u041A\u0410\u0421\u041A\u041E' },
-  { key: 'pts', icon: '\uD83D\uDCCB', label: '\u041F\u0422\u0421' },
-  { key: 'contract', icon: '\uD83D\uDCDD', label: '\u0414\u043E\u0433\u043E\u0432\u043E\u0440' },
-  { key: 'dopog', icon: '\u26A0\uFE0F', label: '\u0414\u041E\u041F\u041E\u0413' },
-  { key: 'bol', icon: '\uD83D\uDCE6', label: 'BOL' },
-  { key: 'other', icon: '\uD83D\uDCCE', label: '\u041F\u0440\u043E\u0447\u0435\u0435' },
-]
+function getDocTypeSelect(t) {
+  return [
+    { key: 'license', label: t('service.docLicenseFull') },
+    { key: 'sts', label: t('service.docSts') },
+    { key: 'osago', label: t('service.docOsago') },
+    { key: 'kasko', label: t('service.docKasko') },
+    { key: 'pts', label: t('service.docPts') },
+    { key: 'contract', label: t('service.docContract') },
+    { key: 'dopog', label: t('service.docDopog') },
+    { key: 'bol', label: t('service.docBolFull') },
+    { key: 'other', label: t('service.docOther') },
+  ]
+}
 
-const DOC_TYPE_SELECT = [
-  { key: 'license', label: '\u0412\u043E\u0434\u0438\u0442\u0435\u043B\u044C\u0441\u043A\u043E\u0435 \u0443\u0434\u043E\u0441\u0442\u043E\u0432\u0435\u0440\u0435\u043D\u0438\u0435' },
-  { key: 'sts', label: '\u0421\u0422\u0421' },
-  { key: 'osago', label: '\u041E\u0421\u0410\u0413\u041E' },
-  { key: 'kasko', label: '\u041A\u0410\u0421\u041A\u041E' },
-  { key: 'pts', label: '\u041F\u0422\u0421' },
-  { key: 'contract', label: '\u0414\u043E\u0433\u043E\u0432\u043E\u0440' },
-  { key: 'dopog', label: '\u0414\u041E\u041F\u041E\u0413' },
-  { key: 'bol', label: 'BOL (Bill of Lading)' },
-  { key: 'other', label: '\u041F\u0440\u043E\u0447\u0435\u0435' },
-]
+function getMarkerTypes(t) {
+  return {
+    fuel: { icon: '\u26FD', color: '#22c55e', label: t('service.gasStation') },
+    sto: { icon: '\uD83D\uDD27', color: '#3b82f6', label: t('service.stoLabel') },
+    parking: { icon: '\uD83C\uDD7F\uFE0F', color: '#6b7280', label: t('service.parking') },
+    food: { icon: '\uD83C\uDF7D', color: '#f59e0b', label: t('service.cafe') },
+    danger: { icon: '\u26A0\uFE0F', color: '#ef4444', label: t('service.danger') },
+  }
+}
 
-const DOC_TYPE_MAP = Object.fromEntries(DOC_TYPES.map(d => [d.key, d]))
+function getPhotoTypes(t) {
+  return [
+    { key: 'inspection', label: t('service.inspection') },
+    { key: 'damage', label: t('service.damage') },
+    { key: 'before', label: t('service.before') },
+    { key: 'after', label: t('service.after') },
+  ]
+}
+
+function getPhotoTypeLabels(t) {
+  return {
+    inspection: t('service.inspection'),
+    damage: t('service.damage'),
+    before: t('service.before'),
+    after: t('service.after'),
+  }
+}
 
 const cardStyle = {
   background: 'var(--card)',
@@ -103,6 +139,7 @@ const cardStyle = {
 }
 
 export default function Service({ userId }) {
+  const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
   const [repairs, setRepairs] = useState([])
@@ -110,6 +147,8 @@ export default function Service({ userId }) {
   const [routeNotes, setRouteNotes] = useState([])
   const [odometer, setOdometer] = useState(null)
   const [loading, setLoading] = useState(true)
+
+  const SUB_TABS = getSubTabs(t)
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -159,16 +198,16 @@ export default function Service({ userId }) {
     <div style={{ padding: '16px', minHeight: '100vh', backgroundColor: 'var(--bg)', paddingBottom: '80px' }}>
       {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', overflowX: 'auto' }}>
-        {SUB_TABS.map(t => (
+        {SUB_TABS.map(tab => (
           <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
             style={{
-              background: activeTab === t.key
+              background: activeTab === tab.key
                 ? 'linear-gradient(135deg, #f59e0b, #d97706)'
                 : 'var(--card)',
-              color: activeTab === t.key ? '#000' : 'var(--dim)',
-              border: activeTab === t.key ? 'none' : '1px solid var(--border)',
+              color: activeTab === tab.key ? '#000' : 'var(--dim)',
+              border: activeTab === tab.key ? 'none' : '1px solid var(--border)',
               borderRadius: '20px',
               padding: '8px 14px',
               fontSize: '13px',
@@ -178,7 +217,7 @@ export default function Service({ userId }) {
               flexShrink: 0,
             }}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
@@ -206,10 +245,12 @@ export default function Service({ userId }) {
 
 /* ===== SERVICE TAB ===== */
 function ServiceTab({ repairs, insurance, odometer, loading }) {
+  const { t } = useLanguage()
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
-        {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+        {t('common.loading')}
       </div>
     )
   }
@@ -222,26 +263,26 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
         <div style={{ ...cardStyle, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u0420\u0435\u043C\u043E\u043D\u0442'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.repair')}</div>
           <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444' }}>
             {totalRepair.toLocaleString('ru-RU')} {'\u20BD'}
           </div>
         </div>
         <div style={{ ...cardStyle, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u041E\u0434\u043E\u043C\u0435\u0442\u0440'}</div>
+          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.odometer')}</div>
           <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
-            {odometer ? odometer.toLocaleString('ru-RU') : '\u2014'} {'\u043A\u043C'}
+            {odometer ? odometer.toLocaleString('ru-RU') : '\u2014'} {t('trips.km')}
           </div>
         </div>
       </div>
 
       {/* Repair history */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
-        {'\u0418\u0441\u0442\u043E\u0440\u0438\u044F \u0440\u0435\u043C\u043E\u043D\u0442\u043E\u0432'}
+        {t('service.repairHistory')}
       </div>
       {repairs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
-          {'\u041D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043E \u0440\u0435\u043C\u043E\u043D\u0442\u0435'}
+          {t('service.noRepairs')}
         </div>
       ) : (
         <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
@@ -265,10 +306,10 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {r.description || r.name || '\u0420\u0435\u043C\u043E\u043D\u0442'}
+                  {r.description || r.name || t('service.repair')}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
-                  {r.date || ''} {r.odometer ? `\u00b7 ${r.odometer.toLocaleString('ru-RU')} \u043A\u043C` : ''} {r.place ? `\u00b7 ${r.place}` : ''}
+                  {r.date || ''} {r.odometer ? `\u00b7 ${r.odometer.toLocaleString('ru-RU')} ${t('trips.km')}` : ''} {r.place ? `\u00b7 ${r.place}` : ''}
                 </div>
               </div>
               <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
@@ -281,11 +322,11 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
 
       {/* Insurance */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
-        {'\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0438'}
+        {t('service.insurances')}
       </div>
       {insurance.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
-          {'\u041D\u0435\u0442 \u0441\u0442\u0440\u0430\u0445\u043E\u0432\u043E\u043A'}
+          {t('service.noInsurance')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -304,7 +345,7 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
                       {'\uD83D\uDEE1'}
                     </div>
                     <div>
-                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{ins.type || '\u0421\u0442\u0440\u0430\u0445\u043E\u0432\u043A\u0430'}</div>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{ins.type || t('service.insurance')}</div>
                       <div style={{ fontSize: '12px', color: 'var(--dim)' }}>{ins.company || ''}</div>
                     </div>
                   </div>
@@ -321,7 +362,7 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
                       fontSize: '12px', fontWeight: 600, color: insColor,
                       background: `${insColor}15`, padding: '2px 8px', borderRadius: '8px',
                     }}>
-                      {daysLeft > 0 ? `${daysLeft} \u0434\u043D` : '\u0418\u0441\u0442\u0435\u043A\u043B\u0430'}
+                      {daysLeft > 0 ? `${daysLeft} ${t('service.days')}` : t('service.expired')}
                     </div>
                   )}
                 </div>
@@ -336,10 +377,16 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
 
 /* ===== TIRES TAB ===== */
 function TiresTab({ userId, odometer }) {
+  const { t } = useLanguage()
   const [tires, setTires] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editTire, setEditTire] = useState(null)
+
+  const TIRE_POSITIONS = getTirePositions(t)
+  const TIRE_CONDITIONS = getTireConditions(t)
+  const TIRE_POSITION_LABELS = Object.fromEntries(TIRE_POSITIONS.map(p => [p.key, p.label]))
+  const TIRE_CONDITION_MAP = Object.fromEntries(TIRE_CONDITIONS.map(c => [c.key, c]))
 
   const loadTires = useCallback(async () => {
     if (!userId) return
@@ -359,7 +406,7 @@ function TiresTab({ userId, odometer }) {
   }, [loadTires])
 
   const handleDelete = async (id) => {
-    if (!confirm('\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0448\u0438\u043D\u0443?')) return
+    if (!confirm(t('service.deleteTire'))) return
     try {
       await deleteTireRecord(id)
       setTires(prev => prev.filter(t => t.id !== id))
@@ -393,7 +440,7 @@ function TiresTab({ userId, odometer }) {
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
-        {'\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...'}
+        {t('common.loading')}
       </div>
     )
   }
@@ -415,12 +462,12 @@ function TiresTab({ userId, odometer }) {
           marginBottom: '16px',
         }}
       >
-        {'+ \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0448\u0438\u043D\u0443'}
+        {t('service.addTire')}
       </button>
 
       {tires.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
-          {'\u041D\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0435\u0439 \u043E \u0448\u0438\u043D\u0430\u0445'}
+          {t('service.noTires')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -447,8 +494,8 @@ function TiresTab({ userId, odometer }) {
                         {tire.brand}{tire.model ? ' ' + tire.model : ''} {'\u00b7'} {posLabel}
                       </div>
                       <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
-                        {'\u0423\u0441\u0442\u0430\u043D\u043E\u0432\u043B\u0435\u043D\u0430: '}{formatDate(tire.installed_at)}
-                        {tire.installed_odometer ? ` \u00b7 \u041F\u0440\u043E\u0431\u0435\u0433: ${tire.installed_odometer.toLocaleString('ru-RU')} \u043A\u043C` : ''}
+                        {t('service.installed') + ': '}{formatDate(tire.installed_at)}
+                        {tire.installed_odometer ? ` \u00b7 ${tire.installed_odometer.toLocaleString('ru-RU')} ${t('trips.km')}` : ''}
                       </div>
                     </div>
                   </div>
@@ -482,7 +529,7 @@ function TiresTab({ userId, odometer }) {
                   </div>
                   {kmDriven !== null && (
                     <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
-                      {'\u041F\u0440\u043E\u0435\u0445\u0430\u043B\u0430: '}{kmDriven.toLocaleString('ru-RU')}{' \u043A\u043C'}
+                      {t('service.mileageDriven') + ': '}{kmDriven.toLocaleString('ru-RU')}{' ' + t('trips.km')}
                     </div>
                   )}
                   {tire.cost > 0 && (
@@ -516,6 +563,9 @@ function TiresTab({ userId, odometer }) {
 
 /* ===== TIRE MODAL ===== */
 function TireModal({ userId, tire, onClose, onSaved }) {
+  const { t } = useLanguage()
+  const TIRE_POSITIONS = getTirePositions(t)
+  const TIRE_CONDITIONS = getTireConditions(t)
   const [brand, setBrand] = useState(tire?.brand || '')
   const [model, setModel] = useState(tire?.model || '')
   const [position, setPosition] = useState(tire?.position || 'front_left')
@@ -549,7 +599,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       console.error('saveTire error:', err)
-      alert('\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F')
+      alert(t('service.saveError'))
     } finally {
       setSaving(false)
     }
@@ -579,7 +629,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>
-            {tire ? '\u270F\uFE0F \u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0448\u0438\u043D\u0443' : '\uD83D\uDEDE \u041D\u043E\u0432\u0430\u044F \u0448\u0438\u043D\u0430'}
+            {tire ? '\u270F\uFE0F ' + t('service.editTire') : '\uD83D\uDEDE ' + t('service.newTire')}
           </div>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', color: 'var(--dim)',
@@ -589,7 +639,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
         {/* Brand */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430 \u0448\u0438\u043D\u044B *'}</div>
+          <div style={labelStyle}>{t('service.tireBrand')}</div>
           <input
             type="text"
             value={brand}
@@ -601,7 +651,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
         {/* Model */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+          <div style={labelStyle}>{t('service.tireModel')}</div>
           <input
             type="text"
             value={model}
@@ -613,7 +663,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
         {/* Position */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={labelStyle}>{'\u041F\u043E\u0437\u0438\u0446\u0438\u044F'}</div>
+          <div style={labelStyle}>{t('service.position')}</div>
           <select value={position} onChange={e => setPosition(e.target.value)} style={inputStyle}>
             {TIRE_POSITIONS.map(p => (
               <option key={p.key} value={p.key}>{p.label}</option>
@@ -623,13 +673,13 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
         {/* Installed date */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={labelStyle}>{'\u0414\u0430\u0442\u0430 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0438'}</div>
+          <div style={labelStyle}>{t('service.installDate')}</div>
           <input type="date" value={installedAt} onChange={e => setInstalledAt(e.target.value)} style={inputStyle} />
         </div>
 
         {/* Installed odometer */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={labelStyle}>{'\u041F\u0440\u043E\u0431\u0435\u0433 \u043F\u0440\u0438 \u0443\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0435 (\u043A\u043C)'}</div>
+          <div style={labelStyle}>{t('service.installOdometer')}</div>
           <input
             type="number"
             value={installedOdometer}
@@ -641,7 +691,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
         {/* Condition */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={labelStyle}>{'\u0421\u043E\u0441\u0442\u043E\u044F\u043D\u0438\u0435'}</div>
+          <div style={labelStyle}>{t('service.condition')}</div>
           <select value={condition} onChange={e => setCondition(e.target.value)} style={inputStyle}>
             {TIRE_CONDITIONS.map(c => (
               <option key={c.key} value={c.key}>{c.label}</option>
@@ -651,7 +701,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
         {/* Cost */}
         <div style={{ marginBottom: '14px' }}>
-          <div style={labelStyle}>{'\u0421\u0442\u043E\u0438\u043C\u043E\u0441\u0442\u044C (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+          <div style={labelStyle}>{t('service.costOptional')}</div>
           <input
             type="number"
             value={cost}
@@ -663,12 +713,11 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
         {/* Notes */}
         <div style={{ marginBottom: '16px' }}>
-          <div style={labelStyle}>{'\u0417\u0430\u043C\u0435\u0442\u043A\u0438 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+          <div style={labelStyle}>{t('service.notesOptional')}</div>
           <input
             type="text"
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u043A\u0443\u043F\u043B\u0435\u043D\u0430 \u0432 \u0410\u0432\u0442\u043E\u0414\u043E\u043A'}
             style={inputStyle}
           />
         </div>
@@ -686,7 +735,7 @@ function TireModal({ userId, tire, onClose, onSaved }) {
             cursor: !brand.trim() ? 'default' : 'pointer',
           }}
         >
-          {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
     </div>
@@ -695,6 +744,8 @@ function TireModal({ userId, tire, onClose, onSaved }) {
 
 /* ===== CHECKLIST TAB ===== */
 function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
+  const { t } = useLanguage()
+  const CHECKLIST_SECTIONS = getChecklistSections(t)
   const pddChecked = getCheckedCount('pdd', CHECKLIST_SECTIONS[0].items.length)
   const pddTotal = CHECKLIST_SECTIONS[0].items.length
   const pddComplete = pddChecked === pddTotal
@@ -775,8 +826,8 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
           color: pddComplete ? '#22c55e' : '#ef4444',
         }}>
           {pddComplete
-            ? '\u041F\u0414\u0414: \u0412\u0441\u0451 \u043D\u0430 \u043C\u0435\u0441\u0442\u0435'
-            : `\u041F\u0414\u0414: ${pddChecked}/${pddTotal} \u0415\u0441\u0442\u044C \u043D\u0435\u0445\u0432\u0430\u0442\u043A\u0430!`
+            ? t('service.pddAllGood')
+            : `${t('service.checklist')}: ${pddChecked}/${pddTotal} ${t('service.pddMissing')}`
           }
         </div>
       </div>
@@ -786,6 +837,7 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
 
 /* ===== MAP TAB ===== */
 function MapTab({ userId, routeNotes, onReload }) {
+  const { t } = useLanguage()
   const mapRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const [mapReady, setMapReady] = useState(false)
@@ -795,13 +847,7 @@ function MapTab({ userId, routeNotes, onReload }) {
   const [saving, setSaving] = useState(false)
   const [addForm, setAddForm] = useState({ type: 'fuel', title: '', description: '' })
 
-  const MARKER_TYPES = {
-    fuel: { icon: '\u26FD', color: '#22c55e', label: '\u0417\u0430\u043F\u0440\u0430\u0432\u043A\u0430' },
-    sto: { icon: '\uD83D\uDD27', color: '#3b82f6', label: '\u0421\u0422\u041E' },
-    parking: { icon: '\uD83C\uDD7F\uFE0F', color: '#6b7280', label: '\u0421\u0442\u043E\u044F\u043D\u043A\u0430' },
-    food: { icon: '\uD83C\uDF7D', color: '#f59e0b', label: '\u041A\u0430\u0444\u0435' },
-    danger: { icon: '\u26A0\uFE0F', color: '#ef4444', label: '\u041E\u043F\u0430\u0441\u043D\u043E\u0441\u0442\u044C' },
-  }
+  const MARKER_TYPES = getMarkerTypes(t)
 
   const filteredNotes = mapFilter === 'all'
     ? routeNotes
@@ -928,7 +974,7 @@ function MapTab({ userId, routeNotes, onReload }) {
           <div style="font-size:11px;color:#999;margin-bottom:8px;">${mt.label}</div>
         `
         const delBtn = document.createElement('button')
-        delBtn.textContent = '\u0423\u0434\u0430\u043B\u0438\u0442\u044C'
+        delBtn.textContent = t('common.delete')
         delBtn.style.cssText = 'background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;width:100%;'
         delBtn.onclick = async () => {
           try {
@@ -950,7 +996,7 @@ function MapTab({ userId, routeNotes, onReload }) {
       (pos) => {
         mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], 14)
       },
-      () => alert('\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043E\u043F\u0440\u0435\u0434\u0435\u043B\u0438\u0442\u044C \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435'),
+      () => alert(t('service.cantLocate')),
       { enableHighAccuracy: true, timeout: 10000 }
     )
   }
@@ -983,7 +1029,7 @@ function MapTab({ userId, routeNotes, onReload }) {
     <div style={{ position: 'relative' }}>
       {/* Filters */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', overflowX: 'auto' }}>
-        {[{ key: 'all', label: '\u0412\u0441\u0435' }, ...Object.entries(MARKER_TYPES).map(([k, v]) => ({ key: k, label: v.icon + ' ' + v.label }))].map(f => (
+        {[{ key: 'all', label: t('service.allFilter') }, ...Object.entries(MARKER_TYPES).map(([k, v]) => ({ key: k, label: v.icon + ' ' + v.label }))].map(f => (
           <button
             key={f.key}
             onClick={() => setMapFilter(f.key)}
@@ -1021,7 +1067,7 @@ function MapTab({ userId, routeNotes, onReload }) {
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: '20px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
-          title={'\u041C\u043E\u0451 \u043C\u0435\u0441\u0442\u043E\u043F\u043E\u043B\u043E\u0436\u0435\u043D\u0438\u0435'}
+          title={t('service.myLocation')}
         >
           {'\uD83D\uDCCD'}
         </button>
@@ -1037,7 +1083,7 @@ function MapTab({ userId, routeNotes, onReload }) {
             cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
-          title={'\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u043C\u0435\u0442\u043A\u0443'}
+          title={t('service.addNote')}
         >
           +
         </button>
@@ -1045,9 +1091,9 @@ function MapTab({ userId, routeNotes, onReload }) {
 
       {/* Stats */}
       <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: 'var(--dim)' }}>
-        {'\u0417\u0430\u043C\u0435\u0442\u043E\u043A: '}{filteredNotes.length}
+        {t('service.notesCount') + ': '}{filteredNotes.length}
         {mapFilter !== 'all' ? ` / ${routeNotes.length}` : ''}
-        {' \u00B7 \u0414\u043E\u043B\u0433\u0438\u0439 \u0442\u0430\u043F \u0438\u043B\u0438 + \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F'}
+        {' \u00B7 ' + t('service.longTapHint')}
       </div>
 
       {/* Add note modal */}
@@ -1063,12 +1109,12 @@ function MapTab({ userId, routeNotes, onReload }) {
             width: '100%', maxWidth: '360px', border: '1px solid var(--border)',
           }} onClick={e => e.stopPropagation()}>
             <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
-              {'\u041D\u043E\u0432\u0430\u044F \u0437\u0430\u043C\u0435\u0442\u043A\u0430'}
+              {t('service.newNote')}
             </div>
 
             {/* Type select */}
             <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u0422\u0438\u043F'}</div>
+              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.noteType')}</div>
               <select
                 value={addForm.type}
                 onChange={e => setAddForm(p => ({ ...p, type: e.target.value }))}
@@ -1086,12 +1132,11 @@ function MapTab({ userId, routeNotes, onReload }) {
 
             {/* Title */}
             <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435'}</div>
+              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.noteName')}</div>
               <input
                 type="text"
                 value={addForm.title}
                 onChange={e => setAddForm(p => ({ ...p, title: e.target.value }))}
-                placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u041B\u0443\u043A\u043E\u0439\u043B \u043D\u0430 \u041C\u041A\u0410\u0414'}
                 style={{
                   width: '100%', padding: '10px 12px', borderRadius: '8px',
                   background: 'var(--card2)', color: 'var(--text)',
@@ -1103,7 +1148,7 @@ function MapTab({ userId, routeNotes, onReload }) {
 
             {/* Description */}
             <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{'\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}</div>
+              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.noteDesc')}</div>
               <textarea
                 value={addForm.description}
                 onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))}
@@ -1136,7 +1181,7 @@ function MapTab({ userId, routeNotes, onReload }) {
                   fontWeight: 600, cursor: 'pointer',
                 }}
               >
-                {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleAddNote}
@@ -1151,7 +1196,7 @@ function MapTab({ userId, routeNotes, onReload }) {
                   cursor: addForm.title.trim() && !saving ? 'pointer' : 'not-allowed',
                 }}
               >
-                {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u044F\u044E...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+                {saving ? t('service.saving') : t('common.save')}
               </button>
             </div>
           </div>
@@ -1162,22 +1207,11 @@ function MapTab({ userId, routeNotes, onReload }) {
 }
 
 /* ===== DOCS TAB ===== */
-
-const PHOTO_TYPES = [
-  { key: 'inspection', label: '\u041E\u0441\u043C\u043E\u0442\u0440' },
-  { key: 'damage', label: '\u041F\u043E\u0432\u0440\u0435\u0436\u0434\u0435\u043D\u0438\u0435' },
-  { key: 'before', label: '\u0414\u043E' },
-  { key: 'after', label: '\u041F\u043E\u0441\u043B\u0435' },
-]
-
-const PHOTO_TYPE_LABELS = {
-  inspection: '\u041E\u0441\u043C\u043E\u0442\u0440',
-  damage: '\u041F\u043E\u0432\u0440\u0435\u0436\u0434\u0435\u043D\u0438\u0435',
-  before: '\u0414\u043E',
-  after: '\u041F\u043E\u0441\u043B\u0435',
-}
-
 function DocsTab({ userId }) {
+  const { t } = useLanguage()
+  const DOC_TYPES = getDocTypes(t)
+  const DOC_TYPE_MAP = Object.fromEntries(DOC_TYPES.map(d => [d.key, d]))
+  const PHOTO_TYPE_LABELS = getPhotoTypeLabels(t)
   const [vehiclePhotos, setVehiclePhotos] = useState([])
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false)
   const [fullscreenPhoto, setFullscreenPhoto] = useState(null)
@@ -1221,7 +1255,7 @@ function DocsTab({ userId }) {
   }, [loadPhotos, loadDocs])
 
   const handleDeletePhoto = async (photo) => {
-    if (!confirm('\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0444\u043E\u0442\u043E?')) return
+    if (!confirm(t('service.deletePhoto'))) return
     try {
       await deleteVehiclePhoto(photo.id, photo.photo_url)
       setVehiclePhotos(prev => prev.filter(p => p.id !== photo.id))
@@ -1231,7 +1265,7 @@ function DocsTab({ userId }) {
   }
 
   const handleDeleteDoc = async (doc) => {
-    if (!confirm('\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442?')) return
+    if (!confirm(t('service.deleteDoc'))) return
     try {
       await deleteDocument(doc.id)
       setDocuments(prev => prev.filter(d => d.id !== doc.id))
@@ -1262,7 +1296,7 @@ function DocsTab({ userId }) {
     <>
       {/* ===== DOCUMENTS SECTION ===== */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
-        {'\u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u044B'}
+        {t('service.documents')}
       </div>
 
       <button
@@ -1280,7 +1314,7 @@ function DocsTab({ userId }) {
           marginBottom: '16px',
         }}
       >
-        {'+ \u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442'}
+        {t('service.uploadDoc')}
       </button>
 
       {/* Filter chips */}
@@ -1295,7 +1329,7 @@ function DocsTab({ userId }) {
             fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
           }}
         >
-          {'\u0412\u0441\u0435'}
+          {t('service.allFilter')}
         </button>
         {DOC_TYPES.map(dt => (
           <button
@@ -1317,11 +1351,11 @@ function DocsTab({ userId }) {
       {/* Documents list */}
       {loadingDocs ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
-          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...'}
+          {t('common.loading')}
         </div>
       ) : filteredDocs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
-          {'\u041D\u0435\u0442 \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u043E\u0432'}
+          {t('service.noDocs')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
@@ -1346,11 +1380,11 @@ function DocsTab({ userId }) {
                       {doc.title || docType.label}
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
-                      {'\u0422\u0438\u043F: ' + docType.label + ' \u00b7 ' + formatDate(doc.created_at)}
+                      {t('service.docType') + ': ' + docType.label + ' \u00b7 ' + formatDate(doc.created_at)}
                     </div>
                     {doc.file_url && (
                       <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '1px' }}>
-                        {'\uD83D\uDCF7 1 \u0444\u043E\u0442\u043E'}
+                        {'\uD83D\uDCF7 ' + t('service.photo1')}
                       </div>
                     )}
                   </div>
@@ -1384,7 +1418,7 @@ function DocsTab({ userId }) {
                         cursor: 'pointer',
                       }}
                     >
-                      {'\uD83D\uDDD1\uFE0F \u0423\u0434\u0430\u043B\u0438\u0442\u044C'}
+                      {'\uD83D\uDDD1\uFE0F ' + t('common.delete')}
                     </button>
                   </div>
                 )}
@@ -1405,7 +1439,7 @@ function DocsTab({ userId }) {
 
       {/* ===== VEHICLE INSPECTION PHOTOS SECTION ===== */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
-        {'\u0424\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438 \u043C\u0430\u0448\u0438\u043D\u044B'}
+        {t('service.inspectionPhotos')}
       </div>
 
       <button
@@ -1423,17 +1457,17 @@ function DocsTab({ userId }) {
           marginBottom: '16px',
         }}
       >
-        {'\uD83D\uDCF7 \u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u0444\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438'}
+        {'\uD83D\uDCF7 ' + t('service.addInspectionPhoto')}
       </button>
 
       {/* Photo gallery */}
       {loadingPhotos ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
-          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430...'}
+          {t('common.loading')}
         </div>
       ) : vehiclePhotos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
-          {'\u041D\u0435\u0442 \u0444\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438'}
+          {t('service.noInspectionPhotos')}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
@@ -1552,6 +1586,8 @@ function DocsTab({ userId }) {
 
 /* ===== DOCUMENT UPLOAD MODAL ===== */
 function DocumentModal({ userId, onClose, onSaved }) {
+  const { t } = useLanguage()
+  const DOC_TYPE_SELECT = getDocTypeSelect(t)
   const [docType, setDocType] = useState('license')
   const [title, setTitle] = useState('')
   const [notes, setNotes] = useState('')
@@ -1589,7 +1625,7 @@ function DocumentModal({ userId, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       console.error('save document error:', err)
-      alert('\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F')
+      alert(t('service.saveError'))
     } finally {
       setSaving(false)
     }
@@ -1626,7 +1662,7 @@ function DocumentModal({ userId, onClose, onSaved }) {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>
-            {'\uD83D\uDCC4 \u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044C \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442'}
+            {'\uD83D\uDCC4 ' + t('service.uploadDoc')}
           </div>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', color: 'var(--dim)',
@@ -1637,7 +1673,7 @@ function DocumentModal({ userId, onClose, onSaved }) {
         {/* Document type select */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
-            {'\u0422\u0438\u043F \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430'}
+            {t('service.docType')}
           </div>
           <select
             value={docType}
@@ -1648,8 +1684,8 @@ function DocumentModal({ userId, onClose, onSaved }) {
               color: 'var(--text)', fontSize: '14px',
             }}
           >
-            {DOC_TYPE_SELECT.map(t => (
-              <option key={t.key} value={t.key}>{t.label}</option>
+            {DOC_TYPE_SELECT.map(dt => (
+              <option key={dt.key} value={dt.key}>{dt.label}</option>
             ))}
           </select>
         </div>
@@ -1657,13 +1693,12 @@ function DocumentModal({ userId, onClose, onSaved }) {
         {/* Title */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
-            {'\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435'}
+            {t('service.noteName')}
           </div>
           <input
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}
-            placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u041E\u0421\u0410\u0413\u041E 2026'}
             style={{
               width: '100%', padding: '10px 12px', borderRadius: '10px',
               border: '1px solid var(--border)', background: 'var(--bg)',
@@ -1675,13 +1710,12 @@ function DocumentModal({ userId, onClose, onSaved }) {
         {/* Notes */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
-            {'\u0417\u0430\u043C\u0435\u0442\u043A\u0438 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}
+            {t('service.notesOptional')}
           </div>
           <input
             type="text"
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            placeholder={'\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u0430\u044F \u0438\u043D\u0444\u043E\u0440\u043C\u0430\u0446\u0438\u044F'}
             style={{
               width: '100%', padding: '10px 12px', borderRadius: '10px',
               border: '1px solid var(--border)', background: 'var(--bg)',
@@ -1693,16 +1727,16 @@ function DocumentModal({ userId, onClose, onSaved }) {
         {/* Photo picker */}
         <div style={{ marginBottom: '16px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '8px' }}>
-            {'\u0424\u043E\u0442\u043E (' + photos.length + '/' + maxPhotos + ')'}
+            {'\uD83D\uDCF7 ' + photos.length + '/' + maxPhotos}
           </div>
           <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={inputStyle} onChange={handleFiles} />
             <input ref={galleryRef} type="file" accept="image/*" multiple style={inputStyle} onChange={handleFiles} />
             <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && cameraRef.current?.click()}>
-              {'\uD83D\uDCF7 \u0421\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+              {'\uD83D\uDCF7 ' + t('trips.takePhoto')}
             </button>
             <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && galleryRef.current?.click()}>
-              {'\uD83D\uDDBC\uFE0F \u0418\u0437 \u0433\u0430\u043B\u0435\u0440\u0435\u0438'}
+              {'\uD83D\uDDBC\uFE0F ' + t('trips.fromGallery')}
             </button>
           </div>
           {photos.length > 0 && (
@@ -1742,7 +1776,7 @@ function DocumentModal({ userId, onClose, onSaved }) {
             fontSize: '15px', fontWeight: 700, cursor: photos.length === 0 ? 'default' : 'pointer',
           }}
         >
-          {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
     </div>
@@ -1751,6 +1785,8 @@ function DocumentModal({ userId, onClose, onSaved }) {
 
 /* ===== VEHICLE PHOTO MODAL ===== */
 function VehiclePhotoModal({ userId, onClose, onSaved }) {
+  const { t } = useLanguage()
+  const PHOTO_TYPES = getPhotoTypes(t)
   const [photoType, setPhotoType] = useState('inspection')
   const [notes, setNotes] = useState('')
   const [photos, setPhotos] = useState([])
@@ -1787,7 +1823,7 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
       onSaved()
     } catch (err) {
       console.error('save vehicle photo error:', err)
-      alert('\u041E\u0448\u0438\u0431\u043A\u0430 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F')
+      alert(t('service.saveError'))
     } finally {
       setSaving(false)
     }
@@ -1824,7 +1860,7 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)' }}>
-            {'\uD83D\uDE9A \u0424\u043E\u0442\u043E \u043F\u0440\u0438\u0451\u043C\u043A\u0438'}
+            {'\uD83D\uDE9A ' + t('service.addInspectionPhoto')}
           </div>
           <button onClick={onClose} style={{
             background: 'none', border: 'none', color: 'var(--dim)',
@@ -1835,7 +1871,7 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
         {/* Photo type select */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
-            {'\u0422\u0438\u043F \u0444\u043E\u0442\u043E'}
+            {t('service.noteType')}
           </div>
           <select
             value={photoType}
@@ -1846,8 +1882,8 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
               color: 'var(--text)', fontSize: '14px',
             }}
           >
-            {PHOTO_TYPES.map(t => (
-              <option key={t.key} value={t.key}>{t.label}</option>
+            {PHOTO_TYPES.map(pt => (
+              <option key={pt.key} value={pt.key}>{pt.label}</option>
             ))}
           </select>
         </div>
@@ -1855,13 +1891,12 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
         {/* Notes */}
         <div style={{ marginBottom: '14px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '6px' }}>
-            {'\u0417\u0430\u043C\u0435\u0442\u043A\u0438 (\u043D\u0435\u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u043E)'}
+            {t('service.notesOptional')}
           </div>
           <input
             type="text"
             value={notes}
             onChange={e => setNotes(e.target.value)}
-            placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: \u0446\u0430\u0440\u0430\u043F\u0438\u043D\u0430 \u043D\u0430 \u043B\u0435\u0432\u043E\u043C \u043A\u0440\u044B\u043B\u0435'}
             style={{
               width: '100%', padding: '10px 12px', borderRadius: '10px',
               border: '1px solid var(--border)', background: 'var(--bg)',
@@ -1873,16 +1908,16 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
         {/* Photo picker */}
         <div style={{ marginBottom: '16px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', marginBottom: '8px' }}>
-            {'\u0424\u043E\u0442\u043E (' + photos.length + '/' + maxPhotos + ')'}
+            {'\uD83D\uDCF7 ' + photos.length + '/' + maxPhotos}
           </div>
           <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={inputStyle} onChange={handleFiles} />
             <input ref={galleryRef} type="file" accept="image/*" multiple style={inputStyle} onChange={handleFiles} />
             <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && cameraRef.current?.click()}>
-              {'\uD83D\uDCF7 \u0421\u0444\u043E\u0442\u043E\u0433\u0440\u0430\u0444\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+              {'\uD83D\uDCF7 ' + t('trips.takePhoto')}
             </button>
             <button type="button" style={btnPhotoStyle} onClick={() => photos.length < maxPhotos && galleryRef.current?.click()}>
-              {'\uD83D\uDDBC\uFE0F \u0418\u0437 \u0433\u0430\u043B\u0435\u0440\u0435\u0438'}
+              {'\uD83D\uDDBC\uFE0F ' + t('trips.fromGallery')}
             </button>
           </div>
           {photos.length > 0 && (
@@ -1922,7 +1957,7 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
             fontSize: '15px', fontWeight: 700, cursor: photos.length === 0 ? 'default' : 'pointer',
           }}
         >
-          {saving ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+          {saving ? t('common.saving') : t('common.save')}
         </button>
       </div>
     </div>

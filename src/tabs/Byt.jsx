@@ -1,18 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchBytExpenses, deleteBytExpense } from '../lib/api'
-
-const CATEGORIES = [
-  { key: 'all', icon: '', label: '\u0412\u0441\u0435' },
-  { key: 'food', icon: '\ud83c\udf7d', label: '\u0415\u0434\u0430', color: '#f59e0b' },
-  { key: 'shower', icon: '\ud83d\udebf', label: '\u0414\u0443\u0448', color: '#06b6d4' },
-  { key: 'laundry', icon: '\ud83e\uddfa', label: '\u0421\u0442\u0438\u0440\u043a\u0430', color: '#a855f7' },
-  { key: 'personal', icon: '\ud83d\uded2', label: '\u041b\u0438\u0447\u043d\u043e\u0435', color: '#3b82f6' },
-  { key: 'other', icon: '\ud83d\udce6', label: '\u041f\u0440\u043e\u0447\u0435\u0435', color: '#22c55e' },
-]
-
-function getCat(key) {
-  return CATEGORIES.find(c => c.key === key) || CATEGORIES[CATEGORIES.length - 1]
-}
+import { useLanguage } from '../lib/i18n'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -38,6 +26,21 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 }
 
 export default function Byt({ userId, refreshKey }) {
+  const { t } = useLanguage()
+
+  const CATEGORIES = useMemo(() => [
+    { key: 'all', icon: '', label: t('byt.all') },
+    { key: 'food', icon: '\ud83c\udf7d', label: t('byt.food'), color: '#f59e0b' },
+    { key: 'shower', icon: '\ud83d\udebf', label: t('byt.shower'), color: '#06b6d4' },
+    { key: 'laundry', icon: '\ud83e\uddfa', label: t('byt.laundry'), color: '#a855f7' },
+    { key: 'personal', icon: '\ud83d\uded2', label: t('byt.personal'), color: '#3b82f6' },
+    { key: 'other', icon: '\ud83d\udce6', label: t('byt.other'), color: '#22c55e' },
+  ], [t])
+
+  function getCat(key) {
+    return CATEGORIES.find(c => c.key === key) || CATEGORIES[CATEGORIES.length - 1]
+  }
+
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
@@ -89,7 +92,7 @@ export default function Byt({ userId, refreshKey }) {
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
       <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: '0 0 16px 0' }}>
-        {'\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b'}
+        {t('byt.personalExpenses')}
       </h2>
       {/* Pie chart + legend */}
       {grandTotal > 0 && (
@@ -124,7 +127,7 @@ export default function Byt({ userId, refreshKey }) {
               transform: 'translate(-50%, -50%)',
               textAlign: 'center',
             }}>
-              <div style={{ fontSize: '11px', color: 'var(--dim, #64748b)' }}>{'\u0418\u0442\u043e\u0433\u043e'}</div>
+              <div style={{ fontSize: '11px', color: 'var(--dim, #64748b)' }}>{t('byt.total')}</div>
               <div style={{
                 fontSize: '18px',
                 fontWeight: 700,
@@ -203,11 +206,11 @@ export default function Byt({ userId, refreshKey }) {
       {/* Expense list */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b', fontSize: 14 }}>
-          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+          {t('common.loading')}
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', fontSize: 14 }}>
-          {'\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0437\u0430\u043f\u0438\u0441\u0435\u0439. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 + \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c'}
+          {t('byt.noEntries')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -262,7 +265,7 @@ export default function Byt({ userId, refreshKey }) {
                   color: isFree ? '#22c55e' : 'var(--text, #e2e8f0)',
                   flexShrink: 0,
                 }}>
-                  {isFree ? '\u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e' : `${entry.amount.toLocaleString('ru-RU')}\u20bd`}
+                  {isFree ? t('byt.free') : `${entry.amount.toLocaleString('ru-RU')}\u20bd`}
                 </div>
                 <button
                   onClick={() => handleDelete(entry.id)}

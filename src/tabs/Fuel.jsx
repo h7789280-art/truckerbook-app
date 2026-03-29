@@ -1,22 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { fetchFuels, deleteFuel, fetchVehicleExpenses, deleteVehicleExpense } from '../lib/api'
-
-const CATEGORIES = [
-  { key: 'all', icon: '', label: '\u0412\u0441\u0435' },
-  { key: 'fuel', icon: '\u26fd', label: '\u0422\u043e\u043f\u043b\u0438\u0432\u043e', color: '#f59e0b' },
-  { key: 'def', icon: '\ud83d\udca7', label: 'DEF', color: '#06b6d4' },
-  { key: 'oil', icon: '\ud83d\udee2', label: '\u041c\u0430\u0441\u043b\u043e', color: '#a855f7' },
-  { key: 'parts', icon: '\ud83d\udd27', label: '\u0417\u0430\u043f\u0447\u0430\u0441\u0442\u0438', color: '#ef4444' },
-  { key: 'equipment', icon: '\ud83d\udce6', label: '\u041e\u0431\u043e\u0440\u0443\u0434.', color: '#3b82f6' },
-  { key: 'supplies', icon: '\ud83e\udde4', label: '\u0420\u0430\u0441\u0445\u043e\u0434\u043d.', color: '#22c55e' },
-  { key: 'hotel', icon: '\ud83c\udfe8', label: '\u041c\u043e\u0442\u0435\u043b\u044c', color: '#ec4899' },
-  { key: 'toll', icon: '\ud83c\udd7f\ufe0f', label: '\u0414\u043e\u0440\u043e\u0433\u0438', color: '#8b5cf6' },
-  { key: 'platon', icon: '\ud83d\ude9b', label: '\u041f\u043b\u0430\u0442\u043e\u043d', color: '#14b8a6' },
-]
-
-function getCat(key) {
-  return CATEGORIES.find(c => c.key === key) || CATEGORIES[1]
-}
+import { useLanguage } from '../lib/i18n'
 
 function formatNumber(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -46,6 +30,24 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 }
 
 export default function Fuel({ userId, refreshKey }) {
+  const { t } = useLanguage()
+  const CATEGORIES = useMemo(() => [
+    { key: 'all', icon: '', label: t('fuel.all') },
+    { key: 'fuel', icon: '\u26fd', label: t('fuel.fuelCat'), color: '#f59e0b' },
+    { key: 'def', icon: '\ud83d\udca7', label: t('fuel.def'), color: '#06b6d4' },
+    { key: 'oil', icon: '\ud83d\udee2', label: t('fuel.oil'), color: '#a855f7' },
+    { key: 'parts', icon: '\ud83d\udd27', label: t('fuel.parts'), color: '#ef4444' },
+    { key: 'equipment', icon: '\ud83d\udce6', label: t('fuel.equipment'), color: '#3b82f6' },
+    { key: 'supplies', icon: '\ud83e\udde4', label: t('fuel.supplies'), color: '#22c55e' },
+    { key: 'hotel', icon: '\ud83c\udfe8', label: t('fuel.hotel'), color: '#ec4899' },
+    { key: 'toll', icon: '\ud83c\udd7f\ufe0f', label: t('fuel.toll'), color: '#8b5cf6' },
+    { key: 'platon', icon: '\ud83d\ude9b', label: t('fuel.platon'), color: '#14b8a6' },
+  ], [t])
+
+  function getCat(key) {
+    return CATEGORIES.find(c => c.key === key) || CATEGORIES[1]
+  }
+
   const [fuelEntries, setFuelEntries] = useState([])
   const [vehicleExpenses, setVehicleExpenses] = useState([])
   const [loading, setLoading] = useState(true)
@@ -96,8 +98,8 @@ export default function Fuel({ userId, refreshKey }) {
       id: e.id,
       source: 'fuel',
       category: 'fuel',
-      name: e.station || '\u0417\u0430\u043f\u0440\u0430\u0432\u043a\u0430',
-      subtitle: e.liters ? `${e.liters} \u043b \u00b7 ${formatNumber(e.odometer || 0)} \u043a\u043c` : '',
+      name: e.station || t('fuel.refueling'),
+      subtitle: e.liters ? `${e.liters} ${t('fuel.litersShort')} \u00b7 ${formatNumber(e.odometer || 0)} ${t('trips.km')}` : '',
       date: e.date,
       amount: e.cost || 0,
     })),
@@ -140,7 +142,7 @@ export default function Fuel({ userId, refreshKey }) {
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
       <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: '0 0 16px 0' }}>
-        {'\u0420\u0430\u0441\u0445\u043e\u0434\u044b \u043d\u0430 \u043c\u0430\u0448\u0438\u043d\u0443'}
+        {t('fuel.vehicleExpenses')}
       </h2>
 
       {/* Summary cards */}
@@ -153,7 +155,7 @@ export default function Fuel({ userId, refreshKey }) {
           border: '1px solid var(--border)',
         }}>
           <div style={{ color: 'var(--dim)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '4px' }}>
-            {'\u0417\u0410 \u041c\u0415\u0421\u042f\u0426'}
+            {t('fuel.forMonth')}
           </div>
           <div style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
             {formatNumber(Math.round(grandTotal))} {'\u20bd'}
@@ -167,7 +169,7 @@ export default function Fuel({ userId, refreshKey }) {
           border: '1px solid var(--border)',
         }}>
           <div style={{ color: 'var(--dim)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '4px' }}>
-            {'\u0417\u0410\u041f\u0418\u0421\u0415\u0419'}
+            {t('fuel.entries')}
           </div>
           <div style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
             {totalCount}
@@ -207,7 +209,7 @@ export default function Fuel({ userId, refreshKey }) {
               transform: 'translate(-50%, -50%)',
               textAlign: 'center',
             }}>
-              <div style={{ fontSize: '11px', color: 'var(--dim, #64748b)' }}>{'\u0418\u0442\u043e\u0433\u043e'}</div>
+              <div style={{ fontSize: '11px', color: 'var(--dim, #64748b)' }}>{t('fuel.total')}</div>
               <div style={{
                 fontSize: '16px',
                 fontWeight: 700,
@@ -284,11 +286,11 @@ export default function Fuel({ userId, refreshKey }) {
       {/* Expense list */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b', fontSize: 14 }}>
-          {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+          {t('common.loading')}
         </div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: '#64748b', fontSize: 14 }}>
-          {'\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0437\u0430\u043f\u0438\u0441\u0435\u0439. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 + \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c'}
+          {t('fuel.noEntries')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

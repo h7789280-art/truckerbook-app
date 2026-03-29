@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/theme'
+import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import BrandComboBox from './BrandComboBox'
 
@@ -24,6 +25,7 @@ function getVehicleLimitMessage(plan) {
 
 export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   const { theme } = useTheme()
+  const { lang, setLang } = useLanguage()
   const [vehicles, setVehicles] = useState([])
   const [loggingOut, setLoggingOut] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -907,6 +909,56 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         <span style={{ fontSize: '20px' }}>+</span>
         {'\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043C\u0430\u0448\u0438\u043D\u0443'}
       </button>
+
+      {/* Language switcher */}
+      <div style={{
+        background: theme.card,
+        borderRadius: '12px',
+        border: '1px solid ' + theme.border,
+        padding: '14px 16px',
+        marginBottom: '12px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+      }}>
+        <span style={{ fontSize: '15px', fontWeight: 600, color: theme.text }}>
+          {'\u042f\u0437\u044b\u043a / Language'}
+        </span>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => setLang('ru')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: lang === 'ru' ? '2px solid #f59e0b' : '1px solid ' + theme.border,
+              background: lang === 'ru' ? '#f59e0b20' : theme.card2,
+              color: lang === 'ru' ? '#f59e0b' : theme.dim,
+              fontSize: '14px',
+              fontWeight: lang === 'ru' ? 700 : 500,
+              cursor: 'pointer',
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            {'\ud83c\uddf7\ud83c\uddfa RU'}
+          </button>
+          <button
+            onClick={() => setLang('en')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '8px',
+              border: lang === 'en' ? '2px solid #f59e0b' : '1px solid ' + theme.border,
+              background: lang === 'en' ? '#f59e0b20' : theme.card2,
+              color: lang === 'en' ? '#f59e0b' : theme.dim,
+              fontSize: '14px',
+              fontWeight: lang === 'en' ? 700 : 500,
+              cursor: 'pointer',
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            {'\ud83c\uddfa\ud83c\uddf8 EN'}
+          </button>
+        </div>
+      </div>
 
       {/* Logout button */}
       <button

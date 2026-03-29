@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useOffline } from './hooks/useOffline'
 import { ThemeProvider, useTheme } from './lib/theme'
+import { LanguageProvider } from './lib/i18n'
 import { supabase } from './lib/supabase'
 import Overview from './tabs/Overview'
 import Fuel from './tabs/Fuel'
@@ -439,7 +440,9 @@ function AppInner() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppInner />
+      <LanguageProvider>
+        <AppInner />
+      </LanguageProvider>
     </ThemeProvider>
   )
 }

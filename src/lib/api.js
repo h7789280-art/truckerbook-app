@@ -898,3 +898,70 @@ export async function getBookmarks(userId) {
   if (error) throw error
   return (data || []).map(b => b.job_id)
 }
+
+// --- Driver resumes ---
+
+export async function getMyResume(userId) {
+  const { data, error } = await supabase
+    .from('driver_resumes')
+    .select('*')
+    .eq('user_id', userId)
+    .limit(1)
+    .single()
+  if (error && error.code === 'PGRST116') return null
+  if (error) throw error
+  return data
+}
+
+export async function createResume(resumeData) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('No active session')
+
+  const row = {
+    user_id: user.id,
+    title: resumeData.title || '',
+    about: resumeData.about || '',
+    cdl_category: resumeData.cdl_category || '',
+    experience_years: parseInt(resumeData.experience_years, 10) || 0,
+    preferred_type: resumeData.preferred_type || '',
+    preferred_salary: parseInt(resumeData.preferred_salary, 10) || 0,
+    salary_currency: resumeData.salary_currency || 'RUB',
+    city: resumeData.city || '',
+    country: resumeData.country || 'RU',
+    has_own_truck: resumeData.has_own_truck || false,
+    truck_types: resumeData.truck_types || '',
+    hazmat: resumeData.hazmat || false,
+    is_public: resumeData.is_public !== undefined ? resumeData.is_public : true,
+  }
+  const { data, error } = await supabase
+    .from('driver_resumes')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function updateResume(id, resumeData) {
+  const updates = {}
+  if (resumeData.title !== undefined) updates.title = resumeData.title
+  if (resumeData.about !== undefined) updates.about = resumeData.about
+  if (resumeData.cdl_category !== undefined) updates.cdl_category = resumeData.cdl_category
+  if (resumeData.experience_years !== undefined) updates.experience_years = parseInt(resumeData.experience_years, 10) || 0
+  if (resumeData.preferred_type !== undefined) updates.preferred_type = resumeData.preferred_type
+  if (resumeData.preferred_salary !== undefined) updates.preferred_salary = parseInt(resumeData.preferred_salary, 10) || 0
+  if (resumeData.salary_currency !== undefined) updates.salary_currency = resumeData.salary_currency
+  if (resumeData.city !== undefined) updates.city = resumeData.city
+  if (resumeData.country !== undefined) updates.country = resumeData.country
+  if (resumeData.has_own_truck !== undefined) updates.has_own_truck = resumeData.has_own_truck
+  if (resumeData.truck_types !== undefined) updates.truck_types = resumeData.truck_types
+  if (resumeData.hazmat !== undefined) updates.hazmat = resumeData.hazmat
+  if (resumeData.is_public !== undefined) updates.is_public = resumeData.is_public
+
+  const { data, error } = await supabase
+    .from('driver_resumes')
+    .update(updates)
+    .eq('id', id)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}

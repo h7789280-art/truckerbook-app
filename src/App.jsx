@@ -86,8 +86,12 @@ function AppInner() {
     )
   }
 
-  if (profile.plan === 'expired') {
-    return <Paywall />
+  const isTrialExpired = profile.plan === 'trial'
+    && profile.trial_ends_at
+    && new Date(profile.trial_ends_at).getTime() < Date.now()
+
+  if (profile.plan === 'expired' || isTrialExpired) {
+    return <Paywall userId={userId} />
   }
 
   if (showProfile) {

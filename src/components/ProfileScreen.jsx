@@ -917,46 +917,41 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         border: '1px solid ' + theme.border,
         padding: '14px 16px',
         marginBottom: '12px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
       }}>
-        <span style={{ fontSize: '15px', fontWeight: 600, color: theme.text }}>
+        <span style={{ fontSize: '15px', fontWeight: 600, color: theme.text, display: 'block', marginBottom: '10px' }}>
           {'\u042f\u0437\u044b\u043a / Language'}
         </span>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setLang('ru')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: lang === 'ru' ? '2px solid #f59e0b' : '1px solid ' + theme.border,
-              background: lang === 'ru' ? '#f59e0b20' : theme.card2,
-              color: lang === 'ru' ? '#f59e0b' : theme.dim,
-              fontSize: '14px',
-              fontWeight: lang === 'ru' ? 700 : 500,
-              cursor: 'pointer',
-              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-            }}
-          >
-            {'\ud83c\uddf7\ud83c\uddfa RU'}
-          </button>
-          <button
-            onClick={() => setLang('en')}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '8px',
-              border: lang === 'en' ? '2px solid #f59e0b' : '1px solid ' + theme.border,
-              background: lang === 'en' ? '#f59e0b20' : theme.card2,
-              color: lang === 'en' ? '#f59e0b' : theme.dim,
-              fontSize: '14px',
-              fontWeight: lang === 'en' ? 700 : 500,
-              cursor: 'pointer',
-              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-            }}
-          >
-            {'\ud83c\uddfa\ud83c\uddf8 EN'}
-          </button>
+        <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', WebkitOverflowScrolling: 'touch', paddingBottom: '4px' }}>
+          {[
+            { code: 'ru', label: '\ud83c\uddf7\ud83c\uddfa RU' },
+            { code: 'en', label: '\ud83c\uddfa\ud83c\uddf8 EN' },
+            { code: 'uk', label: '\ud83c\uddfa\ud83c\udde6 UK' },
+            { code: 'es', label: '\ud83c\uddea\ud83c\uddf8 ES' },
+            { code: 'de', label: '\ud83c\udde9\ud83c\uddea DE' },
+            { code: 'fr', label: '\ud83c\uddeb\ud83c\uddf7 FR' },
+            { code: 'tr', label: '\ud83c\uddf9\ud83c\uddf7 TR' },
+            { code: 'pl', label: '\ud83c\uddf5\ud83c\uddf1 PL' },
+          ].map(({ code, label }) => (
+            <button
+              key={code}
+              onClick={() => setLang(code)}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '8px',
+                border: lang === code ? '2px solid #f59e0b' : '1px solid ' + theme.border,
+                background: lang === code ? '#f59e0b20' : theme.card2,
+                color: lang === code ? '#f59e0b' : theme.dim,
+                fontSize: '13px',
+                fontWeight: lang === code ? 700 : 500,
+                cursor: 'pointer',
+                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 

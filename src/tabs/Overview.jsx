@@ -841,6 +841,66 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         }
       </div>
 
+      {/* Driver stats summary — only when 2+ drivers on same vehicle */}
+      {(() => {
+        const now = new Date()
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        const monthShifts = shiftHistory.filter(s => s.ended_at && new Date(s.started_at) >= monthStart)
+        const driverNamesAll = [...new Set(monthShifts.map(s => s.driver_name || '').filter(Boolean))]
+        if (driverNamesAll.length < 2) return null
+        const DRIVER_COLORS = ['#f59e0b', '#3b82f6']
+        const driverColorMap = {}
+        driverNamesAll.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
+        const driverStats = driverNamesAll.map(name => {
+          const shifts = monthShifts.filter(s => s.driver_name === name)
+          const totalKm = shifts.reduce((sum, s) => sum + (s.km_driven || 0), 0)
+          const totalMinutes = shifts.reduce((sum, s) => {
+            const start = new Date(s.started_at).getTime()
+            const end = new Date(s.ended_at).getTime()
+            return sum + (end - start) / 60000
+          }, 0)
+          return { name, count: shifts.length, totalKm, totalMinutes }
+        })
+        return (
+          <div style={{ ...cardStyle, marginBottom: '12px' }}>
+            <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udc65'} {'\u0421\u0442\u0430\u0442\u0438\u0441\u0442\u0438\u043a\u0430 \u043f\u043e \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u044f\u043c'}</div>
+            {driverStats.map((d, i) => {
+              const hours = Math.floor(d.totalMinutes / 60)
+              const mins = Math.round(d.totalMinutes % 60)
+              const timeStr = hours > 0 ? `${hours}\u0447 ${mins}\u043c\u0438\u043d` : `${mins}\u043c\u0438\u043d`
+              const color = driverColorMap[d.name]
+              return (
+                <div key={d.name} style={{
+                  background: theme.bg,
+                  borderRadius: '10px',
+                  padding: '12px',
+                  marginBottom: i < driverStats.length - 1 ? '8px' : 0,
+                  borderLeft: `3px solid ${color}`,
+                }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color, marginBottom: '8px' }}>
+                    {d.name}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{formatNumber(Math.round(d.totalKm))}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{'\u043a\u043c'}</div>
+                    </div>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{d.count}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{'\u0441\u043c\u0435\u043d'}</div>
+                    </div>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{timeStr}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{'\u0437\u0430 \u0440\u0443\u043b\u0451\u043c'}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      })()}
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
           {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}

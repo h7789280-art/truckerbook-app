@@ -91,12 +91,24 @@ function PhotoVoicePlaceholder({ theme }) {
   )
 }
 
-function FuelFields({ form, onChange, theme, inputStyle }) {
+function FuelFields({ form, onChange, theme, inputStyle, geoState }) {
   return (
     <>
       <FieldGroup label={'\u0410\u0417\u0421'} theme={theme}>
         <input style={inputStyle} placeholder={'\u041d\u0430\u0437\u0432\u0430\u043d\u0438\u0435 \u0441\u0442\u0430\u043d\u0446\u0438\u0438'} value={form.station || ''} onChange={(e) => onChange('station', e.target.value)} />
       </FieldGroup>
+      {geoState && (
+        <div style={{
+          padding: '8px 12px',
+          borderRadius: 8,
+          background: theme.card2,
+          color: theme.dim,
+          fontSize: 13,
+          marginBottom: 12,
+        }}>
+          {'\uD83D\uDCCD ' + geoState}
+        </div>
+      )}
       <FieldGroup label={'\u0414\u0430\u0442\u0430'} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
@@ -210,11 +222,17 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   const [formType, setFormType] = useState(null)
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
+  const [geoLat, setGeoLat] = useState(null)
+  const [geoLon, setGeoLon] = useState(null)
+  const [geoState, setGeoState] = useState(null)
 
   useEffect(() => {
     if (!isOpen) return
     setForm({})
     setSaving(false)
+    setGeoLat(null)
+    setGeoLon(null)
+    setGeoState(null)
     if (activeTab === 'fuel') {
       setFormType(null)
     } else if (activeTab === 'byt') {
@@ -226,6 +244,29 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
       setFormType(null)
     }
   }, [isOpen, activeTab])
+
+  useEffect(() => {
+    if (!isOpen || formType !== 'fuel') return
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude
+        const lon = pos.coords.longitude
+        setGeoLat(lat)
+        setGeoLon(lon)
+        fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon + '&format=json&accept-language=en')
+          .then((r) => r.json())
+          .then((data) => {
+            if (data && data.address && data.address.state) {
+              setGeoState(data.address.state)
+            }
+          })
+          .catch(() => {})
+      },
+      () => {},
+      { timeout: 10000 }
+    )
+  }, [isOpen, formType])
 
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }))
@@ -244,6 +285,11 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
       const entry = { ...form, vehicle_id: activeVehicleId || null }
 
       if (formType === 'fuel') {
+        if (geoLat != null && geoLon != null) {
+          entry.latitude = geoLat
+          entry.longitude = geoLon
+        }
+        if (geoState) entry.state = geoState
         await addFuel(userId, entry)
         if (onFuelSaved) onFuelSaved()
       } else if (formType === 'trip') {
@@ -333,7 +379,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   const renderForm = () => {
     const props = { form, onChange: handleChange, theme, inputStyle }
     switch (formType) {
-      case 'fuel': return <FuelFields {...props} />
+      case 'fuel': return <FuelFields {...props} geoState={geoState} />
       case 'trip': return <TripFields {...props} />
       case 'byt': return <BytFields {...props} />
       case 'repair': return <RepairFields {...props} />

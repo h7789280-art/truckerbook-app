@@ -1,3 +1,8 @@
+-- fuel_entries: geolocation fields (already added via ALTER in Supabase)
+-- ALTER TABLE fuel_entries ADD COLUMN IF NOT EXISTS latitude decimal;
+-- ALTER TABLE fuel_entries ADD COLUMN IF NOT EXISTS longitude decimal;
+-- ALTER TABLE fuel_entries ADD COLUMN IF NOT EXISTS state text;
+
 -- Shifts table for team driving (multiple drivers per vehicle)
 -- Run this in Supabase SQL Editor if the table doesn't exist yet
 

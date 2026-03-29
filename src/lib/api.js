@@ -34,6 +34,9 @@ export async function addFuel(_userId, entry) {
     liters: parseFloat(entry.liters) || 0,
     cost: parseFloat(entry.amount) || 0,
     odometer: parseInt(entry.odometer, 10) || 0,
+    latitude: entry.latitude != null ? parseFloat(entry.latitude) : null,
+    longitude: entry.longitude != null ? parseFloat(entry.longitude) : null,
+    state: entry.state || null,
   }
   if (!navigator.onLine) return offlineInsert('fuel_entries', row)
   const { data, error } = await supabase

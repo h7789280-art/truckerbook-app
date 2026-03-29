@@ -10,6 +10,7 @@ import Fuel from './tabs/Fuel'
 import Byt from './tabs/Byt'
 import Trips from './tabs/Trips'
 import Service from './tabs/Service'
+import Jobs from './tabs/Jobs'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import PinLock from './components/PinLock'
@@ -368,7 +369,7 @@ function AppInner() {
     if (userRole === 'job_seeker') {
       switch (activeTab) {
         case 'jobs':
-          return <JobSeekerStub title={'\ud83d\udcbc \u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
+          return <Jobs refreshKey={0} />
         case 'news':
           return <JobSeekerStub title={'\ud83d\udcf0 \u041d\u043e\u0432\u043e\u0441\u0442\u0438 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
         case 'marketplace':

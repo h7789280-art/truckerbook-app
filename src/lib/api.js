@@ -796,6 +796,36 @@ export async function deleteDocument(docId) {
   if (error) throw error
 }
 
+// --- Jobs ---
+
+export async function fetchJobs(country, jobType) {
+  let query = supabase
+    .from('jobs')
+    .select('*')
+    .eq('status', 'published')
+    .order('is_premium', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (country) {
+    query = query.eq('country', country)
+  }
+  if (jobType && jobType !== 'all') {
+    query = query.eq('job_type', jobType)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchJobById(id) {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function fetchRouteNotes(userId) {
   const { data, error } = await supabase
     .from('route_notes')

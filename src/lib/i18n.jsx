@@ -587,6 +587,15 @@ const translations = {
       cat_technology: '\u0422\u0435\u0445\u043d\u043e\u043b\u043e\u0433\u0438\u0438',
       cat_lifestyle: '\u041b\u0430\u0439\u0444\u0441\u0442\u0430\u0439\u043b',
     },
+    marketplace: {
+      loading: '\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...',
+      noAds: '\u041e\u0431\u044a\u044f\u0432\u043b\u0435\u043d\u0438\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442',
+      noAdsSub: '\u0421\u043a\u043e\u0440\u043e \u0437\u0434\u0435\u0441\u044c \u043f\u043e\u044f\u0432\u044f\u0442\u0441\u044f \u043f\u0440\u0435\u0434\u043b\u043e\u0436\u0435\u043d\u0438\u044f \u0434\u043b\u044f \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u0439',
+      catAll: '\u0412\u0441\u0435',
+      premium: '\u041f\u0440\u0435\u043c\u0438\u0443\u043c',
+      call: '\u041f\u043e\u0437\u0432\u043e\u043d\u0438\u0442\u044c',
+      website: '\u0421\u0430\u0439\u0442',
+    },
   },
   en: {
     tabs: {
@@ -1174,6 +1183,15 @@ const translations = {
       cat_technology: 'Technology',
       cat_lifestyle: 'Lifestyle',
     },
+    marketplace: {
+      loading: 'Loading...',
+      noAds: 'No ads yet',
+      noAdsSub: 'Offers for drivers will appear here soon',
+      catAll: 'All',
+      premium: 'Premium',
+      call: 'Call',
+      website: 'Website',
+    },
   },
   uk: {
     tabs: {
@@ -1759,6 +1777,15 @@ const translations = {
       cat_safety: '\u0411\u0435\u0437\u043f\u0435\u043a\u0430',
       cat_technology: '\u0422\u0435\u0445\u043d\u043e\u043b\u043e\u0433\u0456\u0457',
       cat_lifestyle: '\u041b\u0430\u0439\u0444\u0441\u0442\u0430\u0439\u043b',
+    },
+    marketplace: {
+      loading: '\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u043d\u044f...',
+      noAds: '\u041e\u0433\u043e\u043b\u043e\u0448\u0435\u043d\u044c \u043f\u043e\u043a\u0438 \u043d\u0435\u043c\u0430\u0454',
+      noAdsSub: '\u041d\u0435\u0437\u0430\u0431\u0430\u0440\u043e\u043c \u0442\u0443\u0442 \u0437\'\u044f\u0432\u043b\u044f\u0442\u044c\u0441\u044f \u043f\u0440\u043e\u043f\u043e\u0437\u0438\u0446\u0456\u0457 \u0434\u043b\u044f \u0432\u043e\u0434\u0456\u0457\u0432',
+      catAll: '\u0412\u0441\u0456',
+      premium: '\u041f\u0440\u0435\u043c\u0456\u0443\u043c',
+      call: '\u041f\u043e\u0434\u0437\u0432\u043e\u043d\u0438\u0442\u0438',
+      website: '\u0421\u0430\u0439\u0442',
     },
   },
   es: {
@@ -2346,6 +2373,15 @@ const translations = {
       cat_technology: 'Tecnolog\u00eda',
       cat_lifestyle: 'Estilo de vida',
     },
+    marketplace: {
+      loading: 'Cargando...',
+      noAds: 'A\u00fan no hay anuncios',
+      noAdsSub: 'Pronto aparecer\u00e1n ofertas para conductores',
+      catAll: 'Todos',
+      premium: 'Premium',
+      call: 'Llamar',
+      website: 'Sitio web',
+    },
   },
   de: {
     tabs: {
@@ -2931,6 +2967,15 @@ const translations = {
       cat_safety: 'Sicherheit',
       cat_technology: 'Technologie',
       cat_lifestyle: 'Lifestyle',
+    },
+    marketplace: {
+      loading: 'Laden...',
+      noAds: 'Noch keine Anzeigen',
+      noAdsSub: 'Angebote f\u00fcr Fahrer erscheinen hier bald',
+      catAll: 'Alle',
+      premium: 'Premium',
+      call: 'Anrufen',
+      website: 'Webseite',
     },
   },
   fr: {
@@ -3518,6 +3563,15 @@ const translations = {
       cat_technology: 'Technologie',
       cat_lifestyle: 'Lifestyle',
     },
+    marketplace: {
+      loading: 'Chargement...',
+      noAds: 'Pas encore d\'annonces',
+      noAdsSub: 'Des offres pour les chauffeurs appara\u00eetront bient\u00f4t',
+      catAll: 'Toutes',
+      premium: 'Premium',
+      call: 'Appeler',
+      website: 'Site web',
+    },
   },
   tr: {
     tabs: {
@@ -4104,6 +4158,15 @@ const translations = {
       cat_technology: 'Teknoloji',
       cat_lifestyle: 'Ya\u015fam Tarz\u0131',
     },
+    marketplace: {
+      loading: 'Y\u00fckleniyor...',
+      noAds: 'Hen\u00fcz ilan yok',
+      noAdsSub: 'S\u00fcr\u00fcc\u00fcler i\u00e7in teklifler yak\u0131nda burada g\u00f6r\u00fcnecek',
+      catAll: 'T\u00fcm\u00fc',
+      premium: 'Premium',
+      call: 'Ara',
+      website: 'Web sitesi',
+    },
   },
   pl: {
     tabs: {
@@ -4689,6 +4752,15 @@ const translations = {
       cat_safety: 'Bezpiecze\u0144stwo',
       cat_technology: 'Technologia',
       cat_lifestyle: 'Styl \u017cycia',
+    },
+    marketplace: {
+      loading: '\u0141adowanie...',
+      noAds: 'Brak og\u0142osze\u0144',
+      noAdsSub: 'Oferty dla kierowc\u00f3w pojawi\u0105 si\u0119 wkr\u00f3tce',
+      catAll: 'Wszystkie',
+      premium: 'Premium',
+      call: 'Zadzwo\u0144',
+      website: 'Strona www',
     },
   },
 }

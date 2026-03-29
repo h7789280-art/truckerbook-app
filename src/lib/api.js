@@ -1079,6 +1079,62 @@ export async function fetchNews(country, category) {
   return data || []
 }
 
+// --- Marketplace / Ads ---
+
+export async function fetchAdCategories() {
+  const { data, error } = await supabase
+    .from('ad_categories')
+    .select('*')
+    .order('sort_order', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAds(country, categoryKey) {
+  let query = supabase
+    .from('ads')
+    .select('*')
+    .eq('status', 'active')
+    .in('country', [country, 'ALL'])
+    .order('is_premium', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(50)
+  if (categoryKey) {
+    const { data: catData } = await supabase
+      .from('ad_categories')
+      .select('id')
+      .eq('key', categoryKey)
+      .single()
+    if (catData) {
+      query = query.eq('category_id', catData.id)
+    }
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchAdById(id) {
+  const { data, error } = await supabase
+    .from('ads')
+    .select('*')
+    .eq('id', id)
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function trackAdClick(adId, userId, clickType) {
+  const { error } = await supabase
+    .from('ad_clicks')
+    .insert({
+      ad_id: adId,
+      user_id: userId || null,
+      click_type: clickType,
+    })
+  if (error) console.error('trackAdClick error:', error)
+}
+
 export async function updateApplicationStatus(id, status) {
   const { data, error } = await supabase
     .from('job_applications')

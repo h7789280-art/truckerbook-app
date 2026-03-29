@@ -941,6 +941,16 @@ export async function createResume(resumeData) {
   return data?.[0]
 }
 
+export async function getResumeById(resumeId) {
+  const { data, error } = await supabase
+    .from('driver_resumes')
+    .select('*')
+    .eq('id', resumeId)
+    .single()
+  if (error) throw error
+  return data
+}
+
 export async function updateResume(id, resumeData) {
   const updates = {}
   if (resumeData.title !== undefined) updates.title = resumeData.title
@@ -960,6 +970,104 @@ export async function updateResume(id, resumeData) {
   const { data, error } = await supabase
     .from('driver_resumes')
     .update(updates)
+    .eq('id', id)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+// --- Employer jobs ---
+
+export async function createJob(jobData) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('No active session')
+
+  const row = {
+    employer_id: user.id,
+    title: jobData.title || '',
+    description: jobData.description || '',
+    company_name: jobData.company_name || '',
+    location: jobData.location || '',
+    country: jobData.country || 'RU',
+    job_type: jobData.job_type || 'otr',
+    salary_min: parseInt(jobData.salary_min, 10) || null,
+    salary_max: parseInt(jobData.salary_max, 10) || null,
+    salary_currency: jobData.salary_currency || 'RUB',
+    salary_period: jobData.salary_period || 'month',
+    cdl_required: jobData.cdl_required || '',
+    experience_min: parseInt(jobData.experience_min, 10) || 0,
+    truck_provided: jobData.truck_provided || false,
+    home_time: jobData.home_time || '',
+    benefits: jobData.benefits || '',
+    contact_phone: jobData.contact_phone || '',
+    contact_method: jobData.contact_method || 'phone',
+    status: jobData.status || 'draft',
+  }
+  const { data, error } = await supabase
+    .from('jobs')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function updateJob(id, jobData) {
+  const updates = {}
+  const fields = [
+    'title', 'description', 'company_name', 'location', 'country',
+    'job_type', 'salary_currency', 'salary_period', 'cdl_required',
+    'truck_provided', 'home_time', 'benefits', 'contact_phone',
+    'contact_method', 'status',
+  ]
+  fields.forEach(f => {
+    if (jobData[f] !== undefined) updates[f] = jobData[f]
+  })
+  if (jobData.salary_min !== undefined) updates.salary_min = parseInt(jobData.salary_min, 10) || null
+  if (jobData.salary_max !== undefined) updates.salary_max = parseInt(jobData.salary_max, 10) || null
+  if (jobData.experience_min !== undefined) updates.experience_min = parseInt(jobData.experience_min, 10) || 0
+
+  const { data, error } = await supabase
+    .from('jobs')
+    .update(updates)
+    .eq('id', id)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function fetchMyJobs(userId) {
+  const { data, error } = await supabase
+    .from('jobs')
+    .select('*')
+    .eq('employer_id', userId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function fetchApplicationsForJob(jobId) {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .select('*, profiles:applicant_id(name, phone), driver_resumes:resume_id(*)')
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: false })
+  if (error) {
+    // Fallback without joins if FK relations not set up
+    const { data: fallback, error: err2 } = await supabase
+      .from('job_applications')
+      .select('*')
+      .eq('job_id', jobId)
+      .order('created_at', { ascending: false })
+    if (err2) throw err2
+    return fallback || []
+  }
+  return data || []
+}
+
+export async function updateApplicationStatus(id, status) {
+  const { data, error } = await supabase
+    .from('job_applications')
+    .update({ status })
     .eq('id', id)
     .select()
   if (error) throw error

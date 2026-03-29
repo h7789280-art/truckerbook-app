@@ -369,7 +369,7 @@ function AppInner() {
     if (userRole === 'job_seeker') {
       switch (activeTab) {
         case 'jobs':
-          return <Jobs refreshKey={0} />
+          return <Jobs refreshKey={0} profile={profile} />
         case 'news':
           return <JobSeekerStub title={'\ud83d\udcf0 \u041d\u043e\u0432\u043e\u0441\u0442\u0438 \u2014 \u0441\u043a\u043e\u0440\u043e'} />
         case 'marketplace':

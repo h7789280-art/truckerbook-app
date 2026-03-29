@@ -1144,3 +1144,57 @@ export async function updateApplicationStatus(id, status) {
   if (error) throw error
   return data?.[0]
 }
+
+// --- Fleet summary (B2B) ---
+
+export async function fetchFleetSummary(userId) {
+  const now = new Date()
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+
+  const [vehiclesRes, fuelsRes, tripsRes, bytRes, vehicleExpRes, shiftsRes] = await Promise.all([
+    supabase.from('vehicles').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', monthStart),
+    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', monthStart + 'T00:00:00'),
+    supabase.from('byt_expenses').select('*').eq('user_id', userId).gte('date', monthStart),
+    supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', monthStart),
+    supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', monthStart + 'T00:00:00'),
+  ])
+
+  const vehicles = vehiclesRes.data || []
+  const fuels = fuelsRes.data || []
+  const trips = tripsRes.data || []
+  const bytExps = bytRes.data || []
+  const vehicleExps = vehicleExpRes.data || []
+  const shifts = shiftsRes.data || []
+
+  const totalIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
+  const totalFuelCost = fuels.reduce((s, e) => s + (e.cost || 0), 0)
+  const totalBytCost = bytExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalVehicleExpCost = vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalExpenses = totalFuelCost + totalBytCost + totalVehicleExpCost
+  const totalKm = shifts.reduce((s, sh) => s + (sh.km_driven || 0), 0)
+  const tripCount = trips.length
+
+  // Per-vehicle stats
+  const vehicleStats = vehicles.map(v => {
+    const vFuel = fuels.filter(f => f.vehicle_id === v.id).reduce((s, e) => s + (e.cost || 0), 0)
+    const vTrips = trips.filter(t => t.vehicle_id === v.id)
+    const vKm = shifts.filter(sh => sh.vehicle_id === v.id).reduce((s, sh) => s + (sh.km_driven || 0), 0)
+    return {
+      ...v,
+      monthFuelCost: vFuel,
+      monthTrips: vTrips.length,
+      monthKm: vKm,
+    }
+  })
+
+  return {
+    vehicles,
+    vehicleStats,
+    totalVehicles: vehicles.length,
+    totalIncome,
+    totalExpenses,
+    totalKm,
+    tripCount,
+  }
+}

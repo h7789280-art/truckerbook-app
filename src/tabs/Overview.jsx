@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary } from '../lib/api'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -69,6 +69,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [shiftStats, setShiftStats] = useState({ count: 0, totalKm: 0, totalHours: 0 })
   const [shiftHistory, setShiftHistory] = useState([])
   const [todaySummary, setTodaySummary] = useState(null)
+  const [fleetData, setFleetData] = useState(null)
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -162,12 +163,28 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         }
       })
       setReminders(reminderList)
+
+      // Load fleet data for company role
+      if (profile?.role === 'company') {
+        try {
+          const fleet = await fetchFleetSummary(userId)
+          // Show fleet panel only if 2+ vehicles (including main)
+          const mainVehicle = profile?.brand ? 1 : 0
+          if ((fleet.totalVehicles + mainVehicle) >= 2) {
+            setFleetData(fleet)
+          } else {
+            setFleetData(null)
+          }
+        } catch (err) {
+          console.error('fetchFleetSummary error:', err)
+        }
+      }
     } catch (err) {
       console.error('Overview loadData error:', err)
     } finally {
       setLoading(false)
     }
-  }, [userId, t])
+  }, [userId, t, profile?.role, profile?.brand])
 
   useEffect(() => {
     loadData()
@@ -414,6 +431,77 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
         )
       })()}
+
+      {/* Fleet panel — only for company role with 2+ vehicles */}
+      {fleetData && profile?.role === 'company' && (
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83c\udfe2'} {t('overview.fleetPanel')}</div>
+          {/* Summary cards — horizontal scroll */}
+          <div style={{
+            display: 'flex',
+            gap: '8px',
+            overflowX: 'auto',
+            paddingBottom: '8px',
+            marginBottom: '12px',
+            WebkitOverflowScrolling: 'touch',
+          }}>
+            {[
+              { label: t('overview.fleetVehicles'), value: String(fleetData.totalVehicles + (profile?.brand ? 1 : 0)), icon: '\ud83d\ude9b', color: '#3b82f6' },
+              { label: t('overview.fleetIncome'), value: formatNumber(Math.round(fleetData.totalIncome)) + ' ' + cs, icon: '\ud83d\udcb0', color: '#22c55e' },
+              { label: t('overview.fleetExpense'), value: formatNumber(Math.round(fleetData.totalExpenses)) + ' ' + cs, icon: '\ud83d\udcc9', color: '#ef4444' },
+              { label: t('overview.fleetMileage'), value: formatNumber(Math.round(fleetData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udea3', color: '#f59e0b' },
+              { label: t('overview.fleetTrips'), value: String(fleetData.tripCount), icon: '\ud83d\ude9a', color: '#8b5cf6' },
+            ].map((item, i) => (
+              <div key={i} style={{
+                ...cardStyle,
+                minWidth: '130px',
+                flex: '0 0 auto',
+                textAlign: 'center',
+                padding: '12px 10px',
+              }}>
+                <div style={{ fontSize: '20px', marginBottom: '4px' }}>{item.icon}</div>
+                <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: item.color }}>{item.value}</div>
+                <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
+              </div>
+            ))}
+          </div>
+          {/* Vehicle list */}
+          <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.fleetVehicleList')}</div>
+          {fleetData.vehicleStats.map((v) => (
+            <div
+              key={v.id}
+              onClick={() => {
+                if (typeof activeVehicleId !== 'undefined') {
+                  const event = new CustomEvent('switchVehicle', { detail: v.id })
+                  window.dispatchEvent(event)
+                }
+              }}
+              style={{
+                ...cardStyle,
+                marginBottom: '8px',
+                cursor: 'pointer',
+                borderLeft: activeVehicleId === v.id ? '3px solid #f59e0b' : '3px solid transparent',
+                transition: 'border-color 0.2s',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div>
+                  <span style={{ fontSize: '15px', fontWeight: 700 }}>{v.brand} {v.model}</span>
+                  {v.plate_number && <span style={{ fontSize: '13px', color: theme.dim, marginLeft: '8px' }}>{v.plate_number}</span>}
+                </div>
+              </div>
+              <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '6px' }}>
+                {'\ud83d\udc64'} {t('overview.fleetDriver')}: {v.driver_name || t('overview.fleetNoDriver')}
+              </div>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
+                <span>{'\u26fd'} {t('overview.fleetFuel')}: {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
+                <span>{'\ud83d\udea3'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Theme switcher */}
       <div style={{

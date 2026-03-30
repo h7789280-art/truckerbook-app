@@ -529,6 +529,11 @@ const translations = {
       noData: '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445',
       dispatchTab: '\u0414\u0438\u0441\u043f\u0435\u0442\u0447\u0435\u0440',
     },
+    ai: {
+      recognizing: '\u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u044e...',
+      recognized: 'AI: {value} \u043a\u043c \u2705',
+      recognizeFailed: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043d\u0443\u044e.',
+    },
     dispatch: {
       title: '\u041a\u0430\u0440\u0442\u0430 \u043f\u0430\u0440\u043a\u0430',
       totalVehicles: '\u0412\u0441\u0435\u0433\u043e \u043c\u0430\u0448\u0438\u043d',
@@ -1291,6 +1296,11 @@ const translations = {
       salaryCalcMode: 'Mode',
       noData: 'No data',
       dispatchTab: 'Dispatch',
+    },
+    ai: {
+      recognizing: 'Recognizing...',
+      recognized: 'AI: {value} km \u2705',
+      recognizeFailed: 'Could not recognize. Enter manually.',
     },
     dispatch: {
       title: 'Fleet Map',
@@ -2055,6 +2065,11 @@ const translations = {
       noData: '\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445',
       dispatchTab: '\u0414\u0438\u0441\u043f\u0435\u0442\u0447\u0435\u0440',
     },
+    ai: {
+      recognizing: '\u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u044e...',
+      recognized: 'AI: {value} \u043a\u043c \u2705',
+      recognizeFailed: '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0442\u0438. \u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443.',
+    },
     dispatch: {
       title: '\u041a\u0430\u0440\u0442\u0430 \u043f\u0430\u0440\u043a\u0443',
       totalVehicles: '\u0412\u0441\u044c\u043e\u0433\u043e \u043c\u0430\u0448\u0438\u043d',
@@ -2817,6 +2832,11 @@ const translations = {
       noData: 'Sin datos',
       dispatchTab: 'Despacho',
     },
+    ai: {
+      recognizing: 'Reconociendo...',
+      recognized: 'AI: {value} km \u2705',
+      recognizeFailed: 'No se pudo reconocer. Ingrese manualmente.',
+    },
     dispatch: {
       title: 'Mapa de flota',
       totalVehicles: 'Total veh\u00edculos',
@@ -3574,6 +3594,11 @@ const translations = {
       salaryCalcMode: 'Modus',
       noData: 'Keine Daten',
       dispatchTab: 'Disposition',
+    },
+    ai: {
+      recognizing: 'Erkennung...',
+      recognized: 'AI: {value} km \u2705',
+      recognizeFailed: 'Nicht erkannt. Bitte manuell eingeben.',
     },
     dispatch: {
       title: 'Fuhrpark\u00fcbersicht',
@@ -4333,6 +4358,11 @@ const translations = {
       noData: 'Pas de donn\u00e9es',
       dispatchTab: 'Dispatch',
     },
+    ai: {
+      recognizing: 'Reconnaissance...',
+      recognized: 'AI : {value} km \u2705',
+      recognizeFailed: 'Impossible de reconna\u00eetre. Saisissez manuellement.',
+    },
     dispatch: {
       title: 'Carte de la flotte',
       totalVehicles: 'Total v\u00e9hicules',
@@ -5091,6 +5121,11 @@ const translations = {
       noData: 'Veri yok',
       dispatchTab: 'Sevkiyat',
     },
+    ai: {
+      recognizing: 'Tan\u0131n\u0131yor...',
+      recognized: 'AI: {value} km \u2705',
+      recognizeFailed: 'Tan\u0131namad\u0131. Manuel olarak girin.',
+    },
     dispatch: {
       title: 'Filo haritas\u0131',
       totalVehicles: 'Toplam ara\u00e7',
@@ -5848,6 +5883,11 @@ const translations = {
       salaryCalcMode: 'Tryb',
       noData: 'Brak danych',
       dispatchTab: 'Dyspozycja',
+    },
+    ai: {
+      recognizing: 'Rozpoznawanie...',
+      recognized: 'AI: {value} km \u2705',
+      recognizeFailed: 'Nie uda\u0142o si\u0119 rozpozna\u0107. Wpisz r\u0119cznie.',
     },
     dispatch: {
       title: 'Mapa floty',

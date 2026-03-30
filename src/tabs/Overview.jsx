@@ -5,6 +5,7 @@ import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats } from '../lib/api'
 import { exportToExcel, exportToPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
+import { readOdometerFromPhoto } from '../lib/geminiVision'
 import DispatchBoard from '../components/DispatchBoard'
 
 function getGreeting(name, t) {
@@ -68,6 +69,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const shiftTimerRef = useRef(null)
   const [shiftPhoto, setShiftPhoto] = useState(null)
   const [shiftPhotoPreview, setShiftPhotoPreview] = useState(null)
+  const [aiOdometerStatus, setAiOdometerStatus] = useState(null) // 'loading' | 'success' | 'error' | null
+  const [aiOdometerValue, setAiOdometerValue] = useState(null)
   const [shiftPeriod, setShiftPeriod] = useState('week')
   const [shiftStats, setShiftStats] = useState({ count: 0, totalKm: 0, totalHours: 0 })
   const [shiftHistory, setShiftHistory] = useState([])
@@ -460,14 +463,30 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     if (shiftPhotoPreview) URL.revokeObjectURL(shiftPhotoPreview)
     setShiftPhoto(null)
     setShiftPhotoPreview(null)
+    setAiOdometerStatus(null)
+    setAiOdometerValue(null)
   }
 
-  const handleShiftPhotoChange = (e) => {
+  const handleShiftPhotoChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
     if (shiftPhotoPreview) URL.revokeObjectURL(shiftPhotoPreview)
     setShiftPhoto(file)
     setShiftPhotoPreview(URL.createObjectURL(file))
+    setAiOdometerStatus('loading')
+    setAiOdometerValue(null)
+    try {
+      const result = await readOdometerFromPhoto(file)
+      if (result !== null) {
+        setAiOdometerValue(result)
+        setShiftOdometer(String(result))
+        setAiOdometerStatus('success')
+      } else {
+        setAiOdometerStatus('error')
+      }
+    } catch {
+      setAiOdometerStatus('error')
+    }
   }
 
   const handleEndShift = async () => {
@@ -1638,6 +1657,34 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 />
               </div>
             )}
+            {aiOdometerStatus === 'loading' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+                padding: '10px', marginBottom: '12px', borderRadius: '10px',
+                background: theme.bg, color: theme.dim, fontSize: '14px',
+              }}>
+                <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid ' + theme.dim, borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                <span>{t('ai.recognizing')}</span>
+              </div>
+            )}
+            {aiOdometerStatus === 'success' && aiOdometerValue !== null && (
+              <div style={{
+                padding: '10px', marginBottom: '12px', borderRadius: '10px',
+                background: 'rgba(34,197,94,0.1)', color: '#22c55e',
+                fontSize: '14px', fontWeight: 600, textAlign: 'center',
+              }}>
+                AI: {aiOdometerValue.toLocaleString('ru-RU')} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'} {'\u2705'}
+              </div>
+            )}
+            {aiOdometerStatus === 'error' && (
+              <div style={{
+                padding: '10px', marginBottom: '12px', borderRadius: '10px',
+                background: 'rgba(245,158,11,0.1)', color: '#f59e0b',
+                fontSize: '14px', textAlign: 'center',
+              }}>
+                {t('ai.recognizeFailed')}
+              </div>
+            )}
             {shiftModal === 'end' && shiftOdometer && activeShift && (
               <div style={{
                 background: theme.bg,
@@ -2000,6 +2047,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           )}
         </>
       )}
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
     </div>
   )
 }

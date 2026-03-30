@@ -185,6 +185,8 @@ const translations = {
       exportIfta: '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 IFTA',
       iftaReportTitle: '\u041e\u0442\u0447\u0451\u0442 IFTA \u043f\u043e \u0442\u043e\u043f\u043b\u0438\u0432\u043d\u043e\u043c\u0443 \u043d\u0430\u043b\u043e\u0433\u0443',
       taxableGallons: '\u041d\u0430\u043b\u043e\u0433. \u0433\u0430\u043b\u043b.',
+      deadhead: '\u041f\u043e\u0440\u043e\u0436\u043d\u0438\u0439',
+      costPerKmTotal: '\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c/\u043a\u043c (\u043e\u0431\u0449\u0438\u0439)',
     },
     service: {
       service: '\u0421\u0435\u0440\u0432\u0438\u0441',
@@ -550,6 +552,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f \u041f\u043b\u0430\u0442\u043d\u044b\u0435 \u0434\u043e\u0440\u043e\u0433\u0438',
       catPlaton: '\ud83d\ude9b \u041f\u043b\u0430\u0442\u043e\u043d',
       catOtherVehicle: '\ud83d\udce6 \u041f\u0440\u043e\u0447\u0435\u0435',
+      deadheadKm: '\u041f\u043e\u0440\u043e\u0436\u043d\u0438\u0439 \u043f\u0440\u043e\u0431\u0435\u0433',
+      deadheadHint: '\u041f\u0440\u043e\u0431\u0435\u0433 \u0431\u0435\u0437 \u0433\u0440\u0443\u0437\u0430 (\u043f\u043e\u0434\u0430\u0447\u0430, \u0432\u043e\u0437\u0432\u0440\u0430\u0442)',
     },
     jobs: {
       title: '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438',
@@ -868,6 +872,8 @@ const translations = {
       exportIfta: 'Export IFTA',
       iftaReportTitle: 'IFTA Fuel Tax Report',
       taxableGallons: 'Taxable Gal.',
+      deadhead: 'Deadhead',
+      costPerKmTotal: 'Rate/mi (total)',
     },
     service: {
       service: 'Service',
@@ -1233,6 +1239,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f Toll roads',
       catPlaton: '\ud83d\ude9b Platon',
       catOtherVehicle: '\ud83d\udce6 Other',
+      deadheadKm: 'Deadhead miles',
+      deadheadHint: 'Empty run (pickup, return)',
     },
     jobs: {
       title: 'Jobs',
@@ -1551,6 +1559,8 @@ const translations = {
       exportIfta: '\u0415\u043a\u0441\u043f\u043e\u0440\u0442 IFTA',
       iftaReportTitle: '\u0417\u0432\u0456\u0442 IFTA \u043f\u043e \u043f\u0430\u043b\u0438\u0432\u043d\u043e\u043c\u0443 \u043f\u043e\u0434\u0430\u0442\u043a\u0443',
       taxableGallons: '\u041f\u043e\u0434\u0430\u0442\u043a. \u0433\u0430\u043b.',
+      deadhead: '\u041f\u043e\u0440\u043e\u0436\u043d\u0456\u0439',
+      costPerKmTotal: '\u0412\u0430\u0440\u0442\u0456\u0441\u0442\u044c/\u043a\u043c (\u0437\u0430\u0433\u0430\u043b\u044c\u043d\u0438\u0439)',
     },
     service: {
       service: '\u0421\u0435\u0440\u0432\u0456\u0441',
@@ -1916,6 +1926,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f \u041f\u043b\u0430\u0442\u043d\u0456 \u0434\u043e\u0440\u043e\u0433\u0438',
       catPlaton: '\ud83d\ude9b \u041f\u043b\u0430\u0442\u043e\u043d',
       catOtherVehicle: '\ud83d\udce6 \u0406\u043d\u0448\u0435',
+      deadheadKm: '\u041f\u043e\u0440\u043e\u0436\u043d\u0456\u0439 \u043f\u0440\u043e\u0431\u0456\u0433',
+      deadheadHint: '\u041f\u0440\u043e\u0431\u0456\u0433 \u0431\u0435\u0437 \u0432\u0430\u043d\u0442\u0430\u0436\u0443 (\u043f\u043e\u0434\u0430\u0447\u0430, \u043f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f)',
     },
     jobs: {
       title: '\u0412\u0430\u043a\u0430\u043d\u0441\u0456\u0457',
@@ -2233,6 +2245,8 @@ const translations = {
       exportIfta: 'Exportar IFTA',
       iftaReportTitle: 'Informe IFTA de impuesto al combustible',
       taxableGallons: 'Gal. gravables',
+      deadhead: 'Vac\u00edo',
+      costPerKmTotal: 'Coste/km (total)',
     },
     service: {
       service: 'Servicio',
@@ -2598,6 +2612,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f Peajes',
       catPlaton: '\ud83d\ude9b Platon',
       catOtherVehicle: '\ud83d\udce6 Otro',
+      deadheadKm: 'Kil\u00f3metros en vac\u00edo',
+      deadheadHint: 'Recorrido sin carga (recogida, retorno)',
     },
     jobs: {
       title: 'Empleos',
@@ -2915,6 +2931,8 @@ const translations = {
       exportIfta: 'IFTA exportieren',
       iftaReportTitle: 'IFTA Kraftstoffsteuerbericht',
       taxableGallons: 'Steuerb. Gal.',
+      deadhead: 'Leerfahrt',
+      costPerKmTotal: 'Kosten/km (gesamt)',
     },
     service: {
       service: 'Service',
@@ -3280,6 +3298,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f Maut',
       catPlaton: '\ud83d\ude9b Platon',
       catOtherVehicle: '\ud83d\udce6 Sonstiges',
+      deadheadKm: 'Leerfahrt',
+      deadheadHint: 'Fahrt ohne Ladung (Anfahrt, R\u00fcckfahrt)',
     },
     jobs: {
       title: 'Stellenangebote',
@@ -3597,6 +3617,8 @@ const translations = {
       exportIfta: 'Exporter IFTA',
       iftaReportTitle: "Rapport IFTA taxe carburant",
       taxableGallons: 'Gal. imposables',
+      deadhead: '\u00c0 vide',
+      costPerKmTotal: 'Co\u00fbt/km (total)',
     },
     service: {
       service: 'Service',
@@ -3962,6 +3984,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f P\u00e9ages',
       catPlaton: '\ud83d\ude9b Platon',
       catOtherVehicle: '\ud83d\udce6 Autre',
+      deadheadKm: 'Kilom\u00e8tres \u00e0 vide',
+      deadheadHint: 'Trajet sans charge (approche, retour)',
     },
     jobs: {
       title: 'Emplois',
@@ -4279,6 +4303,8 @@ const translations = {
       exportIfta: 'IFTA d\u0131\u015fa aktar',
       iftaReportTitle: 'IFTA Yak\u0131t Vergisi Raporu',
       taxableGallons: 'Vergil. Gal.',
+      deadhead: 'Bo\u015f',
+      costPerKmTotal: 'Maliyet/km (toplam)',
     },
     service: {
       service: 'Servis',
@@ -4644,6 +4670,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f Ge\u00e7i\u015f \u00fccretleri',
       catPlaton: '\ud83d\ude9b Platon',
       catOtherVehicle: '\ud83d\udce6 Di\u011fer',
+      deadheadKm: 'Bo\u015f kilometre',
+      deadheadHint: 'Y\u00fcks\u00fcz mesafe (yakla\u015fma, d\u00f6n\u00fc\u015f)',
     },
     jobs: {
       title: '\u0130\u015f \u0130lanlar\u0131',
@@ -4961,6 +4989,8 @@ const translations = {
       exportIfta: 'Eksport IFTA',
       iftaReportTitle: 'Raport IFTA podatku paliwowego',
       taxableGallons: 'Gal. podatkowe',
+      deadhead: 'Pusty',
+      costPerKmTotal: 'Koszt/km (ca\u0142kowity)',
     },
     service: {
       service: 'Serwis',
@@ -5326,6 +5356,8 @@ const translations = {
       catToll: '\ud83c\udd7f\ufe0f Op\u0142aty drogowe',
       catPlaton: '\ud83d\ude9b Platon',
       catOtherVehicle: '\ud83d\udce6 Inne',
+      deadheadKm: 'Pusty przebieg',
+      deadheadHint: 'Przebieg bez \u0142adunku (dojazd, powr\u00f3t)',
     },
     jobs: {
       title: 'Oferty pracy',

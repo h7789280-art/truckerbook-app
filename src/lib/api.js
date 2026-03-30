@@ -83,6 +83,7 @@ export async function addTrip(entry) {
     origin: entry.from || '',
     destination: entry.to || '',
     distance_km: parseFloat(entry.distance) || 0,
+    deadhead_km: parseFloat(entry.deadhead) || 0,
     income: parseFloat(entry.rate) || 0,
   }
   if (!navigator.onLine) return offlineInsert('trips', row)

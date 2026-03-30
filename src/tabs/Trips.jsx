@@ -571,6 +571,8 @@ function TripsTab({ userId, refreshKey, theme }) {
 
   const totalIncome = entries.reduce((s, t) => s + (t.income || 0), 0)
   const totalKm = entries.reduce((s, t) => s + (t.distance_km || 0), 0)
+  const totalDeadhead = entries.reduce((s, t) => s + (t.deadhead_km || 0), 0)
+  const distUnit = unitSys === 'imperial' ? 'mi' : t('trips.km')
 
   const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
   const miniCard = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '12px', textAlign: 'center' }
@@ -694,8 +696,18 @@ function TripsTab({ userId, refreshKey, theme }) {
                   {trip.origin || '?'} {'\u2192'} {trip.destination || '?'}
                 </div>
                 <div style={{ color: theme.dim, fontSize: '13px', marginTop: '4px' }}>
-                  {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {t('trips.km')}
+                  {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {distUnit}
+                  {(trip.deadhead_km || 0) > 0 && (
+                    <span style={{ color: '#f59e0b', marginLeft: '6px' }}>
+                      {'\u00b7 '}{t('trips.deadhead')}{': '}{fmtFull(trip.deadhead_km)}{' '}{distUnit}
+                    </span>
+                  )}
                 </div>
+                {(trip.deadhead_km || 0) > 0 && (trip.income || 0) > 0 && (
+                  <div style={{ color: theme.dim, fontSize: '12px', marginTop: '2px' }}>
+                    {t('trips.costPerKmTotal')}{': '}{((trip.income || 0) / ((trip.distance_km || 0) + (trip.deadhead_km || 0))).toFixed(2)} {cs}/{distUnit}
+                  </div>
+                )}
               </div>
               <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
                 +{fmtFull(trip.income || 0)} {cs}

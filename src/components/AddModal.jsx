@@ -154,6 +154,10 @@ function TripFields({ form, onChange, theme, inputStyle, t, cs, unitSys }) {
       <FieldGroup label={t('addModal.distance') + ', ' + distUnit} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.distance || ''} onChange={(e) => onChange('distance', e.target.value)} />
       </FieldGroup>
+      <FieldGroup label={t('addModal.deadheadKm') + ', ' + distUnit} theme={theme}>
+        <input style={inputStyle} type="number" placeholder="0" value={form.deadhead || ''} onChange={(e) => onChange('deadhead', e.target.value)} />
+        <div style={{ color: theme.dim, fontSize: '11px', marginTop: '2px' }}>{t('addModal.deadheadHint')}</div>
+      </FieldGroup>
       <FieldGroup label={t('addModal.income') + ', ' + cs} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.rate || ''} onChange={(e) => onChange('rate', e.target.value)} />
       </FieldGroup>

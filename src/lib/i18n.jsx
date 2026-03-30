@@ -800,6 +800,13 @@ const translations = {
       enable: 'Push-\u0443\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f',
       disabled: '\u0423\u0432\u0435\u0434\u043e\u043c\u043b\u0435\u043d\u0438\u044f \u043e\u0442\u043a\u043b\u044e\u0447\u0435\u043d\u044b',
     },
+    chat: {
+      title: '\u0427\u0430\u0442 \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u0439',
+      placeholder: '\u041d\u0430\u043f\u0438\u0448\u0438\u0442\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0435...',
+      send: '\u041e\u0442\u043f\u0440\u0430\u0432\u0438\u0442\u044c',
+      empty: '\u0421\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442',
+      newMessages: '\u041d\u043e\u0432\u044b\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u044f',
+    },
   },
   en: {
     tabs: {
@@ -1600,6 +1607,13 @@ const translations = {
       enable: 'Push notifications',
       disabled: 'Notifications disabled',
     },
+    chat: {
+      title: 'Driver Chat',
+      placeholder: 'Type a message...',
+      send: 'Send',
+      empty: 'No messages yet',
+      newMessages: 'New messages',
+    },
   },
   uk: {
     tabs: {
@@ -2399,6 +2413,13 @@ const translations = {
       enable: 'Push-\u0441\u043f\u043e\u0432\u0456\u0449\u0435\u043d\u043d\u044f',
       disabled: '\u0421\u043f\u043e\u0432\u0456\u0449\u0435\u043d\u043d\u044f \u0432\u0438\u043c\u043a\u043d\u0435\u043d\u043e',
     },
+    chat: {
+      title: '\u0427\u0430\u0442 \u0432\u043e\u0434\u0456\u0457\u0432',
+      placeholder: '\u041d\u0430\u043f\u0438\u0448\u0456\u0442\u044c \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043d\u044f...',
+      send: '\u041d\u0430\u0434\u0456\u0441\u043b\u0430\u0442\u0438',
+      empty: '\u041f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u044c \u043f\u043e\u043a\u0438 \u043d\u0435\u043c\u0430\u0454',
+      newMessages: '\u041d\u043e\u0432\u0456 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043d\u044f',
+    },
   },
   es: {
     tabs: {
@@ -3183,6 +3204,13 @@ const translations = {
       loading: 'Analizando gastos...',
       noData: 'Datos insuficientes para el pron\u00f3stico. Registre gastos durante al menos 3 meses.',
       updatedAt: 'Actualizado',
+    },
+    chat: {
+      title: 'Chat de conductores',
+      placeholder: 'Escribe un mensaje...',
+      send: 'Enviar',
+      empty: 'No hay mensajes a\u00fan',
+      newMessages: 'Nuevos mensajes',
     },
   },
   de: {
@@ -3969,6 +3997,13 @@ const translations = {
       noData: 'Nicht gen\u00fcgend Daten f\u00fcr die Prognose. Erfassen Sie Ausgaben mindestens 3 Monate.',
       updatedAt: 'Aktualisiert',
     },
+    chat: {
+      title: 'Fahrer-Chat',
+      placeholder: 'Nachricht schreiben...',
+      send: 'Senden',
+      empty: 'Noch keine Nachrichten',
+      newMessages: 'Neue Nachrichten',
+    },
   },
   fr: {
     tabs: {
@@ -4753,6 +4788,13 @@ const translations = {
       loading: 'Analyse des d\u00e9penses...',
       noData: 'Donn\u00e9es insuffisantes pour la pr\u00e9vision. Enregistrez vos d\u00e9penses pendant au moins 3 mois.',
       updatedAt: 'Mis \u00e0 jour',
+    },
+    chat: {
+      title: 'Chat chauffeurs',
+      placeholder: '\u00c9crire un message...',
+      send: 'Envoyer',
+      empty: 'Aucun message pour le moment',
+      newMessages: 'Nouveaux messages',
     },
   },
   tr: {
@@ -5539,6 +5581,13 @@ const translations = {
       noData: 'Tahmin i\u00e7in yeterli veri yok. En az 3 ay harcama kaydedin.',
       updatedAt: 'G\u00fcncellendi',
     },
+    chat: {
+      title: 'S\u00fcr\u00fcc\u00fc Sohbeti',
+      placeholder: 'Mesaj yaz\u0131n...',
+      send: 'G\u00f6nder',
+      empty: 'Hen\u00fcz mesaj yok',
+      newMessages: 'Yeni mesajlar',
+    },
   },
   pl: {
     tabs: {
@@ -6323,6 +6372,13 @@ const translations = {
       loading: 'Analiza wydatk\u00f3w...',
       noData: 'Za ma\u0142o danych do prognozy. Rejestruj wydatki przez co najmniej 3 miesi\u0105ce.',
       updatedAt: 'Zaktualizowano',
+    },
+    chat: {
+      title: 'Czat kierowc\u00f3w',
+      placeholder: 'Napisz wiadomo\u015b\u0107...',
+      send: 'Wy\u015blij',
+      empty: 'Brak wiadomo\u015bci',
+      newMessages: 'Nowe wiadomo\u015bci',
     },
   },
 }

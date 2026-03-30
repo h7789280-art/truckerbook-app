@@ -1650,3 +1650,28 @@ export async function updateTripTracking(tripId, isTracking) {
     .eq('id', tripId)
   if (error) throw error
 }
+
+export async function fetchChatMessages(limit = 50) {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+  if (error) throw error
+  return (data || []).reverse()
+}
+
+export async function sendChatMessage(userId, senderName, message, vehicleId) {
+  const { data, error } = await supabase
+    .from('chat_messages')
+    .insert({
+      user_id: userId,
+      sender_name: senderName,
+      message,
+      vehicle_id: vehicleId || null,
+    })
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}

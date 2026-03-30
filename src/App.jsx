@@ -23,6 +23,7 @@ import ProfileScreen from './components/ProfileScreen'
 import Paywall from './components/Paywall'
 import VehicleSwitcher from './components/VehicleSwitcher'
 import BrandComboBox from './components/BrandComboBox'
+import DriverChat, { useChatUnread } from './components/DriverChat'
 
 const WELCOME_COUNTRIES = [
   { value: 'RU', flag: '\uD83C\uDDF7\uD83C\uDDFA', label: '\u0420\u043E\u0441\u0441\u0438\u044F' },
@@ -222,6 +223,8 @@ function AppInner() {
   const [vehicleSaving, setVehicleSaving] = useState(false)
   const [vehicleError, setVehicleError] = useState('')
   const [showWelcome, setShowWelcome] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+  const { unread: chatUnread, resetUnread: resetChatUnread } = useChatUnread()
 
   useEffect(() => {
     if (session && pinUnlocked && !isPermissionGranted()) {
@@ -656,6 +659,52 @@ function AppInner() {
         </>
       )}
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} role={userRole} />
+      {userRole !== 'job_seeker' && showChat && (
+        <DriverChat
+          userId={userId}
+          profile={profile}
+          onClose={() => { setShowChat(false); resetChatUnread() }}
+        />
+      )}
+      {userRole !== 'job_seeker' && !showChat && (
+        <button
+          onClick={() => { setShowChat(true); resetChatUnread() }}
+          style={{
+            position: 'fixed',
+            top: 12,
+            right: 'calc(50% - 228px)',
+            zIndex: 99,
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: 22,
+            padding: 4,
+            lineHeight: 1,
+          }}
+        >
+          {'\uD83D\uDCAC'}
+          {chatUnread > 0 && (
+            <span style={{
+              position: 'absolute',
+              top: 0,
+              right: -2,
+              background: '#ef4444',
+              color: '#fff',
+              fontSize: 10,
+              fontWeight: 700,
+              borderRadius: '50%',
+              minWidth: 16,
+              height: 16,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0 3px',
+            }}>
+              {chatUnread > 99 ? '99+' : chatUnread}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   )
 }

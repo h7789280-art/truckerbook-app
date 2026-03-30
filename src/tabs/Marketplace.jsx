@@ -452,15 +452,28 @@ export default function Marketplace() {
                     key={ad.id}
                     onClick={() => openDetail(ad)}
                     style={{
+                      position: 'relative',
                       background: theme.card,
                       borderRadius: 14,
                       border: ad.is_premium
-                        ? '2px solid #f59e0b'
+                        ? '1px solid #f59e0b'
                         : '1px solid ' + theme.border,
                       overflow: 'hidden',
                       cursor: 'pointer',
                     }}
                   >
+                    {ad.is_premium && (
+                      <span style={{
+                        position: 'absolute', top: 10, right: 10, zIndex: 2,
+                        fontSize: 11, fontWeight: 700, padding: '3px 10px',
+                        borderRadius: 10, background: 'rgba(245, 158, 11, 0.15)',
+                        color: '#f59e0b', whiteSpace: 'nowrap',
+                        backdropFilter: 'blur(4px)',
+                      }}>
+                        {'\u2B50'} {t('marketplace.premium')}
+                      </span>
+                    )}
+
                     {ad.image_url && (
                       <div style={{
                         width: '100%', height: 160,
@@ -472,15 +485,6 @@ export default function Marketplace() {
 
                     <div style={{ padding: '12px 14px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        {ad.is_premium && (
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, padding: '2px 8px',
-                            borderRadius: 10, background: 'rgba(245, 158, 11, 0.15)',
-                            color: '#f59e0b', whiteSpace: 'nowrap',
-                          }}>
-                            {'\u2B50'} {t('marketplace.premium')}
-                          </span>
-                        )}
                         {catObj && (
                           <span style={{
                             fontSize: 11, fontWeight: 600, color: theme.dim,

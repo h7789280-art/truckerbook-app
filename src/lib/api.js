@@ -1255,3 +1255,105 @@ export async function fetchVehicleReport(vehicleId, userId, period = 'month') {
     })),
   }
 }
+
+// --- Driver report (B2B) ---
+
+export async function fetchDriverReport(driverName, userId, period = 'month') {
+  const now = new Date()
+  let startDate
+  if (period === 'week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 7)
+    startDate = d.toISOString().slice(0, 10)
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  }
+
+  const [shiftsRes, vehiclesRes, fuelsRes, tripsRes] = await Promise.all([
+    supabase.from('driving_sessions').select('*').eq('user_id', userId).eq('driver_name', driverName).gte('started_at', startDate + 'T00:00:00'),
+    supabase.from('vehicles').select('*').eq('user_id', userId),
+    supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', startDate),
+    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', startDate + 'T00:00:00'),
+  ])
+
+  const shifts = shiftsRes.data || []
+  const vehicles = vehiclesRes.data || []
+  const fuels = fuelsRes.data || []
+  const trips = tripsRes.data || []
+
+  const totalKm = shifts.reduce((s, sh) => s + (sh.km_driven || 0), 0)
+  const totalMinutes = shifts.reduce((s, sh) => {
+    if (!sh.ended_at) return s
+    return s + (new Date(sh.ended_at).getTime() - new Date(sh.started_at).getTime()) / 60000
+  }, 0)
+  const totalHours = totalMinutes / 60
+
+  // Vehicles this driver worked on
+  const driverVehicleIds = [...new Set(shifts.map(sh => sh.vehicle_id).filter(Boolean))]
+  const driverVehicles = vehicles.filter(v => driverVehicleIds.includes(v.id))
+
+  // Fuel used on those vehicles during period
+  const fuelCost = fuels.filter(f => driverVehicleIds.includes(f.vehicle_id)).reduce((s, e) => s + (e.cost || 0), 0)
+  const fuelLiters = fuels.filter(f => driverVehicleIds.includes(f.vehicle_id)).reduce((s, e) => s + (e.liters || 0), 0)
+
+  // Trips on those vehicles
+  const driverTrips = trips.filter(t => driverVehicleIds.includes(t.vehicle_id))
+
+  return {
+    driverName,
+    shiftCount: shifts.length,
+    totalKm,
+    totalHours,
+    tripCount: driverTrips.length,
+    fuelCost,
+    fuelLiters,
+    vehicles: driverVehicles.map(v => ({ id: v.id, brand: v.brand, model: v.model, plate_number: v.plate_number })),
+  }
+}
+
+export async function fetchAllDriversComparison(userId, period = 'month') {
+  const now = new Date()
+  let startDate
+  if (period === 'week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 7)
+    startDate = d.toISOString().slice(0, 10)
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  }
+
+  const [shiftsRes, tripsRes, vehiclesRes] = await Promise.all([
+    supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', startDate + 'T00:00:00'),
+    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', startDate + 'T00:00:00'),
+    supabase.from('vehicles').select('id, driver_name').eq('user_id', userId),
+  ])
+
+  const shifts = shiftsRes.data || []
+  const trips = tripsRes.data || []
+  const vehicles = vehiclesRes.data || []
+
+  // Collect unique driver names from shifts + vehicles
+  const nameSet = new Set()
+  shifts.forEach(sh => { if (sh.driver_name) nameSet.add(sh.driver_name) })
+  vehicles.forEach(v => { if (v.driver_name) nameSet.add(v.driver_name) })
+  const driverNames = [...nameSet]
+
+  return driverNames.map(name => {
+    const driverShifts = shifts.filter(sh => sh.driver_name === name)
+    const totalKm = driverShifts.reduce((s, sh) => s + (sh.km_driven || 0), 0)
+    const totalMinutes = driverShifts.reduce((s, sh) => {
+      if (!sh.ended_at) return s
+      return s + (new Date(sh.ended_at).getTime() - new Date(sh.started_at).getTime()) / 60000
+    }, 0)
+    const vehicleIds = [...new Set(driverShifts.map(sh => sh.vehicle_id).filter(Boolean))]
+    const driverTrips = trips.filter(t => vehicleIds.includes(t.vehicle_id))
+
+    return {
+      name,
+      shifts: driverShifts.length,
+      km: totalKm,
+      hours: totalMinutes / 60,
+      trips: driverTrips.length,
+    }
+  })
+}

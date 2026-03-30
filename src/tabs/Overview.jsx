@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison } from '../lib/api'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -74,6 +74,13 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [vehicleReportData, setVehicleReportData] = useState(null)
   const [vehicleReportPeriod, setVehicleReportPeriod] = useState('month')
   const [vehicleReportLoading, setVehicleReportLoading] = useState(false)
+  const [fleetTab, setFleetTab] = useState('vehicles') // 'vehicles' | 'drivers'
+  const [driverReportView, setDriverReportView] = useState(null) // driver name string or null
+  const [driverReportData, setDriverReportData] = useState(null)
+  const [driverReportPeriod, setDriverReportPeriod] = useState('month')
+  const [driverReportLoading, setDriverReportLoading] = useState(false)
+  const [driversComparison, setDriversComparison] = useState([])
+  const [driversComparisonPeriod, setDriversComparisonPeriod] = useState('month')
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -215,6 +222,44 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       openVehicleReport(vehicleReportView)
     }
   }, [vehicleReportPeriod]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load driver report
+  const openDriverReport = useCallback(async (driverName) => {
+    setDriverReportView(driverName)
+    setDriverReportData(null)
+    setDriverReportLoading(true)
+    try {
+      const data = await fetchDriverReport(driverName, userId, driverReportPeriod)
+      setDriverReportData(data)
+    } catch (err) {
+      console.error('fetchDriverReport error:', err)
+    } finally {
+      setDriverReportLoading(false)
+    }
+  }, [userId, driverReportPeriod])
+
+  useEffect(() => {
+    if (driverReportView) {
+      openDriverReport(driverReportView)
+    }
+  }, [driverReportPeriod]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load drivers comparison when fleet tab switches to drivers
+  const loadDriversComparison = useCallback(async () => {
+    if (!userId) return
+    try {
+      const data = await fetchAllDriversComparison(userId, driversComparisonPeriod)
+      setDriversComparison(data)
+    } catch (err) {
+      console.error('fetchAllDriversComparison error:', err)
+    }
+  }, [userId, driversComparisonPeriod])
+
+  useEffect(() => {
+    if (fleetTab === 'drivers' && fleetData && profile?.role === 'company') {
+      loadDriversComparison()
+    }
+  }, [fleetTab, fleetData, profile?.role, loadDriversComparison])
 
   // Load active shift
   useEffect(() => {
@@ -489,6 +534,89 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     )
   }
 
+  // Driver report view
+  if (driverReportView) {
+    const dd = driverReportData
+    const distUnit = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
+    const volUnit = unitSys === 'imperial' ? 'gal' : '\u043b'
+    return (
+      <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
+        <button
+          onClick={() => { setDriverReportView(null); setDriverReportData(null); setDriverReportPeriod('month') }}
+          style={{
+            background: 'none', border: 'none', color: '#f59e0b', fontSize: '15px',
+            cursor: 'pointer', padding: '4px 0', marginBottom: '12px', fontWeight: 600,
+          }}
+        >{'\u2190'} {t('overview.reportBack')}</button>
+
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700 }}>{'\ud83d\udc64'} {t('overview.driverReport')}</div>
+          <div style={{ fontSize: '16px', color: '#f59e0b', fontWeight: 600, marginTop: '4px' }}>{driverReportView}</div>
+        </div>
+
+        {/* Period switcher */}
+        <div style={{
+          display: 'flex', gap: '6px', marginBottom: '16px',
+          background: theme.card, borderRadius: '12px', padding: '4px',
+          border: '1px solid ' + theme.border,
+        }}>
+          {['week', 'month'].map(p => (
+            <button
+              key={p}
+              onClick={() => setDriverReportPeriod(p)}
+              style={{
+                flex: 1, padding: '8px 4px', border: 'none', borderRadius: '10px',
+                fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                background: driverReportPeriod === p ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                color: driverReportPeriod === p ? '#fff' : theme.dim,
+                transition: 'all 0.2s',
+              }}
+            >
+              {p === 'week' ? t('overview.reportPeriodWeek') : t('overview.reportPeriodMonth')}
+            </button>
+          ))}
+        </div>
+
+        {driverReportLoading && (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim }}>{'\u23f3'}</div>
+        )}
+
+        {dd && !driverReportLoading && (
+          <>
+            {/* Stat cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              {[
+                { label: t('overview.driverShifts'), value: String(dd.shiftCount), icon: '\ud83d\udcc5', color: '#3b82f6' },
+                { label: distUnit, value: formatNumber(Math.round(dd.totalKm)), icon: '\ud83d\udea3', color: '#f59e0b' },
+                { label: t('overview.driverHours'), value: dd.totalHours.toFixed(1), icon: '\u23f1\ufe0f', color: '#8b5cf6' },
+                { label: t('overview.driverTrips'), value: String(dd.tripCount), icon: '\ud83d\ude9a', color: '#22c55e' },
+                { label: t('overview.driverFuelUsed'), value: formatNumber(Math.round(dd.fuelLiters)) + ' ' + volUnit, icon: '\u26fd', color: '#f59e0b' },
+                { label: t('overview.reportFuelCost'), value: formatNumber(Math.round(dd.fuelCost)) + ' ' + cs, icon: '\ud83d\udcb0', color: '#ef4444' },
+              ].map((item, i) => (
+                <div key={i} style={{ ...cardStyle, marginBottom: 0, textAlign: 'center' }}>
+                  <div style={{ fontSize: '18px', marginBottom: '2px' }}>{item.icon}</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 700, color: item.color }}>{item.value}</div>
+                  <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Vehicles worked on */}
+            <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\ude9b'} {t('overview.driverVehiclesWorked')}</div>
+            {dd.vehicles.length === 0 ? (
+              <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>{'\u2014'}</div>
+            ) : dd.vehicles.map(v => (
+              <div key={v.id} style={{ ...cardStyle, marginBottom: '8px' }}>
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>{v.brand} {v.model}</div>
+                {v.plate_number && <div style={{ fontSize: '12px', color: theme.dim }}>{v.plate_number}</div>}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
       {/* Greeting */}
@@ -596,54 +724,188 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             ))}
           </div>
+          {/* Vehicles / Drivers tab switcher */}
+          <div style={{
+            display: 'flex', gap: '6px', marginBottom: '12px',
+            background: theme.card, borderRadius: '12px', padding: '4px',
+            border: '1px solid ' + theme.border,
+          }}>
+            {['vehicles', 'drivers'].map(tab => (
+              <button
+                key={tab}
+                onClick={() => setFleetTab(tab)}
+                style={{
+                  flex: 1, padding: '8px 4px', border: 'none', borderRadius: '10px',
+                  fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                  background: fleetTab === tab ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                  color: fleetTab === tab ? '#fff' : theme.dim,
+                  transition: 'all 0.2s',
+                }}
+              >
+                {tab === 'vehicles' ? t('overview.vehiclesTab') : t('overview.driversTab')}
+              </button>
+            ))}
+          </div>
+
           {/* Vehicle list */}
-          <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.fleetVehicleList')}</div>
-          {fleetData.vehicleStats.map((v) => (
-            <div
-              key={v.id}
-              onClick={() => {
-                if (typeof activeVehicleId !== 'undefined') {
-                  const event = new CustomEvent('switchVehicle', { detail: v.id })
-                  window.dispatchEvent(event)
-                }
-              }}
-              style={{
-                ...cardStyle,
-                marginBottom: '8px',
-                cursor: 'pointer',
-                borderLeft: activeVehicleId === v.id ? '3px solid #f59e0b' : '3px solid transparent',
-                transition: 'border-color 0.2s',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                <div>
-                  <span style={{ fontSize: '15px', fontWeight: 700 }}>{v.brand} {v.model}</span>
-                  {v.plate_number && <span style={{ fontSize: '13px', color: theme.dim, marginLeft: '8px' }}>{v.plate_number}</span>}
-                </div>
-                <button
-                  onClick={(e) => { e.stopPropagation(); openVehicleReport(v) }}
-                  style={{
-                    background: 'none',
-                    border: '1px solid ' + theme.border,
-                    borderRadius: '8px',
-                    padding: '4px 8px',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                    color: theme.text,
+          {fleetTab === 'vehicles' && (
+            <>
+              <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.fleetVehicleList')}</div>
+              {fleetData.vehicleStats.map((v) => (
+                <div
+                  key={v.id}
+                  onClick={() => {
+                    if (typeof activeVehicleId !== 'undefined') {
+                      const event = new CustomEvent('switchVehicle', { detail: v.id })
+                      window.dispatchEvent(event)
+                    }
                   }}
-                  title={t('overview.vehicleReport')}
-                >{'\ud83d\udcca'}</button>
-              </div>
-              <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '6px' }}>
-                {'\ud83d\udc64'} {t('overview.fleetDriver')}: {v.driver_name || t('overview.fleetNoDriver')}
-              </div>
-              <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
-                <span>{'\u26fd'} {t('overview.fleetFuel')}: {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
-                <span>{'\ud83d\udea3'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
-                <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
-              </div>
-            </div>
-          ))}
+                  style={{
+                    ...cardStyle,
+                    marginBottom: '8px',
+                    cursor: 'pointer',
+                    borderLeft: activeVehicleId === v.id ? '3px solid #f59e0b' : '3px solid transparent',
+                    transition: 'border-color 0.2s',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                    <div>
+                      <span style={{ fontSize: '15px', fontWeight: 700 }}>{v.brand} {v.model}</span>
+                      {v.plate_number && <span style={{ fontSize: '13px', color: theme.dim, marginLeft: '8px' }}>{v.plate_number}</span>}
+                    </div>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); openVehicleReport(v) }}
+                      style={{
+                        background: 'none',
+                        border: '1px solid ' + theme.border,
+                        borderRadius: '8px',
+                        padding: '4px 8px',
+                        fontSize: '16px',
+                        cursor: 'pointer',
+                        color: theme.text,
+                      }}
+                      title={t('overview.vehicleReport')}
+                    >{'\ud83d\udcca'}</button>
+                  </div>
+                  <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '6px' }}>
+                    {'\ud83d\udc64'} {t('overview.fleetDriver')}: {v.driver_name || t('overview.fleetNoDriver')}
+                  </div>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
+                    <span>{'\u26fd'} {t('overview.fleetFuel')}: {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
+                    <span>{'\ud83d\udea3'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                    <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {/* Drivers list */}
+          {fleetTab === 'drivers' && (
+            <>
+              <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.fleetDriversList')}</div>
+              {driversComparison.length === 0 ? (
+                <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
+                  {t('overview.noDrivers')}
+                </div>
+              ) : (
+                <>
+                  {driversComparison.map((d) => (
+                    <div
+                      key={d.name}
+                      onClick={() => openDriverReport(d.name)}
+                      style={{
+                        ...cardStyle,
+                        marginBottom: '8px',
+                        cursor: 'pointer',
+                        transition: 'border-color 0.2s',
+                      }}
+                    >
+                      <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>
+                        {'\ud83d\udc64'} {d.name}
+                      </div>
+                      <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
+                        <span>{'\ud83d\udcc5'} {d.shifts} {t('overview.driverShifts').toLowerCase()}</span>
+                        <span>{'\ud83d\udea3'} {formatNumber(Math.round(d.km))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                        <span>{'\u23f1\ufe0f'} {d.hours.toFixed(1)} {t('overview.driverHours').toLowerCase()}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Comparison table — only if 2+ drivers */}
+                  {driversComparison.length >= 2 && (() => {
+                    const maxKm = Math.max(...driversComparison.map(d => d.km))
+                    const minKm = Math.min(...driversComparison.map(d => d.km))
+                    const maxShifts = Math.max(...driversComparison.map(d => d.shifts))
+                    const minShifts = Math.min(...driversComparison.map(d => d.shifts))
+                    const maxHours = Math.max(...driversComparison.map(d => d.hours))
+                    const minHours = Math.min(...driversComparison.map(d => d.hours))
+                    const maxTrips = Math.max(...driversComparison.map(d => d.trips))
+                    const minTrips = Math.min(...driversComparison.map(d => d.trips))
+                    const cellColor = (val, max, min) => {
+                      if (max === min) return theme.text
+                      if (val === max) return '#22c55e'
+                      if (val === min) return '#ef4444'
+                      return theme.text
+                    }
+                    return (
+                      <div style={{ marginTop: '4px' }}>
+                        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcca'} {t('overview.driverComparison')}</div>
+
+                        {/* Period switcher */}
+                        <div style={{
+                          display: 'flex', gap: '6px', marginBottom: '10px',
+                          background: theme.card, borderRadius: '12px', padding: '4px',
+                          border: '1px solid ' + theme.border,
+                        }}>
+                          {['week', 'month'].map(p => (
+                            <button
+                              key={p}
+                              onClick={() => setDriversComparisonPeriod(p)}
+                              style={{
+                                flex: 1, padding: '6px 4px', border: 'none', borderRadius: '10px',
+                                fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                                background: driversComparisonPeriod === p ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                                color: driversComparisonPeriod === p ? '#fff' : theme.dim,
+                                transition: 'all 0.2s',
+                              }}
+                            >
+                              {p === 'week' ? t('overview.reportPeriodWeek') : t('overview.reportPeriodMonth')}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div style={{ ...cardStyle, padding: '0', overflow: 'hidden' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                            <thead>
+                              <tr style={{ borderBottom: '1px solid ' + theme.border }}>
+                                <th style={{ padding: '10px 8px', textAlign: 'left', color: theme.dim, fontWeight: 600 }}>{t('overview.driverNameCol')}</th>
+                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.driverShifts')}</th>
+                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{unitSys === 'imperial' ? 'Mi' : t('overview.kmLabel')}</th>
+                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.driverHours')}</th>
+                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.driverTrips')}</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {driversComparison.map((d, i) => (
+                                <tr key={d.name} style={{ borderBottom: i < driversComparison.length - 1 ? '1px solid ' + theme.border : 'none' }}>
+                                  <td style={{ padding: '10px 8px', fontWeight: 600 }}>{d.name}</td>
+                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.shifts, maxShifts, minShifts) }}>{d.shifts}</td>
+                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.km, maxKm, minKm) }}>{formatNumber(Math.round(d.km))}</td>
+                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.hours, maxHours, minHours) }}>{d.hours.toFixed(1)}</td>
+                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.trips, maxTrips, minTrips) }}>{d.trips}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </>
+              )}
+            </>
+          )}
         </div>
       )}
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData } from '../lib/api'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -81,6 +81,18 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [driverReportLoading, setDriverReportLoading] = useState(false)
   const [driversComparison, setDriversComparison] = useState([])
   const [driversComparisonPeriod, setDriversComparisonPeriod] = useState('month')
+  // Analytics tab state
+  const [analyticsData, setAnalyticsData] = useState(null)
+  const [analyticsPeriod, setAnalyticsPeriod] = useState('month')
+  const [analyticsLoading, setAnalyticsLoading] = useState(false)
+  // Salary state
+  const [salaryData, setSalaryData] = useState([])
+  const [salaryMode, setSalaryMode] = useState(() => {
+    try { return localStorage.getItem('tb_salary_mode') || 'per_km' } catch { return 'per_km' }
+  })
+  const [salaryRate, setSalaryRate] = useState(() => {
+    try { return parseFloat(localStorage.getItem('tb_salary_rate')) || 15 } catch { return 15 }
+  })
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -260,6 +272,51 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       loadDriversComparison()
     }
   }, [fleetTab, fleetData, profile?.role, loadDriversComparison])
+
+  // Load analytics data
+  const loadAnalytics = useCallback(async () => {
+    if (!userId) return
+    setAnalyticsLoading(true)
+    try {
+      const data = await fetchFleetAnalytics(userId, analyticsPeriod)
+      setAnalyticsData(data)
+    } catch (err) {
+      console.error('fetchFleetAnalytics error:', err)
+    } finally {
+      setAnalyticsLoading(false)
+    }
+  }, [userId, analyticsPeriod])
+
+  useEffect(() => {
+    if (fleetTab === 'analytics' && fleetData && profile?.role === 'company') {
+      loadAnalytics()
+    }
+  }, [fleetTab, fleetData, profile?.role, loadAnalytics]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Load salary data when drivers tab is active
+  const loadSalaryData = useCallback(async () => {
+    if (!userId) return
+    try {
+      const data = await fetchDriversSalaryData(userId, driversComparisonPeriod)
+      setSalaryData(data)
+    } catch (err) {
+      console.error('fetchDriversSalaryData error:', err)
+    }
+  }, [userId, driversComparisonPeriod])
+
+  useEffect(() => {
+    if (fleetTab === 'drivers' && fleetData && profile?.role === 'company') {
+      loadSalaryData()
+    }
+  }, [fleetTab, fleetData, profile?.role, loadSalaryData]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persist salary settings to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('tb_salary_mode', salaryMode)
+      localStorage.setItem('tb_salary_rate', String(salaryRate))
+    } catch {}
+  }, [salaryMode, salaryRate])
 
   // Load active shift
   useEffect(() => {
@@ -730,7 +787,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             background: theme.card, borderRadius: '12px', padding: '4px',
             border: '1px solid ' + theme.border,
           }}>
-            {['vehicles', 'drivers'].map(tab => (
+            {['vehicles', 'drivers', 'analytics'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setFleetTab(tab)}
@@ -742,7 +799,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   transition: 'all 0.2s',
                 }}
               >
-                {tab === 'vehicles' ? t('overview.vehiclesTab') : t('overview.driversTab')}
+                {tab === 'vehicles' ? t('overview.vehiclesTab') : tab === 'drivers' ? t('overview.driversTab') : t('overview.analyticsTab')}
               </button>
             ))}
           </div>
@@ -902,7 +959,202 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       </div>
                     )
                   })()}
+
+                  {/* Salary block */}
+                  <div style={{ marginTop: '12px' }}>
+                    <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcb0'} {t('overview.salaryBlock')}</div>
+                    {/* Salary mode switcher */}
+                    <div style={{
+                      display: 'flex', gap: '6px', marginBottom: '10px',
+                      background: theme.card, borderRadius: '12px', padding: '4px',
+                      border: '1px solid ' + theme.border,
+                    }}>
+                      {['per_km', 'percent', 'fixed'].map(m => (
+                        <button
+                          key={m}
+                          onClick={() => setSalaryMode(m)}
+                          style={{
+                            flex: 1, padding: '6px 4px', border: 'none', borderRadius: '10px',
+                            fontSize: '11px', fontWeight: 600, cursor: 'pointer',
+                            background: salaryMode === m ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                            color: salaryMode === m ? '#fff' : theme.dim,
+                            transition: 'all 0.2s',
+                          }}
+                        >
+                          {m === 'per_km' ? (unitSys === 'imperial' ? t('overview.salaryPerMile') : t('overview.salaryPerKm')) : m === 'percent' ? t('overview.salaryPercent') : t('overview.salaryFixed')}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Rate input */}
+                    <div style={{ ...cardStyle, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '13px', color: theme.dim }}>{t('overview.salaryRate')}:</span>
+                      <input
+                        type="number"
+                        value={salaryRate}
+                        onChange={e => setSalaryRate(parseFloat(e.target.value) || 0)}
+                        style={{
+                          flex: 1, padding: '8px 10px', borderRadius: '8px',
+                          border: '1px solid ' + theme.border, background: theme.card2,
+                          color: theme.text, fontSize: '14px', fontFamily: 'monospace',
+                          outline: 'none',
+                        }}
+                      />
+                      <span style={{ fontSize: '12px', color: theme.dim }}>
+                        {salaryMode === 'per_km' ? (cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c')) : salaryMode === 'percent' ? '%' : cs + '/' + t('overview.reportPeriodMonth').toLowerCase()}
+                      </span>
+                    </div>
+                    {/* Salary table */}
+                    {salaryData.length > 0 ? (() => {
+                      const calcSalary = (d) => {
+                        if (salaryMode === 'per_km') return d.km * salaryRate
+                        if (salaryMode === 'percent') return d.income * (salaryRate / 100)
+                        return salaryRate
+                      }
+                      const totalPayroll = salaryData.reduce((s, d) => s + calcSalary(d), 0)
+                      return (
+                        <>
+                          <div style={{ ...cardStyle, padding: '0', overflow: 'hidden' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                              <thead>
+                                <tr style={{ borderBottom: '1px solid ' + theme.border }}>
+                                  <th style={{ padding: '10px 8px', textAlign: 'left', color: theme.dim, fontWeight: 600 }}>{t('overview.salaryDriverName')}</th>
+                                  <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.salaryTrips')}</th>
+                                  <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{unitSys === 'imperial' ? 'Mi' : t('overview.kmLabel')}</th>
+                                  <th style={{ padding: '10px 4px', textAlign: 'right', color: theme.dim, fontWeight: 600 }}>{t('overview.salarySalary')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {salaryData.map((d, i) => (
+                                  <tr key={d.name} style={{ borderBottom: i < salaryData.length - 1 ? '1px solid ' + theme.border : 'none' }}>
+                                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{d.name}</td>
+                                    <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace' }}>{d.trips}</td>
+                                    <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace' }}>{formatNumber(Math.round(d.km))}</td>
+                                    <td style={{ padding: '10px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#f59e0b' }}>{formatNumber(Math.round(calcSalary(d)))} {cs}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                          <div style={{ ...cardStyle, marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '14px', fontWeight: 700 }}>{t('overview.salaryTotal')}</span>
+                            <span style={{ fontSize: '18px', fontFamily: 'monospace', fontWeight: 700, color: '#f59e0b' }}>{formatNumber(Math.round(totalPayroll))} {cs}</span>
+                          </div>
+                        </>
+                      )
+                    })() : (
+                      <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
+                        {t('overview.noData')}
+                      </div>
+                    )}
+                  </div>
                 </>
+              )}
+            </>
+          )}
+
+          {/* Analytics tab */}
+          {fleetTab === 'analytics' && (
+            <>
+              {/* Period switcher: Day / Week / Month */}
+              <div style={{
+                display: 'flex', gap: '6px', marginBottom: '12px',
+                background: theme.card, borderRadius: '12px', padding: '4px',
+                border: '1px solid ' + theme.border,
+              }}>
+                {['day', 'week', 'month'].map(p => (
+                  <button
+                    key={p}
+                    onClick={() => setAnalyticsPeriod(p)}
+                    style={{
+                      flex: 1, padding: '6px 4px', border: 'none', borderRadius: '10px',
+                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                      background: analyticsPeriod === p ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                      color: analyticsPeriod === p ? '#fff' : theme.dim,
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {p === 'day' ? t('overview.reportPeriodDay') : p === 'week' ? t('overview.reportPeriodWeek') : t('overview.reportPeriodMonth')}
+                  </button>
+                ))}
+              </div>
+
+              {analyticsLoading ? (
+                <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
+                  {t('common.loading')}
+                </div>
+              ) : analyticsData ? (
+                <>
+                  {/* Summary cards grid */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(2, 1fr)',
+                    gap: '8px',
+                    marginBottom: '12px',
+                  }}>
+                    {[
+                      { label: t('overview.analyticsTotalIncome'), value: formatNumber(Math.round(analyticsData.totalIncome)) + ' ' + cs, color: '#22c55e', icon: '\ud83d\udcb0' },
+                      { label: t('overview.analyticsTotalExpense'), value: formatNumber(Math.round(analyticsData.totalExpenses)) + ' ' + cs, color: '#ef4444', icon: '\ud83d\udcc9' },
+                      { label: t('overview.analyticsProfit'), value: formatNumber(Math.round(analyticsData.profit)) + ' ' + cs, color: analyticsData.profit >= 0 ? '#22c55e' : '#ef4444', icon: '\ud83d\udcca' },
+                      { label: t('overview.analyticsFuel'), value: formatNumber(Math.round(analyticsData.totalFuelLiters)) + ' ' + (unitSys === 'imperial' ? 'gal' : '\u043b') + ' / ' + formatNumber(Math.round(analyticsData.totalFuelCost)) + ' ' + cs, color: '#f59e0b', icon: '\u26fd' },
+                      { label: t('overview.analyticsMileage'), value: formatNumber(Math.round(analyticsData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), color: '#3b82f6', icon: '\ud83d\udea3' },
+                      { label: t('overview.analyticsTripsCount'), value: String(analyticsData.tripCount), color: '#8b5cf6', icon: '\ud83d\ude9a' },
+                    ].map((item, i) => (
+                      <div key={i} style={{
+                        ...cardStyle,
+                        textAlign: 'center',
+                        padding: '12px 8px',
+                      }}>
+                        <div style={{ fontSize: '18px', marginBottom: '2px' }}>{item.icon}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: item.color }}>{item.value}</div>
+                        <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Bar chart: Income vs Expense */}
+                  {analyticsData.daily.length > 0 && (() => {
+                    const maxVal = Math.max(...analyticsData.daily.map(d => Math.max(d.income, d.expense)), 1)
+                    return (
+                      <div style={{ marginTop: '4px' }}>
+                        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcca'} {t('overview.chartIncomeVsExpense')}</div>
+                        <div style={{ ...cardStyle }}>
+                          {/* Legend */}
+                          <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', fontSize: '11px' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#22c55e', display: 'inline-block' }} />
+                              {t('overview.chartIncome')}
+                            </span>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ef4444', display: 'inline-block' }} />
+                              {t('overview.chartExpense')}
+                            </span>
+                          </div>
+                          {/* Bars */}
+                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '140px', overflowX: 'auto' }}>
+                            {analyticsData.daily.map((d, i) => {
+                              const incH = Math.max((d.income / maxVal) * 120, 2)
+                              const expH = Math.max((d.expense / maxVal) * 120, 2)
+                              const dayLabel = d.date.slice(5) // MM-DD
+                              return (
+                                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 0 auto', minWidth: '28px' }}>
+                                  <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '120px' }}>
+                                    <div style={{ width: '10px', height: incH + 'px', background: '#22c55e', borderRadius: '2px 2px 0 0' }} title={formatNumber(Math.round(d.income))} />
+                                    <div style={{ width: '10px', height: expH + 'px', background: '#ef4444', borderRadius: '2px 2px 0 0' }} title={formatNumber(Math.round(d.expense))} />
+                                  </div>
+                                  <div style={{ fontSize: '9px', color: theme.dim, marginTop: '4px', transform: 'rotate(-45deg)', whiteSpace: 'nowrap' }}>{dayLabel}</div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </>
+              ) : (
+                <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
+                  {t('overview.noData')}
+                </div>
               )}
             </>
           )}

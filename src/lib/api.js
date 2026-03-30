@@ -1311,6 +1311,115 @@ export async function fetchDriverReport(driverName, userId, period = 'month') {
   }
 }
 
+// --- Fleet analytics with daily breakdown (B2B) ---
+
+export async function fetchFleetAnalytics(userId, period = 'month') {
+  const now = new Date()
+  let startDate
+  if (period === 'day') {
+    startDate = now.toISOString().slice(0, 10)
+  } else if (period === 'week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 7)
+    startDate = d.toISOString().slice(0, 10)
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  }
+
+  const [fuelsRes, tripsRes, serviceRes, vehicleExpRes, shiftsRes] = await Promise.all([
+    supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', startDate),
+    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', startDate + 'T00:00:00'),
+    supabase.from('service_records').select('*').eq('user_id', userId).gte('date', startDate),
+    supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', startDate).catch(() => ({ data: [] })),
+    supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', startDate + 'T00:00:00'),
+  ])
+
+  const fuels = fuelsRes.data || []
+  const trips = tripsRes.data || []
+  const serviceRecs = serviceRes.data || []
+  const vehicleExps = vehicleExpRes.data || []
+  const shifts = shiftsRes.data || []
+
+  const totalIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
+  const totalFuelCost = fuels.reduce((s, e) => s + (e.cost || 0), 0)
+  const totalFuelLiters = fuels.reduce((s, e) => s + (e.liters || 0), 0)
+  const totalServiceCost = serviceRecs.reduce((s, e) => s + (e.cost || 0), 0)
+  const totalVehicleExpCost = vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalExpenses = totalFuelCost + totalServiceCost + totalVehicleExpCost
+  const totalKm = shifts.reduce((s, sh) => s + (sh.km_driven || 0), 0) || trips.reduce((s, t) => s + (t.distance_km || 0), 0)
+  const tripCount = trips.length
+
+  // Daily breakdown for chart
+  const dailyMap = {}
+  const addDay = (dateStr, field, val) => {
+    const day = (dateStr || '').slice(0, 10)
+    if (!day) return
+    if (!dailyMap[day]) dailyMap[day] = { date: day, income: 0, expense: 0 }
+    dailyMap[day][field] += val
+  }
+  trips.forEach(t => addDay(t.created_at, 'income', t.income || 0))
+  fuels.forEach(e => addDay(e.date, 'expense', e.cost || 0))
+  serviceRecs.forEach(e => addDay(e.date, 'expense', e.cost || 0))
+  vehicleExps.forEach(e => addDay(e.date, 'expense', e.amount || 0))
+
+  const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date))
+
+  return {
+    totalIncome,
+    totalExpenses,
+    profit: totalIncome - totalExpenses,
+    totalFuelCost,
+    totalFuelLiters,
+    totalKm,
+    tripCount,
+    daily,
+  }
+}
+
+// --- Fleet analytics per driver with income (B2B) ---
+
+export async function fetchDriversSalaryData(userId, period = 'month') {
+  const now = new Date()
+  let startDate
+  if (period === 'day') {
+    startDate = now.toISOString().slice(0, 10)
+  } else if (period === 'week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 7)
+    startDate = d.toISOString().slice(0, 10)
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  }
+
+  const [shiftsRes, tripsRes, vehiclesRes] = await Promise.all([
+    supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', startDate + 'T00:00:00'),
+    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', startDate + 'T00:00:00'),
+    supabase.from('vehicles').select('id, driver_name').eq('user_id', userId),
+  ])
+
+  const shifts = shiftsRes.data || []
+  const trips = tripsRes.data || []
+  const vehicles = vehiclesRes.data || []
+
+  const nameSet = new Set()
+  shifts.forEach(sh => { if (sh.driver_name) nameSet.add(sh.driver_name) })
+  vehicles.forEach(v => { if (v.driver_name) nameSet.add(v.driver_name) })
+
+  return [...nameSet].map(name => {
+    const driverShifts = shifts.filter(sh => sh.driver_name === name)
+    const totalKm = driverShifts.reduce((s, sh) => s + (sh.km_driven || 0), 0)
+    const vehicleIds = [...new Set(driverShifts.map(sh => sh.vehicle_id).filter(Boolean))]
+    const driverTrips = trips.filter(t => vehicleIds.includes(t.vehicle_id))
+    const income = driverTrips.reduce((s, t) => s + (t.income || 0), 0)
+    return {
+      name,
+      trips: driverTrips.length,
+      km: totalKm,
+      income,
+    }
+  })
+}
+
 export async function fetchAllDriversComparison(userId, period = 'month') {
   const now = new Date()
   let startDate

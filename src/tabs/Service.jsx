@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, addRouteNote, deleteRouteNote, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import DVIRInspection from '../components/DVIRInspection'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 import { exportToExcel, exportToPDF } from '../utils/export'
@@ -11,6 +12,7 @@ function getSubTabs(t) {
     { key: 'checklist', label: '\u2705 ' + t('service.checklist') },
     { key: 'map', label: '\uD83D\uDDFA ' + t('service.map') },
     { key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') },
+    { key: 'dvir', label: '\uD83D\uDD0D DVIR' },
   ]
 }
 
@@ -139,7 +141,7 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service({ userId }) {
+export default function Service({ userId, activeVehicleId }) {
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
@@ -240,6 +242,7 @@ export default function Service({ userId }) {
         />
       )}
       {activeTab === 'docs' && <DocsTab userId={userId} />}
+      {activeTab === 'dvir' && <DVIRInspection userId={userId} vehicleId={activeVehicleId} />}
     </div>
   )
 }

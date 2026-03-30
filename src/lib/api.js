@@ -1467,3 +1467,65 @@ export async function fetchAllDriversComparison(userId, period = 'month') {
     }
   })
 }
+
+// --- DVIR Inspections ---
+
+export async function fetchDVIRInspections(userId, vehicleId) {
+  let query = supabase
+    .from('dvir_inspections')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (vehicleId) {
+    query = query.eq('vehicle_id', vehicleId)
+  }
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function addDVIRInspection(entry) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) throw new Error('No active session')
+
+  const row = {
+    user_id: user.id,
+    vehicle_id: entry.vehicle_id || null,
+    inspection_type: entry.inspection_type || 'pre_trip',
+    status: entry.status || 'pass',
+    items: entry.items || [],
+    notes: entry.notes || '',
+    defects_count: entry.defects_count || 0,
+  }
+  if (!navigator.onLine) return offlineInsert('dvir_inspections', row)
+  const { data, error } = await supabase
+    .from('dvir_inspections')
+    .insert(row)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function uploadDVIRPhoto(userId, inspectionId, itemKey, file) {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${userId}/dvir/${inspectionId}/${itemKey}_${Date.now()}.${ext}`
+  const { error: upErr } = await supabase.storage
+    .from('receipts')
+    .upload(path, file)
+  if (upErr) throw upErr
+
+  const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
+  const photoUrl = urlData?.publicUrl || ''
+
+  const { data, error } = await supabase
+    .from('dvir_photos')
+    .insert({
+      inspection_id: inspectionId,
+      item_key: itemKey,
+      photo_url: photoUrl,
+      storage_path: path,
+    })
+    .select()
+  if (error) throw error
+  return data?.[0]
+}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { addFuel, addTrip, addBytExpense, addServiceRecord, addVehicleExpense } from '../lib/api'
 import { useTheme } from '../lib/theme'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 
 function getMenuItems(activeTab, t) {
   const OVERVIEW_MENU = [
@@ -102,7 +102,9 @@ function PhotoVoicePlaceholder({ theme, t }) {
   )
 }
 
-function FuelFields({ form, onChange, theme, inputStyle, geoState, t }) {
+function FuelFields({ form, onChange, theme, inputStyle, geoState, t, cs, unitSys }) {
+  const volLabel = unitSys === 'imperial' ? t('addModal.gallons') : t('addModal.liters')
+  const odomLabel = t('addModal.odometer') + (unitSys === 'imperial' ? ' (mi)' : ' (' + t('addModal.kmShort') + ')')
   return (
     <>
       <FieldGroup label={t('addModal.station')} theme={theme}>
@@ -123,20 +125,21 @@ function FuelFields({ form, onChange, theme, inputStyle, geoState, t }) {
       <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.liters')} theme={theme}>
+      <FieldGroup label={volLabel} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.liters || ''} onChange={(e) => onChange('liters', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.amount')} theme={theme}>
+      <FieldGroup label={t('addModal.amount') + ', ' + cs} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.odometer')} theme={theme}>
+      <FieldGroup label={odomLabel} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.odometer || ''} onChange={(e) => onChange('odometer', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function TripFields({ form, onChange, theme, inputStyle, t }) {
+function TripFields({ form, onChange, theme, inputStyle, t, cs, unitSys }) {
+  const distUnit = unitSys === 'imperial' ? 'mi' : t('addModal.kmShort')
   return (
     <>
       <FieldGroup label={t('addModal.from')} theme={theme}>
@@ -148,17 +151,17 @@ function TripFields({ form, onChange, theme, inputStyle, t }) {
       <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.distanceKm')} theme={theme}>
+      <FieldGroup label={t('addModal.distance') + ', ' + distUnit} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.distance || ''} onChange={(e) => onChange('distance', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.incomeRub')} theme={theme}>
+      <FieldGroup label={t('addModal.income') + ', ' + cs} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.rate || ''} onChange={(e) => onChange('rate', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function BytFields({ form, onChange, theme, inputStyle, t }) {
+function BytFields({ form, onChange, theme, inputStyle, t, cs }) {
   const selectStyle = { ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }
   const categories = getBytCategories(t)
   return (
@@ -176,14 +179,15 @@ function BytFields({ form, onChange, theme, inputStyle, t }) {
       <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.amount')} theme={theme}>
+      <FieldGroup label={t('addModal.amount') + ', ' + cs} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function RepairFields({ form, onChange, theme, inputStyle, t }) {
+function RepairFields({ form, onChange, theme, inputStyle, t, cs, unitSys }) {
+  const odomLabel = t('addModal.odometer') + (unitSys === 'imperial' ? ' (mi)' : ' (' + t('addModal.kmShort') + ')')
   return (
     <>
       <FieldGroup label={t('addModal.workDescription')} theme={theme}>
@@ -195,17 +199,17 @@ function RepairFields({ form, onChange, theme, inputStyle, t }) {
       <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.amount')} theme={theme}>
+      <FieldGroup label={t('addModal.amount') + ', ' + cs} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.odometer')} theme={theme}>
+      <FieldGroup label={odomLabel} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.odometer || ''} onChange={(e) => onChange('odometer', e.target.value)} />
       </FieldGroup>
     </>
   )
 }
 
-function VehicleExpenseFields({ form, onChange, theme, inputStyle, t }) {
+function VehicleExpenseFields({ form, onChange, theme, inputStyle, t, cs }) {
   const selectStyle = { ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }
   const categories = getVehicleExpenseCategories(t)
   return (
@@ -223,7 +227,7 @@ function VehicleExpenseFields({ form, onChange, theme, inputStyle, t }) {
       <FieldGroup label={t('addModal.date')} theme={theme}>
         <input style={inputStyle} type="date" value={form.date || new Date().toISOString().slice(0, 10)} onChange={(e) => onChange('date', e.target.value)} />
       </FieldGroup>
-      <FieldGroup label={t('addModal.amount')} theme={theme}>
+      <FieldGroup label={t('addModal.amount') + ', ' + cs} theme={theme}>
         <input style={inputStyle} type="number" placeholder="0" value={form.amount || ''} onChange={(e) => onChange('amount', e.target.value)} />
       </FieldGroup>
     </>
@@ -390,8 +394,11 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     </button>
   )
 
+  const cs = getCurrencySymbol()
+  const unitSys = getUnits()
+
   const renderForm = () => {
-    const props = { form, onChange: handleChange, theme, inputStyle, t }
+    const props = { form, onChange: handleChange, theme, inputStyle, t, cs, unitSys }
     switch (formType) {
       case 'fuel': return <FuelFields {...props} geoState={geoState} />
       case 'trip': return <TripFields {...props} />

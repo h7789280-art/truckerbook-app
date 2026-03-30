@@ -1198,3 +1198,60 @@ export async function fetchFleetSummary(userId) {
     tripCount,
   }
 }
+
+// --- Vehicle detail report (B2B) ---
+
+export async function fetchVehicleReport(vehicleId, userId, period = 'month') {
+  const now = new Date()
+  let startDate
+  if (period === 'week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 7)
+    startDate = d.toISOString().slice(0, 10)
+  } else {
+    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  }
+
+  const [fuelsRes, tripsRes, serviceRes, vehicleExpRes, shiftsRes] = await Promise.all([
+    supabase.from('fuel_entries').select('*').eq('vehicle_id', vehicleId).gte('date', startDate),
+    supabase.from('trips').select('*').eq('vehicle_id', vehicleId).gte('created_at', startDate + 'T00:00:00'),
+    supabase.from('service_records').select('*').eq('vehicle_id', vehicleId).gte('date', startDate),
+    supabase.from('vehicle_expenses').select('*').eq('vehicle_id', vehicleId).gte('date', startDate).catch(() => ({ data: [] })),
+    supabase.from('driving_sessions').select('*').eq('vehicle_id', vehicleId).gte('started_at', startDate + 'T00:00:00'),
+  ])
+
+  const fuels = fuelsRes.data || []
+  const trips = tripsRes.data || []
+  const serviceRecs = serviceRes.data || []
+  const vehicleExps = vehicleExpRes.data || []
+  const shifts = shiftsRes.data || []
+
+  const fuelLiters = fuels.reduce((s, e) => s + (e.liters || 0), 0)
+  const fuelCost = fuels.reduce((s, e) => s + (e.cost || 0), 0)
+  const serviceCost = serviceRecs.reduce((s, e) => s + (e.cost || 0), 0)
+  const vehicleExpCost = vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
+  const totalKm = shifts.reduce((s, sh) => s + (sh.km_driven || 0), 0) || trips.reduce((s, t) => s + (t.distance_km || 0), 0)
+  const totalExpenses = fuelCost + serviceCost + vehicleExpCost
+  const profit = totalIncome - totalExpenses
+
+  return {
+    fuelLiters,
+    fuelCost,
+    serviceCost,
+    vehicleExpCost,
+    totalIncome,
+    totalExpenses,
+    totalKm,
+    profit,
+    tripCount: trips.length,
+    trips: trips.map(t => ({
+      id: t.id,
+      from: t.route_from || '',
+      to: t.route_to || '',
+      date: (t.created_at || '').slice(0, 10),
+      km: t.distance_km || 0,
+      income: t.income || 0,
+    })),
+  }
+}

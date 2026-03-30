@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport } from '../lib/api'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -70,6 +70,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [shiftHistory, setShiftHistory] = useState([])
   const [todaySummary, setTodaySummary] = useState(null)
   const [fleetData, setFleetData] = useState(null)
+  const [vehicleReportView, setVehicleReportView] = useState(null) // vehicle object or null
+  const [vehicleReportData, setVehicleReportData] = useState(null)
+  const [vehicleReportPeriod, setVehicleReportPeriod] = useState('month')
+  const [vehicleReportLoading, setVehicleReportLoading] = useState(false)
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -189,6 +193,28 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   useEffect(() => {
     loadData()
   }, [loadData, refreshKey])
+
+  // Load vehicle report
+  const openVehicleReport = useCallback(async (vehicle) => {
+    setVehicleReportView(vehicle)
+    setVehicleReportData(null)
+    setVehicleReportLoading(true)
+    try {
+      const data = await fetchVehicleReport(vehicle.id, userId, vehicleReportPeriod)
+      setVehicleReportData(data)
+    } catch (err) {
+      console.error('fetchVehicleReport error:', err)
+    } finally {
+      setVehicleReportLoading(false)
+    }
+  }, [userId, vehicleReportPeriod])
+
+  // Reload report when period changes
+  useEffect(() => {
+    if (vehicleReportView) {
+      openVehicleReport(vehicleReportView)
+    }
+  }, [vehicleReportPeriod]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load active shift
   useEffect(() => {
@@ -358,6 +384,111 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
   const dimText = { color: theme.dim, fontSize: '13px' }
 
+  // Vehicle report view
+  if (vehicleReportView) {
+    const rv = vehicleReportView
+    const rd = vehicleReportData
+    const distUnit = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
+    const volUnit = unitSys === 'imperial' ? 'gal' : '\u043b'
+    const reportCardStyle = { ...cardStyle, marginBottom: '10px', textAlign: 'center' }
+    return (
+      <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
+        {/* Back button */}
+        <button
+          onClick={() => { setVehicleReportView(null); setVehicleReportData(null); setVehicleReportPeriod('month') }}
+          style={{
+            background: 'none', border: 'none', color: '#f59e0b', fontSize: '15px',
+            cursor: 'pointer', padding: '4px 0', marginBottom: '12px', fontWeight: 600,
+          }}
+        >{'\u2190'} {t('overview.reportBack')}</button>
+
+        {/* Header */}
+        <div style={{ marginBottom: '12px' }}>
+          <div style={{ fontSize: '18px', fontWeight: 700 }}>{rv.brand} {rv.model}</div>
+          {rv.plate_number && <div style={{ fontSize: '14px', color: theme.dim }}>{rv.plate_number}</div>}
+          <div style={{ fontSize: '13px', color: theme.dim, marginTop: '4px' }}>
+            {'\ud83d\udc64'} {t('overview.fleetDriver')}: {rv.driver_name || t('overview.fleetNoDriver')}
+          </div>
+        </div>
+
+        {/* Period switcher */}
+        <div style={{
+          display: 'flex', gap: '6px', marginBottom: '16px',
+          background: theme.card, borderRadius: '12px', padding: '4px',
+          border: '1px solid ' + theme.border,
+        }}>
+          {['week', 'month'].map(p => (
+            <button
+              key={p}
+              onClick={() => setVehicleReportPeriod(p)}
+              style={{
+                flex: 1, padding: '8px 4px', border: 'none', borderRadius: '10px',
+                fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                background: vehicleReportPeriod === p ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                color: vehicleReportPeriod === p ? '#fff' : theme.dim,
+                transition: 'all 0.2s',
+              }}
+            >
+              {p === 'week' ? t('overview.reportPeriodWeek') : t('overview.reportPeriodMonth')}
+            </button>
+          ))}
+        </div>
+
+        {vehicleReportLoading && (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim }}>{'\u23f3'}</div>
+        )}
+
+        {rd && !vehicleReportLoading && (
+          <>
+            {/* Stat cards — 2 columns */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+              {[
+                { label: t('overview.reportFuelVolume'), value: formatNumber(Math.round(rd.fuelLiters)) + ' ' + volUnit, icon: '\u26fd', color: '#f59e0b' },
+                { label: t('overview.reportFuelCost'), value: formatNumber(Math.round(rd.fuelCost)) + ' ' + cs, icon: '\ud83d\udcb0', color: '#f59e0b' },
+                { label: t('overview.reportService'), value: formatNumber(Math.round(rd.serviceCost + (rd.vehicleExpCost || 0))) + ' ' + cs, icon: '\ud83d\udd27', color: '#ef4444' },
+                { label: t('overview.reportTripsCount'), value: String(rd.tripCount), icon: '\ud83d\ude9a', color: '#8b5cf6' },
+                { label: t('overview.reportMileage'), value: formatNumber(Math.round(rd.totalKm)) + ' ' + distUnit, icon: '\ud83d\udea3', color: '#3b82f6' },
+                { label: t('overview.reportIncome'), value: formatNumber(Math.round(rd.totalIncome)) + ' ' + cs, icon: '\ud83d\udcc8', color: '#22c55e' },
+                { label: t('overview.reportExpense'), value: formatNumber(Math.round(rd.totalExpenses)) + ' ' + cs, icon: '\ud83d\udcc9', color: '#ef4444' },
+                { label: t('overview.reportProfit'), value: formatNumber(Math.round(rd.profit)) + ' ' + cs, icon: rd.profit >= 0 ? '\u2705' : '\u274c', color: rd.profit >= 0 ? '#22c55e' : '#ef4444' },
+              ].map((item, i) => (
+                <div key={i} style={reportCardStyle}>
+                  <div style={{ fontSize: '18px', marginBottom: '2px' }}>{item.icon}</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 700, color: item.color }}>{item.value}</div>
+                  <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Trips list */}
+            <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.reportTripsList')}</div>
+            {rd.trips.length === 0 && (
+              <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
+                {t('overview.reportNoTrips')}
+              </div>
+            )}
+            {rd.trips.map(trip => (
+              <div key={trip.id} style={{ ...cardStyle, marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600 }}>
+                    {trip.from} {'\u2192'} {trip.to}
+                  </div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '13px', color: '#22c55e', fontWeight: 600 }}>
+                    +{formatNumber(Math.round(trip.income))} {cs}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: theme.dim, marginTop: '4px' }}>
+                  <span>{trip.date}</span>
+                  <span>{formatNumber(Math.round(trip.km))} {distUnit}</span>
+                </div>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
       {/* Greeting */}
@@ -489,6 +620,19 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   <span style={{ fontSize: '15px', fontWeight: 700 }}>{v.brand} {v.model}</span>
                   {v.plate_number && <span style={{ fontSize: '13px', color: theme.dim, marginLeft: '8px' }}>{v.plate_number}</span>}
                 </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); openVehicleReport(v) }}
+                  style={{
+                    background: 'none',
+                    border: '1px solid ' + theme.border,
+                    borderRadius: '8px',
+                    padding: '4px 8px',
+                    fontSize: '16px',
+                    cursor: 'pointer',
+                    color: theme.text,
+                  }}
+                  title={t('overview.vehicleReport')}
+                >{'\ud83d\udcca'}</button>
               </div>
               <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '6px' }}>
                 {'\ud83d\udc64'} {t('overview.fleetDriver')}: {v.driver_name || t('overview.fleetNoDriver')}

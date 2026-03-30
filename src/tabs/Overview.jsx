@@ -5,6 +5,7 @@ import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats } from '../lib/api'
 import { exportToExcel, exportToPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
+import DispatchBoard from '../components/DispatchBoard'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -927,7 +928,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             background: theme.card, borderRadius: '12px', padding: '4px',
             border: '1px solid ' + theme.border,
           }}>
-            {['vehicles', 'drivers', 'analytics'].map(tab => (
+            {['vehicles', 'drivers', 'analytics', 'dispatch'].map(tab => (
               <button
                 key={tab}
                 onClick={() => setFleetTab(tab)}
@@ -939,7 +940,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   transition: 'all 0.2s',
                 }}
               >
-                {tab === 'vehicles' ? t('overview.vehiclesTab') : tab === 'drivers' ? t('overview.driversTab') : t('overview.analyticsTab')}
+                {tab === 'vehicles' ? t('overview.vehiclesTab') : tab === 'drivers' ? t('overview.driversTab') : tab === 'analytics' ? t('overview.analyticsTab') : t('overview.dispatchTab')}
               </button>
             ))}
           </div>
@@ -1347,6 +1348,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 </div>
               )}
             </>
+          )}
+
+          {/* Dispatch tab */}
+          {fleetTab === 'dispatch' && (
+            <DispatchBoard userId={userId} />
           )}
         </div>
       )}

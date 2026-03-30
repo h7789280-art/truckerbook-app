@@ -1591,3 +1591,29 @@ export async function fetchAchievementStats(userId) {
 
   return { tripCount, fuelCount, dvirCount, sessionCount, totalKm, uniqueCities, dvirPassStreak, consecutiveDays }
 }
+
+// --- Dispatch Board (fleet overview for company) ---
+
+export async function fetchDispatchBoard(userId) {
+  const [vehiclesRes, sessionsRes] = await Promise.all([
+    supabase.from('vehicles').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
+    supabase.from('driving_sessions').select('id, vehicle_id, started_at, ended_at').eq('user_id', userId).order('started_at', { ascending: false }),
+  ])
+
+  const vehicles = vehiclesRes.data || []
+  const sessions = sessionsRes.data || []
+
+  const result = vehicles.map(v => {
+    const vSessions = sessions.filter(s => s.vehicle_id === v.id)
+    const latest = vSessions[0] || null
+    const isOnDuty = latest ? !latest.ended_at : false
+    let lastActivity = null
+    if (latest) {
+      const d = new Date(latest.ended_at || latest.started_at)
+      lastActivity = d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    }
+    return { ...v, isOnDuty, lastActivity }
+  })
+
+  return { vehicles: result }
+}

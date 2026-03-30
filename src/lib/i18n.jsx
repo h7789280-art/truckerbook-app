@@ -606,6 +606,13 @@ const translations = {
       deadheadKm: '\u041f\u043e\u0440\u043e\u0436\u043d\u0438\u0439 \u043f\u0440\u043e\u0431\u0435\u0433',
       deadheadHint: '\u041f\u0440\u043e\u0431\u0435\u0433 \u0431\u0435\u0437 \u0433\u0440\u0443\u0437\u0430 (\u043f\u043e\u0434\u0430\u0447\u0430, \u0432\u043e\u0437\u0432\u0440\u0430\u0442)',
     },
+    voice: {
+      record: '\ud83c\udfa4 \u0413\u043e\u043b\u043e\u0441',
+      recording: '\ud83d\udd34 \u0417\u0430\u043f\u0438\u0441\u044c...',
+      processing: '\u2699\ufe0f \u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u044e...',
+      failed: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
+      micPermission: '\u041d\u0435\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 \u043a \u043c\u0438\u043a\u0440\u043e\u0444\u043e\u043d\u0443. \u0420\u0430\u0437\u0440\u0435\u0448\u0438\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u0432 \u043d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0430\u0445.',
+    },
     jobs: {
       title: '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438',
       noJobs: '\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0432\u0430\u043a\u0430\u043d\u0441\u0438\u0439. \u041e\u043d\u0438 \u043f\u043e\u044f\u0432\u044f\u0442\u0441\u044f \u0437\u0434\u0435\u0441\u044c',
@@ -1380,6 +1387,13 @@ const translations = {
       catOtherVehicle: '\ud83d\udce6 Other',
       deadheadKm: 'Deadhead miles',
       deadheadHint: 'Empty run (pickup, return)',
+    },
+    voice: {
+      record: '\ud83c\udfa4 Voice',
+      recording: '\ud83d\udd34 Recording...',
+      processing: '\u2699\ufe0f Recognizing...',
+      failed: 'Could not recognize. Please try again.',
+      micPermission: 'No microphone access. Please allow access in settings.',
     },
     jobs: {
       title: 'Jobs',
@@ -2156,6 +2170,13 @@ const translations = {
       deadheadKm: '\u041f\u043e\u0440\u043e\u0436\u043d\u0456\u0439 \u043f\u0440\u043e\u0431\u0456\u0433',
       deadheadHint: '\u041f\u0440\u043e\u0431\u0456\u0433 \u0431\u0435\u0437 \u0432\u0430\u043d\u0442\u0430\u0436\u0443 (\u043f\u043e\u0434\u0430\u0447\u0430, \u043f\u043e\u0432\u0435\u0440\u043d\u0435\u043d\u043d\u044f)',
     },
+    voice: {
+      record: '\ud83c\udfa4 \u0413\u043e\u043b\u043e\u0441',
+      recording: '\ud83d\udd34 \u0417\u0430\u043f\u0438\u0441...',
+      processing: '\u2699\ufe0f \u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u044e...',
+      failed: '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0442\u0438. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437.',
+      micPermission: '\u041d\u0435\u043c\u0430\u0454 \u0434\u043e\u0441\u0442\u0443\u043f\u0443 \u0434\u043e \u043c\u0456\u043a\u0440\u043e\u0444\u043e\u043d\u0430. \u0414\u043e\u0437\u0432\u043e\u043b\u044c\u0442\u0435 \u0434\u043e\u0441\u0442\u0443\u043f \u0443 \u043d\u0430\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f\u0445.',
+    },
     jobs: {
       title: '\u0412\u0430\u043a\u0430\u043d\u0441\u0456\u0457',
       noJobs: '\u041f\u043e\u043a\u0438 \u043d\u0435\u043c\u0430\u0454 \u0432\u0430\u043a\u0430\u043d\u0441\u0456\u0439. \u0412\u043e\u043d\u0438 \u0437\'\u044f\u0432\u043b\u044f\u0442\u044c\u0441\u044f \u0442\u0443\u0442',
@@ -2930,6 +2951,13 @@ const translations = {
       deadheadKm: 'Kil\u00f3metros en vac\u00edo',
       deadheadHint: 'Recorrido sin carga (recogida, retorno)',
     },
+    voice: {
+      record: '\ud83c\udfa4 Voz',
+      recording: '\ud83d\udd34 Grabando...',
+      processing: '\u2699\ufe0f Reconociendo...',
+      failed: 'No se pudo reconocer. Int\u00e9ntelo de nuevo.',
+      micPermission: 'Sin acceso al micr\u00f3fono. Permita el acceso en la configuraci\u00f3n.',
+    },
     jobs: {
       title: 'Empleos',
       noJobs: 'A\u00fan no hay empleos. Aparecer\u00e1n aqu\u00ed',
@@ -3699,6 +3727,13 @@ const translations = {
       catOtherVehicle: '\ud83d\udce6 Sonstiges',
       deadheadKm: 'Leerfahrt',
       deadheadHint: 'Fahrt ohne Ladung (Anfahrt, R\u00fcckfahrt)',
+    },
+    voice: {
+      record: '\ud83c\udfa4 Sprache',
+      recording: '\ud83d\udd34 Aufnahme...',
+      processing: '\u2699\ufe0f Erkennung...',
+      failed: 'Konnte nicht erkannt werden. Bitte versuchen Sie es erneut.',
+      micPermission: 'Kein Mikrofonzugriff. Bitte erlauben Sie den Zugriff in den Einstellungen.',
     },
     jobs: {
       title: 'Stellenangebote',
@@ -4470,6 +4505,13 @@ const translations = {
       deadheadKm: 'Kilom\u00e8tres \u00e0 vide',
       deadheadHint: 'Trajet sans charge (approche, retour)',
     },
+    voice: {
+      record: '\ud83c\udfa4 Voix',
+      recording: '\ud83d\udd34 Enregistrement...',
+      processing: '\u2699\ufe0f Reconnaissance...',
+      failed: 'Impossible de reconna\u00eetre. Veuillez r\u00e9essayer.',
+      micPermission: "Pas d'acc\u00e8s au microphone. Veuillez autoriser l'acc\u00e8s dans les param\u00e8tres.",
+    },
     jobs: {
       title: 'Emplois',
       noJobs: 'Pas encore d\'offres. Elles appara\u00eetront ici',
@@ -5240,6 +5282,13 @@ const translations = {
       deadheadKm: 'Bo\u015f kilometre',
       deadheadHint: 'Y\u00fcks\u00fcz mesafe (yakla\u015fma, d\u00f6n\u00fc\u015f)',
     },
+    voice: {
+      record: '\ud83c\udfa4 Ses',
+      recording: '\ud83d\udd34 Kay\u0131t...',
+      processing: '\u2699\ufe0f Tan\u0131n\u0131yor...',
+      failed: 'Tan\u0131namad\u0131. L\u00fctfen tekrar deneyin.',
+      micPermission: 'Mikrofon eri\u015fimi yok. L\u00fctfen ayarlardan izin verin.',
+    },
     jobs: {
       title: '\u0130\u015f \u0130lanlar\u0131',
       noJobs: 'Hen\u00fcz i\u015f ilan\u0131 yok. Burada g\u00f6r\u00fcnecekler',
@@ -6009,6 +6058,13 @@ const translations = {
       catOtherVehicle: '\ud83d\udce6 Inne',
       deadheadKm: 'Pusty przebieg',
       deadheadHint: 'Przebieg bez \u0142adunku (dojazd, powr\u00f3t)',
+    },
+    voice: {
+      record: '\ud83c\udfa4 G\u0142os',
+      recording: '\ud83d\udd34 Nagrywanie...',
+      processing: '\u2699\ufe0f Rozpoznawanie...',
+      failed: 'Nie uda\u0142o si\u0119 rozpozna\u0107. Spr\u00f3buj ponownie.',
+      micPermission: 'Brak dost\u0119pu do mikrofonu. Zezw\u00f3l na dost\u0119p w ustawieniach.',
     },
     jobs: {
       title: 'Oferty pracy',

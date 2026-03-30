@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { addFuel, addTrip, addBytExpense, addServiceRecord, addVehicleExpense } from '../lib/api'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { recordAudio, parseExpenseFromVoice } from '../lib/voiceInput'
 
 function getMenuItems(activeTab, t) {
   const OVERVIEW_MENU = [
@@ -71,13 +72,52 @@ function FieldGroup({ label, children, theme }) {
   )
 }
 
-function PhotoVoicePlaceholder({ theme, t }) {
+function PhotoVoiceBar({ theme, t, onVoiceResult, language }) {
+  const [voiceState, setVoiceState] = useState('idle') // idle | recording | processing
+  const [voiceError, setVoiceError] = useState(null)
+  const recorderRef = useRef(null)
+
   const handlePhoto = () => {
     alert(t('addModal.photoSoon'))
   }
-  const handleVoice = () => {
-    alert(t('addModal.voiceSoon'))
+
+  const handleVoice = async () => {
+    setVoiceError(null)
+
+    if (voiceState === 'recording') {
+      // Stop recording
+      try {
+        const blob = await recorderRef.current.stop()
+        recorderRef.current = null
+        setVoiceState('processing')
+        const result = await parseExpenseFromVoice(blob, language)
+        if (result) {
+          onVoiceResult(result)
+        } else {
+          setVoiceError(t('voice.failed'))
+        }
+      } catch (e) {
+        console.error('Voice stop error:', e)
+        setVoiceError(t('voice.failed'))
+      } finally {
+        setVoiceState('idle')
+      }
+      return
+    }
+
+    // Start recording
+    try {
+      const recorder = recordAudio()
+      await recorder.start()
+      recorderRef.current = recorder
+      setVoiceState('recording')
+    } catch (e) {
+      console.error('Mic access error:', e)
+      setVoiceError(t('voice.micPermission'))
+      setVoiceState('idle')
+    }
   }
+
   const btnStyle = {
     display: 'inline-flex',
     alignItems: 'center',
@@ -94,10 +134,50 @@ function PhotoVoicePlaceholder({ theme, t }) {
   }
   const handleHover = (e) => { e.currentTarget.style.opacity = '1' }
   const handleLeave = (e) => { e.currentTarget.style.opacity = '0.7' }
+
+  const voiceBtnStyle = voiceState === 'recording'
+    ? {
+        ...btnStyle,
+        opacity: 1,
+        background: '#ef4444',
+        color: '#fff',
+        border: '1px solid #ef4444',
+        animation: 'voicePulse 1s ease-in-out infinite',
+      }
+    : voiceState === 'processing'
+      ? { ...btnStyle, opacity: 0.5, cursor: 'wait' }
+      : btnStyle
+
+  const voiceLabel = voiceState === 'recording'
+    ? t('voice.recording')
+    : voiceState === 'processing'
+      ? t('voice.processing')
+      : t('voice.record')
+
   return (
-    <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-      <button type="button" style={btnStyle} onClick={handlePhoto} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{t('addModal.photo')}</button>
-      <button type="button" style={btnStyle} onClick={handleVoice} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{t('addModal.voice')}</button>
+    <div style={{ marginTop: 12 }}>
+      <style>{`
+        @keyframes voicePulse {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.05); }
+        }
+      `}</style>
+      <div style={{ display: 'flex', gap: 10 }}>
+        <button type="button" style={btnStyle} onClick={handlePhoto} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{t('addModal.photo')}</button>
+        <button
+          type="button"
+          style={voiceBtnStyle}
+          onClick={handleVoice}
+          onMouseEnter={voiceState === 'idle' ? handleHover : undefined}
+          onMouseLeave={voiceState === 'idle' ? handleLeave : undefined}
+          disabled={voiceState === 'processing'}
+        >
+          {voiceLabel}
+        </button>
+      </div>
+      {voiceError && (
+        <div style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{voiceError}</div>
+      )}
     </div>
   )
 }
@@ -240,7 +320,7 @@ function VehicleExpenseFields({ form, onChange, theme, inputStyle, t, cs }) {
 
 export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved, onVehicleExpenseSaved }) {
   const { theme } = useTheme()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const [formType, setFormType] = useState(null)
   const [form, setForm] = useState({})
   const [saving, setSaving] = useState(false)
@@ -491,7 +571,11 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
         ) : (
           <>
             {renderForm()}
-            <PhotoVoicePlaceholder theme={theme} t={t} />
+            <PhotoVoiceBar theme={theme} t={t} language={lang} onVoiceResult={(result) => {
+              if (result.amount) handleChange('amount', String(result.amount))
+              if (result.category) handleChange('category', result.category)
+              if (result.description) handleChange(formType === 'byt' || formType === 'repair' ? 'name' : 'description', result.description)
+            }} />
             <button
               onClick={handleSave}
               disabled={saving}

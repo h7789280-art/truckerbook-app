@@ -1529,3 +1529,65 @@ export async function uploadDVIRPhoto(userId, inspectionId, itemKey, file) {
   if (error) throw error
   return data?.[0]
 }
+
+// --- Achievements Stats ---
+
+export async function fetchAchievementStats(userId) {
+  const [tripsRes, fuelRes, dvirRes, sessionsRes] = await Promise.all([
+    supabase.from('trips').select('id, origin, destination, distance_km').eq('user_id', userId),
+    supabase.from('fuel_entries').select('id').eq('user_id', userId),
+    supabase.from('dvir_inspections').select('id, status, created_at').eq('user_id', userId).order('created_at', { ascending: false }),
+    supabase.from('driving_sessions').select('id').eq('user_id', userId),
+  ])
+
+  const trips = tripsRes.data || []
+  const fuels = fuelRes.data || []
+  const dvirs = dvirRes.data || []
+  const sessions = sessionsRes.data || []
+
+  const tripCount = trips.length
+  const fuelCount = fuels.length
+  const dvirCount = dvirs.length
+  const sessionCount = sessions.length
+  const totalKm = trips.reduce((sum, t) => sum + (parseFloat(t.distance_km) || 0), 0)
+
+  // Unique cities from origin + destination
+  const cities = new Set()
+  trips.forEach(t => {
+    if (t.origin) cities.add(t.origin.trim().toLowerCase())
+    if (t.destination) cities.add(t.destination.trim().toLowerCase())
+  })
+  const uniqueCities = cities.size
+
+  // DVIR pass streak (consecutive passes from most recent)
+  let dvirPassStreak = 0
+  for (const d of dvirs) {
+    if (d.status === 'pass') dvirPassStreak++
+    else break
+  }
+
+  // Consecutive days with expenses (byt or fuel)
+  let consecutiveDays = 0
+  try {
+    const [bytRes, fuelDatesRes] = await Promise.all([
+      supabase.from('byt_expenses').select('date').eq('user_id', userId),
+      supabase.from('fuel_entries').select('date').eq('user_id', userId),
+    ])
+    const daySet = new Set()
+    ;(bytRes.data || []).forEach(r => { if (r.date) daySet.add(r.date.slice(0, 10)) })
+    ;(fuelDatesRes.data || []).forEach(r => { if (r.date) daySet.add(r.date.slice(0, 10)) })
+    const sorted = [...daySet].sort().reverse()
+    if (sorted.length > 0) {
+      consecutiveDays = 1
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = new Date(sorted[i - 1])
+        const curr = new Date(sorted[i])
+        const diff = (prev - curr) / 86400000
+        if (diff === 1) consecutiveDays++
+        else break
+      }
+    }
+  } catch { /* ignore */ }
+
+  return { tripCount, fuelCount, dvirCount, sessionCount, totalKm, uniqueCities, dvirPassStreak, consecutiveDays }
+}

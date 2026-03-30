@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats } from '../lib/api'
 import { exportToExcel, exportToPDF } from '../utils/export'
+import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -96,6 +97,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   })
   const [showFleetExportMenu, setShowFleetExportMenu] = useState(false)
   const fleetExportRef = useRef(null)
+  const [achievementStats, setAchievementStats] = useState(null)
+  const [showAchievements, setShowAchievements] = useState(false)
 
   // Close fleet export menu on outside click
   useEffect(() => {
@@ -156,6 +159,17 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     })
     return () => { cancelled = true }
   }, [userName])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    fetchAchievementStats(userId).then(data => {
+      if (!cancelled) setAchievementStats(data)
+    }).catch(() => {})
+    return () => { cancelled = true }
+  }, [userId, refreshKey])
+
+  const achievementUnlocked = achievementStats ? ACHIEVEMENTS.filter(a => (achievementStats[a.stat] || 0) >= a.target).length : 0
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -535,6 +549,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   }
 
   const dimText = { color: theme.dim, fontSize: '13px' }
+
+  // Achievements full view
+  if (showAchievements) {
+    return <Achievements userId={userId} onClose={() => setShowAchievements(false)} />
+  }
 
   // Vehicle report view
   if (vehicleReportView) {
@@ -1919,6 +1938,38 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             </div>
           )}
+
+          {/* Achievements preview */}
+          <div
+            style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer' }}
+            onClick={() => setShowAchievements(true)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '20px' }}>{'\ud83c\udfc6'}</span>
+                <span style={{ fontSize: '14px', fontWeight: 600 }}>
+                  {t('achievements.title')}: {achievementUnlocked}/{ACHIEVEMENTS.length}
+                </span>
+              </div>
+              <span style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600 }}>
+                {t('achievements.viewAll')} {'\u2192'}
+              </span>
+            </div>
+            {achievementStats && (
+              <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
+                {ACHIEVEMENTS.map(a => {
+                  const unlocked = (achievementStats[a.stat] || 0) >= a.target
+                  return (
+                    <div key={a.key} style={{
+                      fontSize: '18px',
+                      filter: unlocked ? 'none' : 'grayscale(1)',
+                      opacity: unlocked ? 1 : 0.3,
+                    }}>{a.icon}</div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
 
           {/* Reminders */}
           {reminders.length > 0 && (

@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels } from '../lib/api'
 import { useTheme } from '../lib/theme'
-import { useLanguage, getCurrencySymbol } from '../lib/i18n'
+import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { exportToExcel, exportToPDF } from '../utils/export'
 
 function fmt(n) {
   if (n >= 1000) {
@@ -498,8 +499,11 @@ function TrailerBlock({ userId, theme }) {
 function TripsTab({ userId, refreshKey, theme }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
+  const unitSys = getUnits()
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportRef = useRef(null)
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -524,6 +528,44 @@ function TripsTab({ userId, refreshKey, theme }) {
       setEntries((prev) => prev.filter((e) => e.id !== id))
     } catch (err) {
       console.error('Failed to delete trip:', err)
+    }
+  }
+
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!showExportMenu) return
+    const handler = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setShowExportMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showExportMenu])
+
+  const handleExport = (format) => {
+    setShowExportMenu(false)
+    const distLabel = unitSys === 'imperial' ? 'mi' : t('trips.km')
+    const columns = [
+      { header: t('fuel.exportDate'), key: 'date' },
+      { header: t('trips.from'), key: 'from' },
+      { header: t('trips.to'), key: 'to' },
+      { header: `${t('trips.distance')} (${distLabel})`, key: 'distance' },
+      { header: `${t('trips.income')} (${cs})`, key: 'income' },
+    ]
+    const rows = entries.map(e => ({
+      date: formatDate(e.created_at),
+      from: e.origin || '',
+      to: e.destination || '',
+      distance: e.distance_km || 0,
+      income: e.income || 0,
+    }))
+    const now2 = new Date()
+    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+    if (format === 'excel') {
+      exportToExcel(rows, columns, `trips_report_${ym}.xlsx`)
+    } else {
+      exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`)
     }
   }
 
@@ -562,6 +604,75 @@ function TripsTab({ userId, refreshKey, theme }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ color: theme.dim, fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
           {t('trips.tripsHeader')}
+        </div>
+        <div ref={exportRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowExportMenu(v => !v)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '10px',
+              border: '1px solid ' + theme.border,
+              background: theme.card,
+              color: theme.text,
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {'\ud83d\udce5'} {t('fuel.export')}
+          </button>
+          {showExportMenu && (
+            <div style={{
+              position: 'absolute',
+              right: 0,
+              top: '100%',
+              marginTop: '6px',
+              background: theme.card,
+              border: '1px solid ' + theme.border,
+              borderRadius: '10px',
+              overflow: 'hidden',
+              zIndex: 50,
+              minWidth: '160px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            }}>
+              <button
+                onClick={() => handleExport('excel')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: theme.text,
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  borderTop: '1px solid ' + theme.border,
+                  background: 'transparent',
+                  color: theme.text,
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

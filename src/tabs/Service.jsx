@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, addRouteNote, deleteRouteNote, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import { supabase } from '../lib/supabase'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, getCurrencySymbol } from '../lib/i18n'
+import { exportToExcel, exportToPDF } from '../utils/export'
 
 function getSubTabs(t) {
   return [
@@ -246,6 +247,43 @@ export default function Service({ userId }) {
 /* ===== SERVICE TAB ===== */
 function ServiceTab({ repairs, insurance, odometer, loading }) {
   const { t } = useLanguage()
+  const cs = getCurrencySymbol()
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportRef = useRef(null)
+
+  useEffect(() => {
+    if (!showExportMenu) return
+    const handler = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setShowExportMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showExportMenu])
+
+  const handleExport = (format) => {
+    setShowExportMenu(false)
+    const columns = [
+      { header: t('fuel.exportDate'), key: 'date' },
+      { header: t('service.repair'), key: 'type' },
+      { header: t('fuel.exportDescription'), key: 'description' },
+      { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
+    ]
+    const rows = repairs.map(r => ({
+      date: r.date || '',
+      type: t('service.repair'),
+      description: r.description || r.name || '',
+      amount: Math.round(r.cost || 0),
+    }))
+    const now2 = new Date()
+    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+    if (format === 'excel') {
+      exportToExcel(rows, columns, `service_report_${ym}.xlsx`)
+    } else {
+      exportToPDF(rows, columns, t('service.repairHistory'), `service_report_${ym}.pdf`)
+    }
+  }
 
   if (loading) {
     return (
@@ -260,6 +298,78 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
 
   return (
     <>
+      {/* Export button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <div ref={exportRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowExportMenu(v => !v)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '10px',
+              border: '1px solid var(--border, #1e2a3f)',
+              background: 'var(--card, #111827)',
+              color: 'var(--text, #e2e8f0)',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {'\ud83d\udce5'} {t('fuel.export')}
+          </button>
+          {showExportMenu && (
+            <div style={{
+              position: 'absolute',
+              right: 0,
+              top: '100%',
+              marginTop: '6px',
+              background: 'var(--card, #111827)',
+              border: '1px solid var(--border, #1e2a3f)',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              zIndex: 50,
+              minWidth: '160px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            }}>
+              <button
+                onClick={() => handleExport('excel')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text, #e2e8f0)',
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  borderTop: '1px solid var(--border, #1e2a3f)',
+                  background: 'transparent',
+                  color: 'var(--text, #e2e8f0)',
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
         <div style={{ ...cardStyle, textAlign: 'center' }}>

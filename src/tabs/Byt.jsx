@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchBytExpenses, deleteBytExpense } from '../lib/api'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
+import { exportToExcel, exportToPDF } from '../utils/export'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -45,6 +46,8 @@ export default function Byt({ userId, refreshKey }) {
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportRef = useRef(null)
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -72,6 +75,44 @@ export default function Byt({ userId, refreshKey }) {
     }
   }
 
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!showExportMenu) return
+    const handler = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setShowExportMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showExportMenu])
+
+  const handleExport = (format) => {
+    setShowExportMenu(false)
+    const columns = [
+      { header: t('fuel.exportDate'), key: 'date' },
+      { header: t('fuel.exportCategory'), key: 'category' },
+      { header: t('fuel.exportDescription'), key: 'description' },
+      { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
+    ]
+    const rows = entries.map(e => {
+      const cat = getCat(e.category)
+      return {
+        date: e.date || '',
+        category: cat.label,
+        description: e.name || '',
+        amount: Math.round(e.amount || 0),
+      }
+    })
+    const now2 = new Date()
+    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+    if (format === 'excel') {
+      exportToExcel(rows, columns, `personal_expenses_${ym}.xlsx`)
+    } else {
+      exportToPDF(rows, columns, t('byt.personalExpenses'), `personal_expenses_${ym}.pdf`)
+    }
+  }
+
   const filtered = filter === 'all' ? entries : entries.filter(e => e.category === filter)
 
   // Totals by category (always from full data for pie chart)
@@ -92,9 +133,80 @@ export default function Byt({ userId, refreshKey }) {
 
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
-      <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: '0 0 16px 0' }}>
-        {t('byt.personalExpenses')}
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: 0 }}>
+          {t('byt.personalExpenses')}
+        </h2>
+        <div ref={exportRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowExportMenu(v => !v)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '10px',
+              border: '1px solid var(--border, #1e2a3f)',
+              background: 'var(--card, #111827)',
+              color: 'var(--text, #e2e8f0)',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {'\ud83d\udce5'} {t('fuel.export')}
+          </button>
+          {showExportMenu && (
+            <div style={{
+              position: 'absolute',
+              right: 0,
+              top: '100%',
+              marginTop: '6px',
+              background: 'var(--card, #111827)',
+              border: '1px solid var(--border, #1e2a3f)',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              zIndex: 50,
+              minWidth: '160px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            }}>
+              <button
+                onClick={() => handleExport('excel')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text, #e2e8f0)',
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  borderTop: '1px solid var(--border, #1e2a3f)',
+                  background: 'transparent',
+                  color: 'var(--text, #e2e8f0)',
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
       {/* Pie chart + legend */}
       {grandTotal > 0 && (
         <div style={{

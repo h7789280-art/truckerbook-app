@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData } from '../lib/api'
+import { exportToExcel, exportToPDF } from '../utils/export'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -93,6 +94,55 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [salaryRate, setSalaryRate] = useState(() => {
     try { return parseFloat(localStorage.getItem('tb_salary_rate')) || 15 } catch { return 15 }
   })
+  const [showFleetExportMenu, setShowFleetExportMenu] = useState(false)
+  const fleetExportRef = useRef(null)
+
+  // Close fleet export menu on outside click
+  useEffect(() => {
+    if (!showFleetExportMenu) return
+    const handler = (e) => {
+      if (fleetExportRef.current && !fleetExportRef.current.contains(e.target)) {
+        setShowFleetExportMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showFleetExportMenu])
+
+  const handleFleetExport = (format) => {
+    setShowFleetExportMenu(false)
+    if (!fleetData) return
+    const distLabel = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
+    const columns = [
+      { header: t('overview.fleetDriver'), key: 'vehicle' },
+      { header: t('overview.fleetDriver'), key: 'driver' },
+      { header: t('overview.fleetFuel') + ' (' + cs + ')', key: 'fuel' },
+      { header: t('overview.fleetTrips'), key: 'trips' },
+      { header: distLabel, key: 'km' },
+      { header: t('overview.fleetIncome') + ' (' + cs + ')', key: 'income' },
+      { header: t('overview.fleetExpense') + ' (' + cs + ')', key: 'expense' },
+      { header: t('overview.netProfit') + ' (' + cs + ')', key: 'profit' },
+    ]
+    // Fix first column header
+    columns[0].header = t('overview.fleetVehicles')
+    const rows = fleetData.vehicleStats.map(v => ({
+      vehicle: `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim(),
+      driver: v.driver_name || '',
+      fuel: Math.round(v.monthFuelCost || 0),
+      trips: v.monthTrips || 0,
+      km: Math.round(v.monthKm || 0),
+      income: Math.round(v.monthIncome || 0),
+      expense: Math.round(v.monthExpenses || 0),
+      profit: Math.round((v.monthIncome || 0) - (v.monthExpenses || 0)),
+    }))
+    const now2 = new Date()
+    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+    if (format === 'excel') {
+      exportToExcel(rows, columns, `fleet_report_${ym}.xlsx`)
+    } else {
+      exportToPDF(rows, columns, t('overview.fleetPanel'), `fleet_report_${ym}.pdf`)
+    }
+  }
 
   useEffect(() => {
     if (userName) { setProfileName(userName); return }
@@ -751,7 +801,78 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       {/* Fleet panel — only for company role with 2+ vehicles */}
       {fleetData && profile?.role === 'company' && (
         <div style={{ marginBottom: '12px' }}>
-          <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83c\udfe2'} {t('overview.fleetPanel')}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <div style={dimText}>{'\ud83c\udfe2'} {t('overview.fleetPanel')}</div>
+            <div ref={fleetExportRef} style={{ position: 'relative' }}>
+              <button
+                onClick={() => setShowFleetExportMenu(v => !v)}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                }}
+              >
+                {'\ud83d\udce5'} {t('fuel.export')}
+              </button>
+              {showFleetExportMenu && (
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: '6px',
+                  background: theme.card,
+                  border: '1px solid ' + theme.border,
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  zIndex: 50,
+                  minWidth: '160px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                }}>
+                  <button
+                    onClick={() => handleFleetExport('excel')}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: theme.text,
+                      fontSize: '14px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+                  </button>
+                  <button
+                    onClick={() => handleFleetExport('pdf')}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '12px 16px',
+                      border: 'none',
+                      borderTop: '1px solid ' + theme.border,
+                      background: 'transparent',
+                      color: theme.text,
+                      fontSize: '14px',
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
           {/* Summary cards — horizontal scroll */}
           <div style={{
             display: 'flex',

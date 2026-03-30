@@ -12,6 +12,13 @@ const DEFAULT_CENTERS = {
   KZ: [51.1694, 71.4491],
 }
 
+const AD_STATUS_STYLES = {
+  pending: { bg: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b' },
+  active: { bg: 'rgba(34, 197, 94, 0.15)', color: '#22c55e' },
+  paused: { bg: 'rgba(100, 116, 139, 0.15)', color: '#64748b' },
+  expired: { bg: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' },
+}
+
 export default function Marketplace() {
   const { theme } = useTheme()
   const { t, lang } = useLanguage()
@@ -22,11 +29,32 @@ export default function Marketplace() {
   const [selectedAd, setSelectedAd] = useState(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [viewMode, setViewMode] = useState('list')
+  const [currentUserId, setCurrentUserId] = useState(null)
+  const [userRole, setUserRole] = useState(null)
   const mapContainerRef = useRef(null)
   const mapInstanceRef = useRef(null)
   const markersRef = useRef([])
 
   const country = localStorage.getItem('truckerbook_country') || 'RU'
+
+  // Load current user info
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          setCurrentUserId(user.id)
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+          if (profile) setUserRole(profile.role)
+        }
+      } catch {}
+    }
+    loadUser()
+  }, [])
 
   const loadCategories = useCallback(async () => {
     try {
@@ -40,14 +68,55 @@ export default function Marketplace() {
   const loadAds = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await fetchAds(country, selectedCategory === 'all' ? null : selectedCategory)
-      setAds(data)
+      const publicAds = await fetchAds(country, selectedCategory === 'all' ? null : selectedCategory)
+
+      if (currentUserId && userRole === 'company') {
+        // Fetch advertiser's own ads (all statuses)
+        let ownQuery = supabase
+          .from('ads')
+          .select('*')
+          .eq('advertiser_id', currentUserId)
+          .neq('status', 'active')
+          .in('country', [country, 'ALL'])
+          .order('created_at', { ascending: false })
+        if (selectedCategory !== 'all') {
+          const { data: catData } = await supabase
+            .from('ad_categories')
+            .select('id')
+            .eq('key', selectedCategory)
+            .single()
+          if (catData) {
+            ownQuery = ownQuery.eq('category_id', catData.id)
+          }
+        }
+        const { data: ownAds } = await ownQuery
+        if (ownAds && ownAds.length > 0) {
+          // Mark own ads and merge: own non-active + public active (mark own active ones too)
+          const ownIds = new Set(ownAds.map(a => a.id))
+          const markedPublic = publicAds.map(a => ({
+            ...a,
+            _isOwn: a.advertiser_id === currentUserId,
+          }))
+          const markedOwn = ownAds.map(a => ({ ...a, _isOwn: true }))
+          // Avoid duplicates
+          const merged = [...markedPublic.filter(a => !ownIds.has(a.id)), ...markedOwn]
+          // Sort: premium first, then by created_at desc
+          merged.sort((a, b) => {
+            if (a.is_premium !== b.is_premium) return a.is_premium ? -1 : 1
+            return new Date(b.created_at) - new Date(a.created_at)
+          })
+          setAds(merged)
+          return
+        }
+      }
+
+      setAds(publicAds)
     } catch (err) {
       console.error('Failed to load ads:', err)
     } finally {
       setLoading(false)
     }
-  }, [country, selectedCategory])
+  }, [country, selectedCategory, currentUserId, userRole])
 
   useEffect(() => {
     loadCategories()
@@ -235,9 +304,21 @@ export default function Marketplace() {
             display: 'inline-block', fontSize: 11, fontWeight: 700,
             padding: '3px 10px', borderRadius: 10,
             background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b',
-            marginBottom: 12,
+            marginBottom: 12, marginRight: 8,
           }}>
             {'\u2B50'} {t('marketplace.premium')}
+          </span>
+        )}
+
+        {selectedAd._isOwn && selectedAd.status && AD_STATUS_STYLES[selectedAd.status] && (
+          <span style={{
+            display: 'inline-block', fontSize: 11, fontWeight: 700,
+            padding: '3px 10px', borderRadius: 10,
+            background: AD_STATUS_STYLES[selectedAd.status].bg,
+            color: AD_STATUS_STYLES[selectedAd.status].color,
+            marginBottom: 12,
+          }}>
+            {t('marketplace.status_' + selectedAd.status)}
           </span>
         )}
 
@@ -471,6 +552,20 @@ export default function Marketplace() {
                         backdropFilter: 'blur(4px)',
                       }}>
                         {'\u2B50'} {t('marketplace.premium')}
+                      </span>
+                    )}
+
+                    {ad._isOwn && ad.status && AD_STATUS_STYLES[ad.status] && (
+                      <span style={{
+                        position: 'absolute', top: ad.is_premium ? 34 : 10, right: 10, zIndex: 2,
+                        fontSize: 11, fontWeight: 700, padding: '3px 10px',
+                        borderRadius: 10,
+                        background: AD_STATUS_STYLES[ad.status].bg,
+                        color: AD_STATUS_STYLES[ad.status].color,
+                        whiteSpace: 'nowrap',
+                        backdropFilter: 'blur(4px)',
+                      }}>
+                        {t('marketplace.status_' + ad.status)}
                       </span>
                     )}
 

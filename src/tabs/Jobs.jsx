@@ -1536,7 +1536,7 @@ export default function Jobs({ refreshKey, profile }) {
                       borderRadius: 14,
                       padding: '16px',
                       border: isPremium
-                        ? '2px solid #f59e0b'
+                        ? '1px solid #f59e0b'
                         : '1px solid ' + theme.border,
                       cursor: 'pointer',
                     }}
@@ -1552,12 +1552,16 @@ export default function Jobs({ refreshKey, profile }) {
                       }}>
                         {job.title}
                       </h3>
-                      <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
                         {job.truck_provided && (
                           <span title={t('jobs.truckProvided')} style={{ fontSize: 16 }}>{'\uD83D\uDE9B'}</span>
                         )}
                         {isPremium && (
-                          <span title={t('jobs.premium')} style={{ fontSize: 16 }}>{'\u2B50'}</span>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, color: '#f59e0b',
+                            background: 'rgba(245,158,11,0.12)', borderRadius: 6,
+                            padding: '2px 7px', whiteSpace: 'nowrap',
+                          }}>{'\u2B50'} Premium</span>
                         )}
                       </div>
                     </div>

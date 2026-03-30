@@ -1316,6 +1316,192 @@ function MapTab({ userId, routeNotes, onReload }) {
   )
 }
 
+/* ===== BOL SECTION ===== */
+function BolSection({ userId }) {
+  const { t } = useLanguage()
+  const [bolFiles, setBolFiles] = useState([])
+  const [loadingBol, setLoadingBol] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const bolInputRef = useRef(null)
+
+  const loadBolFiles = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoadingBol(true)
+      const { data, error } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'bol')
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      setBolFiles(data || [])
+    } catch (err) {
+      console.error('loadBolFiles error:', err)
+    } finally {
+      setLoadingBol(false)
+    }
+  }, [userId])
+
+  useEffect(() => { loadBolFiles() }, [loadBolFiles])
+
+  const handleBolUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file || !userId) return
+    e.target.value = ''
+    setUploading(true)
+    try {
+      const timestamp = Date.now()
+      const path = `${userId}/bol/${timestamp}_${file.name}`
+      const { error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(path, file, { contentType: file.type || 'application/octet-stream' })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(path)
+      const fileUrl = urlData.publicUrl
+      const { error: dbError } = await supabase
+        .from('documents')
+        .insert({
+          user_id: userId,
+          type: 'bol',
+          title: file.name,
+          file_url: fileUrl,
+          storage_path: path,
+          notes: '',
+        })
+      if (dbError) throw dbError
+      loadBolFiles()
+    } catch (err) {
+      console.error('BOL upload error:', err)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleDeleteBol = async (bol) => {
+    if (!confirm(t('service.deleteDoc'))) return
+    try {
+      if (bol.storage_path) {
+        await supabase.storage.from('receipts').remove([bol.storage_path])
+      }
+      await supabase.from('documents').delete().eq('id', bol.id)
+      setBolFiles(prev => prev.filter(b => b.id !== bol.id))
+    } catch (err) {
+      console.error('delete BOL error:', err)
+    }
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
+  const cardStyle = {
+    background: 'var(--card)',
+    border: '1px solid var(--border)',
+    borderRadius: '12px',
+    padding: '14px',
+  }
+
+  return (
+    <>
+      <input
+        ref={bolInputRef}
+        type="file"
+        accept="image/*,.pdf"
+        onChange={handleBolUpload}
+        style={{ display: 'none' }}
+      />
+      <button
+        onClick={() => bolInputRef.current?.click()}
+        disabled={uploading}
+        style={{
+          width: '100%',
+          padding: '14px',
+          borderRadius: '12px',
+          border: 'none',
+          background: uploading ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+          color: uploading ? 'var(--dim)' : '#000',
+          fontSize: '15px',
+          fontWeight: 700,
+          cursor: uploading ? 'default' : 'pointer',
+          marginBottom: '16px',
+        }}
+      >
+        {uploading ? t('common.loading') : '\uD83D\uDCE5 ' + t('service.uploadBol')}
+      </button>
+
+      {loadingBol ? (
+        <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--dim)', fontSize: 14 }}>
+          {t('common.loading')}
+        </div>
+      ) : bolFiles.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
+          {t('service.noBol')}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+          {bolFiles.map(bol => (
+            <div key={bol.id} style={cardStyle}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{
+                  width: '48px', height: '48px', backgroundColor: 'var(--card2)',
+                  borderRadius: '10px', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: '22px', flexShrink: 0, overflow: 'hidden',
+                }}>
+                  {bol.file_url && (bol.title || '').toLowerCase().endsWith('.pdf')
+                    ? '\uD83D\uDCC4'
+                    : bol.file_url
+                      ? <img src={bol.file_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : '\uD83D\uDCE6'
+                  }
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {bol.title || 'BOL'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
+                    {formatDate(bol.created_at)}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                  <a
+                    href={bol.file_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    download
+                    style={{
+                      padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--border)',
+                      background: 'var(--card2)', color: '#3b82f6', fontSize: '11px', fontWeight: 600,
+                      textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '4px',
+                    }}
+                  >
+                    {'\u2B07\uFE0F ' + t('service.downloadBol')}
+                  </a>
+                  <button
+                    onClick={() => handleDeleteBol(bol)}
+                    style={{
+                      padding: '6px 10px', borderRadius: '8px',
+                      border: '1px solid #ef444440', background: '#ef444415',
+                      color: '#ef4444', fontSize: '11px', fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {'\uD83D\uDDD1\uFE0F'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 /* ===== DOCS TAB ===== */
 function DocsTab({ userId }) {
   const { t } = useLanguage()
@@ -1546,6 +1732,13 @@ function DocsTab({ userId }) {
           onSaved={() => { setShowDocModal(false); loadDocs() }}
         />
       )}
+
+      {/* ===== BOL FILES SECTION ===== */}
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
+        {'\uD83D\uDCE6 ' + t('service.bolFiles')}
+      </div>
+
+      <BolSection userId={userId} />
 
       {/* ===== VEHICLE INSPECTION PHOTOS SECTION ===== */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>

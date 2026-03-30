@@ -1160,6 +1160,56 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                             <span style={{ fontSize: '14px', fontWeight: 700 }}>{t('overview.salaryTotal')}</span>
                             <span style={{ fontSize: '18px', fontFamily: 'monospace', fontWeight: 700, color: '#f59e0b' }}>{formatNumber(Math.round(totalPayroll))} {cs}</span>
                           </div>
+                          {/* Export salary report */}
+                          <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                            {['excel', 'pdf'].map(fmt => (
+                              <button
+                                key={fmt}
+                                onClick={() => {
+                                  const distLabel = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
+                                  const modeLabel = salaryMode === 'per_km' ? (unitSys === 'imperial' ? t('overview.salaryPerMile') : t('overview.salaryPerKm')) : salaryMode === 'percent' ? t('overview.salaryPercent') : t('overview.salaryFixed')
+                                  const columns = [
+                                    { header: t('overview.salaryDriverName'), key: 'name' },
+                                    { header: t('overview.salaryTrips'), key: 'trips' },
+                                    { header: distLabel, key: 'km' },
+                                    { header: t('overview.salaryCalcMode'), key: 'mode' },
+                                    { header: t('overview.salaryRate'), key: 'rate' },
+                                    { header: t('overview.salarySalary') + ' (' + cs + ')', key: 'salary' },
+                                  ]
+                                  const rows = salaryData.map(d => ({
+                                    name: d.name,
+                                    trips: d.trips,
+                                    km: Math.round(d.km),
+                                    mode: modeLabel,
+                                    rate: salaryMode === 'percent' ? salaryRate + '%' : salaryRate + ' ' + cs,
+                                    salary: Math.round(calcSalary(d)),
+                                  }))
+                                  rows.push({
+                                    name: t('overview.salaryTotal'),
+                                    trips: '',
+                                    km: '',
+                                    mode: '',
+                                    rate: '',
+                                    salary: Math.round(totalPayroll),
+                                  })
+                                  const now2 = new Date()
+                                  const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+                                  if (fmt === 'excel') {
+                                    exportToExcel(rows, columns, `salary_report_${ym}.xlsx`)
+                                  } else {
+                                    exportToPDF(rows, columns, t('overview.exportSalary'), `salary_report_${ym}.pdf`)
+                                  }
+                                }}
+                                style={{
+                                  flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid ' + theme.border,
+                                  background: theme.card2, color: theme.text, fontSize: '12px', fontWeight: 600,
+                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                                }}
+                              >
+                                {'\uD83D\uDCE5 ' + t('overview.exportSalary') + ' ' + fmt.toUpperCase()}
+                              </button>
+                            ))}
+                          </div>
                         </>
                       )
                     })() : (

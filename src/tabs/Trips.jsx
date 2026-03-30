@@ -1026,6 +1026,72 @@ function IFTATab({ userId, theme }) {
           {t('trips.addStateMiles')}
         </button>
       </div>
+
+      {/* Export IFTA */}
+      {allStates.length > 0 && (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {['excel', 'pdf'].map(fmt => (
+            <button
+              key={fmt}
+              onClick={() => {
+                const columns = [
+                  { header: t('trips.state'), key: 'state' },
+                  { header: t('trips.gallons'), key: 'gallons' },
+                  { header: t('trips.miles'), key: 'miles' },
+                  { header: t('trips.taxRate'), key: 'taxRate' },
+                  { header: t('trips.taxableGallons'), key: 'taxableGallons' },
+                  { header: t('trips.taxOwed'), key: 'taxOwed' },
+                ]
+                const rows = allStates.map(st => {
+                  const gallons = gallonsByState[st] || 0
+                  const miles = parseFloat(stateMiles[st]) || 0
+                  const rate = parseFloat(taxRates[st]) || DEFAULT_TAX_RATE
+                  const taxableGal = overallMpg > 0 ? miles / overallMpg : 0
+                  const taxO = (taxableGal - gallons) * rate
+                  return {
+                    state: st,
+                    gallons: gallons.toFixed(1),
+                    miles: miles.toLocaleString('en-US'),
+                    taxRate: '$' + rate.toFixed(2),
+                    taxableGallons: taxableGal.toFixed(1),
+                    taxOwed: (taxO >= 0 ? '' : '-') + '$' + Math.abs(taxO).toFixed(2),
+                  }
+                })
+                const totalTax = allStates.reduce((s, st) => {
+                  const miles = parseFloat(stateMiles[st]) || 0
+                  if (miles === 0) return s
+                  const g = gallonsByState[st] || 0
+                  const r = parseFloat(taxRates[st]) || DEFAULT_TAX_RATE
+                  const tg = overallMpg > 0 ? miles / overallMpg : 0
+                  return s + (tg - g) * r
+                }, 0)
+                rows.push({
+                  state: 'TOTAL',
+                  gallons: totalGallons.toFixed(1),
+                  miles: totalMiles.toLocaleString('en-US'),
+                  taxRate: overallMpg > 0 ? overallMpg.toFixed(2) + ' mpg' : '\u2014',
+                  taxableGallons: '',
+                  taxOwed: (totalTax >= 0 ? '' : '-') + '$' + Math.abs(totalTax).toFixed(2),
+                })
+                const title = t('trips.iftaReportTitle') + ' Q' + quarter + ' ' + year
+                const fn = `ifta_report_${year}_Q${quarter}`
+                if (fmt === 'excel') {
+                  exportToExcel(rows, columns, fn + '.xlsx')
+                } else {
+                  exportToPDF(rows, columns, title, fn + '.pdf')
+                }
+              }}
+              style={{
+                flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid ' + theme.border,
+                background: theme.card, color: theme.text, fontSize: '13px', fontWeight: 600,
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              }}
+            >
+              {'\uD83D\uDCE5 ' + t('trips.exportIfta') + ' ' + fmt.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

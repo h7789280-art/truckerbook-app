@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchFuels, deleteFuel, fetchVehicleExpenses, deleteVehicleExpense } from '../lib/api'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { exportToExcel, exportToPDF } from '../utils/export'
 
 function formatNumber(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -54,6 +55,8 @@ export default function Fuel({ userId, refreshKey }) {
   const [vehicleExpenses, setVehicleExpenses] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [showExportMenu, setShowExportMenu] = useState(false)
+  const exportRef = useRef(null)
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -91,6 +94,47 @@ export default function Fuel({ userId, refreshKey }) {
       setVehicleExpenses((prev) => prev.filter((e) => e.id !== id))
     } catch (err) {
       console.error('Failed to delete vehicle expense:', err)
+    }
+  }
+
+  // Close export menu on outside click
+  useEffect(() => {
+    if (!showExportMenu) return
+    const handler = (e) => {
+      if (exportRef.current && !exportRef.current.contains(e.target)) {
+        setShowExportMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showExportMenu])
+
+  const handleExport = (format) => {
+    setShowExportMenu(false)
+    const volLabel = unitSys === 'imperial' ? 'gal' : t('fuel.exportVolume')
+    const distLabel = unitSys === 'imperial' ? 'mi' : t('trips.km')
+    const columns = [
+      { header: t('fuel.exportDate'), key: 'date' },
+      { header: t('fuel.exportDescription'), key: 'description' },
+      { header: t('fuel.exportCategory'), key: 'category' },
+      { header: volLabel, key: 'volume' },
+      { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
+      { header: `${t('fuel.exportOdometer')} (${distLabel})`, key: 'odometer' },
+    ]
+    const rows = monthEntries.map(e => ({
+      date: e.date || '',
+      description: e.name || '',
+      category: getCat(e.category).label,
+      volume: e.source === 'fuel' ? (fuelEntries.find(f => f.id === e.id)?.liters || '') : '',
+      amount: Math.round(e.amount),
+      odometer: e.source === 'fuel' ? (fuelEntries.find(f => f.id === e.id)?.odometer || '') : '',
+    }))
+    const now2 = new Date()
+    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+    if (format === 'excel') {
+      exportToExcel(rows, columns, `fuel_report_${ym}.xlsx`)
+    } else {
+      exportToPDF(rows, columns, t('fuel.exportTitle'), `fuel_report_${ym}.pdf`)
     }
   }
 
@@ -143,9 +187,80 @@ export default function Fuel({ userId, refreshKey }) {
 
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
-      <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: '0 0 16px 0' }}>
-        {t('fuel.vehicleExpenses')}
-      </h2>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+        <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: 0 }}>
+          {t('fuel.vehicleExpenses')}
+        </h2>
+        <div ref={exportRef} style={{ position: 'relative' }}>
+          <button
+            onClick={() => setShowExportMenu(v => !v)}
+            style={{
+              padding: '8px 14px',
+              borderRadius: '10px',
+              border: '1px solid var(--border, #1e2a3f)',
+              background: 'var(--card, #111827)',
+              color: 'var(--text, #e2e8f0)',
+              fontSize: '13px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+            }}
+          >
+            {'\ud83d\udce5'} {t('fuel.export')}
+          </button>
+          {showExportMenu && (
+            <div style={{
+              position: 'absolute',
+              right: 0,
+              top: '100%',
+              marginTop: '6px',
+              background: 'var(--card, #111827)',
+              border: '1px solid var(--border, #1e2a3f)',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              zIndex: 50,
+              minWidth: '160px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+            }}>
+              <button
+                onClick={() => handleExport('excel')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: 'transparent',
+                  color: 'var(--text, #e2e8f0)',
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+              </button>
+              <button
+                onClick={() => handleExport('pdf')}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  padding: '12px 16px',
+                  border: 'none',
+                  borderTop: '1px solid var(--border, #1e2a3f)',
+                  background: 'transparent',
+                  color: 'var(--text, #e2e8f0)',
+                  fontSize: '14px',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                }}
+              >
+                {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Summary cards */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>

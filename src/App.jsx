@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useOffline } from './hooks/useOffline'
@@ -17,6 +17,7 @@ import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import PinLock from './components/PinLock'
 import FAB from './components/FAB'
+import { requestPermission, isPermissionGranted } from './lib/notifications'
 import AddModal from './components/AddModal'
 import ProfileScreen from './components/ProfileScreen'
 import Paywall from './components/Paywall'
@@ -221,6 +222,12 @@ function AppInner() {
   const [vehicleSaving, setVehicleSaving] = useState(false)
   const [vehicleError, setVehicleError] = useState('')
   const [showWelcome, setShowWelcome] = useState(false)
+
+  useEffect(() => {
+    if (session && pinUnlocked && !isPermissionGranted()) {
+      requestPermission()
+    }
+  }, [session, pinUnlocked])
 
   const handleFuelSaved = useCallback(() => {
     setFuelRefreshKey((k) => k + 1)

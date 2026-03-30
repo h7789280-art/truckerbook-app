@@ -8,6 +8,7 @@ import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
 import DispatchBoard from '../components/DispatchBoard'
 import AIForecast from '../components/AIForecast'
+import { scheduleHOSWarning, scheduleMaintenanceReminder, scheduleTrialExpiry } from '../lib/notifications'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -254,6 +255,18 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           }
         }
       })
+      // Maintenance reminders from service_records (next_service_date within 7 days)
+      const in7days = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+      serviceRecs.forEach(rec => {
+        if (rec.next_service_date) {
+          const nsd = new Date(rec.next_service_date)
+          if (nsd >= today && nsd <= in7days) {
+            const vName = profile?.brand ? (profile.brand + ' ' + (profile.model || '')) : ''
+            scheduleMaintenanceReminder(vName.trim(), rec.description || rec.service_type || '', t)
+          }
+        }
+      })
+
       setReminders(reminderList)
 
       // Load fleet data for company role
@@ -511,13 +524,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           if (hosMode === 'cis') {
             if (next === 30600) { // 8h30m
               setHosWarning('\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C 30 \u043C\u0438\u043D\u0443\u0442 \u0434\u043E \u043B\u0438\u043C\u0438\u0442\u0430! \u041F\u043B\u0430\u043D\u0438\u0440\u0443\u0439\u0442\u0435 \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0443.')
+              scheduleHOSWarning(30, t)
             }
           } else {
             if (next === 27000) { // 7h30m
               setHosWarning('\u26A0\uFE0F \u0427\u0435\u0440\u0435\u0437 30 \u043C\u0438\u043D \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u043F\u0435\u0440\u0435\u0440\u044B\u0432 30 \u043C\u0438\u043D\u0443\u0442 (DOT)')
+              scheduleHOSWarning(30, t)
             }
             if (next === 37800) { // 10h30m
               setHosWarning('\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C 30 \u043C\u0438\u043D\u0443\u0442 \u0434\u043E \u0441\u0443\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u043B\u0438\u043C\u0438\u0442\u0430!')
+              scheduleHOSWarning(30, t)
             }
           }
           if (next >= hosMaxSeconds) {
@@ -816,6 +832,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       {profile?.plan === 'trial' && profile?.trial_ends_at && (() => {
         const daysLeft = Math.max(0, Math.ceil((new Date(profile.trial_ends_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
         const isUrgent = daysLeft <= 2
+        if (isUrgent && daysLeft > 0) {
+          scheduleTrialExpiry(daysLeft, t)
+        }
         return (
           <div
             onClick={() => alert(t('overview.paymentSoon'))}

@@ -768,6 +768,13 @@ const translations = {
       punctual: '\u041f\u0443\u043d\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u044b\u0439',
       punctualDesc: '20 \u0441\u043c\u0435\u043d \u0441 HOS',
     },
+    forecast: {
+      title: 'AI-\u043f\u0440\u043e\u0433\u043d\u043e\u0437',
+      update: '\u041e\u0431\u043d\u043e\u0432\u0438\u0442\u044c',
+      loading: '\u0410\u043d\u0430\u043b\u0438\u0437 \u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432...',
+      noData: '\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0434\u0430\u043d\u043d\u044b\u0445 \u0434\u043b\u044f \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0430. \u0417\u0430\u043f\u0438\u0441\u044b\u0432\u0430\u0439\u0442\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b \u043c\u0438\u043d\u0438\u043c\u0443\u043c 3 \u043c\u0435\u0441\u044f\u0446\u0430.',
+      updatedAt: '\u041e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u043e',
+    },
   },
   en: {
     tabs: {
@@ -1536,6 +1543,13 @@ const translations = {
       punctual: 'Punctual',
       punctualDesc: '20 shifts with HOS',
     },
+    forecast: {
+      title: 'AI Forecast',
+      update: 'Update',
+      loading: 'Analyzing expenses...',
+      noData: 'Not enough data for forecast. Record expenses for at least 3 months.',
+      updatedAt: 'Updated',
+    },
   },
   uk: {
     tabs: {
@@ -2303,6 +2317,13 @@ const translations = {
       punctual: '\u041f\u0443\u043d\u043a\u0442\u0443\u0430\u043b\u044c\u043d\u0438\u0439',
       punctualDesc: '20 \u0437\u043c\u0456\u043d \u0437 HOS',
     },
+    forecast: {
+      title: 'AI-\u043f\u0440\u043e\u0433\u043d\u043e\u0437',
+      update: '\u041e\u043d\u043e\u0432\u0438\u0442\u0438',
+      loading: '\u0410\u043d\u0430\u043b\u0456\u0437 \u0432\u0438\u0442\u0440\u0430\u0442...',
+      noData: '\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043d\u044c\u043e \u0434\u0430\u043d\u0438\u0445 \u0434\u043b\u044f \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0443. \u0417\u0430\u043f\u0438\u0441\u0443\u0439\u0442\u0435 \u0432\u0438\u0442\u0440\u0430\u0442\u0438 \u043c\u0456\u043d\u0456\u043c\u0443\u043c 3 \u043c\u0456\u0441\u044f\u0446\u0456.',
+      updatedAt: '\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e',
+    },
   },
   es: {
     tabs: {
@@ -3065,6 +3086,13 @@ const translations = {
       globeDesc: 'Viajes a 3+ ciudades',
       punctual: 'Puntual',
       punctualDesc: '20 turnos con HOS',
+    },
+    forecast: {
+      title: 'IA Pron\u00f3stico',
+      update: 'Actualizar',
+      loading: 'Analizando gastos...',
+      noData: 'Datos insuficientes para el pron\u00f3stico. Registre gastos durante al menos 3 meses.',
+      updatedAt: 'Actualizado',
     },
   },
   de: {
@@ -3829,6 +3857,13 @@ const translations = {
       punctual: 'P\u00fcnktlich',
       punctualDesc: '20 Schichten mit HOS',
     },
+    forecast: {
+      title: 'KI-Prognose',
+      update: 'Aktualisieren',
+      loading: 'Ausgaben analysieren...',
+      noData: 'Nicht gen\u00fcgend Daten f\u00fcr die Prognose. Erfassen Sie Ausgaben mindestens 3 Monate.',
+      updatedAt: 'Aktualisiert',
+    },
   },
   fr: {
     tabs: {
@@ -4591,6 +4626,13 @@ const translations = {
       globeDesc: 'Trajets vers 3+ villes',
       punctual: 'Ponctuel',
       punctualDesc: '20 quarts avec HOS',
+    },
+    forecast: {
+      title: 'Pr\u00e9vision IA',
+      update: 'Actualiser',
+      loading: 'Analyse des d\u00e9penses...',
+      noData: 'Donn\u00e9es insuffisantes pour la pr\u00e9vision. Enregistrez vos d\u00e9penses pendant au moins 3 mois.',
+      updatedAt: 'Mis \u00e0 jour',
     },
   },
   tr: {
@@ -5355,6 +5397,13 @@ const translations = {
       punctual: 'Dakik',
       punctualDesc: '20 vardiya HOS ile',
     },
+    forecast: {
+      title: 'AI Tahmin',
+      update: 'G\u00fcncelle',
+      loading: 'Harcamalar analiz ediliyor...',
+      noData: 'Tahmin i\u00e7in yeterli veri yok. En az 3 ay harcama kaydedin.',
+      updatedAt: 'G\u00fcncellendi',
+    },
   },
   pl: {
     tabs: {
@@ -6117,6 +6166,13 @@ const translations = {
       globeDesc: 'Kursy do 3+ miast',
       punctual: 'Punktualny',
       punctualDesc: '20 zmian z HOS',
+    },
+    forecast: {
+      title: 'Prognoza AI',
+      update: 'Od\u015bwie\u017c',
+      loading: 'Analiza wydatk\u00f3w...',
+      noData: 'Za ma\u0142o danych do prognozy. Rejestruj wydatki przez co najmniej 3 miesi\u0105ce.',
+      updatedAt: 'Zaktualizowano',
     },
   },
 }

@@ -7,6 +7,7 @@ import { exportToExcel, exportToPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
 import DispatchBoard from '../components/DispatchBoard'
+import AIForecast from '../components/AIForecast'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -1991,6 +1992,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             </div>
           )}
+
+          {/* AI Forecast */}
+          <AIForecast userId={userId} activeVehicleId={activeVehicleId} />
 
           {/* Achievements preview */}
           <div

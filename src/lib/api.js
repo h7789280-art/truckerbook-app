@@ -1617,3 +1617,36 @@ export async function fetchDispatchBoard(userId) {
 
   return { vehicles: result }
 }
+
+// --- GPS Waypoints ---
+
+export async function insertWaypoint(row) {
+  if (!navigator.onLine) return offlineInsert('trip_waypoints', row)
+  const { data, error } = await supabase
+    .from('trip_waypoints')
+    .insert(row)
+    .select()
+  if (error) {
+    console.error('insertWaypoint error:', error)
+    throw error
+  }
+  return data
+}
+
+export async function fetchWaypoints(tripId) {
+  const { data, error } = await supabase
+    .from('trip_waypoints')
+    .select('*')
+    .eq('trip_id', tripId)
+    .order('recorded_at', { ascending: true })
+  if (error) throw error
+  return data || []
+}
+
+export async function updateTripTracking(tripId, isTracking) {
+  const { error } = await supabase
+    .from('trips')
+    .update({ is_tracking: isTracking })
+    .eq('id', tripId)
+  if (error) throw error
+}

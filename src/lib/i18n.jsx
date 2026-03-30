@@ -188,6 +188,14 @@ const translations = {
       deadhead: '\u041f\u043e\u0440\u043e\u0436\u043d\u0438\u0439',
       costPerKmTotal: '\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c/\u043a\u043c (\u043e\u0431\u0449\u0438\u0439)',
     },
+    gps: {
+      startTracking: '\u041d\u0430\u0447\u0430\u0442\u044c \u0442\u0440\u0435\u043a\u0438\u043d\u0433',
+      stopTracking: '\u041e\u0441\u0442\u0430\u043d\u043e\u0432\u0438\u0442\u044c \u0442\u0440\u0435\u043a\u0438\u043d\u0433',
+      tracking: 'GPS \u0442\u0440\u0435\u043a\u0438\u043d\u0433',
+      showRoute: '\u041c\u0430\u0440\u0448\u0440\u0443\u0442',
+      noRoute: '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u0430',
+      permissionDenied: '\u0414\u043e\u0441\u0442\u0443\u043f \u043a GPS \u0437\u0430\u043f\u0440\u0435\u0449\u0451\u043d',
+    },
     service: {
       service: '\u0421\u0435\u0440\u0432\u0438\u0441',
       tires: '\u0428\u0438\u043d\u044b',
@@ -969,6 +977,14 @@ const translations = {
       taxableGallons: 'Taxable Gal.',
       deadhead: 'Deadhead',
       costPerKmTotal: 'Rate/mi (total)',
+    },
+    gps: {
+      startTracking: 'Start tracking',
+      stopTracking: 'Stop tracking',
+      tracking: 'GPS tracking',
+      showRoute: 'Route',
+      noRoute: 'No route data',
+      permissionDenied: 'GPS access denied',
     },
     service: {
       service: 'Service',
@@ -1752,6 +1768,14 @@ const translations = {
       deadhead: '\u041f\u043e\u0440\u043e\u0436\u043d\u0456\u0439',
       costPerKmTotal: '\u0412\u0430\u0440\u0442\u0456\u0441\u0442\u044c/\u043a\u043c (\u0437\u0430\u0433\u0430\u043b\u044c\u043d\u0438\u0439)',
     },
+    gps: {
+      startTracking: '\u041f\u043e\u0447\u0430\u0442\u0438 \u0442\u0440\u0435\u043a\u0456\u043d\u0433',
+      stopTracking: '\u0417\u0443\u043f\u0438\u043d\u0438\u0442\u0438 \u0442\u0440\u0435\u043a\u0456\u043d\u0433',
+      tracking: 'GPS \u0442\u0440\u0435\u043a\u0456\u043d\u0433',
+      showRoute: '\u041c\u0430\u0440\u0448\u0440\u0443\u0442',
+      noRoute: '\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445 \u043c\u0430\u0440\u0448\u0440\u0443\u0442\u0443',
+      permissionDenied: '\u0414\u043e\u0441\u0442\u0443\u043f \u0434\u043e GPS \u0437\u0430\u0431\u043e\u0440\u043e\u043d\u0435\u043d\u043e',
+    },
     service: {
       service: '\u0421\u0435\u0440\u0432\u0456\u0441',
       tires: '\u0428\u0438\u043d\u0438',
@@ -2533,6 +2557,14 @@ const translations = {
       deadhead: 'Vac\u00edo',
       costPerKmTotal: 'Coste/km (total)',
     },
+    gps: {
+      startTracking: 'Iniciar seguimiento',
+      stopTracking: 'Detener seguimiento',
+      tracking: 'Seguimiento GPS',
+      showRoute: 'Ruta',
+      noRoute: 'Sin datos de ruta',
+      permissionDenied: 'Acceso GPS denegado',
+    },
     service: {
       service: 'Servicio',
       tires: 'Neum\u00e1ticos',
@@ -3309,6 +3341,14 @@ const translations = {
       taxableGallons: 'Steuerb. Gal.',
       deadhead: 'Leerfahrt',
       costPerKmTotal: 'Kosten/km (gesamt)',
+    },
+    gps: {
+      startTracking: 'Tracking starten',
+      stopTracking: 'Tracking stoppen',
+      tracking: 'GPS-Tracking',
+      showRoute: 'Route',
+      noRoute: 'Keine Routendaten',
+      permissionDenied: 'GPS-Zugriff verweigert',
     },
     service: {
       service: 'Service',
@@ -4087,6 +4127,14 @@ const translations = {
       deadhead: '\u00c0 vide',
       costPerKmTotal: 'Co\u00fbt/km (total)',
     },
+    gps: {
+      startTracking: 'D\u00e9marrer le suivi',
+      stopTracking: 'Arr\u00eater le suivi',
+      tracking: 'Suivi GPS',
+      showRoute: 'Itin\u00e9raire',
+      noRoute: 'Aucune donn\u00e9e de trajet',
+      permissionDenied: 'Acc\u00e8s GPS refus\u00e9',
+    },
     service: {
       service: 'Service',
       tires: 'Pneus',
@@ -4864,6 +4912,14 @@ const translations = {
       deadhead: 'Bo\u015f',
       costPerKmTotal: 'Maliyet/km (toplam)',
     },
+    gps: {
+      startTracking: 'Takibi ba\u015flat',
+      stopTracking: 'Takibi durdur',
+      tracking: 'GPS takip',
+      showRoute: 'Rota',
+      noRoute: 'Rota verisi yok',
+      permissionDenied: 'GPS eri\u015fimi reddedildi',
+    },
     service: {
       service: 'Servis',
       tires: 'Lastikler',
@@ -5640,6 +5696,14 @@ const translations = {
       taxableGallons: 'Gal. podatkowe',
       deadhead: 'Pusty',
       costPerKmTotal: 'Koszt/km (ca\u0142kowity)',
+    },
+    gps: {
+      startTracking: 'Rozpocznij \u015bledzenie',
+      stopTracking: 'Zatrzymaj \u015bledzenie',
+      tracking: '\u015aledzenie GPS',
+      showRoute: 'Trasa',
+      noRoute: 'Brak danych trasy',
+      permissionDenied: 'Odmowa dost\u0119pu do GPS',
     },
     service: {
       service: 'Serwis',

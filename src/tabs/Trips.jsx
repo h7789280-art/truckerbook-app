@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels } from '../lib/api'
+import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels, fetchWaypoints } from '../lib/api'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToExcel, exportToPDF } from '../utils/export'
+import { startTracking, stopTracking, isTracking as isGpsTracking } from '../lib/gpsTracker'
+import TripMap from '../components/TripMap'
 
 function fmt(n) {
   if (n >= 1000) {
@@ -504,6 +506,10 @@ function TripsTab({ userId, refreshKey, theme }) {
   const [loading, setLoading] = useState(true)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const exportRef = useRef(null)
+  const [trackingTripId, setTrackingTripId] = useState(null)
+  const [currentPos, setCurrentPos] = useState(null)
+  const [showMapTripId, setShowMapTripId] = useState(null)
+  const [waypointCounts, setWaypointCounts] = useState({})
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -511,6 +517,22 @@ function TripsTab({ userId, refreshKey, theme }) {
       setLoading(true)
       const data = await fetchTrips(userId)
       setEntries(data)
+      // Check which trip is currently tracking
+      const tracking = data.find(t => t.is_tracking)
+      if (tracking && !isGpsTracking()) {
+        setTrackingTripId(tracking.id)
+      } else if (tracking) {
+        setTrackingTripId(tracking.id)
+      }
+      // Load waypoint counts for route buttons
+      const counts = {}
+      for (const trip of data) {
+        try {
+          const wp = await fetchWaypoints(trip.id)
+          if (wp.length > 0) counts[trip.id] = wp.length
+        } catch {}
+      }
+      setWaypointCounts(counts)
     } catch (err) {
       console.error('Failed to load trips:', err)
     } finally {
@@ -522,8 +544,35 @@ function TripsTab({ userId, refreshKey, theme }) {
     loadData()
   }, [loadData, refreshKey])
 
+  // Cleanup tracking on unmount
+  useEffect(() => {
+    return () => {
+      if (isGpsTracking()) stopTracking()
+    }
+  }, [])
+
+  const handleStartTracking = (tripId) => {
+    const ok = startTracking(tripId, userId, (pos) => setCurrentPos(pos))
+    if (ok) {
+      setTrackingTripId(tripId)
+      setEntries(prev => prev.map(e => e.id === tripId ? { ...e, is_tracking: true } : e))
+    }
+  }
+
+  const handleStopTracking = (tripId) => {
+    stopTracking(tripId)
+    setTrackingTripId(null)
+    setCurrentPos(null)
+    setEntries(prev => prev.map(e => e.id === tripId ? { ...e, is_tracking: false } : e))
+    // Refresh waypoint counts
+    fetchWaypoints(tripId).then(wp => {
+      setWaypointCounts(prev => ({ ...prev, [tripId]: wp.length }))
+    }).catch(() => {})
+  }
+
   const handleDelete = async (id) => {
     try {
+      if (trackingTripId === id) handleStopTracking(id)
       await deleteTrip(id)
       setEntries((prev) => prev.filter((e) => e.id !== id))
     } catch (err) {
@@ -713,7 +762,62 @@ function TripsTab({ userId, refreshKey, theme }) {
                 +{fmtFull(trip.income || 0)} {cs}
               </div>
             </div>
-            <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '10px', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                {trip.is_tracking && (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#22c55e', fontSize: '12px', fontWeight: 600 }}>
+                    <span style={{ display: 'inline-block', width: '6px', height: '6px', background: '#22c55e', borderRadius: '50%' }} />
+                    {'GPS \u25cf'}
+                  </span>
+                )}
+                {trackingTripId === trip.id ? (
+                  <button
+                    onClick={() => handleStopTracking(trip.id)}
+                    style={{
+                      background: 'none',
+                      border: '1px solid #ef444466',
+                      borderRadius: '8px',
+                      color: '#ef4444',
+                      fontSize: '12px',
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {'\u23f9\ufe0f ' + t('gps.stopTracking')}
+                  </button>
+                ) : !trackingTripId && (
+                  <button
+                    onClick={() => handleStartTracking(trip.id)}
+                    style={{
+                      background: 'none',
+                      border: '1px solid #22c55e66',
+                      borderRadius: '8px',
+                      color: '#22c55e',
+                      fontSize: '12px',
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {'\u25b6\ufe0f ' + t('gps.startTracking')}
+                  </button>
+                )}
+                {waypointCounts[trip.id] > 0 && (
+                  <button
+                    onClick={() => setShowMapTripId(trip.id)}
+                    style={{
+                      background: 'none',
+                      border: '1px solid #3b82f666',
+                      borderRadius: '8px',
+                      color: '#3b82f6',
+                      fontSize: '12px',
+                      padding: '4px 10px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {'\ud83d\uddfa ' + t('gps.showRoute')}
+                  </button>
+                )}
+              </div>
               <button
                 onClick={() => handleDelete(trip.id)}
                 style={{
@@ -731,6 +835,16 @@ function TripsTab({ userId, refreshKey, theme }) {
             </div>
           </div>
         ))
+      )}
+
+      {/* Trip Map overlay */}
+      {showMapTripId && (
+        <TripMap
+          tripId={showMapTripId}
+          isActive={trackingTripId === showMapTripId}
+          currentPosition={trackingTripId === showMapTripId ? currentPos : null}
+          onClose={() => setShowMapTripId(null)}
+        />
       )}
     </div>
   )

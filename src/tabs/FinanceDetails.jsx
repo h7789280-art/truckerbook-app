@@ -83,52 +83,123 @@ export default function FinanceDetails({ userId, onBack }) {
       const rangeService = serviceRecs.filter(e => inRange(e.date))
       const rangeVehicleExp = vehicleExps.filter(e => inRange(e.date))
 
-      // Group by month
-      const monthMap = {}
+      // Determine grouping mode based on period
+      const startDate = new Date(start)
+      const endDate = new Date(end)
+      const diffDays = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24))
+      let groupMode = 'month' // default
+      if (period === 'month') {
+        groupMode = 'day'
+      } else if (period === '3m') {
+        groupMode = 'week'
+      } else if (period === 'custom') {
+        groupMode = diffDays < 62 ? 'day' : 'month'
+      }
+      // '6m' and 'year' stay as 'month'
 
-      const addToMonth = (dateStr, field, value) => {
-        if (!dateStr) return
-        const key = dateStr.slice(0, 7) // YYYY-MM
-        if (!monthMap[key]) monthMap[key] = { income: 0, expense: 0 }
-        monthMap[key][field] += value || 0
+      const getGroupKey = (dateStr) => {
+        if (!dateStr) return null
+        const d = dateStr.slice(0, 10)
+        if (groupMode === 'day') {
+          return d // YYYY-MM-DD
+        } else if (groupMode === 'week') {
+          const dt = new Date(d)
+          const day = dt.getDay()
+          const monday = new Date(dt)
+          monday.setDate(dt.getDate() - ((day + 6) % 7))
+          return monday.toISOString().slice(0, 10) // Monday of the week
+        }
+        return d.slice(0, 7) // YYYY-MM
       }
 
-      rangeTrips.forEach(t => addToMonth(t.created_at, 'income', t.income || 0))
-      rangeFuels.forEach(e => addToMonth(e.date, 'expense', e.cost || 0))
-      rangeByt.forEach(e => addToMonth(e.date, 'expense', e.amount || 0))
-      rangeService.forEach(e => addToMonth(e.date, 'expense', e.cost || 0))
-      rangeVehicleExp.forEach(e => addToMonth(e.date, 'expense', e.amount || 0))
+      const dataMap = {}
 
-      // Build sorted array of months
-      const keys = Object.keys(monthMap).sort()
-      // Fill in missing months
-      if (keys.length > 0) {
-        const [sy, sm] = keys[0].split('-').map(Number)
-        const [ey, em] = keys[keys.length - 1].split('-').map(Number)
-        let y = sy, m = sm
-        while (y < ey || (y === ey && m <= em)) {
-          const k = `${y}-${String(m).padStart(2, '0')}`
-          if (!monthMap[k]) monthMap[k] = { income: 0, expense: 0 }
-          m++
-          if (m > 12) { m = 1; y++ }
+      const addToGroup = (dateStr, field, value) => {
+        const key = getGroupKey(dateStr)
+        if (!key) return
+        if (!dataMap[key]) dataMap[key] = { income: 0, expense: 0 }
+        dataMap[key][field] += value || 0
+      }
+
+      rangeTrips.forEach(t => addToGroup(t.created_at, 'income', t.income || 0))
+      rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+      rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
+      rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+      rangeVehicleExp.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
+
+      // Fill gaps
+      const keys = Object.keys(dataMap).sort()
+      if (groupMode === 'day') {
+        const cur = new Date(start)
+        const endD = new Date(end)
+        while (cur <= endD) {
+          const k = cur.toISOString().slice(0, 10)
+          if (!dataMap[k]) dataMap[k] = { income: 0, expense: 0 }
+          cur.setDate(cur.getDate() + 1)
+        }
+      } else if (groupMode === 'week') {
+        if (keys.length > 0) {
+          const cur = new Date(keys[0])
+          const last = new Date(keys[keys.length - 1])
+          while (cur <= last) {
+            const k = cur.toISOString().slice(0, 10)
+            if (!dataMap[k]) dataMap[k] = { income: 0, expense: 0 }
+            cur.setDate(cur.getDate() + 7)
+          }
+        }
+      } else {
+        // month - fill missing months
+        if (keys.length > 0) {
+          const [sy, sm] = keys[0].split('-').map(Number)
+          const [ey, em] = keys[keys.length - 1].split('-').map(Number)
+          let y = sy, m = sm
+          while (y < ey || (y === ey && m <= em)) {
+            const k = `${y}-${String(m).padStart(2, '0')}`
+            if (!dataMap[k]) dataMap[k] = { income: 0, expense: 0 }
+            m++
+            if (m > 12) { m = 1; y++ }
+          }
         }
       }
 
-      const sorted = Object.entries(monthMap)
+      const getLabel = (key) => {
+        if (groupMode === 'day') {
+          const d = new Date(key)
+          return String(d.getDate())
+        } else if (groupMode === 'week') {
+          const d = new Date(key)
+          const day = d.getDate()
+          const mo = MONTH_NAMES_RU[d.getMonth()]
+          return `${day} ${mo}`
+        }
+        const mo = Number(key.split('-')[1])
+        return MONTH_NAMES_RU[mo - 1]
+      }
+
+      const getFullLabel = (key) => {
+        if (groupMode === 'day') {
+          const d = new Date(key)
+          return `${d.getDate()} ${MONTH_NAMES_FULL_RU[d.getMonth()]} ${d.getFullYear()}`
+        } else if (groupMode === 'week') {
+          const d = new Date(key)
+          const endW = new Date(d)
+          endW.setDate(d.getDate() + 6)
+          return `${d.getDate()} ${MONTH_NAMES_RU[d.getMonth()]} \u2013 ${endW.getDate()} ${MONTH_NAMES_RU[endW.getMonth()]}`
+        }
+        const [yr, mo] = key.split('-').map(Number)
+        return MONTH_NAMES_FULL_RU[mo - 1] + ' ' + yr
+      }
+
+      const sorted = Object.entries(dataMap)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, vals]) => {
-          const [yr, mo] = key.split('-').map(Number)
-          return {
-            key,
-            label: MONTH_NAMES_RU[mo - 1],
-            fullLabel: MONTH_NAMES_FULL_RU[mo - 1] + ' ' + yr,
-            year: yr,
-            month: mo,
-            income: vals.income,
-            expense: vals.expense,
-            profit: vals.income - vals.expense,
-          }
-        })
+        .map(([key, vals]) => ({
+          key,
+          label: getLabel(key),
+          fullLabel: getFullLabel(key),
+          income: vals.income,
+          expense: vals.expense,
+          profit: vals.income - vals.expense,
+        }))
 
       setMonthlyData(sorted)
 
@@ -469,11 +540,17 @@ export default function FinanceDetails({ userId, onBack }) {
                 ))}
 
                 {/* X-axis labels */}
-                {monthlyData.map((m, i) => (
-                  <text key={i} x={getX(i)} y={chartH - 5} textAnchor="middle" fill={theme.dim} fontSize="10" fontFamily="sans-serif">
-                    {m.label}
-                  </text>
-                ))}
+                {monthlyData.map((m, i) => {
+                  const total = monthlyData.length
+                  const step = total <= 8 ? 1 : total <= 16 ? 2 : total <= 24 ? 4 : 5
+                  const showLabel = i % step === 0 || i === total - 1
+                  if (!showLabel) return null
+                  return (
+                    <text key={i} x={getX(i)} y={chartH - 5} textAnchor="middle" fill={theme.dim} fontSize="10" fontFamily="sans-serif">
+                      {m.label}
+                    </text>
+                  )
+                })}
 
                 {/* Tooltip */}
                 {tooltip && (
@@ -509,12 +586,12 @@ export default function FinanceDetails({ userId, onBack }) {
           {/* Monthly table */}
           {monthlyData.length > 0 && (
             <div style={{ ...cardStyle, marginBottom: '12px', padding: '12px' }}>
-              <div style={{ ...dimText, marginBottom: '10px' }}>{t('overview.financeByMonth') || '\u041f\u043e \u043c\u0435\u0441\u044f\u0446\u0430\u043c'}</div>
+              <div style={{ ...dimText, marginBottom: '10px' }}>{t('overview.financeByPeriod') || t('overview.financeByMonth') || '\u0414\u0435\u0442\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f'}</div>
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${theme.border}` }}>
-                      <th style={{ textAlign: 'left', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>{t('overview.financeMonthCol') || '\u041c\u0435\u0441\u044f\u0446'}</th>
+                      <th style={{ textAlign: 'left', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>{t('overview.financePeriodCol') || t('overview.financeMonthCol') || '\u041f\u0435\u0440\u0438\u043e\u0434'}</th>
                       <th style={{ textAlign: 'right', padding: '6px 4px', color: '#22c55e', fontWeight: 600, fontSize: '11px' }}>{t('overview.income')}</th>
                       <th style={{ textAlign: 'right', padding: '6px 4px', color: '#ef4444', fontWeight: 600, fontSize: '11px' }}>{t('overview.expense')}</th>
                       <th style={{ textAlign: 'right', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>{t('overview.netProfit')}</th>

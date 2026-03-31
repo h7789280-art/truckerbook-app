@@ -151,7 +151,7 @@ export default function DVIRInspection({ userId, vehicleId }) {
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
           <div style={{ color: 'var(--dim)', fontSize: '12px', fontWeight: 600, letterSpacing: '1px' }}>
-            DVIR
+            {t('service.inspectionTitle')}
           </div>
           <button
             onClick={() => { resetForm(); setView('form') }}

@@ -6,16 +6,27 @@ import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 import { exportToExcel, exportToPDF } from '../utils/export'
 
+const ELD_COUNTRIES = ['US','CA','DE','FR','PL','GB','NL','BE','AT','CZ','SK','IT','ES','SE','DK','FI','NO','HU','RO','BG','HR','LT','LV','EE','SI','IE','PT','GR','LU']
+
+function getUserCountry() {
+  try { return localStorage.getItem('truckerbook_country') || 'RU' } catch { return 'RU' }
+}
+
 function getSubTabs(t) {
-  return [
+  const country = getUserCountry()
+  const showDVIR = !ELD_COUNTRIES.includes(country)
+  const tabs = [
     { key: 'service', label: '\uD83D\uDD27 ' + t('service.service') },
     { key: 'tires', label: '\uD83D\uDEDE ' + t('service.tires') },
     { key: 'checklist', label: '\u2705 ' + t('service.checklist') },
     { key: 'map', label: '\uD83D\uDDFA ' + t('service.map') },
     { key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') },
-    { key: 'dvir', label: '\uD83D\uDD0D DVIR' },
-    { key: 'tacho', label: '\uD83D\uDCDF ' + t('tacho.title') },
   ]
+  if (showDVIR) {
+    tabs.push({ key: 'dvir', label: '\uD83D\uDD0D ' + t('service.inspection') })
+  }
+  tabs.push({ key: 'tacho', label: '\uD83D\uDCDF ' + t('tacho.title') })
+  return tabs
 }
 
 function getTirePositions(t) {

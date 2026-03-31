@@ -672,7 +672,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 { label: t('overview.reportFuelCost'), value: formatNumber(Math.round(rd.fuelCost)) + ' ' + cs, icon: '\ud83d\udcb0', color: '#f59e0b' },
                 { label: t('overview.reportService'), value: formatNumber(Math.round(rd.serviceCost + (rd.vehicleExpCost || 0))) + ' ' + cs, icon: '\ud83d\udd27', color: '#ef4444' },
                 { label: t('overview.reportTripsCount'), value: String(rd.tripCount), icon: '\ud83d\ude9a', color: '#8b5cf6' },
-                { label: t('overview.reportMileage'), value: formatNumber(Math.round(rd.totalKm)) + ' ' + distUnit, icon: '\ud83d\udea3', color: '#3b82f6' },
+                { label: t('overview.reportMileage'), value: formatNumber(Math.round(rd.totalKm)) + ' ' + distUnit, icon: '\ud83d\udee3\ufe0f', color: '#3b82f6' },
                 { label: t('overview.reportIncome'), value: formatNumber(Math.round(rd.totalIncome)) + ' ' + cs, icon: '\ud83d\udcc8', color: '#22c55e' },
                 { label: t('overview.reportExpense'), value: formatNumber(Math.round(rd.totalExpenses)) + ' ' + cs, icon: '\ud83d\udcc9', color: '#ef4444' },
                 { label: t('overview.reportProfit'), value: formatNumber(Math.round(rd.profit)) + ' ' + cs, icon: rd.profit >= 0 ? '\u2705' : '\u274c', color: rd.profit >= 0 ? '#22c55e' : '#ef4444' },
@@ -767,7 +767,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
               {[
                 { label: t('overview.driverShifts'), value: String(dd.shiftCount), icon: '\ud83d\udcc5', color: '#3b82f6' },
-                { label: distUnit, value: formatNumber(Math.round(dd.totalKm)), icon: '\ud83d\udea3', color: '#f59e0b' },
+                { label: distUnit, value: formatNumber(Math.round(dd.totalKm)), icon: '\ud83d\udee3\ufe0f', color: '#f59e0b' },
                 { label: t('overview.driverHours'), value: dd.totalHours.toFixed(1), icon: '\u23f1\ufe0f', color: '#8b5cf6' },
                 { label: t('overview.driverTrips'), value: String(dd.tripCount), icon: '\ud83d\ude9a', color: '#22c55e' },
                 { label: t('overview.driverFuelUsed'), value: formatNumber(Math.round(dd.fuelLiters)) + ' ' + volUnit, icon: '\u26fd', color: '#f59e0b' },
@@ -936,7 +936,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               { label: t('overview.fleetVehicles'), value: String(fleetData.totalVehicles + (profile?.brand ? 1 : 0)), icon: '\ud83d\ude9b', color: '#3b82f6' },
               { label: t('overview.fleetIncome'), value: formatNumber(Math.round(fleetData.totalIncome)) + ' ' + cs, icon: '\ud83d\udcb0', color: '#22c55e' },
               { label: t('overview.fleetExpense'), value: formatNumber(Math.round(fleetData.totalExpenses)) + ' ' + cs, icon: '\ud83d\udcc9', color: '#ef4444' },
-              { label: t('overview.fleetMileage'), value: formatNumber(Math.round(fleetData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udea3', color: '#f59e0b' },
+              { label: t('overview.fleetMileage'), value: formatNumber(Math.round(fleetData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udee3\ufe0f', color: '#f59e0b' },
               { label: t('overview.fleetTrips'), value: String(fleetData.tripCount), icon: '\ud83d\ude9a', color: '#8b5cf6' },
             ].map((item, i) => (
               <div key={i} style={{
@@ -1020,7 +1020,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   </div>
                   <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
                     <span>{'\u26fd'} {t('overview.fleetFuel')}: {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
-                    <span>{'\ud83d\udea3'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                    <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
                     <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
                   </div>
                 </div>
@@ -1054,7 +1054,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       </div>
                       <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
                         <span>{'\ud83d\udcc5'} {d.shifts} {t('overview.driverShifts').toLowerCase()}</span>
-                        <span>{'\ud83d\udea3'} {formatNumber(Math.round(d.km))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                        <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(d.km))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
                         <span>{'\u23f1\ufe0f'} {d.hours.toFixed(1)} {t('overview.driverHours').toLowerCase()}</span>
                       </div>
                     </div>
@@ -1317,7 +1317,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       { label: t('overview.analyticsTotalExpense'), value: formatNumber(Math.round(analyticsData.totalExpenses)) + ' ' + cs, color: '#ef4444', icon: '\ud83d\udcc9' },
                       { label: t('overview.analyticsProfit'), value: formatNumber(Math.round(analyticsData.profit)) + ' ' + cs, color: analyticsData.profit >= 0 ? '#22c55e' : '#ef4444', icon: '\ud83d\udcca' },
                       { label: t('overview.analyticsFuel'), value: formatNumber(Math.round(analyticsData.totalFuelLiters)) + ' ' + (unitSys === 'imperial' ? 'gal' : '\u043b') + ' / ' + formatNumber(Math.round(analyticsData.totalFuelCost)) + ' ' + cs, color: '#f59e0b', icon: '\u26fd' },
-                      { label: t('overview.analyticsMileage'), value: formatNumber(Math.round(analyticsData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), color: '#3b82f6', icon: '\ud83d\udea3' },
+                      { label: t('overview.analyticsMileage'), value: formatNumber(Math.round(analyticsData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), color: '#3b82f6', icon: '\ud83d\udee3\ufe0f' },
                       { label: t('overview.analyticsTripsCount'), value: String(analyticsData.tripCount), color: '#8b5cf6', icon: '\ud83d\ude9a' },
                     ].map((item, i) => (
                       <div key={i} style={{
@@ -2027,7 +2027,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Mini cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {[
-              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udea3' },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f' },
               { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd' },
               { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a' },
               { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0' },

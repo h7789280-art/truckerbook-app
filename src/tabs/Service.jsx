@@ -1585,9 +1585,10 @@ function DocsTab({ userId, vehicleId }) {
     return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
+  const nonBolDocs = documents.filter(d => d.type !== 'bol')
   const filteredDocs = docFilter === 'all'
-    ? documents
-    : documents.filter(d => d.type === docFilter)
+    ? nonBolDocs
+    : nonBolDocs.filter(d => d.type === docFilter)
 
   // Group documents by id to count photos per document title+type
   const docPhotoCounts = {}

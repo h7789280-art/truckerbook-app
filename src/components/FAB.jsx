@@ -6,7 +6,7 @@ export default function FAB({ onClick }) {
       onClick={onClick}
       style={{
         position: 'fixed',
-        bottom: 80,
+        bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 16px)',
         right: 20,
         width: 56,
         height: 56,

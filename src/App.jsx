@@ -608,7 +608,7 @@ function AppInner() {
           </div>
         </div>
       )}
-      <div style={{ flex: 1, paddingBottom: 72, overflow: 'auto' }}>
+      <div style={{ flex: 1, paddingBottom: 'calc(72px + env(safe-area-inset-bottom, 0px))', overflow: 'auto' }}>
         {userRole !== 'job_seeker' && (
           <VehicleSwitcher
             userId={userId}

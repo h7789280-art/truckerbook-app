@@ -79,6 +79,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [aiOdometerStatus, setAiOdometerStatus] = useState(null) // 'loading' | 'success' | 'error' | null
   const [aiOdometerValue, setAiOdometerValue] = useState(null)
   const [shiftPeriod, setShiftPeriod] = useState('week')
+  const [shiftCustomFrom, setShiftCustomFrom] = useState('')
+  const [shiftCustomTo, setShiftCustomTo] = useState('')
   const [shiftStats, setShiftStats] = useState({ count: 0, totalKm: 0, totalHours: 0 })
   const [shiftHistory, setShiftHistory] = useState([])
   const [shiftHistoryExpanded, setShiftHistoryExpanded] = useState(false)
@@ -422,7 +424,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     try {
       const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
       const [stats, userHistory, today, vehicleHistory] = await Promise.all([
-        getShiftStats(userId, shiftPeriod),
+        getShiftStats(userId, shiftPeriod, shiftCustomFrom, shiftCustomTo),
         getCompletedShifts(userId, 10),
         getTodayShiftSummary(userId),
         vehicleId ? getVehicleShifts(vehicleId, 20) : Promise.resolve([]),
@@ -443,7 +445,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     } catch (err) {
       console.error('loadShiftAnalytics error:', err)
     }
-  }, [userId, shiftPeriod, activeVehicleId])
+  }, [userId, shiftPeriod, activeVehicleId, shiftCustomFrom, shiftCustomTo])
 
   useEffect(() => {
     loadShiftAnalytics()
@@ -1763,10 +1765,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udcca'} {t('overview.shiftAnalytics')}</div>
 
         {/* Period toggle */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: shiftPeriod === 'custom' ? '8px' : '12px' }}>
           {[
             { key: 'week', label: t('overview.week') },
             { key: 'month', label: t('overview.month') },
+            { key: 'custom', label: t('overview.customPeriod') || '\u041f\u0435\u0440\u0438\u043e\u0434' },
           ].map(p => (
             <button
               key={p.key}
@@ -1788,6 +1791,46 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             </button>
           ))}
         </div>
+        {shiftPeriod === 'custom' && (
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom') || '\u041e\u0442'}</div>
+              <input
+                type="date"
+                value={shiftCustomFrom}
+                onChange={e => setShiftCustomFrom(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '10px',
+                  border: `1px solid ${theme.border}`,
+                  background: theme.bg,
+                  color: theme.text,
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo') || '\u0414\u043e'}</div>
+              <input
+                type="date"
+                value={shiftCustomTo}
+                onChange={e => setShiftCustomTo(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '10px',
+                  border: `1px solid ${theme.border}`,
+                  background: theme.bg,
+                  color: theme.text,
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Stats cards */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
@@ -1821,7 +1864,15 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             const driverColorMap = {}
             driverNames.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
 
-            const visibleShifts = shiftHistoryExpanded ? shiftHistory : shiftHistory.slice(0, 1)
+            const filteredHistory = shiftPeriod === 'custom' && shiftCustomFrom && shiftCustomTo
+              ? shiftHistory.filter(s => {
+                  const d = new Date(s.started_at)
+                  const from = new Date(shiftCustomFrom); from.setHours(0,0,0,0)
+                  const to = new Date(shiftCustomTo); to.setHours(23,59,59,999)
+                  return d >= from && d <= to
+                })
+              : shiftHistory
+            const visibleShifts = shiftHistoryExpanded ? filteredHistory : filteredHistory.slice(0, 1)
 
             return <>
             {visibleShifts.map((sh, i) => {
@@ -1875,7 +1926,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 </div>
               )
             })}
-            {shiftHistory.length > 1 && (
+            {filteredHistory.length > 1 && (
               <div
                 onClick={() => setShiftHistoryExpanded(prev => !prev)}
                 style={{

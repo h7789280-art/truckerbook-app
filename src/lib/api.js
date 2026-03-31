@@ -342,25 +342,31 @@ export async function getTodayShiftSummary(userId) {
   return { count: shifts.length, totalKm, totalMinutes }
 }
 
-export async function getShiftStats(userId, period) {
+export async function getShiftStats(userId, period, customFrom, customTo) {
   const now = new Date()
-  let since
-  if (period === 'month') {
+  let since, until
+  if (period === 'custom' && customFrom && customTo) {
+    since = new Date(customFrom)
+    since.setHours(0, 0, 0, 0)
+    until = new Date(customTo)
+    until.setHours(23, 59, 59, 999)
+  } else if (period === 'month') {
     since = new Date(now.getFullYear(), now.getMonth(), 1)
   } else {
     const day = now.getDay()
     const diff = day === 0 ? 6 : day - 1
     since = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff)
   }
-  since.setHours(0, 0, 0, 0)
+  if (!until) since.setHours(0, 0, 0, 0)
 
-  const { data, error } = await supabase
+  let query = supabase
     .from('shifts')
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'completed')
     .gte('started_at', since.toISOString())
-    .order('started_at', { ascending: false })
+  if (until) query = query.lte('started_at', until.toISOString())
+  const { data, error } = await query.order('started_at', { ascending: false })
   if (error) throw error
 
   const shifts = data || []

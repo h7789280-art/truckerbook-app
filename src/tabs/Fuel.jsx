@@ -30,6 +30,25 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
   return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${large} 1 ${end.x} ${end.y} Z`
 }
 
+function getDateRange(period, customFrom, customTo) {
+  const now = new Date()
+  const today = now.toISOString().slice(0, 10)
+  if (period === 'day') return { from: today, to: null }
+  if (period === 'week') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 6)
+    return { from: d.toISOString().slice(0, 10), to: null }
+  }
+  if (period === 'month') {
+    const ms = new Date(now.getFullYear(), now.getMonth(), 1)
+    return { from: ms.toISOString().slice(0, 10), to: null }
+  }
+  if (period === 'custom') {
+    return { from: customFrom || today, to: customTo || today }
+  }
+  return { from: null, to: null }
+}
+
 export default function Fuel({ userId, refreshKey }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
@@ -57,6 +76,10 @@ export default function Fuel({ userId, refreshKey }) {
   const [filter, setFilter] = useState('all')
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [period, setPeriod] = useState('month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [expanded, setExpanded] = useState(false)
   const exportRef = useRef(null)
   const filterRef = useRef(null)
 
@@ -135,7 +158,7 @@ export default function Fuel({ userId, refreshKey }) {
       { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
       { header: `${t('fuel.exportOdometer')} (${distLabel})`, key: 'odometer' },
     ]
-    const rows = monthEntries.map(e => ({
+    const rows = periodEntries.map(e => ({
       date: e.date || '',
       description: e.name || '',
       category: getCat(e.category).label,
@@ -174,17 +197,27 @@ export default function Fuel({ userId, refreshKey }) {
     })),
   ].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
 
-  // Month filter
-  const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
-  const monthEntries = allEntries.filter(e => e.date >= monthStart)
+  // Period filter
+  const { from: periodFrom, to: periodTo } = getDateRange(period, customFrom, customTo)
+  const periodEntries = allEntries.filter(e => {
+    if (!periodFrom) return true
+    if (e.date < periodFrom) return false
+    if (periodTo && e.date > periodTo) return false
+    return true
+  })
 
-  // Totals by category for the month
+  // Summary label
+  const periodLabel = period === 'day' ? t('expenses.forDay')
+    : period === 'week' ? t('expenses.forWeek')
+    : period === 'custom' ? t('expenses.forPeriod')
+    : t('fuel.forMonth')
+
+  // Totals by category for the period
   const totals = {}
   CATEGORIES.filter(c => c.key !== 'all').forEach(c => { totals[c.key] = 0 })
-  monthEntries.forEach(e => { totals[e.category] = (totals[e.category] || 0) + e.amount })
+  periodEntries.forEach(e => { totals[e.category] = (totals[e.category] || 0) + e.amount })
   const grandTotal = Object.values(totals).reduce((a, b) => a + b, 0)
-  const totalCount = monthEntries.length
+  const totalCount = periodEntries.length
 
   // Pie chart
   const pieData = CATEGORIES.filter(c => c.key !== 'all' && totals[c.key] > 0)
@@ -196,8 +229,25 @@ export default function Fuel({ userId, refreshKey }) {
     return { ...cat, fraction, startAngle, endAngle: cumAngle, total: totals[cat.key] }
   })
 
-  // Filter list
-  const filtered = filter === 'all' ? allEntries : allEntries.filter(e => e.category === filter)
+  // Filter list by category
+  const filtered = filter === 'all' ? periodEntries : periodEntries.filter(e => e.category === filter)
+
+  // Collapse: show only 5 unless expanded
+  const COLLAPSE_LIMIT = 5
+  const displayList = expanded ? filtered : filtered.slice(0, COLLAPSE_LIMIT)
+  const showCollapseBtn = filtered.length > COLLAPSE_LIMIT
+
+  const periodBtnStyle = (active) => ({
+    padding: '8px 16px',
+    borderRadius: '10px',
+    border: 'none',
+    background: active ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+    color: active ? '#fff' : 'var(--dim, #64748b)',
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+  })
 
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
@@ -286,7 +336,7 @@ export default function Fuel({ userId, refreshKey }) {
           border: '1px solid var(--border)',
         }}>
           <div style={{ color: 'var(--dim)', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px', marginBottom: '4px' }}>
-            {t('fuel.forMonth')}
+            {periodLabel}
           </div>
           <div style={{ color: 'var(--text)', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
             {formatNumber(Math.round(grandTotal))} {cs}
@@ -379,7 +429,7 @@ export default function Fuel({ userId, refreshKey }) {
       )}
 
       {/* Category filter dropdown */}
-      <div ref={filterRef} style={{ position: 'relative', marginBottom: '16px' }}>
+      <div ref={filterRef} style={{ position: 'relative', marginBottom: '12px' }}>
         <button
           onClick={() => setShowFilterDropdown(v => !v)}
           style={{
@@ -454,6 +504,68 @@ export default function Fuel({ userId, refreshKey }) {
         )}
       </div>
 
+      {/* Period filter */}
+      <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '12px' }}>
+        {['day', 'week', 'month', 'custom'].map(p => (
+          <button
+            key={p}
+            onClick={() => { setPeriod(p); setExpanded(false) }}
+            style={periodBtnStyle(period === p)}
+          >
+            {p === 'day' ? t('expenses.day') : p === 'week' ? t('expenses.week') : p === 'month' ? t('expenses.month') : t('expenses.period')}
+          </button>
+        ))}
+      </div>
+
+      {/* Custom date range */}
+      {period === 'custom' && (
+        <div style={{
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+          marginBottom: '16px',
+          background: 'var(--card, #111827)',
+          borderRadius: '12px',
+          padding: '12px 16px',
+          border: '1px solid var(--border, #1e2a3f)',
+        }}>
+          <label style={{ fontSize: '13px', color: 'var(--dim, #64748b)', fontWeight: 600 }}>
+            {t('expenses.dateFrom')}
+          </label>
+          <input
+            type="date"
+            value={customFrom}
+            onChange={e => setCustomFrom(e.target.value)}
+            style={{
+              flex: 1,
+              padding: '8px',
+              borderRadius: '8px',
+              border: '1px solid var(--border, #1e2a3f)',
+              background: 'var(--bg, #0a0e1a)',
+              color: 'var(--text, #e2e8f0)',
+              fontSize: '13px',
+            }}
+          />
+          <label style={{ fontSize: '13px', color: 'var(--dim, #64748b)', fontWeight: 600 }}>
+            {t('expenses.dateTo')}
+          </label>
+          <input
+            type="date"
+            value={customTo}
+            onChange={e => setCustomTo(e.target.value)}
+            style={{
+              flex: 1,
+              padding: '8px',
+              borderRadius: '8px',
+              border: '1px solid var(--border, #1e2a3f)',
+              background: 'var(--bg, #0a0e1a)',
+              color: 'var(--text, #e2e8f0)',
+              fontSize: '13px',
+            }}
+          />
+        </div>
+      )}
+
       {/* Expense list */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b', fontSize: 14 }}>
@@ -465,7 +577,7 @@ export default function Fuel({ userId, refreshKey }) {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {filtered.map(entry => {
+          {displayList.map(entry => {
             const cat = getCat(entry.category)
             return (
               <div
@@ -538,6 +650,26 @@ export default function Fuel({ userId, refreshKey }) {
               </div>
             )
           })}
+          {showCollapseBtn && (
+            <button
+              onClick={() => setExpanded(v => !v)}
+              style={{
+                padding: '12px',
+                borderRadius: '12px',
+                border: '1px solid var(--border, #1e2a3f)',
+                background: 'var(--card, #111827)',
+                color: '#f59e0b',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                textAlign: 'center',
+              }}
+            >
+              {expanded
+                ? `${t('expenses.collapse')} \u25b2`
+                : `${t('expenses.allExpenses')} \u25bc`}
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -38,7 +38,7 @@ export default function DVIRInspection({ userId, vehicleId }) {
   // Form state
   const [inspType, setInspType] = useState('pre_trip')
   const [items, setItems] = useState(() =>
-    DVIR_ITEMS.map(key => ({ key, ok: true, note: '' }))
+    DVIR_ITEMS.map(key => ({ key, ok: null, note: '' }))
   )
   const [photos, setPhotos] = useState({}) // { itemKey: File[] }
   const [generalNotes, setGeneralNotes] = useState('')
@@ -60,14 +60,14 @@ export default function DVIRInspection({ userId, vehicleId }) {
 
   const resetForm = () => {
     setInspType('pre_trip')
-    setItems(DVIR_ITEMS.map(key => ({ key, ok: true, note: '' })))
+    setItems(DVIR_ITEMS.map(key => ({ key, ok: null, note: '' })))
     setPhotos({})
     setGeneralNotes('')
   }
 
-  const toggleItem = (idx) => {
+  const setItemStatus = (idx, ok) => {
     setItems(prev => prev.map((it, i) =>
-      i === idx ? { ...it, ok: !it.ok, note: it.ok ? it.note : '' } : it
+      i === idx ? { ...it, ok, note: ok ? '' : it.note } : it
     ))
   }
 
@@ -97,7 +97,7 @@ export default function DVIRInspection({ userId, vehicleId }) {
     if (saving) return
     setSaving(true)
     try {
-      const defects = items.filter(it => !it.ok)
+      const defects = items.filter(it => it.ok === false)
       const status = defects.length > 0 ? 'fail' : 'pass'
       const itemsJson = items.map(it => ({
         key: it.key,
@@ -240,7 +240,9 @@ export default function DVIRInspection({ userId, vehicleId }) {
 
   // --- FORM VIEW ---
   if (view === 'form') {
-    const defectsCount = items.filter(it => !it.ok).length
+    const defectsCount = items.filter(it => it.ok === false).length
+    const checkedCount = items.filter(it => it.ok !== null).length
+    const allChecked = checkedCount === items.length
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
@@ -286,7 +288,7 @@ export default function DVIRInspection({ userId, vehicleId }) {
         {/* Checklist items */}
         <div style={{ ...cardStyle, marginBottom: '12px', padding: '12px' }}>
           <div style={{ fontSize: '12px', color: 'var(--dim)', fontWeight: 600, marginBottom: '10px' }}>
-            {t('dvir.checklistTitle')} ({items.filter(it => it.ok).length}/{items.length})
+            {t('dvir.checklistTitle')} ({checkedCount}/{items.length})
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {items.map((item, idx) => (
@@ -298,8 +300,8 @@ export default function DVIRInspection({ userId, vehicleId }) {
                     justifyContent: 'space-between',
                     padding: '10px 12px',
                     borderRadius: '8px',
-                    background: item.ok ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.08)',
-                    border: item.ok ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(239,68,68,0.25)',
+                    background: item.ok === null ? 'var(--card2)' : item.ok ? 'rgba(34,197,94,0.06)' : 'rgba(239,68,68,0.08)',
+                    border: item.ok === null ? '1px solid var(--border)' : item.ok ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(239,68,68,0.25)',
                   }}
                 >
                   <span style={{ fontSize: '14px', color: 'var(--text)' }}>
@@ -307,13 +309,13 @@ export default function DVIRInspection({ userId, vehicleId }) {
                   </span>
                   <div style={{ display: 'flex', gap: '6px' }}>
                     <button
-                      onClick={() => { if (!item.ok) toggleItem(idx) }}
+                      onClick={() => setItemStatus(idx, true)}
                       style={{
                         padding: '4px 12px',
                         borderRadius: '8px',
-                        border: item.ok ? '2px solid #22c55e' : '1px solid var(--border)',
-                        background: item.ok ? 'rgba(34,197,94,0.15)' : 'transparent',
-                        color: item.ok ? '#22c55e' : 'var(--dim)',
+                        border: item.ok === true ? '2px solid #22c55e' : '1px solid var(--border)',
+                        background: item.ok === true ? 'rgba(34,197,94,0.15)' : 'transparent',
+                        color: item.ok === true ? '#22c55e' : 'var(--dim)',
                         fontWeight: 600,
                         fontSize: '12px',
                         cursor: 'pointer',
@@ -322,13 +324,13 @@ export default function DVIRInspection({ userId, vehicleId }) {
                       {'\u2705'} OK
                     </button>
                     <button
-                      onClick={() => { if (item.ok) toggleItem(idx) }}
+                      onClick={() => setItemStatus(idx, false)}
                       style={{
                         padding: '4px 12px',
                         borderRadius: '8px',
-                        border: !item.ok ? '2px solid #ef4444' : '1px solid var(--border)',
-                        background: !item.ok ? 'rgba(239,68,68,0.15)' : 'transparent',
-                        color: !item.ok ? '#ef4444' : 'var(--dim)',
+                        border: item.ok === false ? '2px solid #ef4444' : '1px solid var(--border)',
+                        background: item.ok === false ? 'rgba(239,68,68,0.15)' : 'transparent',
+                        color: item.ok === false ? '#ef4444' : 'var(--dim)',
                         fontWeight: 600,
                         fontSize: '12px',
                         cursor: 'pointer',
@@ -339,7 +341,7 @@ export default function DVIRInspection({ userId, vehicleId }) {
                   </div>
                 </div>
                 {/* Defect details */}
-                {!item.ok && (
+                {item.ok === false && (
                   <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     <input
                       type="text"
@@ -417,45 +419,48 @@ export default function DVIRInspection({ userId, vehicleId }) {
         </div>
 
         {/* Status preview */}
-        <div style={{
-          ...cardStyle,
-          marginBottom: '12px',
-          textAlign: 'center',
-          background: defectsCount > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)',
-          borderColor: defectsCount > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)',
-        }}>
-          <div style={{ fontSize: '24px', marginBottom: '4px' }}>
-            {defectsCount > 0 ? '\u274C' : '\u2705'}
-          </div>
+        {allChecked && (
           <div style={{
-            fontWeight: 700,
-            color: defectsCount > 0 ? '#ef4444' : '#22c55e',
-            fontSize: '15px',
+            ...cardStyle,
+            marginBottom: '12px',
+            textAlign: 'center',
+            background: defectsCount > 0 ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)',
+            borderColor: defectsCount > 0 ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)',
           }}>
-            {defectsCount > 0
-              ? t('dvir.fail') + ' \u2014 ' + defectsCount + ' ' + t('dvir.defectsShort')
-              : t('dvir.pass')
-            }
+            <div style={{ fontSize: '24px', marginBottom: '4px' }}>
+              {defectsCount > 0 ? '\u274C' : '\u2705'}
+            </div>
+            <div style={{
+              fontWeight: 700,
+              color: defectsCount > 0 ? '#ef4444' : '#22c55e',
+              fontSize: '15px',
+            }}>
+              {defectsCount > 0
+                ? t('dvir.fail') + ' \u2014 ' + defectsCount + ' ' + t('dvir.defectsShort')
+                : t('dvir.pass')
+              }
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Save */}
         <button
           onClick={handleSave}
-          disabled={saving}
+          disabled={saving || !allChecked}
           style={{
             width: '100%',
             padding: '14px',
             borderRadius: '12px',
             border: 'none',
-            background: saving ? 'var(--dim)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            background: (saving || !allChecked) ? 'var(--dim)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
             color: '#fff',
             fontWeight: 700,
             fontSize: '15px',
-            cursor: saving ? 'not-allowed' : 'pointer',
+            cursor: (saving || !allChecked) ? 'not-allowed' : 'pointer',
+            opacity: !allChecked ? 0.5 : 1,
           }}
         >
-          {saving ? t('common.saving') : t('common.save')}
+          {saving ? t('common.saving') : !allChecked ? t('common.save') + ' (' + checkedCount + '/' + items.length + ')' : t('common.save')}
         </button>
       </div>
     )

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchFuels, deleteFuel, fetchVehicleExpenses, deleteVehicleExpense } from '../lib/api'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { exportToExcel, exportToPDF } from '../utils/export'
+import { exportToPDF, exportToExcelWithSummary } from '../utils/export'
 
 function formatNumber(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -49,7 +49,7 @@ function getDateRange(period, customFrom, customTo) {
   return { from: null, to: null }
 }
 
-export default function Fuel({ userId, refreshKey }) {
+export default function Fuel({ userId, refreshKey, profile }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -169,7 +169,64 @@ export default function Fuel({ userId, refreshKey }) {
     const now2 = new Date()
     const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
     if (format === 'excel') {
-      exportToExcel(rows, columns, `fuel_report_${ym}.xlsx`)
+      // Compute mileage for the period from fuel entries with odometer
+      const fuelOdometers = periodEntries
+        .filter(e => e.source === 'fuel')
+        .map(e => fuelEntries.find(f => f.id === e.id)?.odometer)
+        .filter(Boolean)
+      const mileage = fuelOdometers.length >= 2
+        ? Math.max(...fuelOdometers) - Math.min(...fuelOdometers)
+        : 0
+      const costPerUnit = mileage > 0 ? Math.round((grandTotal / mileage) * 100) / 100 : 0
+
+      // Period label for the sheet
+      const monthNames = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ]
+      const periodText = period === 'custom'
+        ? `${customFrom || ''} \u2014 ${customTo || ''}`
+        : `${monthNames[now2.getMonth()]} ${now2.getFullYear()}`
+
+      // Vehicle info from profile (main vehicle)
+      const p = profile || {}
+      const vehicleInfo = `${p.brand || ''} ${p.model || ''} ${p.plate_number || ''}`.trim()
+
+      // Build category summary rows
+      const catSummary = CATEGORIES
+        .filter(c => c.key !== 'all')
+        .map(c => ({ label: c.label, amount: Math.round(totals[c.key] || 0) }))
+        .filter(c => c.amount > 0)
+
+      exportToExcelWithSummary({
+        summary: {
+          driverName: p.name || p.full_name || '',
+          driverPhone: p.phone || '',
+          vehicleInfo,
+          period: periodText,
+          categories: catSummary,
+          grandTotal: Math.round(grandTotal),
+          mileage: `${formatNumber(mileage)} ${distLabel}`,
+          costPerUnit: `${costPerUnit} ${cs}/${distLabel}`,
+          currencySymbol: cs,
+        },
+        detailsData: rows,
+        detailsColumns: columns,
+        summarySheetName: t('fuel.exportSheetSummary'),
+        detailsSheetName: t('fuel.exportSheetDetails'),
+        labels: {
+          driver: t('fuel.exportDriver'),
+          phone: t('fuel.exportPhone'),
+          vehicle: t('fuel.exportVehicle'),
+          period: t('fuel.exportPeriod'),
+          category: t('fuel.exportCategory'),
+          amount: t('fuel.exportAmount'),
+          total: t('fuel.total'),
+          mileage: t('fuel.exportOdometer'),
+          costPerUnit: t('fuel.exportCostPerUnit'),
+        },
+        filename: `fuel_report_${ym}.xlsx`,
+      })
     } else {
       exportToPDF(rows, columns, t('fuel.exportTitle'), `fuel_report_${ym}.pdf`)
     }

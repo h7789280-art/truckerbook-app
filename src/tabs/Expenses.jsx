@@ -3,7 +3,7 @@ import { useLanguage } from '../lib/i18n'
 import Fuel from './Fuel'
 import Byt from './Byt'
 
-export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange }) {
+export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile }) {
   const { t } = useLanguage()
   const [subTab, setSubTab] = useState('vehicle')
 
@@ -61,7 +61,7 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
 
       {/* Content */}
       {subTab === 'vehicle' ? (
-        <Fuel userId={userId} refreshKey={fuelRefreshKey} activeVehicleId={activeVehicleId} />
+        <Fuel userId={userId} refreshKey={fuelRefreshKey} activeVehicleId={activeVehicleId} profile={profile} />
       ) : (
         <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} />
       )}

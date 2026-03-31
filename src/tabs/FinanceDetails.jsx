@@ -584,9 +584,16 @@ export default function FinanceDetails({ userId, onBack }) {
           )}
 
           {/* Monthly table */}
-          {monthlyData.length > 0 && (
+          {monthlyData.length > 0 && (() => {
+            const nonEmptyRows = monthlyData.filter(m => m.income !== 0 || m.expense !== 0)
+            return (
             <div style={{ ...cardStyle, marginBottom: '12px', padding: '12px' }}>
               <div style={{ ...dimText, marginBottom: '10px' }}>{t('overview.financeByPeriod') || t('overview.financeByMonth') || '\u0414\u0435\u0442\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f'}</div>
+              {nonEmptyRows.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px 0', color: theme.dim, fontSize: '13px' }}>
+                  {t('overview.noDataForPeriod') || '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434'}
+                </div>
+              ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
@@ -598,8 +605,8 @@ export default function FinanceDetails({ userId, onBack }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {monthlyData.map((m, i) => (
-                      <tr key={i} style={{ borderBottom: i < monthlyData.length - 1 ? `1px solid ${theme.border}22` : 'none' }}>
+                    {nonEmptyRows.map((m, i) => (
+                      <tr key={i} style={{ borderBottom: `1px solid ${theme.border}22` }}>
                         <td style={{ padding: '8px 4px', color: theme.text, fontSize: '12px' }}>{m.fullLabel}</td>
                         <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#22c55e', fontSize: '12px' }}>
                           {formatNumber(Math.round(m.income))}
@@ -612,11 +619,28 @@ export default function FinanceDetails({ userId, onBack }) {
                         </td>
                       </tr>
                     ))}
+                    {/* Totals row */}
+                    <tr style={{ borderTop: `2px solid ${theme.border}`, background: `${theme.border}33` }}>
+                      <td style={{ padding: '8px 4px', color: theme.text, fontSize: '12px', fontWeight: 700 }}>
+                        {t('overview.total') || '\u0418\u0442\u043e\u0433\u043e'}
+                      </td>
+                      <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#22c55e', fontSize: '12px', fontWeight: 700 }}>
+                        {formatNumber(Math.round(totalIncome))}
+                      </td>
+                      <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#ef4444', fontSize: '12px', fontWeight: 700 }}>
+                        {formatNumber(Math.round(totalExpense))}
+                      </td>
+                      <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: totalProfit >= 0 ? '#22c55e' : '#ef4444', fontSize: '12px' }}>
+                        {totalProfit >= 0 ? '+' : ''}{formatNumber(Math.round(totalProfit))}
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
+              )}
             </div>
-          )}
+            )
+          })()}
 
           {/* Donut */}
           {renderDonut()}

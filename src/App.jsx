@@ -310,6 +310,7 @@ function AppInner() {
           background: theme.bg,
           color: theme.text,
           fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+          paddingTop: 'env(safe-area-inset-top, 44px)',
         }}
       >
         <ProfileScreen
@@ -434,6 +435,7 @@ function AppInner() {
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
+        paddingTop: 'env(safe-area-inset-top, 44px)',
       }}
     >
       {!isOnline && (
@@ -673,7 +675,7 @@ function AppInner() {
           onClick={() => { setShowChat(true); resetChatUnread() }}
           style={{
             position: 'fixed',
-            top: 12,
+            top: 'calc(env(safe-area-inset-top, 44px) + 12px)',
             right: 16,
             zIndex: 99,
             background: 'none',

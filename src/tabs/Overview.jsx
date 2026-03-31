@@ -59,6 +59,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const hosMode = profile?.hos_mode || 'cis'
   const hosMaxSeconds = hosMode === 'usa' ? 39600 : 32400 // 11h or 9h
   const hosBreak8hSeconds = 28800 // 8h
+  // Countries with mandatory ELD/tachograph — hide HOS timer
+  const ELD_COUNTRIES = ['US','CA','DE','FR','PL','GB','NL','BE','AT','CZ','SK','IT','ES','SE','DK','FI','NO','HU','RO','BG','HR','LT','LV','EE','SI','IE','PT','GR','LU']
+  const userCountry = (() => { try { return localStorage.getItem('truckerbook_country') || 'RU' } catch { return 'RU' } })()
+  const showHOS = !ELD_COUNTRIES.includes(userCountry)
   const [profileName, setProfileName] = useState(userName || null)
   const [loading, setLoading] = useState(true)
   const [monthData, setMonthData] = useState({ income: 0, fuelCost: 0, bytCost: 0, serviceCost: 0, tripCount: 0, totalKm: 0, avgConsumption: 0 })
@@ -1420,98 +1424,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         ))}
       </div>
 
-      {/* Driving timer */}
-      <div style={{ ...cardStyle, marginBottom: '12px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-          <span style={{ fontSize: '14px', color: theme.dim }}>{'\u23f1\ufe0f'} {t('overview.drivingTime')}</span>
-          <span style={{ fontSize: '12px', color: theme.dim }}>
-            {hosMode === 'usa' ? t('overview.maxUsa') : t('overview.maxCis')}
-          </span>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{
-            fontSize: '32px',
-            fontFamily: 'monospace',
-            fontWeight: 700,
-            color: seconds >= hosMaxSeconds ? '#ef4444' : theme.text,
-          }}>
-            {formatTimer(seconds)}
-          </span>
-          <button
-            onClick={handleTimerToggle}
-            style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '50%',
-              border: 'none',
-              background: timerRunning
-                ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                : 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#fff',
-              fontSize: '20px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            {timerRunning ? '\u23f8' : '\u25b6'}
-          </button>
-        </div>
-        {/* Progress bar */}
-        <div style={{ marginTop: '8px', background: theme.border, borderRadius: '4px', height: '6px', overflow: 'hidden', position: 'relative' }}>
-          <div style={{
-            width: `${Math.min((seconds / hosMaxSeconds) * 100, 100)}%`,
-            height: '100%',
-            background: seconds >= hosMaxSeconds ? '#ef4444' : (hosMode === 'usa' && seconds >= hosBreak8hSeconds) ? '#f59e0b' : '#f59e0b',
-            transition: 'width 1s linear',
-          }} />
-          {hosMode === 'usa' && (
-            <div style={{
-              position: 'absolute',
-              top: 0,
-              left: `${(hosBreak8hSeconds / hosMaxSeconds) * 100}%`,
-              width: '2px',
-              height: '100%',
-              background: '#ef4444',
-              opacity: 0.7,
-            }} />
-          )}
-        </div>
-        {hosMode === 'usa' && seconds >= hosBreak8hSeconds && seconds < hosMaxSeconds && (
-          <div style={{
-            marginTop: '6px',
-            fontSize: '12px',
-            color: '#f59e0b',
-            fontWeight: 600,
-          }}>
-            {'\u26A0\uFE0F ' + t('overview.break30min')}
-          </div>
-        )}
-        {seconds >= hosMaxSeconds && (
-          <div style={{
-            marginTop: '6px',
-            fontSize: '13px',
-            color: '#ef4444',
-            fontWeight: 700,
-            textAlign: 'center',
-          }}>
-            {'\uD83D\uDED1 ' + t('overview.limitExceeded')}
-          </div>
-        )}
-        {hosWarning && seconds < hosMaxSeconds && (
-          <div style={{
-            marginTop: '6px',
-            fontSize: '12px',
-            color: '#f59e0b',
-            fontWeight: 600,
-          }}>
-            {hosWarning}
-          </div>
-        )}
-      </div>
-
-      {/* Shift block */}
+      {/* Combined Shift + HOS card */}
       <div ref={shiftBlockRef} style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {t('overview.shift')}</div>
         {activeShift ? (
@@ -1561,6 +1474,98 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           >
             {'\u25b6'} {t('overview.startShift')}
           </button>
+        )}
+        {/* HOS timer — only for countries without mandatory ELD/tachograph */}
+        {showHOS && (
+          <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid ' + theme.border }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <span style={{ fontSize: '14px', color: theme.dim }}>{'\u23f1\ufe0f'} {t('overview.drivingTime')}</span>
+              <span style={{ fontSize: '12px', color: theme.dim }}>
+                {hosMode === 'usa' ? t('overview.maxUsa') : t('overview.maxCis')}
+              </span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{
+                fontSize: '32px',
+                fontFamily: 'monospace',
+                fontWeight: 700,
+                color: seconds >= hosMaxSeconds ? '#ef4444' : theme.text,
+              }}>
+                {formatTimer(seconds)}
+              </span>
+              <button
+                onClick={handleTimerToggle}
+                style={{
+                  width: '48px',
+                  height: '48px',
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: timerRunning
+                    ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                    : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff',
+                  fontSize: '20px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                {timerRunning ? '\u23f8' : '\u25b6'}
+              </button>
+            </div>
+            {/* Progress bar */}
+            <div style={{ marginTop: '8px', background: theme.border, borderRadius: '4px', height: '6px', overflow: 'hidden', position: 'relative' }}>
+              <div style={{
+                width: `${Math.min((seconds / hosMaxSeconds) * 100, 100)}%`,
+                height: '100%',
+                background: seconds >= hosMaxSeconds ? '#ef4444' : '#f59e0b',
+                transition: 'width 1s linear',
+              }} />
+              {hosMode === 'usa' && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: `${(hosBreak8hSeconds / hosMaxSeconds) * 100}%`,
+                  width: '2px',
+                  height: '100%',
+                  background: '#ef4444',
+                  opacity: 0.7,
+                }} />
+              )}
+            </div>
+            {hosMode === 'usa' && seconds >= hosBreak8hSeconds && seconds < hosMaxSeconds && (
+              <div style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: '#f59e0b',
+                fontWeight: 600,
+              }}>
+                {'\u26A0\uFE0F ' + t('overview.break30min')}
+              </div>
+            )}
+            {seconds >= hosMaxSeconds && (
+              <div style={{
+                marginTop: '6px',
+                fontSize: '13px',
+                color: '#ef4444',
+                fontWeight: 700,
+                textAlign: 'center',
+              }}>
+                {'\uD83D\uDED1 ' + t('overview.limitExceeded')}
+              </div>
+            )}
+            {hosWarning && seconds < hosMaxSeconds && (
+              <div style={{
+                marginTop: '6px',
+                fontSize: '12px',
+                color: '#f59e0b',
+                fontWeight: 600,
+              }}>
+                {hosWarning}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

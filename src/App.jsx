@@ -13,6 +13,7 @@ import Service from './tabs/Service'
 import Jobs from './tabs/Jobs'
 import News from './tabs/News'
 import Marketplace from './tabs/Marketplace'
+import FinanceDetails from './tabs/FinanceDetails'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import PinLock from './components/PinLock'
@@ -199,7 +200,7 @@ function AppInner() {
   const userRole = profile?.role || 'driver'
   const [activeTab, setActiveTab] = useState(userRole === 'job_seeker' ? 'jobs' : 'overview')
   const [prevTab, setPrevTab] = useState('overview')
-  const isExtraTab = ['jobs', 'news', 'marketplace'].includes(activeTab) && userRole !== 'job_seeker'
+  const isExtraTab = ['jobs', 'news', 'marketplace', 'finance'].includes(activeTab) && userRole !== 'job_seeker'
 
   const handleExtraTabNav = useCallback((tab) => {
     setPrevTab(activeTab)
@@ -416,6 +417,8 @@ function AppInner() {
         return <News />
       case 'marketplace':
         return <Marketplace />
+      case 'finance':
+        return <FinanceDetails userId={userId} onBack={handleBackFromExtra} />
       default:
         return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} />
     }

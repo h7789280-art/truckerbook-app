@@ -2056,7 +2056,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       ) : (
         <>
           {/* Finance card — income/expense + donut chart */}
-          <div style={{ ...cardStyle, marginBottom: '12px' }}>
+          <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+            <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
             <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.finances')} — {getMonthName(new Date())}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <div>

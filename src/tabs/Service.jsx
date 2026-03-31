@@ -243,7 +243,7 @@ export default function Service({ userId, activeVehicleId }) {
           onReload={loadData}
         />
       )}
-      {activeTab === 'docs' && <DocsTab userId={userId} />}
+      {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} />}
       {activeTab === 'dvir' && <DVIRInspection userId={userId} vehicleId={activeVehicleId} />}
       {activeTab === 'tacho' && <TachographViewer />}
     </div>
@@ -1323,7 +1323,7 @@ function MapTab({ userId, routeNotes, onReload }) {
 }
 
 /* ===== BOL SECTION ===== */
-function BolSection({ userId }) {
+function BolSection({ userId, vehicleId }) {
   const { t } = useLanguage()
   const [bolFiles, setBolFiles] = useState([])
   const [loadingBol, setLoadingBol] = useState(true)
@@ -1371,6 +1371,7 @@ function BolSection({ userId }) {
         .from('documents')
         .insert({
           user_id: userId,
+          vehicle_id: vehicleId || null,
           type: 'bol',
           title: file.name,
           file_url: fileUrl,
@@ -1380,7 +1381,8 @@ function BolSection({ userId }) {
       if (dbError) throw dbError
       loadBolFiles()
     } catch (err) {
-      console.error('BOL upload error:', err)
+      console.error('BOL upload error:', JSON.stringify(err))
+      alert(err?.message || 'BOL save error')
     } finally {
       setUploading(false)
     }
@@ -1509,7 +1511,7 @@ function BolSection({ userId }) {
 }
 
 /* ===== DOCS TAB ===== */
-function DocsTab({ userId }) {
+function DocsTab({ userId, vehicleId }) {
   const { t } = useLanguage()
   const DOC_TYPES = getDocTypes(t)
   const DOC_TYPE_MAP = Object.fromEntries(DOC_TYPES.map(d => [d.key, d]))
@@ -1734,6 +1736,7 @@ function DocsTab({ userId }) {
       {showDocModal && (
         <DocumentModal
           userId={userId}
+          vehicleId={vehicleId}
           onClose={() => setShowDocModal(false)}
           onSaved={() => { setShowDocModal(false); loadDocs() }}
         />
@@ -1744,7 +1747,7 @@ function DocsTab({ userId }) {
         {'\uD83D\uDCE6 ' + t('service.bolFiles')}
       </div>
 
-      <BolSection userId={userId} />
+      <BolSection userId={userId} vehicleId={vehicleId} />
 
       {/* ===== VEHICLE INSPECTION PHOTOS SECTION ===== */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
@@ -1842,6 +1845,7 @@ function DocsTab({ userId }) {
       {showAddPhotoModal && (
         <VehiclePhotoModal
           userId={userId}
+          vehicleId={vehicleId}
           onClose={() => setShowAddPhotoModal(false)}
           onSaved={() => { setShowAddPhotoModal(false); loadPhotos() }}
         />
@@ -1894,7 +1898,7 @@ function DocsTab({ userId }) {
 }
 
 /* ===== DOCUMENT UPLOAD MODAL ===== */
-function DocumentModal({ userId, onClose, onSaved }) {
+function DocumentModal({ userId, vehicleId, onClose, onSaved }) {
   const { t } = useLanguage()
   const DOC_TYPE_SELECT = getDocTypeSelect(t)
   const [docType, setDocType] = useState('license')
@@ -1928,13 +1932,13 @@ function DocumentModal({ userId, onClose, onSaved }) {
     setSaving(true)
     try {
       for (const p of photos) {
-        await uploadDocument(userId, null, p.file, docType, title, notes)
+        await uploadDocument(userId, vehicleId || null, p.file, docType, title, notes)
       }
       photos.forEach(p => { if (p.preview) URL.revokeObjectURL(p.preview) })
       onSaved()
     } catch (err) {
-      console.error('save document error:', err)
-      alert(t('service.saveError'))
+      console.error('Save document error:', JSON.stringify(err))
+      alert(err?.message || t('service.saveError'))
     } finally {
       setSaving(false)
     }
@@ -2093,7 +2097,7 @@ function DocumentModal({ userId, onClose, onSaved }) {
 }
 
 /* ===== VEHICLE PHOTO MODAL ===== */
-function VehiclePhotoModal({ userId, onClose, onSaved }) {
+function VehiclePhotoModal({ userId, vehicleId, onClose, onSaved }) {
   const { t } = useLanguage()
   const PHOTO_TYPES = getPhotoTypes(t)
   const [photoType, setPhotoType] = useState('inspection')
@@ -2126,13 +2130,13 @@ function VehiclePhotoModal({ userId, onClose, onSaved }) {
     setSaving(true)
     try {
       for (const p of photos) {
-        await uploadVehiclePhoto(userId, null, p.file, photoType, '', notes)
+        await uploadVehiclePhoto(userId, vehicleId || null, p.file, photoType, '', notes)
       }
       photos.forEach(p => { if (p.preview) URL.revokeObjectURL(p.preview) })
       onSaved()
     } catch (err) {
-      console.error('save vehicle photo error:', err)
-      alert(t('service.saveError'))
+      console.error('Save vehicle photo error:', JSON.stringify(err))
+      alert(err?.message || t('service.saveError'))
     } finally {
       setSaving(false)
     }

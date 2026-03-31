@@ -127,8 +127,8 @@ export default function DVIRInspection({ userId, vehicleId }) {
       setView('list')
       await loadInspections()
     } catch (err) {
-      console.error('DVIR save error:', err)
-      alert(t('service.saveError'))
+      console.error('DVIR save error:', JSON.stringify(err))
+      alert(err?.message || t('service.saveError'))
     } finally {
       setSaving(false)
     }

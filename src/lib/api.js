@@ -621,7 +621,7 @@ export async function uploadVehiclePhoto(userId, vehicleId, file, photoType, dri
     .from('vehicle_photos')
     .insert(row)
     .select()
-  if (error) throw error
+  if (error) { console.error('vehicle_photos insert error:', JSON.stringify(error)); throw error }
   return data?.[0]
 }
 
@@ -763,7 +763,7 @@ export async function uploadDocument(userId, vehicleId, file, docType, title, no
     .from('documents')
     .insert(row)
     .select()
-  if (error) throw error
+  if (error) { console.error('documents insert error:', JSON.stringify(error)); throw error }
   return data?.[0]
 }
 
@@ -1502,7 +1502,7 @@ export async function addDVIRInspection(entry) {
     .from('dvir_inspections')
     .insert(row)
     .select()
-  if (error) throw error
+  if (error) { console.error('dvir_inspections insert error:', JSON.stringify(error)); throw error }
   return data?.[0]
 }
 
@@ -1526,7 +1526,7 @@ export async function uploadDVIRPhoto(userId, inspectionId, itemKey, file) {
       storage_path: path,
     })
     .select()
-  if (error) throw error
+  if (error) { console.error('dvir_photos insert error:', JSON.stringify(error)); throw error }
   return data?.[0]
 }
 

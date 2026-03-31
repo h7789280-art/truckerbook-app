@@ -76,6 +76,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [shiftPeriod, setShiftPeriod] = useState('week')
   const [shiftStats, setShiftStats] = useState({ count: 0, totalKm: 0, totalHours: 0 })
   const [shiftHistory, setShiftHistory] = useState([])
+  const [shiftHistoryExpanded, setShiftHistoryExpanded] = useState(false)
   const [todaySummary, setTodaySummary] = useState(null)
   const [fleetData, setFleetData] = useState(null)
   const [vehicleReportView, setVehicleReportView] = useState(null) // vehicle object or null
@@ -1814,7 +1815,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             const driverColorMap = {}
             driverNames.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
 
-            return shiftHistory.map((sh, i) => {
+            const visibleShifts = shiftHistoryExpanded ? shiftHistory : shiftHistory.slice(0, 1)
+
+            return <>
+            {visibleShifts.map((sh, i) => {
               const start = new Date(sh.started_at)
               const end = sh.ended_at ? new Date(sh.ended_at) : null
               const durationMin = end ? Math.round((end - start) / 60000) : 0
@@ -1835,7 +1839,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   background: theme.bg,
                   borderRadius: '10px',
                   padding: '12px',
-                  marginBottom: i < shiftHistory.length - 1 ? '8px' : 0,
+                  marginBottom: i < visibleShifts.length - 1 ? '8px' : 0,
                   borderLeft: isTeamDriving ? `3px solid ${driverColor}` : 'none',
                 }}>
                   {driverName ? (
@@ -1864,7 +1868,26 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   </div>
                 </div>
               )
-            })
+            })}
+            {shiftHistory.length > 1 && (
+              <div
+                onClick={() => setShiftHistoryExpanded(prev => !prev)}
+                style={{
+                  textAlign: 'center',
+                  padding: '10px 0',
+                  marginTop: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#f59e0b',
+                }}
+              >
+                {shiftHistoryExpanded
+                  ? `${t('overview.collapse') || '\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c'} \u25b2`
+                  : `${t('overview.allShifts') || '\u0412\u0441\u0435 \u0441\u043c\u0435\u043d\u044b'} \u25bc`}
+              </div>
+            )}
+            </>
           })()
         }
       </div>

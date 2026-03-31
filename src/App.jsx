@@ -659,14 +659,14 @@ function AppInner() {
         </>
       )}
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} role={userRole} />
-      {userRole !== 'job_seeker' && showChat && (
+      {userRole !== 'job_seeker' && activeTab === 'overview' && showChat && (
         <DriverChat
           userId={userId}
           profile={profile}
           onClose={() => { setShowChat(false); resetChatUnread() }}
         />
       )}
-      {userRole !== 'job_seeker' && !showChat && (
+      {userRole !== 'job_seeker' && activeTab === 'overview' && !showChat && (
         <button
           onClick={() => { setShowChat(true); resetChatUnread() }}
           style={{

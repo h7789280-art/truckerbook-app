@@ -430,8 +430,8 @@ export default function FinanceDetails({ userId, onBack }) {
 
       {/* Custom date range */}
       {period === 'custom' && (
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center' }}>
-          <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
+          <div style={{ width: '48%' }}>
             <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom') || '\u041e\u0442'}</div>
             <input
               type="date"
@@ -449,7 +449,7 @@ export default function FinanceDetails({ userId, onBack }) {
               }}
             />
           </div>
-          <div style={{ flex: 1 }}>
+          <div style={{ width: '48%' }}>
             <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo') || '\u0414\u043e'}</div>
             <input
               type="date"

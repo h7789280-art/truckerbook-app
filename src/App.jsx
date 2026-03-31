@@ -200,7 +200,7 @@ function AppInner() {
   const userRole = profile?.role || 'driver'
   const [activeTab, setActiveTab] = useState(userRole === 'job_seeker' ? 'jobs' : 'overview')
   const [prevTab, setPrevTab] = useState('overview')
-  const isExtraTab = ['jobs', 'news', 'marketplace', 'finance'].includes(activeTab) && userRole !== 'job_seeker'
+  const isExtraTab = ['jobs', 'news', 'marketplace'].includes(activeTab) && userRole !== 'job_seeker'
 
   const handleExtraTabNav = useCallback((tab) => {
     setPrevTab(activeTab)

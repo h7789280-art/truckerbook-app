@@ -3,12 +3,17 @@
  * Run: node scripts/create-forecast-workflow.mjs
  */
 
-const N8N_API_URL = 'https://etariahubpro.app.n8n.cloud/api/v1';
-const N8N_API_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlMDVkNzIyMC1kY2FiLTRmNDMtODRlYy1iMGFhYThjMDQ5NDYiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNmZmMjBmMzUtZDdlNi00ZDk2LTlkNDgtNWRhNjM5MjE3MzU1IiwiaWF0IjoxNzc0ODk5NDc2LCJleHAiOjE3Nzc0MTAwMDB9.0mY3ThBvC5yFMze66EOXcCMrpoHG6lc0Qyww66UthP4';
+const N8N_API_URL = process.env.N8N_API_URL || 'https://etariahubpro.app.n8n.cloud/api/v1';
+const N8N_API_KEY = process.env.N8N_API_KEY;
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL;
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+const GEMINI_KEY = process.env.GOOGLE_API_KEY;
 
-const SUPABASE_URL = 'https://zswsyxckaxidozvskgea.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpzd3N5eGNrYXhpZG96dnNrZ2VhIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ1MzYxNjMsImV4cCI6MjA5MDExMjE2M30.7rw9BJ5dCx85tTjnXafwRS-gfVBI4UmVY5BYWxVr9aA';
-const GEMINI_KEY = 'AIzaSyB8UFwxVMc6_oWry_z0VUDI-__ZmvgSGMQ';
+if (!N8N_API_KEY || !SUPABASE_URL || !SUPABASE_KEY || !GEMINI_KEY) {
+  console.error('Missing required env variables: N8N_API_KEY, VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, GOOGLE_API_KEY');
+  console.error('Create a .env file or export them before running this script.');
+  process.exit(1);
+}
 
 // --- Node code strings ---
 

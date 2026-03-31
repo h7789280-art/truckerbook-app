@@ -44,11 +44,11 @@ export default function Fuel({ userId, refreshKey }) {
     { key: 'supplies', icon: '\ud83e\udde4', label: t('fuel.supplies'), color: '#22c55e' },
     { key: 'hotel', icon: '\ud83c\udfe8', label: t('fuel.hotel'), color: '#ec4899' },
     { key: 'toll', icon: '\ud83c\udd7f\ufe0f', label: t('fuel.toll'), color: '#8b5cf6' },
-    { key: 'platon', icon: '\ud83d\ude9b', label: t('fuel.platon'), color: '#14b8a6' },
   ], [t])
 
   function getCat(key) {
-    return CATEGORIES.find(c => c.key === key) || CATEGORIES[1]
+    const k = key === 'platon' ? 'toll' : key
+    return CATEGORIES.find(c => c.key === k) || CATEGORIES[1]
   }
 
   const [fuelEntries, setFuelEntries] = useState([])

@@ -56,7 +56,6 @@ function getVehicleExpenseCategories(t) {
     { value: 'supplies', label: t('addModal.catSupplies') },
     { value: 'hotel', label: t('addModal.catHotel') },
     { value: 'toll', label: t('addModal.catToll') },
-    { value: 'platon', label: t('addModal.catPlaton') },
     { value: 'other', label: t('addModal.catOtherVehicle') },
   ]
 }

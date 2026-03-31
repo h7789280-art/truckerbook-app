@@ -600,7 +600,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const greeting = getGreeting(profileName, t)
   const totalExpenses = monthData.fuelCost + monthData.bytCost + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
-  const maxExpense = expenseBreakdown.length > 0 ? Math.max(...expenseBreakdown.map(e => e.value)) : 0
 
   const cardStyle = {
     background: theme.card,
@@ -2056,9 +2055,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       ) : (
         <>
-          {/* Monthly summary */}
+          {/* Finance card — income/expense + donut chart */}
           <div style={{ ...cardStyle, marginBottom: '12px' }}>
-            <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcc5'} {getMonthName(new Date())}</div>
+            <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.finances')} — {getMonthName(new Date())}</div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <div>
                 <div style={dimText}>{t('overview.income')}</div>
@@ -2079,6 +2078,63 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 {profit >= 0 ? '+' : ''}{formatNumber(Math.round(profit))} {cs}
               </div>
             </div>
+
+            {/* Donut chart breakdown */}
+            {expenseBreakdown.length > 0 && (() => {
+              const donutTotal = expenseBreakdown.reduce((s, e) => s + e.value, 0)
+              const radius = 50
+              const strokeWidth = 14
+              const circumference = 2 * Math.PI * radius
+              let cumulativeOffset = 0
+              const segments = expenseBreakdown.map(e => {
+                const pct = e.value / donutTotal
+                const dashLen = pct * circumference
+                const offset = cumulativeOffset
+                cumulativeOffset += dashLen
+                return { ...e, pct, dashLen, offset }
+              })
+              return (
+                <>
+                  <div style={{ borderTop: '1px solid ' + theme.border, margin: '12px 0 0 0' }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px' }}>
+                    <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
+                      <svg viewBox="0 0 120 120" width="120" height="120">
+                        {segments.map((seg, i) => (
+                          <circle
+                            key={i}
+                            cx="60" cy="60" r={radius}
+                            fill="none"
+                            stroke={seg.color}
+                            strokeWidth={strokeWidth}
+                            strokeDasharray={`${seg.dashLen} ${circumference - seg.dashLen}`}
+                            strokeDashoffset={-seg.offset}
+                            transform="rotate(-90 60 60)"
+                            strokeLinecap="butt"
+                          />
+                        ))}
+                      </svg>
+                      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                        <div style={{ fontSize: '10px', color: theme.dim }}>{t('overview.total')}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700 }}>
+                          {donutTotal >= 1000 ? `${Math.round(donutTotal / 1000)}k` : formatNumber(Math.round(donutTotal))}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
+                      {segments.map((seg, i) => (
+                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
+                          <div style={{ fontSize: '12px', color: theme.dim, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{seg.label}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>
+                            {formatNumber(Math.round(seg.value))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
           </div>
 
           {/* Mini cards */}
@@ -2098,31 +2154,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             ))}
           </div>
-
-          {/* Expenses chart */}
-          {expenseBreakdown.length > 0 && (
-            <div style={{ ...cardStyle, marginBottom: '12px' }}>
-              <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.expenses')}</div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', height: '120px', gap: '8px' }}>
-                {expenseBreakdown.map((e, i) => (
-                  <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                    <div style={{ fontFamily: 'monospace', fontSize: '10px', color: theme.dim, marginBottom: '4px' }}>
-                      {e.value >= 1000 ? `${Math.round(e.value / 1000)}k` : e.value}
-                    </div>
-                    <div style={{
-                      width: '100%',
-                      maxWidth: '36px',
-                      height: `${(e.value / maxExpense) * 90}px`,
-                      background: e.color,
-                      borderRadius: '4px 4px 0 0',
-                      minHeight: '8px',
-                    }} />
-                    <div style={{ fontSize: '10px', color: theme.dim, marginTop: '4px' }}>{e.label}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* AI Forecast */}
           <AIForecast userId={userId} activeVehicleId={activeVehicleId} />

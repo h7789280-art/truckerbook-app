@@ -69,6 +69,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [shiftOdometer, setShiftOdometer] = useState('')
   const [shiftElapsed, setShiftElapsed] = useState(0)
   const shiftTimerRef = useRef(null)
+  const shiftBlockRef = useRef(null)
   const [shiftPhoto, setShiftPhoto] = useState(null)
   const [shiftPhotoPreview, setShiftPhotoPreview] = useState(null)
   const [aiOdometerStatus, setAiOdometerStatus] = useState(null) // 'loading' | 'success' | 'error' | null
@@ -1511,7 +1512,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       </div>
 
       {/* Shift block */}
-      <div style={{ ...cardStyle, marginBottom: '12px' }}>
+      <div ref={shiftBlockRef} style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {t('overview.shift')}</div>
         {activeShift ? (
           <div>
@@ -2027,12 +2028,13 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Mini cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {[
-              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f' },
-              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd' },
-              { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a' },
-              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0' },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd', action: () => onExtraNav?.('fuel') },
+              { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
+              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
             ].map((item, i) => (
-              <div key={i} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+              <div key={i} onClick={item.action} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+                <div style={{ position: 'absolute', top: '6px', right: '8px', fontSize: '10px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
                 <div style={{ fontSize: '18px', marginBottom: '4px' }}>{item.icon}</div>
                 <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700 }}>{item.value}</div>
                 <div style={{ fontSize: '11px', color: theme.dim }}>{item.unit}</div>

@@ -47,7 +47,9 @@ export default function Byt({ userId, refreshKey }) {
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
   const [showExportMenu, setShowExportMenu] = useState(false)
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
   const exportRef = useRef(null)
+  const filterRef = useRef(null)
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -86,6 +88,18 @@ export default function Byt({ userId, refreshKey }) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [showExportMenu])
+
+  // Close filter dropdown on outside click
+  useEffect(() => {
+    if (!showFilterDropdown) return
+    const handler = (e) => {
+      if (filterRef.current && !filterRef.current.contains(e.target)) {
+        setShowFilterDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showFilterDropdown])
 
   const handleExport = (format) => {
     setShowExportMenu(false)
@@ -280,40 +294,80 @@ export default function Byt({ userId, refreshKey }) {
         </div>
       )}
 
-      {/* Filters */}
-      <div style={{
-        display: 'flex',
-        gap: '8px',
-        overflowX: 'auto',
-        paddingBottom: '4px',
-        marginBottom: '16px',
-        WebkitOverflowScrolling: 'touch',
-      }}>
-        {CATEGORIES.map(cat => {
-          const active = filter === cat.key
-          return (
-            <button
-              key={cat.key}
-              onClick={() => setFilter(cat.key)}
-              style={{
-                padding: '8px 14px',
-                borderRadius: '20px',
-                border: 'none',
-                fontSize: '13px',
-                fontWeight: 600,
-                whiteSpace: 'nowrap',
-                cursor: 'pointer',
-                background: active
-                  ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                  : 'var(--card, #111827)',
-                color: active ? '#000' : 'var(--dim, #64748b)',
-                transition: 'all 0.2s',
-              }}
-            >
-              {cat.icon ? `${cat.icon} ${cat.label}` : cat.label}
-            </button>
-          )
-        })}
+      {/* Category filter dropdown */}
+      <div ref={filterRef} style={{ position: 'relative', marginBottom: '16px' }}>
+        <button
+          onClick={() => setShowFilterDropdown(v => !v)}
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            border: '1px solid var(--border, #1e2a3f)',
+            background: 'var(--card, #111827)',
+            color: 'var(--text, #e2e8f0)',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>
+            {t('byt.categoryLabel')}: {(() => {
+              const cur = CATEGORIES.find(c => c.key === filter)
+              return cur ? (cur.icon ? `${cur.icon} ${cur.label}` : cur.label) : ''
+            })()}
+          </span>
+          <span style={{
+            transform: showFilterDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+            transition: 'transform 0.2s',
+            fontSize: '12px',
+          }}>{'\u25bc'}</span>
+        </button>
+        {showFilterDropdown && (
+          <div style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            top: '100%',
+            marginTop: '4px',
+            background: 'var(--card, #111827)',
+            border: '1px solid var(--border, #1e2a3f)',
+            borderRadius: '12px',
+            overflow: 'hidden',
+            zIndex: 50,
+            boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+          }}>
+            {CATEGORIES.map((cat, idx) => {
+              const active = filter === cat.key
+              return (
+                <button
+                  key={cat.key}
+                  onClick={() => { setFilter(cat.key); setShowFilterDropdown(false) }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    borderTop: idx > 0 ? '1px solid var(--border, #1e2a3f)' : 'none',
+                    background: active ? 'rgba(245, 158, 11, 0.15)' : 'transparent',
+                    color: active ? '#f59e0b' : 'var(--text, #e2e8f0)',
+                    fontSize: '14px',
+                    fontWeight: active ? 700 : 400,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {cat.icon && <span style={{ fontSize: '18px', width: '24px', textAlign: 'center' }}>{cat.icon}</span>}
+                  {cat.label}
+                </button>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Expense list */}

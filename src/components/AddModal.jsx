@@ -20,8 +20,14 @@ function getMenuItems(activeTab, t) {
     { key: 'repair', icon: '\uD83D\uDD27', label: t('addModal.repairTo') },
     { key: 'insurance', icon: '\uD83D\uDEE1', label: t('addModal.insurance') },
   ]
+  const EXPENSES_MENU = [
+    { key: 'fuel', icon: '\u26FD\uFE0F', label: t('addModal.refueling') },
+    { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: t('addModal.vehicleExpense') },
+    { key: 'byt', icon: '\uD83C\uDF7D', label: t('addModal.bytExpense') },
+  ]
   if (activeTab === 'service') return SERVICE_MENU
   if (activeTab === 'fuel') return VEHICLE_MENU
+  if (activeTab === 'expenses') return EXPENSES_MENU
   return OVERVIEW_MENU
 }
 
@@ -370,6 +376,8 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     setReceiptPreview(null)
     if (activeTab === 'fuel') {
       setFormType(null)
+    } else if (activeTab === 'expenses') {
+      setFormType(null)
     } else if (activeTab === 'byt') {
       setFormType('byt')
       setForm({ category: 'food' })
@@ -507,7 +515,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     boxSizing: 'border-box',
   }
 
-  const showMenu = formType === null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel')
+  const showMenu = formType === null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel' || activeTab === 'expenses')
   const menuItems = getMenuItems(activeTab, t)
 
   const renderMenuBtn = (item) => (
@@ -553,7 +561,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     ? t('addModal.whatToAdd')
     : getFormTitle(formType, t)
 
-  const canGoBack = formType !== null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel')
+  const canGoBack = formType !== null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel' || activeTab === 'expenses')
 
   return (
     <>

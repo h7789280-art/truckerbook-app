@@ -7,8 +7,7 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
 
   const DRIVER_TABS = [
     { key: 'overview', label: t('tabs.overview').toUpperCase(), icon: '\ud83d\udcca' },
-    { key: 'fuel', label: t('tabs.fuel').toUpperCase(), icon: '\ud83d\udcb0' },
-    { key: 'byt', label: t('tabs.byt').toUpperCase(), icon: '\ud83c\udfe8' },
+    { key: 'expenses', label: t('tabs.expenses').toUpperCase(), icon: '\ud83d\udcb5' },
     { key: 'trips', label: t('tabs.trips').toUpperCase(), icon: '\ud83d\ude9b' },
     { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
   ]

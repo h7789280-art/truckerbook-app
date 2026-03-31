@@ -2142,7 +2142,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {[
               { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
-              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd', action: () => onExtraNav?.('fuel') },
+              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd', action: () => onExtraNav?.('expenses') },
               { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
               { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
             ].map((item, i) => (

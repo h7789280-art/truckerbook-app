@@ -6,8 +6,7 @@ import { ThemeProvider, useTheme } from './lib/theme'
 import { LanguageProvider, useLanguage, applyCountryDefaults } from './lib/i18n'
 import { supabase } from './lib/supabase'
 import Overview from './tabs/Overview'
-import Fuel from './tabs/Fuel'
-import Byt from './tabs/Byt'
+import Expenses from './tabs/Expenses'
 import Trips from './tabs/Trips'
 import Service from './tabs/Service'
 import Jobs from './tabs/Jobs'
@@ -403,10 +402,8 @@ function AppInner() {
       }
     }
     switch (activeTab) {
-      case 'fuel':
-        return <Fuel userId={userId} refreshKey={fuelRefreshKey} activeVehicleId={vehicleId} />
-      case 'byt':
-        return <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={vehicleId} />
+      case 'expenses':
+        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} />
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':

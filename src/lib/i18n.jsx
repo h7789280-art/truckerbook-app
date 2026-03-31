@@ -6,6 +6,7 @@ const translations = {
       overview: '\u041e\u0431\u0437\u043e\u0440',
       fuel: '\u0422\u043e\u043f\u043b\u0438\u0432\u043e',
       byt: '\u0411\u044b\u0442',
+      expenses: '\u0420\u0430\u0441\u0445\u043e\u0434\u044b',
       trips: '\u0420\u0435\u0439\u0441\u044b',
       service: '\u0421\u0435\u0440\u0432\u0438\u0441',
       jobs: '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438',
@@ -144,6 +145,10 @@ const translations = {
       total: '\u0418\u0442\u043e\u0433\u043e',
       free: '\u0411\u0435\u0441\u043f\u043b\u0430\u0442\u043d\u043e',
       noEntries: '\u041f\u043e\u043a\u0430 \u043d\u0435\u0442 \u0437\u0430\u043f\u0438\u0441\u0435\u0439. \u041d\u0430\u0436\u043c\u0438\u0442\u0435 + \u0447\u0442\u043e\u0431\u044b \u0434\u043e\u0431\u0430\u0432\u0438\u0442\u044c',
+    },
+    expenses: {
+      vehicle: '\u041d\u0430 \u043c\u0430\u0448\u0438\u043d\u0443',
+      personal: '\u041b\u0438\u0447\u043d\u044b\u0435',
     },
     trips: {
       addTrip: '\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0440\u0435\u0439\u0441',
@@ -855,6 +860,7 @@ const translations = {
       overview: 'Overview',
       fuel: 'Fuel',
       byt: 'Living',
+      expenses: 'Expenses',
       trips: 'Trips',
       service: 'Service',
       jobs: 'Jobs',
@@ -993,6 +999,10 @@ const translations = {
       total: 'Total',
       free: 'Free',
       noEntries: 'No entries yet. Tap + to add',
+    },
+    expenses: {
+      vehicle: 'Vehicle',
+      personal: 'Personal',
     },
     trips: {
       addTrip: 'Add trip',
@@ -1704,6 +1714,7 @@ const translations = {
       overview: '\u041e\u0433\u043b\u044f\u0434',
       fuel: '\u041f\u0430\u043b\u0438\u0432\u043e',
       byt: '\u041f\u043e\u0431\u0443\u0442',
+      expenses: '\u0412\u0438\u0442\u0440\u0430\u0442\u0438',
       trips: '\u0420\u0435\u0439\u0441\u0438',
       service: '\u0421\u0435\u0440\u0432\u0456\u0441',
       jobs: '\u0412\u0430\u043a\u0430\u043d\u0441\u0456\u0457',
@@ -1842,6 +1853,10 @@ const translations = {
       total: '\u0412\u0441\u044c\u043e\u0433\u043e',
       free: '\u0411\u0435\u0437\u043a\u043e\u0448\u0442\u043e\u0432\u043d\u043e',
       noEntries: '\u0417\u0430\u043f\u0438\u0441\u0456\u0432 \u043d\u0435\u043c\u0430\u0454. \u041d\u0430\u0442\u0438\u0441\u043d\u0456\u0442\u044c + \u0449\u043e\u0431 \u0434\u043e\u0434\u0430\u0442\u0438',
+    },
+    expenses: {
+      vehicle: '\u041d\u0430 \u0430\u0432\u0442\u043e',
+      personal: '\u041e\u0441\u043e\u0431\u0438\u0441\u0442\u0456',
     },
     trips: {
       addTrip: '\u0414\u043e\u0434\u0430\u0442\u0438 \u0440\u0435\u0439\u0441',
@@ -2552,6 +2567,7 @@ const translations = {
       overview: 'Resumen',
       fuel: 'Combustible',
       byt: 'Gastos',
+      expenses: 'Gastos',
       trips: 'Viajes',
       service: 'Servicio',
       jobs: 'Empleos',
@@ -2690,6 +2706,10 @@ const translations = {
       total: 'Total',
       free: 'Gratis',
       noEntries: 'Sin entradas a\u00fan. Pulse + para a\u00f1adir',
+    },
+    expenses: {
+      vehicle: 'Veh\u00edculo',
+      personal: 'Personal',
     },
     trips: {
       addTrip: 'A\u00f1adir viaje',
@@ -3386,6 +3406,7 @@ const translations = {
       overview: '\u00dcbersicht',
       fuel: 'Kraftstoff',
       byt: 'Alltag',
+      expenses: 'Ausgaben',
       trips: 'Fahrten',
       service: 'Service',
       jobs: 'Stellenangebote',
@@ -3524,6 +3545,10 @@ const translations = {
       total: 'Gesamt',
       free: 'Kostenlos',
       noEntries: 'Noch keine Eintr\u00e4ge. Dr\u00fccken Sie + zum Hinzuf\u00fcgen',
+    },
+    expenses: {
+      vehicle: 'Fahrzeug',
+      personal: 'Pers\u00f6nlich',
     },
     trips: {
       addTrip: 'Fahrt hinzuf\u00fcgen',
@@ -4220,6 +4245,7 @@ const translations = {
       overview: 'Aper\u00e7u',
       fuel: 'Carburant',
       byt: 'Quotidien',
+      expenses: 'D\u00e9penses',
       trips: 'Trajets',
       service: 'Service',
       jobs: 'Emplois',
@@ -4358,6 +4384,10 @@ const translations = {
       total: 'Total',
       free: 'Gratuit',
       noEntries: 'Aucune entr\u00e9e. Appuyez sur + pour ajouter',
+    },
+    expenses: {
+      vehicle: 'V\u00e9hicule',
+      personal: 'Personnel',
     },
     trips: {
       addTrip: 'Ajouter un trajet',
@@ -5054,6 +5084,7 @@ const translations = {
       overview: 'Genel Bak\u0131\u015f',
       fuel: 'Yak\u0131t',
       byt: 'Ya\u015fam',
+      expenses: 'Giderler',
       trips: 'Seferler',
       service: 'Servis',
       jobs: '\u0130\u015f \u0130lanlar\u0131',
@@ -5192,6 +5223,10 @@ const translations = {
       total: 'Toplam',
       free: '\u00dccretsiz',
       noEntries: 'Hen\u00fcz kay\u0131t yok. Eklemek i\u00e7in + bas\u0131n',
+    },
+    expenses: {
+      vehicle: 'Ara\u00e7',
+      personal: 'Ki\u015fisel',
     },
     trips: {
       addTrip: 'Sefer ekle',
@@ -5888,6 +5923,7 @@ const translations = {
       overview: 'Przegl\u0105d',
       fuel: 'Paliwo',
       byt: 'Wydatki',
+      expenses: 'Wydatki',
       trips: 'Trasy',
       service: 'Serwis',
       jobs: 'Oferty pracy',
@@ -6026,6 +6062,10 @@ const translations = {
       total: 'Razem',
       free: 'Bezp\u0142atnie',
       noEntries: 'Brak wpis\u00f3w. Naci\u015bnij + aby doda\u0107',
+    },
+    expenses: {
+      vehicle: 'Pojazd',
+      personal: 'Osobiste',
     },
     trips: {
       addTrip: 'Dodaj tras\u0119',

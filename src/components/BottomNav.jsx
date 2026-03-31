@@ -27,7 +27,8 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
         transform: 'translateX(-50%)',
         width: '100%',
         maxWidth: 480,
-        height: 64,
+        height: 72,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         background: theme.navBg,
         borderTop: '1px solid ' + theme.border,
         display: 'flex',
@@ -49,16 +50,17 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 2,
-              padding: '6px 0',
+              gap: 3,
+              padding: '8px 0',
               color: isActive ? '#f59e0b' : theme.dim,
-              fontSize: 10,
+              fontSize: 12,
               fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
               fontWeight: isActive ? 700 : 500,
-              transition: 'color 0.15s',
+              transition: 'color 0.15s, transform 0.15s',
+              transform: isActive ? 'scale(1.08)' : 'scale(1)',
             }}
           >
-            <span style={{ fontSize: 20 }}>{tab.icon}</span>
+            <span style={{ fontSize: 28 }}>{tab.icon}</span>
             <span>{tab.label}</span>
           </button>
         )

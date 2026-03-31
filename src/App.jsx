@@ -215,6 +215,7 @@ function AppInner() {
   const [bytRefreshKey, setBytRefreshKey] = useState(0)
   const [serviceRefreshKey, setServiceRefreshKey] = useState(0)
   const [overviewRefreshKey, setOverviewRefreshKey] = useState(0)
+  const [expensesSubTab, setExpensesSubTab] = useState('vehicle')
   const [showProfile, setShowProfile] = useState(false)
   const [activeVehicleId, setActiveVehicleId] = useState('main')
   const [pinUnlocked, setPinUnlocked] = useState(false)
@@ -403,7 +404,7 @@ function AppInner() {
     }
     switch (activeTab) {
       case 'expenses':
-        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} />
+        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} />
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':
@@ -650,6 +651,7 @@ function AppInner() {
             userId={userId}
             activeTab={activeTab}
             activeVehicleId={vehicleId}
+            expensesSubTab={expensesSubTab}
             onFuelSaved={handleFuelSaved}
             onTripSaved={handleTripSaved}
             onBytSaved={handleBytSaved}

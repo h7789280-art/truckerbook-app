@@ -233,18 +233,20 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       if (fuelCost > 0) breakdown.push({ label: t('overview.fuelShort'), value: fuelCost, color: '#f59e0b' })
       if (serviceCost > 0) breakdown.push({ label: t('overview.repairShort'), value: serviceCost, color: '#ef4444' })
       if (vehicleExpCost > 0) breakdown.push({ label: t('overview.vehicleShort'), value: vehicleExpCost, color: '#8b5cf6' })
-      // Group byt by category
-      const bytByCategory = {}
-      monthByt.forEach(e => {
-        const cat = e.category || 'other'
-        bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
-      })
-      if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
-      if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
-      const otherByt = Object.entries(bytByCategory)
-        .filter(([k]) => k !== 'food' && k !== 'hotel')
-        .reduce((s, [, v]) => s + v, 0)
-      if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
+      // Group byt by category (personal expenses — hidden for company role)
+      if (profile?.role !== 'company') {
+        const bytByCategory = {}
+        monthByt.forEach(e => {
+          const cat = e.category || 'other'
+          bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
+        })
+        if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
+        if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
+        const otherByt = Object.entries(bytByCategory)
+          .filter(([k]) => k !== 'food' && k !== 'hotel')
+          .reduce((s, [, v]) => s + v, 0)
+        if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
+      }
       setExpenseBreakdown(breakdown)
 
       // Reminders from insurance
@@ -598,7 +600,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   }
 
   const greeting = getGreeting(profileName, t)
-  const totalExpenses = monthData.fuelCost + monthData.bytCost + monthData.serviceCost + (monthData.vehicleExpCost || 0)
+  const isCompanyRole = profile?.role === 'company'
+  const totalExpenses = monthData.fuelCost + (isCompanyRole ? 0 : monthData.bytCost) + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
 
   const cardStyle = {

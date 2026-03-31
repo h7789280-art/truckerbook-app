@@ -4,7 +4,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { recordAudio, parseExpenseFromVoice } from '../lib/voiceInput'
 
-function getMenuItems(activeTab, t) {
+function getMenuItems(activeTab, t, expensesSubTab) {
   const OVERVIEW_MENU = [
     { key: 'fuel', icon: '\u26FD\uFE0F', label: t('addModal.refueling') },
     { key: 'byt', icon: '\uD83C\uDF7D', label: t('addModal.bytExpense') },
@@ -20,14 +20,16 @@ function getMenuItems(activeTab, t) {
     { key: 'repair', icon: '\uD83D\uDD27', label: t('addModal.repairTo') },
     { key: 'insurance', icon: '\uD83D\uDEE1', label: t('addModal.insurance') },
   ]
-  const EXPENSES_MENU = [
+  const EXPENSES_VEHICLE_MENU = [
     { key: 'fuel', icon: '\u26FD\uFE0F', label: t('addModal.refueling') },
     { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: t('addModal.vehicleExpense') },
+  ]
+  const EXPENSES_PERSONAL_MENU = [
     { key: 'byt', icon: '\uD83C\uDF7D', label: t('addModal.bytExpense') },
   ]
   if (activeTab === 'service') return SERVICE_MENU
   if (activeTab === 'fuel') return VEHICLE_MENU
-  if (activeTab === 'expenses') return EXPENSES_MENU
+  if (activeTab === 'expenses') return expensesSubTab === 'personal' ? EXPENSES_PERSONAL_MENU : EXPENSES_VEHICLE_MENU
   return OVERVIEW_MENU
 }
 
@@ -352,7 +354,7 @@ function VehicleExpenseFields({ form, onChange, theme, inputStyle, t, cs }) {
   )
 }
 
-export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved, onVehicleExpenseSaved }) {
+export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, expensesSubTab, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved, onVehicleExpenseSaved }) {
   const { theme } = useTheme()
   const { t, lang } = useLanguage()
   const [formType, setFormType] = useState(null)
@@ -516,7 +518,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   }
 
   const showMenu = formType === null && (activeTab === 'overview' || activeTab === 'service' || activeTab === 'fuel' || activeTab === 'expenses')
-  const menuItems = getMenuItems(activeTab, t)
+  const menuItems = getMenuItems(activeTab, t, expensesSubTab)
 
   const renderMenuBtn = (item) => (
     <button

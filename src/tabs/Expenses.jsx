@@ -1,16 +1,24 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useLanguage } from '../lib/i18n'
 import Fuel from './Fuel'
 import Byt from './Byt'
 
-export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId }) {
+export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange }) {
   const { t } = useLanguage()
   const [subTab, setSubTab] = useState('vehicle')
 
-  const tabs = [
-    { key: 'vehicle', label: t('expenses.vehicle') },
-    { key: 'personal', label: t('expenses.personal') },
-  ]
+  const isCompany = userRole === 'company'
+
+  useEffect(() => {
+    if (onSubTabChange) onSubTabChange(subTab)
+  }, [subTab])
+
+  const tabs = isCompany
+    ? [{ key: 'vehicle', label: t('expenses.vehicle') }]
+    : [
+        { key: 'vehicle', label: t('expenses.vehicle') },
+        { key: 'personal', label: t('expenses.personal') },
+      ]
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>

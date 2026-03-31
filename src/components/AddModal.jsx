@@ -25,7 +25,11 @@ function getMenuItems(activeTab, t, expensesSubTab) {
     { key: 'vehicle_expense', icon: '\uD83D\uDE9A', label: t('addModal.vehicleExpense') },
   ]
   const EXPENSES_PERSONAL_MENU = [
-    { key: 'byt', icon: '\uD83C\uDF7D', label: t('addModal.bytExpense') },
+    { key: 'byt:food', icon: '\uD83C\uDF7D', label: t('addModal.catFood') },
+    { key: 'byt:shower', icon: '\uD83D\uDEBF', label: t('addModal.catShower') },
+    { key: 'byt:laundry', icon: '\uD83E\uDDFA', label: t('addModal.catLaundry') },
+    { key: 'byt:personal', icon: '\uD83D\uDED2', label: t('addModal.catPersonal') },
+    { key: 'byt:other', icon: '\uD83D\uDCE6', label: t('addModal.catOther') },
   ]
   if (activeTab === 'service') return SERVICE_MENU
   if (activeTab === 'fuel') return VEHICLE_MENU
@@ -418,6 +422,12 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   }
 
   const selectType = (type) => {
+    if (type.startsWith('byt:')) {
+      const cat = type.split(':')[1]
+      setFormType('byt')
+      setForm({ category: cat })
+      return
+    }
     setFormType(type)
     if (type === 'byt') setForm({ category: 'food' })
     else if (type === 'vehicle_expense') setForm({ category: 'def' })

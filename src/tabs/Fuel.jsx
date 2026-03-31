@@ -169,14 +169,15 @@ export default function Fuel({ userId, refreshKey, profile }) {
     const now2 = new Date()
     const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
     if (format === 'excel') {
-      // Compute mileage for the period from fuel entries with odometer
-      const fuelOdometers = periodEntries
-        .filter(e => e.source === 'fuel')
-        .map(e => fuelEntries.find(f => f.id === e.id)?.odometer)
-        .filter(Boolean)
-      const mileage = fuelOdometers.length >= 2
-        ? Math.max(...fuelOdometers) - Math.min(...fuelOdometers)
-        : 0
+      // Compute mileage from detail rows odometer values
+      const odometerValues = rows
+        .map(r => Number(r.odometer))
+        .filter(v => v > 0)
+      const mileage = odometerValues.length >= 2
+        ? Math.max(...odometerValues) - Math.min(...odometerValues)
+        : odometerValues.length === 1
+          ? odometerValues[0]
+          : 0
       const costPerUnit = mileage > 0 ? Math.round((grandTotal / mileage) * 100) / 100 : 0
 
       // Period label for the sheet

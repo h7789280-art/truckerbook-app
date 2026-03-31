@@ -813,15 +813,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               }}
             >{'\ud83d\udc64'}</button>
           )}
-          {onExtraNav && (
-            <button
-              onClick={() => onExtraNav('chat')}
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '22px', padding: '4px', lineHeight: 1,
-              }}
-            >{'\ud83d\udcac'}</button>
-          )}
         </div>
       </div>
 

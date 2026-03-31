@@ -804,34 +804,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {greeting.icon} {greeting.text}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          {onExtraNav && userRole !== 'job_seeker' && (
-            <>
-              <button
-                onClick={() => onExtraNav('jobs')}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: '18px', padding: '4px', lineHeight: 1,
-                }}
-                title={'\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438'}
-              >{'\ud83d\udcbc'}</button>
-              <button
-                onClick={() => onExtraNav('news')}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: '18px', padding: '4px', lineHeight: 1,
-                }}
-                title={'\u041d\u043e\u0432\u043e\u0441\u0442\u0438'}
-              >{'\ud83d\udcf0'}</button>
-              <button
-                onClick={() => onExtraNav('marketplace')}
-                style={{
-                  background: 'none', border: 'none', cursor: 'pointer',
-                  fontSize: '18px', padding: '4px', lineHeight: 1,
-                }}
-                title={'\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441'}
-              >{'\ud83d\udce2'}</button>
-            </>
-          )}
           {onOpenProfile && (
             <button
               onClick={onOpenProfile}
@@ -1954,6 +1926,48 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
         )
       })()}
+
+      {/* Quick links */}
+      {onExtraNav && userRole !== 'job_seeker' && (
+        <div style={{ ...cardStyle, marginBottom: '12px' }}>
+          <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {[
+              { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs') },
+              { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews') },
+              { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace') },
+              { key: 'chat', icon: '\ud83d\udcac', label: t('overview.qlChat') },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => onExtraNav(item.key)}
+                style={{
+                  flex: '0 0 80px',
+                  width: '80px',
+                  height: '80px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  background: theme.card,
+                  border: '1px solid ' + theme.border,
+                  borderRadius: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+                onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <span style={{ fontSize: '28px', lineHeight: 1 }}>{item.icon}</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: theme.text, lineHeight: 1.2, textAlign: 'center' }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>

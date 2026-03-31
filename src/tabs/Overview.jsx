@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto } from '../lib/api'
 import { exportToExcel, exportToPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
@@ -463,7 +463,15 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     if (!shiftOdometer) return
     try {
       const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
-      const shift = await startShift(userId, vehicleId, shiftOdometer, profileName || '')
+      let photoUrl = null
+      if (shiftPhoto && userId) {
+        try {
+          photoUrl = await uploadOdometerPhoto(userId, shiftPhoto)
+        } catch (photoErr) {
+          console.error('Odometer photo upload failed:', photoErr)
+        }
+      }
+      const shift = await startShift(userId, vehicleId, shiftOdometer, profileName || '', photoUrl)
       setActiveShift(shift)
       closeShiftModal()
     } catch (err) {
@@ -506,7 +514,15 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const handleEndShift = async () => {
     if (!shiftOdometer || !activeShift) return
     try {
-      await endShift(activeShift.id, shiftOdometer)
+      let photoUrl = null
+      if (shiftPhoto && userId) {
+        try {
+          photoUrl = await uploadOdometerPhoto(userId, shiftPhoto)
+        } catch (photoErr) {
+          console.error('Odometer photo upload failed:', photoErr)
+        }
+      }
+      await endShift(activeShift.id, shiftOdometer, photoUrl)
       setActiveShift(null)
       closeShiftModal()
       loadShiftAnalytics()

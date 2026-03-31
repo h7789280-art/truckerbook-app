@@ -6,6 +6,19 @@ async function offlineInsert(table, row) {
   return [{ ...row, id: 'offline-' + Date.now(), _offline: true }]
 }
 
+// --- Receipt photo upload ---
+
+export async function uploadReceiptPhoto(userId, category, file) {
+  const ext = file.name ? file.name.split('.').pop() : 'jpg'
+  const path = `${userId}/receipts/${category}_${Date.now()}.${ext}`
+  const { error: upErr } = await supabase.storage
+    .from('receipts')
+    .upload(path, file, { contentType: file.type || 'image/jpeg' })
+  if (upErr) { console.error('uploadReceiptPhoto storage error:', JSON.stringify(upErr)); throw upErr }
+  const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
+  return urlData?.publicUrl || ''
+}
+
 // --- Fuel ---
 
 export async function fetchFuels(userId) {
@@ -37,6 +50,7 @@ export async function addFuel(_userId, entry) {
     latitude: entry.latitude != null ? parseFloat(entry.latitude) : null,
     longitude: entry.longitude != null ? parseFloat(entry.longitude) : null,
     state: entry.state || null,
+    receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('fuel_entries', row)
   const { data, error } = await supabase
@@ -85,6 +99,7 @@ export async function addTrip(entry) {
     distance_km: parseFloat(entry.distance) || 0,
     deadhead_km: parseFloat(entry.deadhead) || 0,
     income: parseFloat(entry.rate) || 0,
+    receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('trips', row)
   const { data, error } = await supabase
@@ -132,6 +147,7 @@ export async function addBytExpense(entry) {
     name: entry.name || '',
     date: entry.date || new Date().toISOString().slice(0, 10),
     amount: parseFloat(entry.amount) || 0,
+    receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('byt_expenses', row)
   const { data, error } = await supabase
@@ -192,6 +208,7 @@ export async function addServiceRecord(entry) {
     cost: parseFloat(entry.amount) || 0,
     odometer: parseInt(entry.odometer, 10) || 0,
     date: entry.date || new Date().toISOString().slice(0, 10),
+    receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('service_records', row)
   const { data, error } = await supabase
@@ -232,7 +249,18 @@ export async function getActiveShift(userId) {
   return data
 }
 
-export async function startShift(userId, vehicleId, odometerStart, driverName) {
+export async function uploadOdometerPhoto(userId, file) {
+  const ext = file.name ? file.name.split('.').pop() : 'jpg'
+  const path = `${userId}/odometer/${Date.now()}.${ext}`
+  const { error: upErr } = await supabase.storage
+    .from('receipts')
+    .upload(path, file, { contentType: file.type || 'image/jpeg' })
+  if (upErr) { console.error('uploadOdometerPhoto storage error:', JSON.stringify(upErr)); throw upErr }
+  const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
+  return urlData?.publicUrl || ''
+}
+
+export async function startShift(userId, vehicleId, odometerStart, driverName, odometerPhotoUrl) {
   const row = {
     user_id: userId,
     vehicle_id: vehicleId || null,
@@ -240,6 +268,7 @@ export async function startShift(userId, vehicleId, odometerStart, driverName) {
     driver_name: driverName || '',
     started_at: new Date().toISOString(),
     status: 'active',
+    odometer_photo_url: odometerPhotoUrl || null,
   }
   if (!navigator.onLine) {
     const result = await offlineInsert('shifts', row)
@@ -253,15 +282,17 @@ export async function startShift(userId, vehicleId, odometerStart, driverName) {
   return data?.[0]
 }
 
-export async function endShift(shiftId, odometerEnd) {
+export async function endShift(shiftId, odometerEnd, odometerPhotoUrl) {
   const end = parseInt(odometerEnd, 10) || 0
+  const updateData = {
+    ended_at: new Date().toISOString(),
+    odometer_end: end,
+    status: 'completed',
+  }
+  if (odometerPhotoUrl) updateData.odometer_photo_end_url = odometerPhotoUrl
   const { data, error } = await supabase
     .from('shifts')
-    .update({
-      ended_at: new Date().toISOString(),
-      odometer_end: end,
-      status: 'completed',
-    })
+    .update(updateData)
     .eq('id', shiftId)
     .select()
   if (error) throw error
@@ -457,6 +488,7 @@ export async function addVehicleExpense(entry) {
     description: entry.description || '',
     amount: parseFloat(entry.amount) || 0,
     date: entry.date || new Date().toISOString().slice(0, 10),
+    receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('vehicle_expenses', row)
   const { data, error } = await supabase

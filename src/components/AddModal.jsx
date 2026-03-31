@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { addFuel, addTrip, addBytExpense, addServiceRecord, addVehicleExpense } from '../lib/api'
+import { addFuel, addTrip, addBytExpense, addServiceRecord, addVehicleExpense, uploadReceiptPhoto } from '../lib/api'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { recordAudio, parseExpenseFromVoice } from '../lib/voiceInput'
@@ -72,13 +72,24 @@ function FieldGroup({ label, children, theme }) {
   )
 }
 
-function PhotoVoiceBar({ theme, t, onVoiceResult, language }) {
+function PhotoVoiceBar({ theme, t, onVoiceResult, language, onPhotoSelected, photoPreview, onPhotoRemove }) {
   const [voiceState, setVoiceState] = useState('idle') // idle | recording | processing
   const [voiceError, setVoiceError] = useState(null)
   const recorderRef = useRef(null)
+  const cameraInputRef = useRef(null)
+  const galleryInputRef = useRef(null)
+  const [showPhotoMenu, setShowPhotoMenu] = useState(false)
+
+  const handlePhotoFiles = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    e.target.value = ''
+    if (onPhotoSelected) onPhotoSelected(file)
+    setShowPhotoMenu(false)
+  }
 
   const handlePhoto = () => {
-    alert(t('addModal.photoSoon'))
+    setShowPhotoMenu(prev => !prev)
   }
 
   const handleVoice = async () => {
@@ -162,6 +173,8 @@ function PhotoVoiceBar({ theme, t, onVoiceResult, language }) {
           50% { transform: scale(1.05); }
         }
       `}</style>
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handlePhotoFiles} />
+      <input ref={galleryInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoFiles} />
       <div style={{ display: 'flex', gap: 10 }}>
         <button type="button" style={btnStyle} onClick={handlePhoto} onMouseEnter={handleHover} onMouseLeave={handleLeave}>{t('addModal.photo')}</button>
         <button
@@ -175,6 +188,22 @@ function PhotoVoiceBar({ theme, t, onVoiceResult, language }) {
           {voiceLabel}
         </button>
       </div>
+      {showPhotoMenu && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <button type="button" style={{ ...btnStyle, fontSize: 12 }} onClick={() => cameraInputRef.current?.click()}>{'\uD83D\uDCF7 '}{t('addModal.camera') || 'Camera'}</button>
+          <button type="button" style={{ ...btnStyle, fontSize: 12 }} onClick={() => galleryInputRef.current?.click()}>{'\uD83D\uDDBC\uFE0F '}{t('addModal.gallery') || 'Gallery'}</button>
+        </div>
+      )}
+      {photoPreview && (
+        <div style={{ marginTop: 8, position: 'relative', display: 'inline-block' }}>
+          <img src={photoPreview} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid ' + theme.border }} />
+          <button type="button" onClick={onPhotoRemove} style={{
+            position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: '50%',
+            background: '#ef4444', border: 'none', color: '#fff', fontSize: 12, lineHeight: '20px',
+            textAlign: 'center', cursor: 'pointer', padding: 0,
+          }}>{'\u00D7'}</button>
+        </div>
+      )}
       {voiceError && (
         <div style={{ color: '#ef4444', fontSize: 12, marginTop: 6 }}>{voiceError}</div>
       )}
@@ -327,6 +356,8 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   const [geoLat, setGeoLat] = useState(null)
   const [geoLon, setGeoLon] = useState(null)
   const [geoState, setGeoState] = useState(null)
+  const [receiptFile, setReceiptFile] = useState(null)
+  const [receiptPreview, setReceiptPreview] = useState(null)
 
   useEffect(() => {
     if (!isOpen) return
@@ -335,6 +366,9 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     setGeoLat(null)
     setGeoLon(null)
     setGeoState(null)
+    if (receiptPreview) URL.revokeObjectURL(receiptPreview)
+    setReceiptFile(null)
+    setReceiptPreview(null)
     if (activeTab === 'fuel') {
       setFormType(null)
     } else if (activeTab === 'byt') {
@@ -381,10 +415,32 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     else setForm({})
   }
 
+  const handlePhotoSelected = (file) => {
+    if (receiptPreview) URL.revokeObjectURL(receiptPreview)
+    setReceiptFile(file)
+    setReceiptPreview(URL.createObjectURL(file))
+  }
+
+  const handlePhotoRemove = () => {
+    if (receiptPreview) URL.revokeObjectURL(receiptPreview)
+    setReceiptFile(null)
+    setReceiptPreview(null)
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true)
       const entry = { ...form, vehicle_id: activeVehicleId || null }
+
+      // Upload receipt photo if selected
+      if (receiptFile && userId) {
+        try {
+          const url = await uploadReceiptPhoto(userId, formType || 'other', receiptFile)
+          entry.receipt_url = url
+        } catch (photoErr) {
+          console.error('Receipt photo upload failed:', photoErr)
+        }
+      }
 
       if (formType === 'fuel') {
         if (geoLat != null && geoLon != null) {
@@ -425,6 +481,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     }
     setForm({})
     setFormType(null)
+    handlePhotoRemove()
     onClose()
   }
 
@@ -571,7 +628,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
         ) : (
           <>
             {renderForm()}
-            <PhotoVoiceBar theme={theme} t={t} language={lang} onVoiceResult={(result) => {
+            <PhotoVoiceBar theme={theme} t={t} language={lang} onPhotoSelected={handlePhotoSelected} photoPreview={receiptPreview} onPhotoRemove={handlePhotoRemove} onVoiceResult={(result) => {
               if (result.amount) handleChange('amount', String(result.amount))
               if (result.category) handleChange('category', result.category)
               if (result.description) handleChange(formType === 'byt' || formType === 'repair' ? 'name' : 'description', result.description)

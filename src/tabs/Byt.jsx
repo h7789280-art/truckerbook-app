@@ -133,7 +133,7 @@ export default function Byt({ userId, refreshKey }) {
 
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', paddingRight: 44 }}>
         <h2 style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text, #e2e8f0)', margin: 0 }}>
           {t('byt.personalExpenses')}
         </h2>

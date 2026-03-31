@@ -652,7 +652,7 @@ function TripsTab({ userId, refreshKey, theme }) {
       </div>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: 44 }}>
         <div style={{ color: theme.dim, fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
           {t('trips.tripsHeader')}
         </div>

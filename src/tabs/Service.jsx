@@ -316,7 +316,7 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
   return (
     <>
       {/* Export button */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px', paddingRight: 44 }}>
         <div ref={exportRef} style={{ position: 'relative' }}>
           <button
             onClick={() => setShowExportMenu(v => !v)}

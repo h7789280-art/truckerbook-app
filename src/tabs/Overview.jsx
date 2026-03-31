@@ -799,17 +799,19 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   return (
     <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
       {/* Greeting */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingRight: 44 }}>
         <div style={{ fontSize: '20px', fontWeight: 600 }}>
           {greeting.icon} {greeting.text}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
           {onOpenProfile && (
             <button
               onClick={onOpenProfile}
               style={{
                 background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '22px', padding: '4px', lineHeight: 1,
+                fontSize: '22px', padding: '8px', lineHeight: 1,
+                minWidth: 40, minHeight: 40,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >{'\ud83d\udc64'}</button>
           )}

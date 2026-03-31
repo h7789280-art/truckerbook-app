@@ -672,14 +672,19 @@ function AppInner() {
           style={{
             position: 'fixed',
             top: 12,
-            right: 'calc(50% - 228px)',
+            right: 16,
             zIndex: 99,
             background: 'none',
             border: 'none',
             cursor: 'pointer',
             fontSize: 22,
-            padding: 4,
+            padding: 8,
             lineHeight: 1,
+            minWidth: 40,
+            minHeight: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           {'\uD83D\uDCAC'}

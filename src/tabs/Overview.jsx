@@ -811,7 +811,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 background: 'none', border: 'none', cursor: 'pointer',
                 fontSize: '22px', padding: '4px', lineHeight: 1,
               }}
-            >{'\u2699\ufe0f'}</button>
+            >{'\ud83d\udc64'}</button>
+          )}
+          {onExtraNav && (
+            <button
+              onClick={() => onExtraNav('chat')}
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontSize: '22px', padding: '4px', lineHeight: 1,
+              }}
+            >{'\ud83d\udcac'}</button>
           )}
         </div>
       </div>
@@ -1936,7 +1945,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs') },
               { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews') },
               { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace') },
-              { key: 'chat', icon: '\ud83d\udcac', label: t('overview.qlChat') },
             ].map(item => (
               <button
                 key={item.key}

@@ -44,6 +44,8 @@ export default function FinanceDetails({ userId, onBack }) {
     }
   }
 
+  const toLocalDate = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
   const getDateRange = useCallback(() => {
     const now = new Date()
     if (period === 'custom' && customFrom && customTo) {
@@ -52,8 +54,8 @@ export default function FinanceDetails({ userId, onBack }) {
     const months = getMonthCount() || 12
     const start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1)
     return {
-      start: start.toISOString().slice(0, 10),
-      end: now.toISOString().slice(0, 10),
+      start: toLocalDate(start),
+      end: toLocalDate(now),
     }
   }, [period, customFrom, customTo])
 

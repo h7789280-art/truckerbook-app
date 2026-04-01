@@ -190,7 +190,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     try {
       setLoading(true)
       const now = new Date()
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+      const msStart = new Date(now.getFullYear(), now.getMonth(), 1)
+      const msEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      const monthStart = `${msStart.getFullYear()}-${String(msStart.getMonth() + 1).padStart(2, '0')}-${String(msStart.getDate()).padStart(2, '0')}`
+      const monthEnd = `${msEnd.getFullYear()}-${String(msEnd.getMonth() + 1).padStart(2, '0')}-${String(msEnd.getDate()).padStart(2, '0')}`
 
       const [fuels, trips, bytExps, serviceRecs, insuranceRecs, vehicleExps] = await Promise.all([
         fetchFuels(userId),
@@ -202,11 +205,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       ])
 
       // Filter to current month
-      const monthFuels = fuels.filter(e => e.date >= monthStart)
-      const monthTrips = trips.filter(e => (e.created_at || '').slice(0, 10) >= monthStart)
-      const monthByt = bytExps.filter(e => e.date >= monthStart)
-      const monthService = serviceRecs.filter(e => e.date >= monthStart)
-      const monthVehicleExp = vehicleExps.filter(e => e.date >= monthStart)
+      const inMonth = (dateStr) => {
+        if (!dateStr) return false
+        const d = dateStr.slice(0, 10)
+        return d >= monthStart && d < monthEnd
+      }
+      const monthFuels = fuels.filter(e => inMonth(e.date))
+      const monthTrips = trips.filter(e => inMonth(e.created_at))
+      const monthByt = bytExps.filter(e => inMonth(e.date))
+      const monthService = serviceRecs.filter(e => inMonth(e.date))
+      const monthVehicleExp = vehicleExps.filter(e => inMonth(e.date))
 
       const fuelCost = monthFuels.reduce((s, e) => s + (e.cost || 0), 0)
       const bytCost = monthByt.reduce((s, e) => s + (e.amount || 0), 0)

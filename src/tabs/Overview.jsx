@@ -240,9 +240,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
       // Expense breakdown for chart
       const breakdown = []
-      if (fuelCost > 0) breakdown.push({ label: t('overview.fuelShort'), value: fuelCost, color: '#f59e0b' })
-      if (serviceCost > 0) breakdown.push({ label: t('overview.repairShort'), value: serviceCost, color: '#ef4444' })
-      if (vehicleExpCost > 0) breakdown.push({ label: t('overview.vehicleShort'), value: vehicleExpCost, color: '#8b5cf6' })
+      if (fuelCost > 0) breakdown.push({ label: t('overview.fuelShort'), value: fuelCost, color: '#f59e0b', isPersonal: false })
+      if (serviceCost > 0) breakdown.push({ label: t('overview.repairShort'), value: serviceCost, color: '#ef4444', isPersonal: false })
+      if (vehicleExpCost > 0) breakdown.push({ label: t('overview.vehicleShort'), value: vehicleExpCost, color: '#8b5cf6', isPersonal: false })
       // Group byt by category (personal expenses — hidden for company role)
       if (profile?.role !== 'company') {
         const bytByCategory = {}
@@ -250,12 +250,12 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           const cat = e.category || 'other'
           bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
         })
-        if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
-        if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
+        if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e', isPersonal: true })
+        if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6', isPersonal: true })
         const otherByt = Object.entries(bytByCategory)
           .filter(([k]) => k !== 'food' && k !== 'hotel')
           .reduce((s, [, v]) => s + v, 0)
-        if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
+        if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4', isPersonal: true })
       }
       setExpenseBreakdown(breakdown)
 
@@ -611,6 +611,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
   const greeting = getGreeting(profileName, t)
   const isCompanyRole = profile?.role === 'company'
+  const isHiredDriver = profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent'
   const totalExpenses = monthData.fuelCost + (isCompanyRole ? 0 : monthData.bytCost) + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
 
@@ -2068,39 +2069,71 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       ) : (
         <>
-          {/* Finance card — income/expense + donut chart */}
+          {/* Finance card — different view for hired driver vs owner-operator/company */}
           <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
             <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
-            <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.finances')} — {getMonthName(new Date())}</div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <div>
-                <div style={dimText}>{t('overview.income')}</div>
-                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
-                  {formatNumber(Math.round(monthData.income))} {cs}
+            {isHiredDriver ? (
+              <>
+                <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcb5'} {t('pay.myEarnings')} — {getMonthName(new Date())}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div>
+                    <div style={dimText}>{t('pay.earnedMonth')}</div>
+                    <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
+                      {formatNumber(Math.round(monthData.driverPay || 0))} {cs}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={dimText}>{t('byt.personalExpenses')}</div>
+                    <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
+                      {formatNumber(Math.round(monthData.bytCost))} {cs}
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={dimText}>{t('overview.expense')}</div>
-                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
-                  {formatNumber(Math.round(totalExpenses))} {cs}
+                <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
+                  <div style={dimText}>{t('pay.netClean')}</div>
+                  {(() => { const driverNet = (monthData.driverPay || 0) - monthData.bytCost; return (
+                    <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: driverNet >= 0 ? '#22c55e' : '#ef4444' }}>
+                      {driverNet >= 0 ? '+' : ''}{formatNumber(Math.round(driverNet))} {cs}
+                    </div>
+                  ) })()}
                 </div>
-              </div>
-            </div>
-            <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
-              <div style={dimText}>{t('overview.netProfit')}</div>
-              <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: profit >= 0 ? '#22c55e' : '#ef4444' }}>
-                {profit >= 0 ? '+' : ''}{formatNumber(Math.round(profit))} {cs}
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.finances')} — {getMonthName(new Date())}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <div>
+                    <div style={dimText}>{t('overview.income')}</div>
+                    <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
+                      {formatNumber(Math.round(monthData.income))} {cs}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={dimText}>{t('overview.expense')}</div>
+                    <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
+                      {formatNumber(Math.round(totalExpenses))} {cs}
+                    </div>
+                  </div>
+                </div>
+                <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
+                  <div style={dimText}>{t('overview.netProfit')}</div>
+                  <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: profit >= 0 ? '#22c55e' : '#ef4444' }}>
+                    {profit >= 0 ? '+' : ''}{formatNumber(Math.round(profit))} {cs}
+                  </div>
+                </div>
+              </>
+            )}
 
-            {/* Donut chart breakdown */}
-            {expenseBreakdown.length > 0 && (() => {
-              const donutTotal = expenseBreakdown.reduce((s, e) => s + e.value, 0)
+            {/* Donut chart breakdown — hired driver sees only personal expenses */}
+            {(() => {
+              const chartData = isHiredDriver ? expenseBreakdown.filter(e => e.isPersonal) : expenseBreakdown
+              if (chartData.length === 0) return null
+              const donutTotal = chartData.reduce((s, e) => s + e.value, 0)
               const radius = 50
               const strokeWidth = 14
               const circumference = 2 * Math.PI * radius
               let cumulativeOffset = 0
-              const segments = expenseBreakdown.map(e => {
+              const segments = chartData.map(e => {
                 const pct = e.value / donutTotal
                 const dashLen = pct * circumference
                 const offset = cumulativeOffset
@@ -2150,19 +2183,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               )
             })()}
           </div>
-
-          {/* Earned card — only for hired drivers */}
-          {(monthData.driverPay || 0) > 0 && (
-            <div style={{ ...cardStyle, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div style={{ fontSize: '24px' }}>{'\ud83d\udcb5'}</div>
-              <div>
-                <div style={{ ...dimText, fontSize: '12px' }}>{t('pay.earnedMonth')}</div>
-                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
-                  {formatNumber(Math.round(monthData.driverPay))} {cs}
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Mini cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>

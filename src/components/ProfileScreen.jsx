@@ -375,16 +375,22 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         return
       }
 
-      // 3) Send SMS invite via Supabase Edge Function (or n8n webhook)
-      if (isCompany && driverPhone && driverProfileId) {
+      // 3) Send SMS invite via n8n webhook
+      const webhookUrl = import.meta.env.VITE_N8N_INVITE_WEBHOOK
+      if (isCompany && driverPhone && driverProfileId && webhookUrl) {
         setInviteStatus('sending')
         try {
-          await supabase.functions.invoke('send-driver-invite', {
-            body: {
+          const inviteUrl = `${window.location.origin}/invite/${inviteCode}`
+          await fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
               phone: driverPhone,
-              company_name: profile?.name || 'TruckerBook',
-              invite_code: row.invite_code,
-            },
+              driverName: formData.driver_name || '',
+              companyName: profile?.name || 'TruckerBook',
+              inviteCode,
+              inviteUrl,
+            }),
           })
           setInviteStatus('sent')
         } catch (smsErr) {
@@ -392,6 +398,9 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           setInviteStatus('error')
           // Non-blocking: vehicle still created
         }
+      } else if (isCompany && driverPhone && driverProfileId) {
+        // Webhook not configured — driver added without SMS
+        setInviteStatus('added_no_sms')
       }
 
       setShowAddForm(false)
@@ -1663,7 +1672,12 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
             </button>
             {inviteStatus === 'sent' && (
               <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '8px', background: '#22c55e20', color: '#22c55e', fontSize: '13px', textAlign: 'center' }}>
-                {t('invite.inviteSent')}
+                {t('invite.inviteSentSms')}
+              </div>
+            )}
+            {inviteStatus === 'added_no_sms' && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '8px', background: '#22c55e20', color: '#22c55e', fontSize: '13px', textAlign: 'center' }}>
+                {t('invite.driverAdded')}
               </div>
             )}
             {inviteStatus === 'error' && (

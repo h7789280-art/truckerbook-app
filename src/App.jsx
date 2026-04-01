@@ -417,7 +417,7 @@ function AppInner() {
       case 'marketplace':
         return <Marketplace />
       case 'finance':
-        return <FinanceDetails userId={userId} onBack={handleBackFromExtra} />
+        return <FinanceDetails userId={userId} profile={profile} onBack={handleBackFromExtra} />
       default:
         return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} />
     }

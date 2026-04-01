@@ -407,10 +407,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   }, [userId, driversComparisonPeriod])
 
   useEffect(() => {
-    if (fleetTab === 'drivers' && fleetData && profile?.role === 'company') {
+    if (profile?.role === 'company') {
       loadSalaryData()
     }
-  }, [fleetTab, fleetData, profile?.role, loadSalaryData]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [profile?.role, loadSalaryData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persist salary settings to localStorage
   useEffect(() => {
@@ -2069,10 +2069,60 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       ) : (
         <>
-          {/* Finance card — different view for hired driver vs owner-operator/company */}
+          {/* Finance card — 3 modes: hired driver / owner-operator / fleet owner */}
           <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
             <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
-            {isHiredDriver ? (
+            {isCompanyRole ? (
+              <>
+                {(() => {
+                  const calcSalaryForCard = (d) => {
+                    if (salaryMode === 'per_km') return d.km * salaryRate
+                    if (salaryMode === 'percent') return d.income * (salaryRate / 100)
+                    return salaryRate
+                  }
+                  const fleetTotalSalary = salaryData.reduce((s, d) => s + calcSalaryForCard(d), 0)
+                  const fleetIncome = fleetData ? fleetData.totalIncome : monthData.income
+                  const fleetExpense = fleetData ? fleetData.totalExpenses : totalExpenses
+                  const fleetGrossProfit = fleetIncome - fleetExpense
+                  const fleetNetProfit = fleetGrossProfit - fleetTotalSalary
+                  return (
+                    <>
+                      <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83c\udfe2'} {t('overview.fleetFinances') || '\u0424\u0438\u043d\u0430\u043d\u0441\u044b \u043f\u0430\u0440\u043a\u0430'} — {getMonthName(new Date())}</div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                        <div>
+                          <div style={dimText}>{t('overview.income')}</div>
+                          <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
+                            {formatNumber(Math.round(fleetIncome))} {cs}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={dimText}>{t('overview.expense')}</div>
+                          <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
+                            {formatNumber(Math.round(fleetExpense))} {cs}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
+                        <div style={dimText}>{t('overview.grossProfit') || '\u0412\u0430\u043b\u043e\u0432\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c'}</div>
+                        <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: fleetGrossProfit >= 0 ? '#22c55e' : '#ef4444' }}>
+                          {fleetGrossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(fleetGrossProfit))} {cs}
+                        </div>
+                      </div>
+                      {fleetTotalSalary > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed ' + theme.border }}>
+                          <div style={{ fontSize: '12px', color: theme.dim }}>
+                            {t('overview.salariesLabel') || '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u044b'}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(fleetTotalSalary))} {cs}</span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: theme.dim }}>
+                            {t('overview.netLabel') || '\u0427\u0438\u0441\u0442\u0430\u044f'}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: fleetNetProfit >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(fleetNetProfit))} {cs}</span>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )
+                })()}
+              </>
+            ) : isHiredDriver ? (
               <>
                 <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcb5'} {t('pay.myEarnings')} — {getMonthName(new Date())}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
@@ -2184,14 +2234,22 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             })()}
           </div>
 
-          {/* Mini cards */}
+          {/* Mini cards — mode-specific */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-            {[
+            {(isCompanyRole ? [
+              { label: t('overview.fleetVehicles') || '\u041c\u0430\u0448\u0438\u043d', value: String(fleetData ? fleetData.totalVehicles : 0), unit: '', icon: '\ud83d\ude9b', action: () => {} },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(fleetData ? fleetData.totalKm : monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => {} },
+              { label: t('overview.tripsLabel'), value: String(fleetData ? fleetData.tripCount : monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
+              { label: t('overview.costPerKm'), value: (() => { const km = fleetData ? fleetData.totalKm : monthData.totalKm; const exp = fleetData ? fleetData.totalExpenses : totalExpenses; return km > 0 ? (exp / km).toFixed(1) : '\u2014' })(), unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
+            ] : isHiredDriver ? [
+              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+              { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
+            ] : [
               { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
               { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd', action: () => onExtraNav?.('expenses') },
               { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
               { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
-            ].map((item, i) => (
+            ]).map((item, i) => (
               <div key={i} onClick={item.action} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
                 <div style={{ position: 'absolute', top: '6px', right: '8px', fontSize: '10px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
                 <div style={{ fontSize: '18px', marginBottom: '4px' }}>{item.icon}</div>

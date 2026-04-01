@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriversSalaryData } from '../lib/api'
 
 function formatNumber(n) {
   return n.toLocaleString('ru-RU')
@@ -21,7 +21,7 @@ const MONTH_NAMES_FULL_RU = [
   '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
 ]
 
-export default function FinanceDetails({ userId, onBack }) {
+export default function FinanceDetails({ userId, profile, onBack }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
@@ -32,7 +32,17 @@ export default function FinanceDetails({ userId, onBack }) {
   const [monthlyData, setMonthlyData] = useState([])
   const [expenseBreakdown, setExpenseBreakdown] = useState([])
   const [tooltip, setTooltip] = useState(null)
+  const [totalSalary, setTotalSalary] = useState(0)
   const chartRef = useRef(null)
+
+  // Determine view mode
+  const isCompanyRole = profile?.role === 'company'
+  const isHiredDriver = !isCompanyRole && (profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent')
+  // else: owner-operator (default)
+
+  // Salary settings from localStorage (same as Overview)
+  const salaryMode = (() => { try { return localStorage.getItem('tb_salary_mode') || 'per_km' } catch { return 'per_km' } })()
+  const salaryRate = (() => { try { return parseFloat(localStorage.getItem('tb_salary_rate')) || 15 } catch { return 15 } })()
 
   const getMonthCount = () => {
     switch (period) {
@@ -116,18 +126,35 @@ export default function FinanceDetails({ userId, onBack }) {
 
       const dataMap = {}
 
+      const ensureGroup = (key) => {
+        if (!key) return
+        if (!dataMap[key]) dataMap[key] = { income: 0, expense: 0, driverPay: 0, km: 0, bytExpense: 0 }
+      }
+
       const addToGroup = (dateStr, field, value) => {
         const key = getGroupKey(dateStr)
         if (!key) return
-        if (!dataMap[key]) dataMap[key] = { income: 0, expense: 0 }
+        ensureGroup(key)
         dataMap[key][field] += value || 0
       }
 
-      rangeTrips.forEach(t => addToGroup(t.created_at, 'income', t.income || 0))
-      rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
-      rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
-      rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
-      rangeVehicleExp.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
+      if (isHiredDriver) {
+        // Hired driver: income = driver_pay, expense = byt only
+        rangeTrips.forEach(tr => addToGroup(tr.created_at, 'driverPay', tr.driver_pay || 0))
+        rangeByt.forEach(e => addToGroup(e.date, 'bytExpense', e.amount || 0))
+      } else {
+        // Owner-operator & fleet owner: income from trips, all expenses
+        rangeTrips.forEach(tr => {
+          addToGroup(tr.created_at, 'income', tr.income || 0)
+          addToGroup(tr.created_at, 'km', tr.distance_km || 0)
+        })
+        rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+        if (!isCompanyRole) {
+          rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
+        }
+        rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+        rangeVehicleExp.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
+      }
 
       // Fill gaps
       const keys = Object.keys(dataMap).sort()
@@ -136,7 +163,7 @@ export default function FinanceDetails({ userId, onBack }) {
         const endD = new Date(end)
         while (cur <= endD) {
           const k = cur.toISOString().slice(0, 10)
-          if (!dataMap[k]) dataMap[k] = { income: 0, expense: 0 }
+          ensureGroup(k)
           cur.setDate(cur.getDate() + 1)
         }
       } else if (groupMode === 'week') {
@@ -145,7 +172,7 @@ export default function FinanceDetails({ userId, onBack }) {
           const last = new Date(keys[keys.length - 1])
           while (cur <= last) {
             const k = cur.toISOString().slice(0, 10)
-            if (!dataMap[k]) dataMap[k] = { income: 0, expense: 0 }
+            ensureGroup(k)
             cur.setDate(cur.getDate() + 7)
           }
         }
@@ -157,7 +184,7 @@ export default function FinanceDetails({ userId, onBack }) {
           let y = sy, m = sm
           while (y < ey || (y === ey && m <= em)) {
             const k = `${y}-${String(m).padStart(2, '0')}`
-            if (!dataMap[k]) dataMap[k] = { income: 0, expense: 0 }
+            ensureGroup(k)
             m++
             if (m > 12) { m = 1; y++ }
           }
@@ -192,46 +219,103 @@ export default function FinanceDetails({ userId, onBack }) {
         return MONTH_NAMES_FULL_RU[mo - 1] + ' ' + yr
       }
 
+      // Compute per-period salary for fleet mode
+      const calcPeriodSalary = (vals) => {
+        if (!isCompanyRole) return 0
+        if (salaryMode === 'percent') return vals.income * (salaryRate / 100)
+        if (salaryMode === 'per_km') return vals.km * salaryRate
+        return 0 // fixed mode handled separately
+      }
+
       const sorted = Object.entries(dataMap)
         .sort(([a], [b]) => a.localeCompare(b))
-        .map(([key, vals]) => ({
-          key,
-          label: getLabel(key),
-          fullLabel: getFullLabel(key),
-          income: vals.income,
-          expense: vals.expense,
-          profit: vals.income - vals.expense,
-        }))
+        .map(([key, vals]) => {
+          if (isHiredDriver) {
+            return {
+              key,
+              label: getLabel(key),
+              fullLabel: getFullLabel(key),
+              income: vals.driverPay,
+              expense: vals.bytExpense,
+              profit: vals.driverPay - vals.bytExpense,
+            }
+          }
+          const periodSalary = calcPeriodSalary(vals)
+          return {
+            key,
+            label: getLabel(key),
+            fullLabel: getFullLabel(key),
+            income: vals.income,
+            expense: vals.expense,
+            profit: vals.income - vals.expense,
+            salary: periodSalary,
+            netProfit: vals.income - vals.expense - periodSalary,
+          }
+        })
 
       setMonthlyData(sorted)
 
-      // Expense breakdown for donut
-      const fuelCost = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
-      const serviceCost = rangeService.reduce((s, e) => s + (e.cost || 0), 0)
-      const vehicleExpCost = rangeVehicleExp.reduce((s, e) => s + (e.amount || 0), 0)
-      const bytByCategory = {}
-      rangeByt.forEach(e => {
-        const cat = e.category || 'other'
-        bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
-      })
+      // Total salary for fleet mode (use fixed mode with driver count if applicable)
+      if (isCompanyRole) {
+        if (salaryMode === 'fixed') {
+          try {
+            const salData = await fetchDriversSalaryData(userId)
+            setTotalSalary(salData.length * salaryRate)
+          } catch { setTotalSalary(0) }
+        } else {
+          const computedSalary = sorted.reduce((s, m) => s + (m.salary || 0), 0)
+          setTotalSalary(computedSalary)
+        }
+      }
 
-      const breakdown = []
-      if (fuelCost > 0) breakdown.push({ label: t('overview.fuelShort'), value: fuelCost, color: '#f59e0b' })
-      if (serviceCost > 0) breakdown.push({ label: t('overview.repairShort'), value: serviceCost, color: '#ef4444' })
-      if (vehicleExpCost > 0) breakdown.push({ label: t('overview.vehicleShort'), value: vehicleExpCost, color: '#8b5cf6' })
-      if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
-      if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
-      const otherByt = Object.entries(bytByCategory)
-        .filter(([k]) => k !== 'food' && k !== 'hotel')
-        .reduce((s, [, v]) => s + v, 0)
-      if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
-      setExpenseBreakdown(breakdown)
+      // Expense breakdown for donut
+      if (isHiredDriver) {
+        // Only personal expenses by category
+        const bytByCategory = {}
+        rangeByt.forEach(e => {
+          const cat = e.category || 'other'
+          bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
+        })
+        const breakdown = []
+        if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
+        if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
+        if (bytByCategory.shower) breakdown.push({ label: t('byt.shower') || '\u0414\u0443\u0448', value: bytByCategory.shower, color: '#8b5cf6' })
+        if (bytByCategory.laundry) breakdown.push({ label: t('byt.laundry') || '\u0421\u0442\u0438\u0440\u043a\u0430', value: bytByCategory.laundry, color: '#f59e0b' })
+        const otherByt = Object.entries(bytByCategory)
+          .filter(([k]) => !['food', 'hotel', 'shower', 'laundry'].includes(k))
+          .reduce((s, [, v]) => s + v, 0)
+        if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
+        setExpenseBreakdown(breakdown)
+      } else {
+        // Owner-operator or fleet: all expense categories
+        const fuelCost = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
+        const serviceCost = rangeService.reduce((s, e) => s + (e.cost || 0), 0)
+        const vehicleExpCost = rangeVehicleExp.reduce((s, e) => s + (e.amount || 0), 0)
+        const bytByCategory = {}
+        if (!isCompanyRole) {
+          rangeByt.forEach(e => {
+            const cat = e.category || 'other'
+            bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
+          })
+        }
+        const breakdown = []
+        if (fuelCost > 0) breakdown.push({ label: t('overview.fuelShort'), value: fuelCost, color: '#f59e0b' })
+        if (serviceCost > 0) breakdown.push({ label: t('overview.repairShort'), value: serviceCost, color: '#ef4444' })
+        if (vehicleExpCost > 0) breakdown.push({ label: t('overview.vehicleShort'), value: vehicleExpCost, color: '#8b5cf6' })
+        if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
+        if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
+        const otherByt = Object.entries(bytByCategory)
+          .filter(([k]) => k !== 'food' && k !== 'hotel')
+          .reduce((s, [, v]) => s + v, 0)
+        if (otherByt > 0) breakdown.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
+        setExpenseBreakdown(breakdown)
+      }
     } catch (err) {
       console.error('FinanceDetails loadData error:', err)
     } finally {
       setLoading(false)
     }
-  }, [userId, getDateRange, t])
+  }, [userId, getDateRange, t, isHiredDriver, isCompanyRole, salaryMode, salaryRate])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -325,6 +409,12 @@ export default function FinanceDetails({ userId, onBack }) {
     { key: 'custom', label: t('overview.customPeriod') || '\u041f\u0435\u0440\u0438\u043e\u0434' },
   ]
 
+  // Mode-specific labels
+  const incomeLabel = isHiredDriver ? (t('pay.earnedMonth') || '\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e') : t('overview.income')
+  const expenseLabel = isHiredDriver ? (t('byt.personalExpenses') || '\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b') : t('overview.expense')
+  const profitLabel = isHiredDriver ? (t('pay.netClean') || '\u0427\u0438\u0441\u0442\u044b\u043c\u0438') : isCompanyRole ? (t('overview.grossProfit') || '\u0412\u0430\u043b\u043e\u0432\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c') : t('overview.netProfit')
+  const headerTitle = isHiredDriver ? (t('pay.myEarnings') || '\u041c\u043e\u0439 \u0437\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a') : isCompanyRole ? (t('overview.fleetFinances') || '\u0424\u0438\u043d\u0430\u043d\u0441\u044b \u043f\u0430\u0440\u043a\u0430') : t('overview.finances')
+
   // Donut chart
   const renderDonut = () => {
     if (expenseBreakdown.length === 0) return null
@@ -341,9 +431,11 @@ export default function FinanceDetails({ userId, onBack }) {
       return { ...e, pct, dashLen, offset }
     })
 
+    const donutLabel = isHiredDriver ? (t('byt.personalExpenses') || '\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b') : t('overview.expenses')
+
     return (
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
-        <div style={{ ...dimText, marginBottom: '12px' }}>{t('overview.expenses')}</div>
+        <div style={{ ...dimText, marginBottom: '12px' }}>{donutLabel}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
             <svg viewBox="0 0 120 120" width="120" height="120">
@@ -402,7 +494,7 @@ export default function FinanceDetails({ userId, onBack }) {
         >
           {'\u2190'}
         </button>
-        <div style={{ fontSize: '18px', fontWeight: 700 }}>{t('overview.finances')}</div>
+        <div style={{ fontSize: '18px', fontWeight: 700 }}>{headerTitle}</div>
       </div>
 
       {/* Period selector */}
@@ -479,23 +571,23 @@ export default function FinanceDetails({ userId, onBack }) {
       ) : (
         <>
           {/* Summary cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: isCompanyRole && totalSalary > 0 ? '8px' : '16px' }}>
             <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-              <div style={dimText}>{t('overview.income')}</div>
+              <div style={dimText}>{incomeLabel}</div>
               <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
                 {formatNumber(Math.round(totalIncome))}
               </div>
               <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
             </div>
             <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-              <div style={dimText}>{t('overview.expense')}</div>
+              <div style={dimText}>{expenseLabel}</div>
               <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#ef4444', marginTop: '4px' }}>
                 {formatNumber(Math.round(totalExpense))}
               </div>
               <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
             </div>
             <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-              <div style={dimText}>{t('overview.netProfit')}</div>
+              <div style={dimText}>{profitLabel}</div>
               <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: totalProfit >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
                 {totalProfit >= 0 ? '+' : ''}{formatNumber(Math.round(totalProfit))}
               </div>
@@ -503,10 +595,25 @@ export default function FinanceDetails({ userId, onBack }) {
             </div>
           </div>
 
+          {/* Fleet salary row */}
+          {isCompanyRole && totalSalary > 0 && (() => {
+            const netAfterSalary = totalProfit - totalSalary
+            return (
+              <div style={{ ...cardStyle, padding: '10px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ fontSize: '12px', color: theme.dim }}>
+                  {t('overview.salariesLabel') || '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u044b \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u0439'}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(totalSalary))} {cs}</span>
+                </div>
+                <div style={{ fontSize: '12px', color: theme.dim }}>
+                  {t('overview.netProfit')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: netAfterSalary >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(netAfterSalary))} {cs}</span>
+                </div>
+              </div>
+            )
+          })()}
+
           {/* Line/Area chart */}
           {monthlyData.length > 0 && (
             <div style={{ ...cardStyle, marginBottom: '12px', padding: '12px' }}>
-              <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.income')} / {t('overview.expense')}</div>
+              <div style={{ ...dimText, marginBottom: '8px' }}>{incomeLabel} / {expenseLabel}</div>
               <svg
                 ref={chartRef}
                 viewBox={`0 0 ${chartW} ${chartH}`}
@@ -575,17 +682,17 @@ export default function FinanceDetails({ userId, onBack }) {
               <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', marginTop: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '12px', height: '3px', borderRadius: '2px', background: '#22c55e' }} />
-                  <span style={{ fontSize: '11px', color: theme.dim }}>{t('overview.income')}</span>
+                  <span style={{ fontSize: '11px', color: theme.dim }}>{incomeLabel}</span>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <div style={{ width: '12px', height: '3px', borderRadius: '2px', background: '#ef4444' }} />
-                  <span style={{ fontSize: '11px', color: theme.dim }}>{t('overview.expense')}</span>
+                  <span style={{ fontSize: '11px', color: theme.dim }}>{expenseLabel}</span>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Monthly table */}
+          {/* Period table */}
           {monthlyData.length > 0 && (() => {
             const nonEmptyRows = monthlyData.filter(m => m.income !== 0 || m.expense !== 0)
             return (
@@ -601,13 +708,20 @@ export default function FinanceDetails({ userId, onBack }) {
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${theme.border}` }}>
                       <th style={{ textAlign: 'left', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>{t('overview.financePeriodCol') || t('overview.financeMonthCol') || '\u041f\u0435\u0440\u0438\u043e\u0434'}</th>
-                      <th style={{ textAlign: 'right', padding: '6px 4px', color: '#22c55e', fontWeight: 600, fontSize: '11px' }}>{t('overview.income')}</th>
-                      <th style={{ textAlign: 'right', padding: '6px 4px', color: '#ef4444', fontWeight: 600, fontSize: '11px' }}>{t('overview.expense')}</th>
-                      <th style={{ textAlign: 'right', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>{t('overview.netProfit')}</th>
+                      <th style={{ textAlign: 'right', padding: '6px 4px', color: '#22c55e', fontWeight: 600, fontSize: '11px' }}>{incomeLabel}</th>
+                      <th style={{ textAlign: 'right', padding: '6px 4px', color: '#ef4444', fontWeight: 600, fontSize: '11px' }}>{expenseLabel}</th>
+                      {isCompanyRole && (
+                        <th style={{ textAlign: 'right', padding: '6px 4px', color: '#f59e0b', fontWeight: 600, fontSize: '11px' }}>{t('overview.salariesLabel') || '\u0417\u041f'}</th>
+                      )}
+                      <th style={{ textAlign: 'right', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>
+                        {isCompanyRole ? (t('overview.netProfit') || '\u0427\u0438\u0441\u0442\u0430\u044f') : profitLabel}
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {nonEmptyRows.map((m, i) => (
+                    {nonEmptyRows.map((m, i) => {
+                      const rowProfit = isCompanyRole ? (m.netProfit ?? m.profit) : m.profit
+                      return (
                       <tr key={i} style={{ borderBottom: `1px solid ${theme.border}22` }}>
                         <td style={{ padding: '8px 4px', color: theme.text, fontSize: '12px' }}>{m.fullLabel}</td>
                         <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#22c55e', fontSize: '12px' }}>
@@ -616,11 +730,17 @@ export default function FinanceDetails({ userId, onBack }) {
                         <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#ef4444', fontSize: '12px' }}>
                           {formatNumber(Math.round(m.expense))}
                         </td>
-                        <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: m.profit >= 0 ? '#22c55e' : '#ef4444', fontSize: '12px' }}>
-                          {m.profit >= 0 ? '+' : ''}{formatNumber(Math.round(m.profit))}
+                        {isCompanyRole && (
+                          <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#f59e0b', fontSize: '12px' }}>
+                            {formatNumber(Math.round(m.salary || 0))}
+                          </td>
+                        )}
+                        <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 600, color: rowProfit >= 0 ? '#22c55e' : '#ef4444', fontSize: '12px' }}>
+                          {rowProfit >= 0 ? '+' : ''}{formatNumber(Math.round(rowProfit))}
                         </td>
                       </tr>
-                    ))}
+                      )
+                    })}
                     {/* Totals row */}
                     <tr style={{ borderTop: `2px solid ${theme.border}`, background: `${theme.border}33` }}>
                       <td style={{ padding: '8px 4px', color: theme.text, fontSize: '12px', fontWeight: 700 }}>
@@ -632,9 +752,19 @@ export default function FinanceDetails({ userId, onBack }) {
                       <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#ef4444', fontSize: '12px', fontWeight: 700 }}>
                         {formatNumber(Math.round(totalExpense))}
                       </td>
-                      <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: totalProfit >= 0 ? '#22c55e' : '#ef4444', fontSize: '12px' }}>
-                        {totalProfit >= 0 ? '+' : ''}{formatNumber(Math.round(totalProfit))}
-                      </td>
+                      {isCompanyRole && (
+                        <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#f59e0b', fontSize: '12px', fontWeight: 700 }}>
+                          {formatNumber(Math.round(totalSalary))}
+                        </td>
+                      )}
+                      {(() => {
+                        const finalProfit = isCompanyRole ? (totalProfit - totalSalary) : totalProfit
+                        return (
+                        <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: finalProfit >= 0 ? '#22c55e' : '#ef4444', fontSize: '12px' }}>
+                          {finalProfit >= 0 ? '+' : ''}{formatNumber(Math.round(finalProfit))}
+                        </td>
+                        )
+                      })()}
                     </tr>
                   </tbody>
                 </table>

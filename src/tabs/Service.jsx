@@ -146,7 +146,6 @@ export default function Service({ userId, activeVehicleId }) {
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
   const [repairs, setRepairs] = useState([])
-  const [insurance, setInsurance] = useState([])
   const [odometer, setOdometer] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -156,12 +155,8 @@ export default function Service({ userId, activeVehicleId }) {
     if (!userId) return
     try {
       setLoading(true)
-      const [serviceRecs, insuranceRecs] = await Promise.all([
-        fetchServiceRecords(userId).catch(() => []),
-        fetchInsurance(userId).catch(() => []),
-      ])
+      const serviceRecs = await fetchServiceRecords(userId).catch(() => [])
       setRepairs(serviceRecs)
-      setInsurance(insuranceRecs)
 
       // Get odometer from profile
       const { data: profile } = await supabase
@@ -222,7 +217,7 @@ export default function Service({ userId, activeVehicleId }) {
         ))}
       </div>
 
-      {activeTab === 'service' && <ServiceTab repairs={repairs} insurance={insurance} odometer={odometer} loading={loading} />}
+      {activeTab === 'service' && <ServiceTab repairs={repairs} odometer={odometer} loading={loading} />}
       {activeTab === 'tires' && <TiresTab userId={userId} odometer={odometer} />}
       {activeTab === 'checklist' && (
         <ChecklistTab
@@ -238,7 +233,7 @@ export default function Service({ userId, activeVehicleId }) {
 }
 
 /* ===== SERVICE TAB ===== */
-function ServiceTab({ repairs, insurance, odometer, loading }) {
+function ServiceTab({ repairs, odometer, loading }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const [showExportMenu, setShowExportMenu] = useState(false)
@@ -287,7 +282,6 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
   }
 
   const totalRepair = repairs.reduce((s, r) => s + (r.cost || 0), 0)
-  const today = new Date()
 
   return (
     <>
@@ -423,57 +417,6 @@ function ServiceTab({ repairs, insurance, odometer, loading }) {
         </div>
       )}
 
-      {/* Insurance */}
-      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
-        {t('service.insurances')}
-      </div>
-      {insurance.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
-          {t('service.noInsurance')}
-        </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {insurance.map((ins, i) => {
-            const daysLeft = ins.date_to ? Math.ceil((new Date(ins.date_to) - today) / (1000 * 60 * 60 * 24)) : null
-            const insColor = daysLeft !== null && daysLeft < 30 ? '#ef4444' : '#22c55e'
-            return (
-              <div key={ins.id || i} style={cardStyle}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{
-                      width: '36px', height: '36px', backgroundColor: `${insColor}20`,
-                      borderRadius: '10px', display: 'flex', alignItems: 'center',
-                      justifyContent: 'center', fontSize: '16px', flexShrink: 0,
-                    }}>
-                      {'\uD83D\uDEE1'}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{ins.type || t('service.insurance')}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--dim)' }}>{ins.company || ''}</div>
-                    </div>
-                  </div>
-                  <div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
-                    {(ins.cost || 0).toLocaleString('ru-RU')} {'\u20BD'}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
-                    {ins.date_from || ''} {'\u2014'} {ins.date_to || ''}
-                  </div>
-                  {daysLeft !== null && (
-                    <div style={{
-                      fontSize: '12px', fontWeight: 600, color: insColor,
-                      background: `${insColor}15`, padding: '2px 8px', borderRadius: '8px',
-                    }}>
-                      {daysLeft > 0 ? `${daysLeft} ${t('service.days')}` : t('service.expired')}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
     </>
   )
 }
@@ -1142,6 +1085,9 @@ function DocsTab({ userId, vehicleId }) {
   const [showDocModal, setShowDocModal] = useState(false)
   const [docFilter, setDocFilter] = useState('all')
   const [expandedDoc, setExpandedDoc] = useState(null)
+  // Insurance state
+  const [insurance, setInsurance] = useState([])
+  const [loadingInsurance, setLoadingInsurance] = useState(true)
 
   const loadPhotos = useCallback(async () => {
     if (!userId) return
@@ -1169,10 +1115,24 @@ function DocsTab({ userId, vehicleId }) {
     }
   }, [userId])
 
+  const loadInsurance = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoadingInsurance(true)
+      const data = await fetchInsurance(userId)
+      setInsurance(data)
+    } catch (err) {
+      console.error('loadInsurance error:', err)
+    } finally {
+      setLoadingInsurance(false)
+    }
+  }, [userId])
+
   useEffect(() => {
     loadPhotos()
     loadDocs()
-  }, [loadPhotos, loadDocs])
+    loadInsurance()
+  }, [loadPhotos, loadDocs, loadInsurance])
 
   const handleDeletePhoto = async (photo) => {
     if (!confirm(t('service.deletePhoto'))) return
@@ -1357,6 +1317,63 @@ function DocsTab({ userId, vehicleId }) {
           onClose={() => setShowDocModal(false)}
           onSaved={() => { setShowDocModal(false); loadDocs() }}
         />
+      )}
+
+      {/* ===== INSURANCE SECTION ===== */}
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
+        {'\uD83D\uDEE1\uFE0F ' + t('service.insurances')}
+      </div>
+      {loadingInsurance ? (
+        <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+          {t('common.loading')}
+        </div>
+      ) : insurance.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
+          {t('service.noInsurance')}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          {insurance.map((ins, i) => {
+            const today = new Date()
+            const daysLeft = ins.date_to ? Math.ceil((new Date(ins.date_to) - today) / (1000 * 60 * 60 * 24)) : null
+            const insColor = daysLeft !== null && daysLeft < 30 ? '#ef4444' : '#22c55e'
+            return (
+              <div key={ins.id || i} style={cardStyle}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{
+                      width: '36px', height: '36px', backgroundColor: `${insColor}20`,
+                      borderRadius: '10px', display: 'flex', alignItems: 'center',
+                      justifyContent: 'center', fontSize: '16px', flexShrink: 0,
+                    }}>
+                      {'\uD83D\uDEE1'}
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '15px', fontWeight: 600, color: 'var(--text)' }}>{ins.type || t('service.insurance')}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--dim)' }}>{ins.company || ''}</div>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
+                    {(ins.cost || 0).toLocaleString('ru-RU')} {'\u20BD'}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+                    {ins.date_from || ''} {'\u2014'} {ins.date_to || ''}
+                  </div>
+                  {daysLeft !== null && (
+                    <div style={{
+                      fontSize: '12px', fontWeight: 600, color: insColor,
+                      background: `${insColor}15`, padding: '2px 8px', borderRadius: '8px',
+                    }}>
+                      {daysLeft > 0 ? `${daysLeft} ${t('service.days')}` : t('service.expired')}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
       )}
 
       {/* ===== BOL FILES SECTION ===== */}

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, addRouteNote, deleteRouteNote, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import DVIRInspection from '../components/DVIRInspection'
-import TachographViewer from '../components/TachographViewer'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 import { exportToExcel, exportToPDF } from '../utils/export'
@@ -25,7 +24,6 @@ function getSubTabs(t) {
   if (showDVIR) {
     tabs.push({ key: 'dvir', label: '\uD83D\uDD0D ' + t('service.inspection') })
   }
-  tabs.push({ key: 'tacho', label: '\uD83D\uDCDF ' + t('tacho.title') })
   return tabs
 }
 
@@ -256,7 +254,6 @@ export default function Service({ userId, activeVehicleId }) {
       )}
       {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} />}
       {activeTab === 'dvir' && <DVIRInspection userId={userId} vehicleId={activeVehicleId} />}
-      {activeTab === 'tacho' && <TachographViewer />}
     </div>
   )
 }

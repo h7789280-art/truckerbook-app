@@ -3,7 +3,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { getWaypoints } from '../lib/gpsTracker'
 
-export default function TripMap({ tripId, isActive, currentPosition, onClose }) {
+export default function TripMap({ tripId, tripOrigin, tripDestination, isActive, currentPosition, onClose }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const mapRef = useRef(null)
@@ -166,17 +166,27 @@ export default function TripMap({ tripId, isActive, currentPosition, onClose }) 
       `}</style>
       <div style={{
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        padding: '12px 16px', borderBottom: '1px solid ' + theme.border,
+        paddingTop: 'max(12px, env(safe-area-inset-top, 20px))',
+        paddingBottom: '12px', paddingLeft: '16px', paddingRight: '16px',
+        borderBottom: '1px solid ' + theme.border,
       }}>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none', border: 'none', color: theme.text,
-            fontSize: '16px', fontWeight: 600, cursor: 'pointer', padding: '4px 8px',
-          }}
-        >
-          {'\u2190 ' + t('common.back')}
-        </button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'none', border: 'none', color: theme.text,
+              fontSize: '16px', fontWeight: 600, cursor: 'pointer', padding: '4px 8px',
+              textAlign: 'left',
+            }}
+          >
+            {'\u2190 ' + t('common.back')}
+          </button>
+          {(tripOrigin || tripDestination) && (
+            <div style={{ color: theme.dim, fontSize: '13px', paddingLeft: '8px' }}>
+              {(tripOrigin || '?') + ' \u2192 ' + (tripDestination || '?')}
+            </div>
+          )}
+        </div>
         {isActive && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#22c55e', fontSize: '13px', fontWeight: 600 }}>
             <span style={{ display: 'inline-block', width: '8px', height: '8px', background: '#22c55e', borderRadius: '50%' }} />

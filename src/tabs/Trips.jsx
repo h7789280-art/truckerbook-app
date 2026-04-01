@@ -841,6 +841,8 @@ function TripsTab({ userId, refreshKey, theme }) {
       {showMapTripId && (
         <TripMap
           tripId={showMapTripId}
+          tripOrigin={(entries.find(tr => tr.id === showMapTripId) || {}).origin}
+          tripDestination={(entries.find(tr => tr.id === showMapTripId) || {}).destination}
           isActive={trackingTripId === showMapTripId}
           currentPosition={trackingTripId === showMapTripId ? currentPos : null}
           onClose={() => setShowMapTripId(null)}

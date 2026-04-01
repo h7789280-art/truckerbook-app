@@ -225,6 +225,9 @@ const translations = {
       paySection: '\u041e\u043f\u043b\u0430\u0442\u0430',
       choosePayType: '\u0412\u044b\u0431\u0435\u0440\u0438\u0442\u0435 \u0442\u0438\u043f \u043e\u043f\u043b\u0430\u0442\u044b',
       none: '\u0421\u0430\u043c \u043d\u0430 \u0441\u0435\u0431\u044f',
+      save: '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c',
+      saved: '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u043e',
+      saveError: '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f',
     },
     gps: {
       startTracking: '\u041d\u0430\u0447\u0430\u0442\u044c \u0442\u0440\u0435\u043a\u0438\u043d\u0433',
@@ -1114,6 +1117,9 @@ const translations = {
       paySection: 'Pay',
       choosePayType: 'Choose pay type',
       none: 'Self-employed',
+      save: 'Save',
+      saved: 'Saved',
+      saveError: 'Save error',
     },
     gps: {
       startTracking: 'Start tracking',
@@ -2003,6 +2009,9 @@ const translations = {
       paySection: '\u041e\u043f\u043b\u0430\u0442\u0430',
       choosePayType: '\u041e\u0431\u0435\u0440\u0456\u0442\u044c \u0442\u0438\u043f \u043e\u043f\u043b\u0430\u0442\u0438',
       none: '\u0421\u0430\u043c \u043d\u0430 \u0441\u0435\u0431\u0435',
+      save: '\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438',
+      saved: '\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043e',
+      saveError: '\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043d\u044f',
     },
     gps: {
       startTracking: '\u041f\u043e\u0447\u0430\u0442\u0438 \u0442\u0440\u0435\u043a\u0456\u043d\u0433',
@@ -2891,6 +2900,9 @@ const translations = {
       paySection: 'Pago',
       choosePayType: 'Elija tipo de pago',
       none: 'Aut\u00f3nomo',
+      save: 'Guardar',
+      saved: 'Guardado',
+      saveError: 'Error al guardar',
     },
     gps: {
       startTracking: 'Iniciar seguimiento',
@@ -3765,6 +3777,9 @@ const translations = {
       paySection: 'Bezahlung',
       choosePayType: 'Zahlungsart w\u00e4hlen',
       none: 'Selbstst\u00e4ndig',
+      save: 'Speichern',
+      saved: 'Gespeichert',
+      saveError: 'Speicherfehler',
     },
     gps: {
       startTracking: 'Tracking starten',
@@ -4639,6 +4654,9 @@ const translations = {
       paySection: 'Paiement',
       choosePayType: 'Choisir le type de paiement',
       none: 'Ind\u00e9pendant',
+      save: 'Enregistrer',
+      saved: 'Enregistr\u00e9',
+      saveError: 'Erreur de sauvegarde',
     },
     gps: {
       startTracking: 'D\u00e9marrer le suivi',
@@ -5513,6 +5531,9 @@ const translations = {
       paySection: '\u00d6deme',
       choosePayType: '\u00d6deme t\u00fcr\u00fcn\u00fc se\u00e7in',
       none: 'Ba\u011f\u0131ms\u0131z',
+      save: 'Kaydet',
+      saved: 'Kaydedildi',
+      saveError: 'Kaydetme hatas\u0131',
     },
     gps: {
       startTracking: 'Takibi ba\u015flat',
@@ -6387,6 +6408,9 @@ const translations = {
       paySection: 'Wyp\u0142ata',
       choosePayType: 'Wybierz typ p\u0142atno\u015bci',
       none: 'Na w\u0142asny rachunek',
+      save: 'Zapisz',
+      saved: 'Zapisano',
+      saveError: 'B\u0142\u0105d zapisu',
     },
     gps: {
       startTracking: 'Rozpocznij \u015bledzenie',

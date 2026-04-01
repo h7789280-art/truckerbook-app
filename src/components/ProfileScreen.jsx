@@ -25,39 +25,60 @@ function getVehicleLimitMessage(plan) {
 
 function PaySection({ userId, profile, theme, cardStyle, inputStyle, labelStyle }) {
   const { t } = useLanguage()
-  const [payType, setPayType] = useState(profile?.pay_type || 'none')
-  const [payRate, setPayRate] = useState(profile?.pay_rate ? String(profile.pay_rate) : '')
+  const savedType = profile?.pay_type || 'none'
+  const savedRate = profile?.pay_rate ? String(profile.pay_rate) : ''
+  const [payType, setPayType] = useState(savedType)
+  const [payRate, setPayRate] = useState(savedRate)
   const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState(null) // 'ok' | 'err'
 
-  const handleSave = async (newType, newRate) => {
+  const isDirty = payType !== savedType || payRate !== savedRate
+
+  const handleSave = async () => {
     setSaving(true)
+    setStatus(null)
     try {
-      await supabase
+      const { error } = await supabase
         .from('profiles')
         .update({
-          pay_type: newType,
-          pay_rate: newRate ? parseFloat(newRate) : null,
+          pay_type: payType,
+          pay_rate: payRate ? parseFloat(payRate) : null,
         })
         .eq('id', userId)
+      if (error) throw error
+      setStatus('ok')
+      setTimeout(() => setStatus(null), 2000)
     } catch (e) {
       console.error('PaySection save error:', e)
+      setStatus('err')
+      setTimeout(() => setStatus(null), 3000)
     } finally {
       setSaving(false)
     }
   }
 
-  const handleTypeChange = (newType) => {
+  const handleTypeChange = async (newType) => {
     setPayType(newType)
     if (newType === 'none') {
       setPayRate('')
-      handleSave(newType, null)
-    } else {
-      handleSave(newType, payRate)
+      setSaving(true)
+      setStatus(null)
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ pay_type: 'none', pay_rate: 0 })
+          .eq('id', userId)
+        if (error) throw error
+        setStatus('ok')
+        setTimeout(() => setStatus(null), 2000)
+      } catch (e) {
+        console.error('PaySection save error:', e)
+        setStatus('err')
+        setTimeout(() => setStatus(null), 3000)
+      } finally {
+        setSaving(false)
+      }
     }
-  }
-
-  const handleRateBlur = () => {
-    handleSave(payType, payRate)
   }
 
   const payOptions = [
@@ -112,7 +133,6 @@ function PaySection({ userId, profile, theme, cardStyle, inputStyle, labelStyle 
               min="0"
               value={payRate}
               onChange={(e) => setPayRate(e.target.value)}
-              onBlur={handleRateBlur}
               placeholder={payType === 'per_mile' ? '0.50' : '25'}
               style={{ ...inputStyle, paddingRight: '50px' }}
             />
@@ -128,6 +148,36 @@ function PaySection({ userId, profile, theme, cardStyle, inputStyle, labelStyle 
               {payType === 'per_mile' ? '$/mi' : '%'}
             </span>
           </div>
+          <button
+            onClick={handleSave}
+            disabled={saving || !isDirty}
+            style={{
+              width: '100%',
+              marginTop: '10px',
+              padding: '10px',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: (saving || !isDirty) ? 'not-allowed' : 'pointer',
+              background: (saving || !isDirty) ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: (saving || !isDirty) ? theme.dim : '#fff',
+              transition: 'all 0.2s',
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            {saving ? '...' : t('pay.save')}
+          </button>
+        </div>
+      )}
+      {status === 'ok' && (
+        <div style={{ color: '#22c55e', fontSize: '13px', fontWeight: 600, marginTop: '6px', textAlign: 'center' }}>
+          {t('pay.saved')} \u2713
+        </div>
+      )}
+      {status === 'err' && (
+        <div style={{ color: '#ef4444', fontSize: '13px', fontWeight: 600, marginTop: '6px', textAlign: 'center' }}>
+          {t('pay.saveError')}
         </div>
       )}
     </div>

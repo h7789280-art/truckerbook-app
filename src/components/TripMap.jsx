@@ -54,6 +54,7 @@ export default function TripMap({ tripId, tripOrigin, tripDestination, isActive,
       }).addTo(map)
       L.control.zoom({ position: 'topright' }).addTo(map)
       mapInstanceRef.current = map
+      setTimeout(() => { if (map && map.getContainer()) map.invalidateSize() }, 150)
     }
 
     initMap()
@@ -65,6 +66,14 @@ export default function TripMap({ tripId, tripOrigin, tripDestination, isActive,
       }
     }
   }, [])
+
+  // Invalidate map size when loading state changes
+  useEffect(() => {
+    const map = mapInstanceRef.current
+    if (map && !loading) {
+      setTimeout(() => map.invalidateSize(), 100)
+    }
+  }, [loading])
 
   // Draw route
   useEffect(() => {
@@ -194,16 +203,18 @@ export default function TripMap({ tripId, tripOrigin, tripDestination, isActive,
           </div>
         )}
       </div>
-      {loading ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.dim }}>
-          {t('common.loading')}
-        </div>
-      ) : waypoints.length === 0 && !isActive ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.dim, fontSize: '14px' }}>
-          {t('gps.noRoute')}
-        </div>
-      ) : null}
-      <div ref={mapRef} style={{ flex: 1, minHeight: 0 }} />
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
+        <div ref={mapRef} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+        {loading ? (
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.dim, background: theme.bg, zIndex: 500 }}>
+            {t('common.loading')}
+          </div>
+        ) : waypoints.length === 0 && !isActive ? (
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: theme.dim, fontSize: '14px', background: theme.bg, zIndex: 500 }}>
+            {t('gps.noRoute')}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
 }

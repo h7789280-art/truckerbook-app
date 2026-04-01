@@ -221,12 +221,14 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       const serviceCost = monthService.reduce((s, e) => s + (e.cost || 0), 0)
       const vehicleExpCost = monthVehicleExp.reduce((s, e) => s + (e.amount || 0), 0)
       const income = monthTrips.reduce((s, t) => s + (t.income || 0), 0)
+      const driverPay = monthTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
       const totalKm = monthTrips.reduce((s, t) => s + (t.distance_km || 0), 0)
       const totalLiters = monthFuels.reduce((s, e) => s + (e.liters || 0), 0)
       const avgConsumption = totalKm > 0 ? (totalLiters / totalKm * 100) : 0
 
       setMonthData({
         income,
+        driverPay,
         fuelCost,
         bytCost,
         serviceCost,
@@ -2148,6 +2150,19 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               )
             })()}
           </div>
+
+          {/* Earned card — only for hired drivers */}
+          {(monthData.driverPay || 0) > 0 && (
+            <div style={{ ...cardStyle, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ fontSize: '24px' }}>{'\ud83d\udcb5'}</div>
+              <div>
+                <div style={{ ...dimText, fontSize: '12px' }}>{t('pay.earnedMonth')}</div>
+                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
+                  {formatNumber(Math.round(monthData.driverPay))} {cs}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Mini cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>

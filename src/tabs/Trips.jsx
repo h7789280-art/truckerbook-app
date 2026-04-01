@@ -758,8 +758,15 @@ function TripsTab({ userId, refreshKey, theme }) {
                   </div>
                 )}
               </div>
-              <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
-                +{fmtFull(trip.income || 0)} {cs}
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
+                  +{fmtFull(trip.income || 0)} {cs}
+                </div>
+                {(trip.driver_pay != null && trip.driver_pay > 0) && (
+                  <div style={{ color: '#22c55e', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
+                    {t('pay.myEarnings')}: {fmtFull(trip.driver_pay)} {cs}
+                  </div>
+                )}
               </div>
             </div>
             <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

@@ -786,6 +786,163 @@ function ProfileScreen({ profile, setProfile, onNext, saving, error }) {
   )
 }
 
+// ===== SCREEN 3.5: WORK TYPE (driver only) =====
+function WorkTypeScreen({ profile, setProfile, onNext }) {
+  const { t } = useLanguage()
+  const [subStep, setSubStep] = useState('choose') // 'choose' | 'rate'
+
+  const handleSelfEmployed = () => {
+    setProfile({ ...profile, pay_type: 'none', pay_rate: '' })
+    onNext()
+  }
+
+  const handleCompany = () => {
+    setSubStep('rate')
+  }
+
+  const handlePayType = (type) => {
+    setProfile({ ...profile, pay_type: type, pay_rate: '' })
+  }
+
+  const canProceed = profile.pay_type === 'per_mile' || profile.pay_type === 'percent'
+    ? profile.pay_rate && parseFloat(profile.pay_rate) > 0
+    : false
+
+  if (subStep === 'rate') {
+    return (
+      <div style={styles.inner}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
+          <div style={{ fontSize: 48 }}>{'\ud83c\udfe2'}</div>
+          <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 4 }}>
+            {t('pay.choosePayType')}
+          </h2>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginTop: 24 }}>
+            {[
+              { value: 'per_mile', label: t('pay.perMile'), placeholder: '0.50', suffix: '$/mi' },
+              { value: 'percent', label: t('pay.percent'), placeholder: '25', suffix: '%' },
+            ].map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => handlePayType(opt.value)}
+                style={{
+                  ...styles.card,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  padding: '16px 20px',
+                  cursor: 'pointer',
+                  border: profile.pay_type === opt.value ? '2px solid #f59e0b' : '1px solid #1e2a3f',
+                  background: profile.pay_type === opt.value ? '#1a1500' : '#111827',
+                  textAlign: 'left',
+                  width: '100%',
+                }}
+              >
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#e2e8f0' }}>{opt.label}</div>
+              </button>
+            ))}
+          </div>
+
+          {(profile.pay_type === 'per_mile' || profile.pay_type === 'percent') && (
+            <div style={{ width: '100%', marginTop: 20 }}>
+              <label style={styles.label}>{t('pay.rate')}</label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  style={{ ...styles.input, paddingRight: '50px' }}
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder={profile.pay_type === 'per_mile' ? '0.50' : '25'}
+                  value={profile.pay_rate}
+                  onChange={(e) => setProfile({ ...profile, pay_rate: e.target.value })}
+                />
+                <span style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#64748b',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}>
+                  {profile.pay_type === 'per_mile' ? '$/mi' : '%'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 12, width: '100%', marginTop: 32 }}>
+            <button
+              style={{ ...styles.btnSecondary, flex: 1 }}
+              onClick={() => { setSubStep('choose'); setProfile({ ...profile, pay_type: 'none', pay_rate: '' }) }}
+            >
+              {t('common.back')}
+            </button>
+            <button
+              style={{ ...(canProceed ? styles.btnPrimary : styles.btnDisabled), flex: 2 }}
+              disabled={!canProceed}
+              onClick={onNext}
+            >
+              {t('common.next')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div style={styles.inner}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 40 }}>
+        <div style={{ fontSize: 48 }}>{'\ud83d\udcbc'}</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, marginTop: 16, marginBottom: 32 }}>
+          {t('pay.howWork')}
+        </h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%' }}>
+          <button
+            onClick={handleSelfEmployed}
+            style={{
+              ...styles.card,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              padding: '20px 20px',
+              cursor: 'pointer',
+              border: '1px solid #1e2a3f',
+              background: '#111827',
+              textAlign: 'left',
+              width: '100%',
+            }}
+          >
+            <div style={{ fontSize: 36, flexShrink: 0 }}>{'\ud83d\ude9b'}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#e2e8f0' }}>{t('pay.selfEmployed')}</div>
+          </button>
+
+          <button
+            onClick={handleCompany}
+            style={{
+              ...styles.card,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              padding: '20px 20px',
+              cursor: 'pointer',
+              border: '1px solid #1e2a3f',
+              background: '#111827',
+              textAlign: 'left',
+              width: '100%',
+            }}
+          >
+            <div style={{ fontSize: 36, flexShrink: 0 }}>{'\ud83c\udfe2'}</div>
+            <div style={{ fontSize: 17, fontWeight: 700, color: '#e2e8f0' }}>{t('pay.workForCompany')}</div>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ===== SCREEN 4: CREATE PIN =====
 function PinScreen({ onNext }) {
   const { t } = useLanguage()
@@ -1039,6 +1196,8 @@ export default function Auth({ onComplete, onboardingOnly }) {
     city: '',
     cdl_category: '',
     experience_years: '',
+    pay_type: 'none',
+    pay_rate: '',
   })
   const [biometricEnabled, setBiometricEnabled] = useState(false)
   const [otpLoading, setOtpLoading] = useState(false)
@@ -1097,6 +1256,10 @@ export default function Auth({ onComplete, onboardingOnly }) {
         profileData.fuel_consumption = profile.consumption || 34
         profileData.plan = 'trial'
         profileData.trial_ends_at = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        if (role === 'driver') {
+          profileData.pay_type = profile.pay_type || 'none'
+          profileData.pay_rate = profile.pay_rate ? parseFloat(profile.pay_rate) : null
+        }
       }
 
       const { error: profileErr } = await supabase
@@ -1147,7 +1310,7 @@ export default function Auth({ onComplete, onboardingOnly }) {
   if (step === 3) {
     return (
       <div style={styles.container}>
-        <RoleScreen role={role} setRole={setRole} onNext={() => setStep(4)} />
+        <RoleScreen role={role} setRole={setRole} onNext={() => setStep(role === 'driver' ? 'workType' : 4)} />
       </div>
     )
   }
@@ -1163,6 +1326,14 @@ export default function Auth({ onComplete, onboardingOnly }) {
     return (
       <div style={styles.container}>
         <ProfileScreen profile={profile} setProfile={setProfile} onNext={saveProfileAndVehicle} saving={profileSaving} error={profileError} />
+      </div>
+    )
+  }
+
+  if (step === 'workType') {
+    return (
+      <div style={styles.container}>
+        <WorkTypeScreen profile={profile} setProfile={setProfile} onNext={() => setStep(4)} />
       </div>
     )
   }

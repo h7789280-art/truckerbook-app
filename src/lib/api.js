@@ -91,15 +91,39 @@ export async function addTrip(entry) {
     throw new Error('No active session')
   }
 
+  const distance = parseFloat(entry.distance) || 0
+  const income = parseFloat(entry.rate) || 0
+
+  // Calculate driver_pay based on profile pay_type/pay_rate
+  let driverPay = null
+  try {
+    const { data: prof } = await supabase
+      .from('profiles')
+      .select('pay_type, pay_rate')
+      .eq('id', user.id)
+      .single()
+    if (prof && prof.pay_type && prof.pay_type !== 'none' && prof.pay_rate) {
+      if (prof.pay_type === 'per_mile') {
+        driverPay = distance * parseFloat(prof.pay_rate)
+      } else if (prof.pay_type === 'percent') {
+        driverPay = income * parseFloat(prof.pay_rate) / 100
+      }
+      if (driverPay !== null) driverPay = Math.round(driverPay * 100) / 100
+    }
+  } catch (e) {
+    console.error('addTrip: failed to fetch pay info', e)
+  }
+
   const row = {
     user_id: user.id,
     vehicle_id: entry.vehicle_id || null,
     origin: entry.from || '',
     destination: entry.to || '',
-    distance_km: parseFloat(entry.distance) || 0,
+    distance_km: distance,
     deadhead_km: parseFloat(entry.deadhead) || 0,
-    income: parseFloat(entry.rate) || 0,
+    income,
     receipt_url: entry.receipt_url || null,
+    driver_pay: driverPay,
   }
   if (!navigator.onLine) return offlineInsert('trips', row)
   const { data, error } = await supabase

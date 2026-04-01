@@ -23,6 +23,117 @@ function getVehicleLimitMessage(plan) {
   return '\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 3 \u043C\u0430\u0448\u0438\u043D\u044B \u043D\u0430 \u0432\u0430\u0448\u0435\u043C \u0442\u0430\u0440\u0438\u0444\u0435. \u041F\u0435\u0440\u0435\u0439\u0434\u0438\u0442\u0435 \u043D\u0430 Business \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0434\u043E 50 \u043C\u0430\u0448\u0438\u043D.'
 }
 
+function PaySection({ userId, profile, theme, cardStyle, inputStyle, labelStyle }) {
+  const { t } = useLanguage()
+  const [payType, setPayType] = useState(profile?.pay_type || 'none')
+  const [payRate, setPayRate] = useState(profile?.pay_rate ? String(profile.pay_rate) : '')
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async (newType, newRate) => {
+    setSaving(true)
+    try {
+      await supabase
+        .from('profiles')
+        .update({
+          pay_type: newType,
+          pay_rate: newRate ? parseFloat(newRate) : null,
+        })
+        .eq('id', userId)
+    } catch (e) {
+      console.error('PaySection save error:', e)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleTypeChange = (newType) => {
+    setPayType(newType)
+    if (newType === 'none') {
+      setPayRate('')
+      handleSave(newType, null)
+    } else {
+      handleSave(newType, payRate)
+    }
+  }
+
+  const handleRateBlur = () => {
+    handleSave(payType, payRate)
+  }
+
+  const payOptions = [
+    { key: 'none', label: t('pay.none') },
+    { key: 'per_mile', label: t('pay.perMile') },
+    { key: 'percent', label: t('pay.percent') },
+  ]
+
+  return (
+    <div style={{ ...cardStyle, marginBottom: '12px' }}>
+      <div style={{
+        fontSize: '13px',
+        fontWeight: 600,
+        color: theme.dim,
+        letterSpacing: '0.5px',
+        textTransform: 'uppercase',
+        marginBottom: '8px',
+      }}>
+        {t('pay.paySection')}
+      </div>
+      <div style={{ display: 'flex', gap: '4px', background: theme.bg, borderRadius: '10px', padding: '3px', marginBottom: payType !== 'none' ? '12px' : '0' }}>
+        {payOptions.map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => handleTypeChange(opt.key)}
+            disabled={saving}
+            style={{
+              flex: 1,
+              padding: '8px 6px',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: saving ? 'not-allowed' : 'pointer',
+              background: payType === opt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+              color: payType === opt.key ? '#fff' : theme.dim,
+              transition: 'all 0.2s',
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      {payType !== 'none' && (
+        <div>
+          <label style={labelStyle}>{t('pay.rate')}</label>
+          <div style={{ position: 'relative' }}>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={payRate}
+              onChange={(e) => setPayRate(e.target.value)}
+              onBlur={handleRateBlur}
+              placeholder={payType === 'per_mile' ? '0.50' : '25'}
+              style={{ ...inputStyle, paddingRight: '50px' }}
+            />
+            <span style={{
+              position: 'absolute',
+              right: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: theme.dim,
+              fontSize: '14px',
+              fontWeight: 600,
+            }}>
+              {payType === 'per_mile' ? '$/mi' : '%'}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   const { theme } = useTheme()
   const { lang, setLang } = useLanguage()
@@ -609,6 +720,11 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           </div>
         </div>
       </div>
+
+      {/* Pay settings — driver only */}
+      {profile?.role === 'driver' && (
+        <PaySection userId={userId} profile={profile} theme={theme} cardStyle={cardStyle} inputStyle={inputStyle} labelStyle={labelStyle} />
+      )}
 
       {/* Main vehicle from profiles */}
       <div style={{ ...cardStyle, marginBottom: '12px', position: 'relative' }}>

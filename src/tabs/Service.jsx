@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchRouteNotes, addRouteNote, deleteRouteNote, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import DVIRInspection from '../components/DVIRInspection'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
@@ -18,7 +18,6 @@ function getSubTabs(t) {
     { key: 'service', label: '\uD83D\uDD27 ' + t('service.service') },
     { key: 'tires', label: '\uD83D\uDEDE ' + t('service.tires') },
     { key: 'checklist', label: '\u2705 ' + t('service.checklist') },
-    { key: 'map', label: '\uD83D\uDDFA ' + t('service.map') },
     { key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') },
   ]
   if (showDVIR) {
@@ -117,16 +116,6 @@ function getDocTypeSelect(t) {
   ]
 }
 
-function getMarkerTypes(t) {
-  return {
-    fuel: { icon: '\u26FD', color: '#22c55e', label: t('service.gasStation') },
-    sto: { icon: '\uD83D\uDD27', color: '#3b82f6', label: t('service.stoLabel') },
-    parking: { icon: '\uD83C\uDD7F\uFE0F', color: '#6b7280', label: t('service.parking') },
-    food: { icon: '\uD83C\uDF7D', color: '#f59e0b', label: t('service.cafe') },
-    danger: { icon: '\u26A0\uFE0F', color: '#ef4444', label: t('service.danger') },
-  }
-}
-
 function getPhotoTypes(t) {
   return [
     { key: 'inspection', label: t('service.inspection') },
@@ -158,7 +147,6 @@ export default function Service({ userId, activeVehicleId }) {
   const [checkedItems, setCheckedItems] = useState({})
   const [repairs, setRepairs] = useState([])
   const [insurance, setInsurance] = useState([])
-  const [routeNotes, setRouteNotes] = useState([])
   const [odometer, setOdometer] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -168,14 +156,12 @@ export default function Service({ userId, activeVehicleId }) {
     if (!userId) return
     try {
       setLoading(true)
-      const [serviceRecs, insuranceRecs, notes] = await Promise.all([
+      const [serviceRecs, insuranceRecs] = await Promise.all([
         fetchServiceRecords(userId).catch(() => []),
         fetchInsurance(userId).catch(() => []),
-        fetchRouteNotes(userId).catch(() => []),
       ])
       setRepairs(serviceRecs)
       setInsurance(insuranceRecs)
-      setRouteNotes(notes)
 
       // Get odometer from profile
       const { data: profile } = await supabase
@@ -243,13 +229,6 @@ export default function Service({ userId, activeVehicleId }) {
           checkedItems={checkedItems}
           toggleCheck={toggleCheck}
           getCheckedCount={getCheckedCount}
-        />
-      )}
-      {activeTab === 'map' && (
-        <MapTab
-          userId={userId}
-          routeNotes={routeNotes}
-          onReload={loadData}
         />
       )}
       {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} />}
@@ -956,377 +935,6 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
         </div>
       </div>
     </>
-  )
-}
-
-/* ===== MAP TAB ===== */
-function MapTab({ userId, routeNotes, onReload }) {
-  const { t } = useLanguage()
-  const mapRef = useRef(null)
-  const mapInstanceRef = useRef(null)
-  const [mapReady, setMapReady] = useState(false)
-  const [showAddModal, setShowAddModal] = useState(false)
-  const [pendingLatLng, setPendingLatLng] = useState(null)
-  const [mapFilter, setMapFilter] = useState('all')
-  const [saving, setSaving] = useState(false)
-  const [addForm, setAddForm] = useState({ type: 'fuel', title: '', description: '' })
-
-  const MARKER_TYPES = getMarkerTypes(t)
-
-  const filteredNotes = mapFilter === 'all'
-    ? routeNotes
-    : routeNotes.filter(n => n.type === mapFilter)
-
-  useEffect(() => {
-    let cancelled = false
-    let L
-    async function initMap() {
-      L = await import('leaflet')
-      await import('leaflet/dist/leaflet.css')
-      if (cancelled || !mapRef.current || mapInstanceRef.current) return
-
-      const map = L.map(mapRef.current, { zoomControl: false }).setView([55.7558, 37.6173], 10)
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OpenStreetMap',
-      }).addTo(map)
-      L.control.zoom({ position: 'topright' }).addTo(map)
-      mapInstanceRef.current = map
-      setMapReady(true)
-
-      // Try to center on user location
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            if (!cancelled && mapInstanceRef.current) {
-              mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], 12)
-            }
-          },
-          () => {},
-          { enableHighAccuracy: false, timeout: 5000 }
-        )
-      }
-    }
-    initMap()
-    return () => {
-      cancelled = true
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-        setMapReady(false)
-      }
-    }
-  }, [])
-
-  // Handle long press / contextmenu for adding notes
-  useEffect(() => {
-    const map = mapInstanceRef.current
-    if (!map || !mapReady) return
-
-    const onContextMenu = (e) => {
-      setPendingLatLng(e.latlng)
-      setAddForm({ type: 'fuel', title: '', description: '' })
-      setShowAddModal(true)
-    }
-
-    // Desktop: right-click / contextmenu
-    map.on('contextmenu', onContextMenu)
-
-    // Mobile: long press via touch events
-    const container = map.getContainer()
-    let touchTimer = null
-    let touchMoved = false
-
-    const onTouchStart = (e) => {
-      touchMoved = false
-      touchTimer = setTimeout(() => {
-        if (!touchMoved && e.touches.length === 1) {
-          const touch = e.touches[0]
-          const point = map.containerPointToLatLng([
-            touch.clientX - container.getBoundingClientRect().left,
-            touch.clientY - container.getBoundingClientRect().top,
-          ])
-          setPendingLatLng(point)
-          setAddForm({ type: 'fuel', title: '', description: '' })
-          setShowAddModal(true)
-        }
-      }, 600)
-    }
-    const onTouchMove = () => { touchMoved = true; clearTimeout(touchTimer) }
-    const onTouchEnd = () => { clearTimeout(touchTimer) }
-
-    container.addEventListener('touchstart', onTouchStart, { passive: true })
-    container.addEventListener('touchmove', onTouchMove, { passive: true })
-    container.addEventListener('touchend', onTouchEnd, { passive: true })
-
-    return () => {
-      map.off('contextmenu', onContextMenu)
-      container.removeEventListener('touchstart', onTouchStart)
-      container.removeEventListener('touchmove', onTouchMove)
-      container.removeEventListener('touchend', onTouchEnd)
-    }
-  }, [mapReady])
-
-  // Render markers
-  useEffect(() => {
-    const map = mapInstanceRef.current
-    if (!map || !mapReady) return
-
-    // Clear existing markers
-    map.eachLayer((layer) => {
-      if (layer._isRouteNote) map.removeLayer(layer)
-    })
-
-    // Dynamic import for L
-    import('leaflet').then((L) => {
-      filteredNotes.forEach((note) => {
-        if (!note.lat || !note.lng) return
-        const mt = MARKER_TYPES[note.type] || MARKER_TYPES.fuel
-        const markerIcon = L.divIcon({
-          className: '',
-          html: `<div style="width:32px;height:32px;border-radius:50%;background:${mt.color};display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid #fff;">${mt.icon}</div>`,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-          popupAnchor: [0, -18],
-        })
-        const marker = L.marker([note.lat, note.lng], { icon: markerIcon }).addTo(map)
-        marker._isRouteNote = true
-        const popupContent = document.createElement('div')
-        popupContent.style.cssText = 'font-family:-apple-system,sans-serif;min-width:160px;'
-        popupContent.innerHTML = `
-          <div style="font-weight:600;font-size:14px;margin-bottom:4px;">${mt.icon} ${note.title || mt.label}</div>
-          ${note.description ? `<div style="font-size:12px;color:#666;margin-bottom:8px;">${note.description}</div>` : ''}
-          <div style="font-size:11px;color:#999;margin-bottom:8px;">${mt.label}</div>
-        `
-        const delBtn = document.createElement('button')
-        delBtn.textContent = t('common.delete')
-        delBtn.style.cssText = 'background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 12px;font-size:12px;cursor:pointer;width:100%;'
-        delBtn.onclick = async () => {
-          try {
-            await deleteRouteNote(note.id)
-            onReload()
-          } catch (err) {
-            console.error('Delete note error:', err)
-          }
-        }
-        popupContent.appendChild(delBtn)
-        marker.bindPopup(popupContent)
-      })
-    })
-  }, [filteredNotes, mapReady])
-
-  const handleLocateMe = () => {
-    if (!navigator.geolocation || !mapInstanceRef.current) return
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        mapInstanceRef.current.setView([pos.coords.latitude, pos.coords.longitude], 14)
-      },
-      () => alert(t('service.cantLocate')),
-      { enableHighAccuracy: true, timeout: 10000 }
-    )
-  }
-
-  const handleAddNote = async () => {
-    if (!pendingLatLng || !addForm.title.trim()) return
-    setSaving(true)
-    try {
-      await addRouteNote(userId, pendingLatLng.lat, pendingLatLng.lng, addForm.type, addForm.title.trim(), addForm.description.trim())
-      setShowAddModal(false)
-      setPendingLatLng(null)
-      onReload()
-    } catch (err) {
-      console.error('Add note error:', err)
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleAddBtnClick = () => {
-    const map = mapInstanceRef.current
-    if (!map) return
-    const center = map.getCenter()
-    setPendingLatLng(center)
-    setAddForm({ type: 'fuel', title: '', description: '' })
-    setShowAddModal(true)
-  }
-
-  return (
-    <div style={{ position: 'relative' }}>
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '10px', overflowX: 'auto' }}>
-        {[{ key: 'all', label: t('service.allFilter') }, ...Object.entries(MARKER_TYPES).map(([k, v]) => ({ key: k, label: v.icon + ' ' + v.label }))].map(f => (
-          <button
-            key={f.key}
-            onClick={() => setMapFilter(f.key)}
-            style={{
-              background: mapFilter === f.key
-                ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                : 'var(--card)',
-              color: mapFilter === f.key ? '#000' : 'var(--dim)',
-              border: mapFilter === f.key ? 'none' : '1px solid var(--border)',
-              borderRadius: '20px',
-              padding: '6px 12px',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              flexShrink: 0,
-            }}
-          >
-            {f.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Map container */}
-      <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--border)' }}>
-        <div ref={mapRef} style={{ height: 'calc(100vh - 260px)', minHeight: '400px', width: '100%' }} />
-
-        {/* Locate me button */}
-        <button
-          onClick={handleLocateMe}
-          style={{
-            position: 'absolute', bottom: '16px', left: '16px', zIndex: 1000,
-            width: '44px', height: '44px', borderRadius: '50%',
-            background: 'var(--card)', border: '1px solid var(--border)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '20px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          }}
-          title={t('service.myLocation')}
-        >
-          {'\uD83D\uDCCD'}
-        </button>
-
-        {/* Add note FAB */}
-        <button
-          onClick={handleAddBtnClick}
-          style={{
-            position: 'absolute', bottom: '16px', right: '16px', zIndex: 1000,
-            width: '48px', height: '48px', borderRadius: '50%',
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            border: 'none', color: '#000', fontSize: '24px', fontWeight: 700,
-            cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}
-          title={t('service.addNote')}
-        >
-          +
-        </button>
-      </div>
-
-      {/* Stats */}
-      <div style={{ textAlign: 'center', marginTop: '10px', fontSize: '12px', color: 'var(--dim)' }}>
-        {t('service.notesCount') + ': '}{filteredNotes.length}
-        {mapFilter !== 'all' ? ` / ${routeNotes.length}` : ''}
-        {' \u00B7 ' + t('service.longTapHint')}
-      </div>
-
-      {/* Add note modal */}
-      {showAddModal && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 2000,
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          padding: '20px',
-        }} onClick={() => setShowAddModal(false)}>
-          <div style={{
-            background: 'var(--card)', borderRadius: '16px', padding: '20px',
-            width: '100%', maxWidth: '360px', border: '1px solid var(--border)',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
-              {t('service.newNote')}
-            </div>
-
-            {/* Type select */}
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.noteType')}</div>
-              <select
-                value={addForm.type}
-                onChange={e => setAddForm(p => ({ ...p, type: e.target.value }))}
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: '8px',
-                  background: 'var(--card2)', color: 'var(--text)',
-                  border: '1px solid var(--border)', fontSize: '14px',
-                }}
-              >
-                {Object.entries(MARKER_TYPES).map(([k, v]) => (
-                  <option key={k} value={k}>{v.icon} {v.label}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Title */}
-            <div style={{ marginBottom: '12px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.noteName')}</div>
-              <input
-                type="text"
-                value={addForm.title}
-                onChange={e => setAddForm(p => ({ ...p, title: e.target.value }))}
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: '8px',
-                  background: 'var(--card2)', color: 'var(--text)',
-                  border: '1px solid var(--border)', fontSize: '14px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-
-            {/* Description */}
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.noteDesc')}</div>
-              <textarea
-                value={addForm.description}
-                onChange={e => setAddForm(p => ({ ...p, description: e.target.value }))}
-                rows={3}
-                style={{
-                  width: '100%', padding: '10px 12px', borderRadius: '8px',
-                  background: 'var(--card2)', color: 'var(--text)',
-                  border: '1px solid var(--border)', fontSize: '14px',
-                  resize: 'vertical', boxSizing: 'border-box',
-                  fontFamily: '-apple-system, sans-serif',
-                }}
-              />
-            </div>
-
-            {/* Coords display */}
-            {pendingLatLng && (
-              <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '12px', fontFamily: 'monospace' }}>
-                {pendingLatLng.lat.toFixed(5)}, {pendingLatLng.lng.toFixed(5)}
-              </div>
-            )}
-
-            {/* Buttons */}
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                onClick={() => setShowAddModal(false)}
-                style={{
-                  flex: 1, padding: '12px', borderRadius: '10px',
-                  background: 'var(--card2)', color: 'var(--dim)',
-                  border: '1px solid var(--border)', fontSize: '14px',
-                  fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                onClick={handleAddNote}
-                disabled={!addForm.title.trim() || saving}
-                style={{
-                  flex: 1, padding: '12px', borderRadius: '10px',
-                  background: addForm.title.trim() && !saving
-                    ? 'linear-gradient(135deg, #f59e0b, #d97706)'
-                    : 'var(--card2)',
-                  color: addForm.title.trim() && !saving ? '#000' : 'var(--dim)',
-                  border: 'none', fontSize: '14px', fontWeight: 700,
-                  cursor: addForm.title.trim() && !saving ? 'pointer' : 'not-allowed',
-                }}
-              >
-                {saving ? t('service.saving') : t('common.save')}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
   )
 }
 

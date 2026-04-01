@@ -195,12 +195,19 @@ export async function deleteBytExpense(id) {
 
 // --- Vehicles ---
 
-export async function fetchVehicles(userId) {
-  const { data, error } = await supabase
+export async function fetchVehicles(userId, { asDriver = false } = {}) {
+  let query = supabase
     .from('vehicles')
     .select('*')
-    .eq('user_id', userId)
     .order('created_at', { ascending: true })
+  if (asDriver) {
+    // Hired driver: see only vehicles assigned to them
+    query = query.eq('driver_id', userId)
+  } else {
+    // Owner / fleet owner: see all their vehicles
+    query = query.eq('user_id', userId)
+  }
+  const { data, error } = await query
   if (error) throw error
   return data || []
 }

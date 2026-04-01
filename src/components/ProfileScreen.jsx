@@ -186,7 +186,7 @@ function PaySection({ userId, profile, theme, cardStyle, inputStyle, labelStyle 
 
 export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   const { theme } = useTheme()
-  const { lang, setLang } = useLanguage()
+  const { t, lang, setLang } = useLanguage()
   const [vehicles, setVehicles] = useState([])
   const [loggingOut, setLoggingOut] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -200,7 +200,11 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     fuel_consumption: 34,
     fuel_type: 'diesel',
     driver_name: '',
+    driver_phone: '',
+    driver_pay_type: '',
+    driver_pay_rate: '',
   })
+  const [inviteStatus, setInviteStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
 
   // Edit main vehicle state
   const [editingMain, setEditingMain] = useState(false)
@@ -242,14 +246,21 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     try { return localStorage.getItem('truckerbook_units') || 'metric' } catch { return 'metric' }
   })
 
+  const isHiredDriver = !!(profile?.company_id)
+
   const fetchVehicles = async (uid) => {
     if (!uid) return
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('vehicles')
         .select('*')
-        .eq('user_id', uid)
         .order('created_at', { ascending: true })
+      if (isHiredDriver) {
+        query = query.eq('driver_id', uid)
+      } else {
+        query = query.eq('user_id', uid)
+      }
+      const { data, error } = await query
       if (error) {
         console.error('ProfileScreen: vehicles fetch error', error)
         return
@@ -310,7 +321,40 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     }
 
     setSaving(true)
+    setInviteStatus(null)
     try {
+      const isCompany = profile?.role === 'company'
+      const driverPhone = isCompany ? (formData.driver_phone || '').trim() : ''
+
+      // 1) If company + driver phone: create driver profile via invite
+      let driverProfileId = null
+      if (isCompany && driverPhone) {
+        const inviteCode = Math.random().toString(36).slice(2, 10)
+        // Create a placeholder profile for the invited driver
+        const { data: driverData, error: driverErr } = await supabase
+          .from('profiles')
+          .insert({
+            phone: driverPhone,
+            name: formData.driver_name || '',
+            role: 'driver',
+            company_id: userId,
+            invited: true,
+            invite_code: inviteCode,
+            pay_type: formData.driver_pay_type || 'none',
+            pay_rate: formData.driver_pay_rate ? parseFloat(formData.driver_pay_rate) : null,
+            plan: 'pro',
+          })
+          .select('id')
+          .single()
+        if (driverErr) {
+          console.error('Create driver profile error:', driverErr)
+          // Driver profile creation may fail if phone already exists — continue without linking
+        } else {
+          driverProfileId = driverData?.id || null
+        }
+      }
+
+      // 2) Create vehicle
       const row = {
         user_id: userId,
         brand: formData.brand,
@@ -321,6 +365,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         fuel_consumption: parseFloat(formData.fuel_consumption) || 34,
         fuel_type: formData.fuel_type || 'diesel',
         driver_name: formData.driver_name || null,
+        driver_id: driverProfileId,
         is_active: false,
       }
       const { error } = await supabase.from('vehicles').insert(row)
@@ -329,6 +374,26 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
         return
       }
+
+      // 3) Send SMS invite via Supabase Edge Function (or n8n webhook)
+      if (isCompany && driverPhone && driverProfileId) {
+        setInviteStatus('sending')
+        try {
+          await supabase.functions.invoke('send-driver-invite', {
+            body: {
+              phone: driverPhone,
+              company_name: profile?.name || 'TruckerBook',
+              invite_code: row.invite_code,
+            },
+          })
+          setInviteStatus('sent')
+        } catch (smsErr) {
+          console.error('SMS invite error:', smsErr)
+          setInviteStatus('error')
+          // Non-blocking: vehicle still created
+        }
+      }
+
       setShowAddForm(false)
       setFormData({
         brand: '',
@@ -339,6 +404,9 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         fuel_consumption: 34,
         fuel_type: 'diesel',
         driver_name: '',
+        driver_phone: '',
+        driver_pay_type: '',
+        driver_pay_rate: '',
       })
       await fetchVehicles(userId)
     } finally {
@@ -1455,7 +1523,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Driver name */}
               <div>
                 <label style={labelStyle}>
-                  {'\u0418\u043C\u044F \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F'}
+                  {t('invite.driverName')}
                 </label>
                 <input
                   type="text"
@@ -1465,6 +1533,73 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   style={inputStyle}
                 />
               </div>
+
+              {/* Company-only: driver phone + pay settings */}
+              {profile?.role === 'company' && (
+                <>
+                  <div>
+                    <label style={labelStyle}>
+                      {t('invite.driverPhone')} <span style={{ color: theme.dim, fontSize: '12px' }}>{t('invite.optional')}</span>
+                    </label>
+                    <input
+                      type="tel"
+                      value={formData.driver_phone}
+                      onChange={(e) => setFormData({ ...formData, driver_phone: e.target.value })}
+                      placeholder={t('invite.phonePlaceholder')}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>
+                      {t('invite.payType')} <span style={{ color: theme.dim, fontSize: '12px' }}>{t('invite.optional')}</span>
+                    </label>
+                    <div style={{ display: 'flex', gap: '4px', background: theme.bg, borderRadius: '10px', padding: '3px' }}>
+                      {[
+                        { key: '', label: '\u2014' },
+                        { key: 'per_mile', label: t('invite.perMile') },
+                        { key: 'percent', label: t('invite.percent') },
+                      ].map(opt => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, driver_pay_type: opt.key })}
+                          style={{
+                            flex: 1,
+                            padding: '8px 6px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            background: formData.driver_pay_type === opt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                            color: formData.driver_pay_type === opt.key ? '#fff' : theme.dim,
+                            transition: 'all 0.2s',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  {formData.driver_pay_type && (
+                    <div>
+                      <label style={labelStyle}>
+                        {t('invite.payRate')} {formData.driver_pay_type === 'per_mile' ? '($)' : '(%)'}
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.driver_pay_rate}
+                        onChange={(e) => setFormData({ ...formData, driver_pay_rate: e.target.value })}
+                        placeholder={formData.driver_pay_type === 'per_mile' ? '0.55' : '25'}
+                        min="0"
+                        step="0.01"
+                        style={inputStyle}
+                      />
+                    </div>
+                  )}
+                </>
+              )}
 
               {/* Fuel consumption */}
               <div>
@@ -1526,6 +1661,16 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                 ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...'
                 : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
             </button>
+            {inviteStatus === 'sent' && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '8px', background: '#22c55e20', color: '#22c55e', fontSize: '13px', textAlign: 'center' }}>
+                {t('invite.inviteSent')}
+              </div>
+            )}
+            {inviteStatus === 'error' && (
+              <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '8px', background: '#ef444420', color: '#ef4444', fontSize: '13px', textAlign: 'center' }}>
+                SMS error — {t('invite.driverPhone')}
+              </div>
+            )}
           </div>
         </div>
       )}

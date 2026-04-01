@@ -24,6 +24,7 @@ import Paywall from './components/Paywall'
 import VehicleSwitcher from './components/VehicleSwitcher'
 import BrandComboBox from './components/BrandComboBox'
 import DriverChat, { useChatUnread } from './components/DriverChat'
+import InviteFlow from './components/InviteFlow'
 
 const WELCOME_COUNTRIES = [
   { value: 'RU', flag: '\uD83C\uDDF7\uD83C\uDDFA', label: '\u0420\u043E\u0441\u0441\u0438\u044F' },
@@ -271,6 +272,20 @@ function AppInner() {
       setLang(chosenLang)
       setSetupDone(true)
     }} />
+  }
+
+  // Check for /invite/:code URL path
+  const inviteMatch = window.location.pathname.match(/\/invite\/([a-z0-9]+)/i)
+  if (inviteMatch && !session) {
+    return (
+      <InviteFlow
+        inviteCode={inviteMatch[1]}
+        onComplete={() => {
+          window.history.replaceState(null, '', '/')
+          refetchProfile()
+        }}
+      />
+    )
   }
 
   if (!session) {

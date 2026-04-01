@@ -7,30 +7,34 @@ export default function VehicleSwitcher({ userId, profile, activeVehicleId, onSe
   const [vehicles, setVehicles] = useState([])
   const [loaded, setLoaded] = useState(false)
 
+  const isHiredDriver = !!(profile?.company_id)
+
   const load = useCallback(async () => {
     if (!userId) return
     try {
-      const data = await fetchVehicles(userId)
+      const data = await fetchVehicles(userId, { asDriver: isHiredDriver })
       setVehicles(data)
     } catch (err) {
       console.error('VehicleSwitcher load error:', err)
     } finally {
       setLoaded(true)
     }
-  }, [userId])
+  }, [userId, isHiredDriver])
 
   useEffect(() => { load() }, [load])
 
   if (!loaded || vehicles.length === 0) return null
 
-  const mainVehicle = {
-    id: 'main',
-    brand: profile?.brand || '',
-    model: profile?.model || '',
-    plate_number: profile?.plate_number || '',
-  }
-
-  const allVehicles = [mainVehicle, ...vehicles]
+  // Hired drivers don't have a "main vehicle" in profiles — they only see assigned vehicles
+  const allVehicles = isHiredDriver ? vehicles : [
+    {
+      id: 'main',
+      brand: profile?.brand || '',
+      model: profile?.model || '',
+      plate_number: profile?.plate_number || '',
+    },
+    ...vehicles,
+  ]
 
   return (
     <div style={{

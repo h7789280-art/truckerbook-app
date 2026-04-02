@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, uploadVehiclePhoto, getVehiclePhotos, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import DVIRInspection from '../components/DVIRInspection'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
@@ -1269,6 +1269,39 @@ function DocsTab({ userId, vehicleId }) {
   const [showAddPhotoModal, setShowAddPhotoModal] = useState(false)
   const [fullscreenPhoto, setFullscreenPhoto] = useState(null)
   const [loadingPhotos, setLoadingPhotos] = useState(true)
+  // Inspection photos filter state
+  const now2 = new Date()
+  const [photoFilterMode, setPhotoFilterMode] = useState('month')
+  const [photoMonth, setPhotoMonth] = useState(now2.getMonth() + 1)
+  const [photoYear, setPhotoYear] = useState(now2.getFullYear())
+  const [photoDateFrom, setPhotoDateFrom] = useState('')
+  const [photoDateTo, setPhotoDateTo] = useState('')
+  const [downloadingPhotos, setDownloadingPhotos] = useState(false)
+
+  const PHOTO_MONTH_NAMES = [
+    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
+    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
+    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
+    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
+  ]
+  const photoYears = []
+  for (let y = now2.getFullYear(); y >= now2.getFullYear() - 3; y--) photoYears.push(y)
+
+  const getPhotoDateRange = useCallback(() => {
+    if (photoFilterMode === 'period') {
+      if (!photoDateFrom || !photoDateTo) return null
+      return {
+        start: photoDateFrom + 'T00:00:00',
+        end: photoDateTo + 'T23:59:59',
+      }
+    }
+    const start = `${photoYear}-${String(photoMonth).padStart(2, '0')}-01`
+    const endMonth = photoMonth === 12 ? 1 : photoMonth + 1
+    const endYear = photoMonth === 12 ? photoYear + 1 : photoYear
+    const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+    return { start: start + 'T00:00:00', end: end + 'T00:00:00' }
+  }, [photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo])
+
   // Documents state
   const [documents, setDocuments] = useState([])
   const [loadingDocs, setLoadingDocs] = useState(true)
@@ -1281,16 +1314,30 @@ function DocsTab({ userId, vehicleId }) {
 
   const loadPhotos = useCallback(async () => {
     if (!userId) return
+    const range = getPhotoDateRange()
+    if (!range) { setVehiclePhotos([]); setLoadingPhotos(false); return }
     try {
       setLoadingPhotos(true)
-      const photos = await getVehiclePhotos(userId)
-      setVehiclePhotos(photos)
+      let query = supabase
+        .from('vehicle_photos')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', range.start)
+        .order('created_at', { ascending: false })
+      if (photoFilterMode === 'period') {
+        query = query.lte('created_at', range.end)
+      } else {
+        query = query.lt('created_at', range.end)
+      }
+      const { data, error } = await query
+      if (error) throw error
+      setVehiclePhotos(data || [])
     } catch (err) {
       console.error('loadVehiclePhotos error:', err)
     } finally {
       setLoadingPhotos(false)
     }
-  }, [userId])
+  }, [userId, photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo, getPhotoDateRange])
 
   const loadDocs = useCallback(async () => {
     if (!userId) return
@@ -1334,6 +1381,64 @@ function DocsTab({ userId, vehicleId }) {
     }
   }
 
+  const handleDownloadPhotosZip = async () => {
+    if (vehiclePhotos.length === 0 || downloadingPhotos) return
+    setDownloadingPhotos(true)
+    try {
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+
+      const vIds = [...new Set(vehiclePhotos.map(p => p.vehicle_id).filter(Boolean))]
+      let vehicleMap = {}
+      if (vIds.length > 0) {
+        const { data: vData } = await supabase
+          .from('vehicles')
+          .select('id, brand, model, plate_number')
+          .in('id', vIds)
+        if (vData) {
+          for (const v of vData) { vehicleMap[v.id] = v }
+        }
+      }
+
+      const getFolderName = (vid) => {
+        if (!vid) return '\u0411\u0435\u0437 \u043c\u0430\u0448\u0438\u043d\u044b'
+        const v = vehicleMap[vid]
+        if (!v) return vid.slice(0, 8)
+        const namePart = [v.brand, v.model].filter(Boolean).join(' ') || 'Vehicle'
+        const plate = v.plate_number || ''
+        return `${namePart}_${plate}`.replace(/[<>:"/\\|?*]/g, '_')
+      }
+
+      for (const photo of vehiclePhotos) {
+        if (!photo.photo_url) continue
+        try {
+          const resp = await fetch(photo.photo_url)
+          if (!resp.ok) continue
+          const blob = await resp.blob()
+          const dateStr = photo.created_at ? new Date(photo.created_at).toISOString().slice(0, 10) : 'nodate'
+          const titlePart = (photo.notes || photo.photo_type || 'photo').replace(/[<>:"/\\|?*]/g, '_').slice(0, 50)
+          const ext = (photo.photo_url.split('.').pop() || 'jpg').split('?')[0]
+          const fileName = `${titlePart}_${dateStr}.${ext}`
+          const folder = getFolderName(photo.vehicle_id)
+          zip.file(`${folder}/${fileName}`, blob)
+        } catch (err) {
+          console.warn('Skip photo:', photo.id, err)
+        }
+      }
+      const content = await zip.generateAsync({ type: 'blob' })
+      const { saveAs } = await import('file-saver')
+      const zipName = photoFilterMode === 'period'
+        ? `Inspection_${photoDateFrom}_${photoDateTo}.zip`
+        : `Inspection_${String(photoMonth).padStart(2, '0')}_${photoYear}.zip`
+      saveAs(content, zipName)
+    } catch (err) {
+      console.error('Photos ZIP error:', err)
+      alert('ZIP error: ' + (err?.message || 'Unknown'))
+    } finally {
+      setDownloadingPhotos(false)
+    }
+  }
+
   const handleDeleteDoc = async (doc) => {
     if (!confirm(t('service.deleteDoc'))) return
     try {
@@ -1362,6 +1467,11 @@ function DocsTab({ userId, vehicleId }) {
     const key = d.id
     docPhotoCounts[key] = (docPhotoCounts[key] || 0) + 1
   })
+
+  const selectStyle = {
+    flex: 1, padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border)',
+    background: 'var(--bg)', color: 'var(--text)', fontSize: '13px',
+  }
 
   return (
     <>
@@ -1578,23 +1688,98 @@ function DocsTab({ userId, vehicleId }) {
         {t('service.inspectionPhotos')}
       </div>
 
-      <button
-        onClick={() => setShowAddPhotoModal(true)}
-        style={{
-          width: '100%',
-          padding: '14px',
-          borderRadius: '12px',
-          border: 'none',
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          color: '#000',
-          fontSize: '15px',
-          fontWeight: 700,
-          cursor: 'pointer',
-          marginBottom: '16px',
-        }}
-      >
-        {'\uD83D\uDCF7 ' + t('service.addInspectionPhoto')}
-      </button>
+      {/* Filter mode switcher */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', background: 'var(--card2)', borderRadius: '10px', padding: '3px' }}>
+        {['month', 'period'].map(mode => (
+          <button
+            key={mode}
+            onClick={() => setPhotoFilterMode(mode)}
+            style={{
+              flex: 1,
+              padding: '7px 0',
+              borderRadius: '8px',
+              border: 'none',
+              background: photoFilterMode === mode ? 'var(--card)' : 'transparent',
+              color: photoFilterMode === mode ? 'var(--text)' : 'var(--dim)',
+              fontSize: '13px',
+              fontWeight: photoFilterMode === mode ? 600 : 400,
+              cursor: 'pointer',
+              boxShadow: photoFilterMode === mode ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+            }}
+          >
+            {mode === 'month' ? (t('common.month') || '\u041c\u0435\u0441\u044f\u0446') : (t('common.period') || '\u041f\u0435\u0440\u0438\u043e\u0434')}
+          </button>
+        ))}
+      </div>
+
+      {/* Month mode */}
+      {photoFilterMode === 'month' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <select value={photoMonth} onChange={e => setPhotoMonth(Number(e.target.value))} style={selectStyle}>
+            {PHOTO_MONTH_NAMES.map((name, i) => (
+              <option key={i} value={i + 1}>{name}</option>
+            ))}
+          </select>
+          <select value={photoYear} onChange={e => setPhotoYear(Number(e.target.value))} style={selectStyle}>
+            {photoYears.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Period mode */}
+      {photoFilterMode === 'period' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <input
+            type="date"
+            value={photoDateFrom}
+            onChange={e => setPhotoDateFrom(e.target.value)}
+            style={selectStyle}
+          />
+          <input
+            type="date"
+            value={photoDateTo}
+            onChange={e => setPhotoDateTo(e.target.value)}
+            style={selectStyle}
+          />
+        </div>
+      )}
+
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <button
+          onClick={() => setShowAddPhotoModal(true)}
+          style={{
+            flex: 1,
+            padding: '12px',
+            borderRadius: '12px',
+            border: 'none',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#000',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: 'pointer',
+          }}
+        >
+          {'\uD83D\uDCF7 ' + t('service.addInspectionPhoto')}
+        </button>
+        <button
+          onClick={handleDownloadPhotosZip}
+          disabled={downloadingPhotos || vehiclePhotos.length === 0}
+          style={{
+            padding: '12px 16px',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: (downloadingPhotos || vehiclePhotos.length === 0) ? 'var(--border)' : 'var(--card2)',
+            color: (downloadingPhotos || vehiclePhotos.length === 0) ? 'var(--dim)' : '#3b82f6',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: (downloadingPhotos || vehiclePhotos.length === 0) ? 'default' : 'pointer',
+          }}
+        >
+          {downloadingPhotos ? '\u23f3' : '\uD83D\uDCE6'} ZIP
+        </button>
+      </div>
 
       {/* Photo gallery */}
       {loadingPhotos ? (
@@ -1603,7 +1788,7 @@ function DocsTab({ userId, vehicleId }) {
         </div>
       ) : vehiclePhotos.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
-          {t('service.noInspectionPhotos')}
+          {t('service.noPhotoPeriod') || t('service.noInspectionPhotos')}
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>

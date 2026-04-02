@@ -608,8 +608,20 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         if (isCompanyRole) {
           // Fleet export for company role
           const data = await fetchFleetReportExportData(userId, year, month)
+
+          // Defensive: ensure all arrays exist
+          const vehicles = Array.isArray(data?.vehicles) ? data.vehicles : []
+          const drivers = Array.isArray(data?.drivers) ? data.drivers : []
+          const fuelsArr = Array.isArray(data?.fuels) ? data.fuels : []
+          const tripsArr2 = Array.isArray(data?.trips) ? data.trips : []
+          const serviceRecsArr = Array.isArray(data?.serviceRecs) ? data.serviceRecs : []
+          const tireRecsArr = Array.isArray(data?.tireRecs) ? data.tireRecs : []
+          const vehicleExpsArr = Array.isArray(data?.vehicleExps) ? data.vehicleExps : []
+          const sessionsArr = Array.isArray(data?.sessions) ? data.sessions : []
+          const advancesArr = Array.isArray(data?.advances) ? data.advances : []
+
           const driverMap = {}
-          data.drivers.forEach(d => {
+          drivers.forEach(d => {
             driverMap[d.id] = {
               name: d.full_name || d.name || '',
               pay_type: d.pay_type || '',
@@ -622,7 +634,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             pay_rate: 0,
           }
           const vehicleMap = {}
-          data.vehicles.forEach(v => {
+          vehicles.forEach(v => {
             const label = ((v.brand || '') + ' ' + (v.model || '')).trim()
             vehicleMap[v.id] = {
               label,
@@ -632,15 +644,15 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
           })
           const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
           await exportFleetReportExcel({
-            vehicles: data.vehicles,
-            drivers: data.drivers,
-            fuels: data.fuels,
-            trips: data.trips,
-            serviceRecs: data.serviceRecs,
-            tireRecs: data.tireRecs,
-            vehicleExps: data.vehicleExps,
-            sessions: data.sessions,
-            advances: data.advances,
+            vehicles,
+            drivers,
+            fuels: fuelsArr,
+            trips: tripsArr2,
+            serviceRecs: serviceRecsArr,
+            tireRecs: tireRecsArr,
+            vehicleExps: vehicleExpsArr,
+            sessions: sessionsArr,
+            advances: advancesArr,
             period: monthNames[month - 1] + ' ' + year,
             distLabel,
             cs,
@@ -749,7 +761,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         }
       } catch (err) {
         console.error('Export error:', err)
-        alert(t('common.error') || 'Error')
+        alert('Export error: ' + (err?.message || JSON.stringify(err)))
       }
     } else {
       const columns = [

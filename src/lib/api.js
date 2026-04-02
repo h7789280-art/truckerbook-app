@@ -1851,15 +1851,7 @@ export async function fetchFleetReportExportData(userId, year, month) {
     safeQuery(supabase.from('driver_advances').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
   ])
 
-  return {
-    vehicles,
-    drivers,
-    fuels,
-    trips,
-    serviceRecs,
-    tireRecs,
-    vehicleExps,
-    sessions,
-    advances,
-  }
+  const result = { vehicles, drivers, fuels, trips, serviceRecs, tireRecs, vehicleExps, sessions, advances }
+  console.log('fetchFleetReportExportData result keys:', Object.keys(result).map(k => k + ':' + (Array.isArray(result[k]) ? result[k].length : typeof result[k])).join(', '))
+  return result
 }

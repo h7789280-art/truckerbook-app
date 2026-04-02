@@ -657,9 +657,20 @@ export default function FinanceDetails({ userId, profile, onBack }) {
 
       const data = await fetchFleetReportExportData(userId, year, month)
 
+      // Defensive: ensure all arrays exist
+      const vehicles = Array.isArray(data?.vehicles) ? data.vehicles : []
+      const drivers = Array.isArray(data?.drivers) ? data.drivers : []
+      const fuels = Array.isArray(data?.fuels) ? data.fuels : []
+      const trips = Array.isArray(data?.trips) ? data.trips : []
+      const serviceRecs = Array.isArray(data?.serviceRecs) ? data.serviceRecs : []
+      const tireRecs = Array.isArray(data?.tireRecs) ? data.tireRecs : []
+      const vehicleExps = Array.isArray(data?.vehicleExps) ? data.vehicleExps : []
+      const sessions = Array.isArray(data?.sessions) ? data.sessions : []
+      const advances = Array.isArray(data?.advances) ? data.advances : []
+
       // Build lookup maps
       const driverMap = {}
-      data.drivers.forEach(d => {
+      drivers.forEach(d => {
         driverMap[d.id] = {
           name: d.full_name || d.name || '',
           pay_type: d.pay_type || '',
@@ -674,7 +685,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       }
 
       const vehicleMap = {}
-      data.vehicles.forEach(v => {
+      vehicles.forEach(v => {
         const label = ((v.brand || '') + ' ' + (v.model || '')).trim()
         vehicleMap[v.id] = {
           label,
@@ -686,15 +697,15 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
 
       await exportFleetReportExcel({
-        vehicles: data.vehicles,
-        drivers: data.drivers,
-        fuels: data.fuels,
-        trips: data.trips,
-        serviceRecs: data.serviceRecs,
-        tireRecs: data.tireRecs,
-        vehicleExps: data.vehicleExps,
-        sessions: data.sessions,
-        advances: data.advances,
+        vehicles,
+        drivers,
+        fuels,
+        trips,
+        serviceRecs,
+        tireRecs,
+        vehicleExps,
+        sessions,
+        advances,
         period: monthNames[month - 1] + ' ' + year,
         distLabel,
         cs,
@@ -706,7 +717,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       })
     } catch (err) {
       console.error('Fleet export error:', err)
-      alert(t('common.error') || 'Error')
+      alert('Fleet export error: ' + (err?.message || JSON.stringify(err)))
     } finally {
       setExporting(false)
     }

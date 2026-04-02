@@ -331,28 +331,51 @@ export async function exportDriverReportExcel(opts) {
  * P&L, Vehicles, Drivers, Fuel, Expenses, Trips, IFTA, Payroll
  */
 export async function exportFleetReportExcel(opts) {
-  const ExcelJS = (await import('exceljs')).default
-  const { saveAs } = await import('file-saver')
+  try {
+  const excelMod = await import('exceljs')
+  const ExcelJS = excelMod.default || excelMod
+  const fileSaverMod = await import('file-saver')
+  const saveAs = fileSaverMod.saveAs || fileSaverMod.default?.saveAs || fileSaverMod.default
+
+  if (!ExcelJS || !ExcelJS.Workbook) {
+    throw new Error('ExcelJS library failed to load (no Workbook constructor)')
+  }
+  if (typeof saveAs !== 'function') {
+    throw new Error('file-saver library failed to load (saveAs is not a function)')
+  }
 
   const {
-    vehicles, // [{id, brand, model, plate_number, odometer, driver_name, driver_id}]
-    drivers, // [{id, full_name, name, pay_type, pay_rate}]
-    fuels, // [{vehicle_id, user_id, date, station, state, liters, cost, odometer}]
-    trips, // [{vehicle_id, user_id, created_at, origin, destination, distance_km, income, driver_pay}]
-    serviceRecs, // [{vehicle_id, user_id, date, description, type, cost}]
-    tireRecs, // [{vehicle_id, user_id, installed_at, brand, model, cost}]
-    vehicleExps, // [{vehicle_id, user_id, date, description, category, amount}]
-    sessions, // [{vehicle_id, user_id, started_at, ended_at}]
-    advances, // [{user_id, date, amount, note}]
+    vehicles: _vehicles,
+    drivers: _drivers,
+    fuels: _fuels,
+    trips: _trips,
+    serviceRecs: _serviceRecs,
+    tireRecs: _tireRecs,
+    vehicleExps: _vehicleExps,
+    sessions: _sessions,
+    advances: _advances,
     period, // string "April 2026"
     distLabel, // 'mi' or 'km'
     cs, // '$'
     isImperial,
     filename,
     ownerProfile, // fleet owner profile
-    driverMap, // {userId: {name, vehicleInfo, pay_type, pay_rate}}
-    vehicleMap, // {vehicleId: {label, plate, driver}}
+    driverMap: _driverMap,
+    vehicleMap: _vehicleMap,
   } = opts
+
+  // Defensive defaults — ensure all arrays are arrays and maps are objects
+  const vehicles = Array.isArray(_vehicles) ? _vehicles : []
+  const drivers = Array.isArray(_drivers) ? _drivers : []
+  const fuels = Array.isArray(_fuels) ? _fuels : []
+  const trips = Array.isArray(_trips) ? _trips : []
+  const serviceRecs = Array.isArray(_serviceRecs) ? _serviceRecs : []
+  const tireRecs = Array.isArray(_tireRecs) ? _tireRecs : []
+  const vehicleExps = Array.isArray(_vehicleExps) ? _vehicleExps : []
+  const sessions = Array.isArray(_sessions) ? _sessions : []
+  const advances = Array.isArray(_advances) ? _advances : []
+  const driverMap = _driverMap && typeof _driverMap === 'object' ? _driverMap : {}
+  const vehicleMap = _vehicleMap && typeof _vehicleMap === 'object' ? _vehicleMap : {}
 
   const wb = new ExcelJS.Workbook()
 
@@ -693,6 +716,11 @@ export async function exportFleetReportExcel(opts) {
   // Write file
   const buffer = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
+
+  } catch (err) {
+    console.error('exportFleetReportExcel error:', err)
+    throw err
+  }
 }
 
 /**

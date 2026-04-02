@@ -1009,16 +1009,48 @@ function BolSection({ userId, vehicleId }) {
     try {
       const JSZip = (await import('jszip')).default
       const zip = new JSZip()
+
+      // Collect unique vehicle_ids from BOL files
+      const vIds = [...new Set(bolFiles.map(b => b.vehicle_id).filter(Boolean))]
+      let vehicleMap = {}
+      if (vIds.length > 0) {
+        const { data: vData } = await supabase
+          .from('vehicles')
+          .select('id, brand, model, plate_number, driver_name')
+          .in('id', vIds)
+        if (vData) {
+          for (const v of vData) { vehicleMap[v.id] = v }
+        }
+      }
+      // Also check profiles for owner vehicle info
+      if (!vIds.length || bolFiles.some(b => !b.vehicle_id)) {
+        // no-op, those go to fallback folder
+      }
+
+      const getFolderName = (vid) => {
+        if (!vid) return '\u0411\u0435\u0437 \u043c\u0430\u0448\u0438\u043d\u044b'
+        const v = vehicleMap[vid]
+        if (!v) return vid.slice(0, 8)
+        const namePart = [v.brand, v.model].filter(Boolean).join(' ') || 'Vehicle'
+        const plate = v.plate_number || ''
+        const driver = v.driver_name || ''
+        let folder = `${namePart}_${plate}`.replace(/[<>:"/\\|?*]/g, '_')
+        if (driver) folder += ` (${driver.replace(/[<>:"/\\|?*]/g, '_')})`
+        return folder
+      }
+
       for (const bol of bolFiles) {
         if (!bol.file_url) continue
         try {
           const resp = await fetch(bol.file_url)
           if (!resp.ok) continue
           const blob = await resp.blob()
-          const dateStr = bol.created_at ? new Date(bol.created_at).toISOString().slice(0, 10).replace(/-/g, '') : 'nodate'
+          const dateStr = bol.created_at ? new Date(bol.created_at).toISOString().slice(0, 10) : 'nodate'
           const ext = (bol.title || '').split('.').pop() || 'jpg'
-          const name = `BOL_${bol.title ? bol.title.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') : bol.id}_${dateStr}.${ext}`
-          zip.file(name, blob)
+          const baseName = bol.title ? bol.title.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_\u0400-\u04FF -]/g, '_') : bol.id
+          const fileName = `${baseName}_${dateStr}.${ext}`
+          const folder = getFolderName(bol.vehicle_id)
+          zip.file(`${folder}/${fileName}`, blob)
         } catch (err) {
           console.warn('Skip BOL file:', bol.id, err)
         }

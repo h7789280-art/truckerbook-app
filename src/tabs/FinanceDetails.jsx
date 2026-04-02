@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriversSalaryData, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData } from '../lib/api'
 import { exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
 
 function formatNumber(n) {
@@ -258,23 +258,10 @@ export default function FinanceDetails({ userId, profile, onBack }) {
 
       setMonthlyData(sorted)
 
-      // Total salary for fleet mode (use fixed mode with driver count if applicable)
+      // Total salary for fleet mode: sum actual driver_pay from trips in period
       if (isCompanyRole) {
-        if (salaryMode === 'fixed') {
-          try {
-            const salData = await fetchDriversSalaryData(userId)
-            // For custom period, compute months from date range; otherwise use getMonthCount()
-            let periodMonths = getMonthCount() || 1
-            if (period === 'custom' && customFrom && customTo) {
-              const d1 = new Date(customFrom), d2 = new Date(customTo)
-              periodMonths = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24 * 30)))
-            }
-            setTotalSalary(salData.length * salaryRate * periodMonths)
-          } catch { setTotalSalary(0) }
-        } else {
-          const computedSalary = sorted.reduce((s, m) => s + (m.salary || 0), 0)
-          setTotalSalary(computedSalary)
-        }
+        const actualSalary = rangeTrips.reduce((s, tr) => s + (tr.driver_pay || 0), 0)
+        setTotalSalary(actualSalary)
       }
 
       // Expense breakdown for donut

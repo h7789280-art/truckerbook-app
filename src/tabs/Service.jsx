@@ -1875,6 +1875,11 @@ function DocsTab({ userId, vehicleId }) {
       {fullscreenPhoto && (
         <div
           onClick={() => setFullscreenPhoto(null)}
+          onTouchStart={e => { window._fsPhotoTouchY = e.touches[0].clientY }}
+          onTouchEnd={e => {
+            const dy = e.changedTouches[0].clientY - (window._fsPhotoTouchY || 0)
+            if (dy > 80) setFullscreenPhoto(null)
+          }}
           style={{
             position: 'fixed',
             inset: 0,
@@ -1891,7 +1896,7 @@ function DocsTab({ userId, vehicleId }) {
             <img
               src={fullscreenPhoto.photo_url}
               alt=""
-              style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }}
+              style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '8px' }}
             />
             <div style={{ color: '#fff', fontSize: '14px', marginTop: '12px', textAlign: 'center' }}>
               <span style={{ color: '#f59e0b', fontWeight: 600 }}>
@@ -1904,12 +1909,14 @@ function DocsTab({ userId, vehicleId }) {
           <button
             onClick={(e) => { e.stopPropagation(); setFullscreenPhoto(null) }}
             style={{
-              position: 'absolute', top: '16px', right: '16px',
-              zIndex: 10,
-              width: '40px', height: '40px', borderRadius: '50%',
-              border: 'none', background: 'rgba(255,255,255,0.2)',
-              color: '#fff', fontSize: '20px', cursor: 'pointer',
+              position: 'absolute', top: '50px', right: '16px',
+              zIndex: 10000,
+              width: '44px', height: '44px', borderRadius: '50%',
+              border: 'none', background: 'rgba(0,0,0,0.7)',
+              color: '#fff', fontSize: '22px', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation',
             }}
           >
             {'\u2715'}

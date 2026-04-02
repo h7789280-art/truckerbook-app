@@ -3,6 +3,7 @@ import { addFuel, addTrip, addBytExpense, addServiceRecord, addVehicleExpense, u
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { recordAudio, parseExpenseFromVoice } from '../lib/voiceInput'
+import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 
 function getMenuItems(activeTab, t, expensesSubTab) {
   const OVERVIEW_MENU = [
@@ -445,10 +446,12 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     else setForm({})
   }
 
-  const handlePhotoSelected = (file) => {
+  const handlePhotoSelected = async (file) => {
+    const v = await validateAndCompressFile(file, userId)
+    if (!v.ok) { alert(interpolate(t(v.errorKey), v.errorParams)); return }
     if (receiptPreview) URL.revokeObjectURL(receiptPreview)
-    setReceiptFile(file)
-    setReceiptPreview(URL.createObjectURL(file))
+    setReceiptFile(v.file)
+    setReceiptPreview(URL.createObjectURL(v.file))
   }
 
   const handlePhotoRemove = () => {

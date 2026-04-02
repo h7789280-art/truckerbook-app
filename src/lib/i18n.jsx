@@ -930,6 +930,12 @@ const translations = {
       prevMonth: '\u041f\u0440\u043e\u0448\u043b\u044b\u0439',
       download: '\u0421\u043a\u0430\u0447\u0430\u0442\u044c',
     },
+    fileUpload: {
+      tooLarge: '\u041c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u0440\u0430\u0437\u043c\u0435\u0440 \u0444\u0430\u0439\u043b\u0430 5 \u041c\u0411',
+      invalidType: '\u0420\u0430\u0437\u0440\u0435\u0448\u0435\u043d\u044b \u0442\u043e\u043b\u044c\u043a\u043e \u0438\u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u0438\u044f (JPG, PNG, WebP) \u0438 PDF',
+      dailyLimit: '\u041b\u0438\u043c\u0438\u0442 \u0437\u0430\u0433\u0440\u0443\u0437\u043e\u043a \u043d\u0430 \u0441\u0435\u0433\u043e\u0434\u043d\u044f \u0438\u0441\u0447\u0435\u0440\u043f\u0430\u043d ({used}/{max})',
+      storageFull: '\u0425\u0440\u0430\u043d\u0438\u043b\u0438\u0449\u0435 \u0437\u0430\u043f\u043e\u043b\u043d\u0435\u043d\u043e. \u0418\u0441\u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u043d\u043e {used}/{max} \u041c\u0411',
+    },
   },
   en: {
     tabs: {
@@ -1860,6 +1866,12 @@ const translations = {
       prevMonth: 'Previous',
       download: 'Download',
     },
+    fileUpload: {
+      tooLarge: 'Maximum file size is 5 MB',
+      invalidType: 'Only images (JPG, PNG, WebP) and PDF are allowed',
+      dailyLimit: 'Daily upload limit reached ({used}/{max})',
+      storageFull: 'Storage full. Used {used}/{max} MB',
+    },
   },
   uk: {
     tabs: {
@@ -2789,6 +2801,12 @@ const translations = {
       prevMonth: '\u041c\u0438\u043d\u0443\u043b\u0438\u0439',
       download: '\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438',
     },
+    fileUpload: {
+      tooLarge: '\u041c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u0438\u0439 \u0440\u043e\u0437\u043c\u0456\u0440 \u0444\u0430\u0439\u043b\u0443 5 \u041c\u0411',
+      invalidType: '\u0414\u043e\u0437\u0432\u043e\u043b\u0435\u043d\u0456 \u043b\u0438\u0448\u0435 \u0437\u043e\u0431\u0440\u0430\u0436\u0435\u043d\u043d\u044f (JPG, PNG, WebP) \u0442\u0430 PDF',
+      dailyLimit: '\u041b\u0456\u043c\u0456\u0442 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u044c \u043d\u0430 \u0441\u044c\u043e\u0433\u043e\u0434\u043d\u0456 \u0432\u0438\u0447\u0435\u0440\u043f\u0430\u043d\u043e ({used}/{max})',
+      storageFull: '\u0421\u0445\u043e\u0432\u0438\u0449\u0435 \u0437\u0430\u043f\u043e\u0432\u043d\u0435\u043d\u0435. \u0412\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u0430\u043d\u043e {used}/{max} \u041c\u0411',
+    },
   },
   es: {
     tabs: {
@@ -3698,6 +3716,12 @@ const translations = {
     },
     finance: {
       exportExcel: 'Exportar a Excel',
+    },
+    fileUpload: {
+      tooLarge: 'El tama\u00f1o m\u00e1ximo del archivo es 5 MB',
+      invalidType: 'Solo se permiten im\u00e1genes (JPG, PNG, WebP) y PDF',
+      dailyLimit: 'L\u00edmite de cargas diario alcanzado ({used}/{max})',
+      storageFull: 'Almacenamiento lleno. Usado {used}/{max} MB',
     },
   },
   de: {
@@ -4609,6 +4633,12 @@ const translations = {
     finance: {
       exportExcel: 'Export nach Excel',
     },
+    fileUpload: {
+      tooLarge: 'Maximale Dateigr\u00f6\u00dfe ist 5 MB',
+      invalidType: 'Nur Bilder (JPG, PNG, WebP) und PDF erlaubt',
+      dailyLimit: 'T\u00e4gliches Upload-Limit erreicht ({used}/{max})',
+      storageFull: 'Speicher voll. Verwendet {used}/{max} MB',
+    },
   },
   fr: {
     tabs: {
@@ -5518,6 +5548,12 @@ const translations = {
     },
     finance: {
       exportExcel: 'Exporter vers Excel',
+    },
+    fileUpload: {
+      tooLarge: 'La taille maximale du fichier est de 5 Mo',
+      invalidType: 'Seules les images (JPG, PNG, WebP) et les PDF sont autoris\u00e9s',
+      dailyLimit: 'Limite de t\u00e9l\u00e9chargements quotidiens atteinte ({used}/{max})',
+      storageFull: 'Stockage plein. Utilis\u00e9 {used}/{max} Mo',
     },
   },
   tr: {
@@ -6429,6 +6465,12 @@ const translations = {
     finance: {
       exportExcel: "Excel'e aktar",
     },
+    fileUpload: {
+      tooLarge: 'Maksimum dosya boyutu 5 MB',
+      invalidType: 'Yaln\u0131zca g\u00f6r\u00fcnt\u00fcler (JPG, PNG, WebP) ve PDF\u2019ye izin verilir',
+      dailyLimit: 'G\u00fcnl\u00fck y\u00fckleme limiti doldu ({used}/{max})',
+      storageFull: 'Depolama dolu. Kullan\u0131lan {used}/{max} MB',
+    },
   },
   pl: {
     tabs: {
@@ -7338,6 +7380,12 @@ const translations = {
     },
     finance: {
       exportExcel: 'Eksport do Excela',
+    },
+    fileUpload: {
+      tooLarge: 'Maksymalny rozmiar pliku to 5 MB',
+      invalidType: 'Dozwolone s\u0105 tylko obrazy (JPG, PNG, WebP) i PDF',
+      dailyLimit: 'Dzienny limit przesy\u0142ania osi\u0105gni\u0119ty ({used}/{max})',
+      storageFull: 'Pami\u0119\u0107 pe\u0142na. U\u017cyto {used}/{max} MB',
     },
   },
 }

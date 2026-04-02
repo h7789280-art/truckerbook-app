@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels, fetchWaypoints } from '../lib/api'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 import { exportToExcel, exportToPDF, exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
 import { fetchDriverReportExportData, fetchFleetReportExportData } from '../lib/api'
 import { startTracking, stopTracking, isTracking as isGpsTracking } from '../lib/gpsTracker'
@@ -31,17 +32,23 @@ function formatDateTime(dateStr) {
   return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
 }
 
-function PhotoPicker({ photos, setPhotos, theme, maxPhotos = 5 }) {
+function PhotoPicker({ photos, setPhotos, theme, maxPhotos = 5, userId }) {
   const { t } = useLanguage()
   const cameraRef = { current: null }
   const galleryRef = { current: null }
 
-  const handleFiles = (e) => {
+  const handleFiles = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
+    e.target.value = ''
     const remaining = maxPhotos - photos.length
-    const toAdd = files.slice(0, remaining).map(f => ({ file: f, preview: URL.createObjectURL(f) }))
-    setPhotos(prev => [...prev, ...toAdd])
+    const toAdd = []
+    for (const f of files.slice(0, remaining)) {
+      const v = await validateAndCompressFile(f, userId)
+      if (!v.ok) { alert(interpolate(t(v.errorKey), v.errorParams)); continue }
+      toAdd.push({ file: v.file, preview: URL.createObjectURL(v.file) })
+    }
+    if (toAdd.length > 0) setPhotos(prev => [...prev, ...toAdd])
     e.target.value = ''
   }
 
@@ -404,7 +411,7 @@ function TrailerBlock({ userId, theme }) {
               onChange={e => setNotes(e.target.value)}
               style={inputStyle}
             />
-            <PhotoPicker photos={pickupPhotos} setPhotos={setPickupPhotos} theme={theme} />
+            <PhotoPicker photos={pickupPhotos} setPhotos={setPickupPhotos} theme={theme} userId={userId} />
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => { setShowModal(false); setPickupPhotos([]) }}
@@ -455,7 +462,7 @@ function TrailerBlock({ userId, theme }) {
             <div style={{ color: theme.dim, fontSize: '14px', marginBottom: '16px' }}>
               {t('trips.trailer') + ': '}<span style={{ color: theme.text, fontWeight: 600 }}>{active?.trailer_number}</span>
             </div>
-            <PhotoPicker photos={dropoffPhotos} setPhotos={setDropoffPhotos} theme={theme} />
+            <PhotoPicker photos={dropoffPhotos} setPhotos={setDropoffPhotos} theme={theme} userId={userId} />
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={() => { setShowDropOffModal(false); setDropoffPhotos([]) }}

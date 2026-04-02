@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto } from '../lib/api'
 import { exportToExcel, exportToPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
@@ -512,9 +513,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const handleShiftPhotoChange = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
+    const v = await validateAndCompressFile(file, userId)
+    if (!v.ok) { alert(interpolate(t(v.errorKey), v.errorParams)); return }
     if (shiftPhotoPreview) URL.revokeObjectURL(shiftPhotoPreview)
-    setShiftPhoto(file)
-    setShiftPhotoPreview(URL.createObjectURL(file))
+    setShiftPhoto(v.file)
+    setShiftPhotoPreview(URL.createObjectURL(v.file))
     setAiOdometerStatus('loading')
     setAiOdometerValue(null)
     try {

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useLanguage } from '../lib/i18n'
 import { fetchDVIRInspections, addDVIRInspection, uploadDVIRPhoto } from '../lib/api'
 import { supabase } from '../lib/supabase'
+import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 
 const DVIR_ITEMS = [
   'brakes', 'tires', 'headlights', 'turnSignals', 'mirrors',
@@ -77,11 +78,18 @@ export default function DVIRInspection({ userId, vehicleId }) {
     ))
   }
 
-  const handlePhotoSelect = (itemKey, files) => {
+  const handlePhotoSelect = async (itemKey, files) => {
     if (!files || !files.length) return
+    const validated = []
+    for (const f of Array.from(files)) {
+      const v = await validateAndCompressFile(f, userId)
+      if (!v.ok) { alert(interpolate(t(v.errorKey), v.errorParams)); continue }
+      validated.push(v.file)
+    }
+    if (validated.length === 0) return
     setPhotos(prev => ({
       ...prev,
-      [itemKey]: [...(prev[itemKey] || []), ...Array.from(files)],
+      [itemKey]: [...(prev[itemKey] || []), ...validated],
     }))
   }
 

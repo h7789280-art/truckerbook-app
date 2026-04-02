@@ -4,6 +4,7 @@ import DVIRInspection from '../components/DVIRInspection'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 import { exportToExcel, exportToPDF } from '../utils/export'
+import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 
 const ELD_COUNTRIES = ['US','CA','DE','FR','PL','GB','NL','BE','AT','CZ','SK','IT','ES','SE','DK','FI','NO','HU','RO','BG','HR','LT','LV','EE','SI','IE','PT','GR','LU']
 
@@ -954,13 +955,19 @@ function BolSection({ userId, vehicleId }) {
     const file = e.target.files?.[0]
     if (!file || !userId) return
     e.target.value = ''
+    const validation = await validateAndCompressFile(file, userId)
+    if (!validation.ok) {
+      alert(interpolate(t(validation.errorKey), validation.errorParams))
+      return
+    }
+    const validFile = validation.file
     setUploading(true)
     try {
       const timestamp = Date.now()
-      const path = `${userId}/bol/${timestamp}_${file.name}`
+      const path = `${userId}/bol/${timestamp}_${validFile.name}`
       const { error: uploadError } = await supabase.storage
         .from('receipts')
-        .upload(path, file, { contentType: file.type || 'application/octet-stream' })
+        .upload(path, validFile, { contentType: validFile.type || 'application/octet-stream' })
       if (uploadError) throw uploadError
       const { data: urlData } = supabase.storage
         .from('receipts')
@@ -972,13 +979,13 @@ function BolSection({ userId, vehicleId }) {
           user_id: userId,
           vehicle_id: vehicleId || null,
           type: 'bol',
-          title: file.name || 'BOL',
+          title: validFile.name || 'BOL',
           file_url: fileUrl,
           storage_path: path,
           notes: '',
-          file_name: file.name || '',
-          file_size: file.size || 0,
-          mime_type: file.type || '',
+          file_name: validFile.name || '',
+          file_size: validFile.size || 0,
+          mime_type: validFile.type || '',
         })
       if (dbError) throw dbError
       loadBolFiles()
@@ -1940,13 +1947,18 @@ function DocumentModal({ userId, vehicleId, onClose, onSaved }) {
   const galleryRef = useRef(null)
   const maxPhotos = 3
 
-  const handleFiles = (e) => {
+  const handleFiles = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
-    const remaining = maxPhotos - photos.length
-    const toAdd = files.slice(0, remaining).map(f => ({ file: f, preview: URL.createObjectURL(f) }))
-    setPhotos(prev => [...prev, ...toAdd])
     e.target.value = ''
+    const remaining = maxPhotos - photos.length
+    const toAdd = []
+    for (const f of files.slice(0, remaining)) {
+      const v = await validateAndCompressFile(f, userId)
+      if (!v.ok) { alert(interpolate(t(v.errorKey), v.errorParams)); continue }
+      toAdd.push({ file: v.file, preview: URL.createObjectURL(v.file) })
+    }
+    if (toAdd.length > 0) setPhotos(prev => [...prev, ...toAdd])
   }
 
   const removePhoto = (idx) => {
@@ -2138,13 +2150,18 @@ function VehiclePhotoModal({ userId, vehicleId, onClose, onSaved }) {
   const galleryRef = useRef(null)
   const maxPhotos = 5
 
-  const handleFiles = (e) => {
+  const handleFiles = async (e) => {
     const files = Array.from(e.target.files || [])
     if (files.length === 0) return
-    const remaining = maxPhotos - photos.length
-    const toAdd = files.slice(0, remaining).map(f => ({ file: f, preview: URL.createObjectURL(f) }))
-    setPhotos(prev => [...prev, ...toAdd])
     e.target.value = ''
+    const remaining = maxPhotos - photos.length
+    const toAdd = []
+    for (const f of files.slice(0, remaining)) {
+      const v = await validateAndCompressFile(f, userId)
+      if (!v.ok) { alert(interpolate(t(v.errorKey), v.errorParams)); continue }
+      toAdd.push({ file: v.file, preview: URL.createObjectURL(v.file) })
+    }
+    if (toAdd.length > 0) setPhotos(prev => [...prev, ...toAdd])
   }
 
   const removePhoto = (idx) => {

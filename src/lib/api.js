@@ -809,7 +809,8 @@ export async function deleteTireRecord(id) {
 
 export async function uploadDocument(userId, vehicleId, file, docType, title, notes) {
   const timestamp = Date.now()
-  const path = `${userId}/${docType}_${timestamp}.jpg`
+  const ext = (file.name || '').split('.').pop() || 'jpg'
+  const path = `${userId}/${docType}_${timestamp}.${ext}`
   const { error: uploadError } = await supabase.storage
     .from('documents')
     .upload(path, file, { contentType: file.type || 'image/jpeg' })
@@ -823,10 +824,13 @@ export async function uploadDocument(userId, vehicleId, file, docType, title, no
     user_id: userId,
     vehicle_id: vehicleId || null,
     type: docType || 'other',
-    title: title || '',
+    title: title || file.name || '',
     notes: notes || '',
     file_url: fileUrl,
     storage_path: path,
+    file_name: file.name || '',
+    file_size: file.size || 0,
+    mime_type: file.type || '',
   }
   const { data, error } = await supabase
     .from('documents')

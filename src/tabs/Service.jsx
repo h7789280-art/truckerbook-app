@@ -111,7 +111,6 @@ function getDocTypeSelect(t) {
     { key: 'pts', label: t('service.docPts') },
     { key: 'contract', label: t('service.docContract') },
     { key: 'dopog', label: t('service.docDopog') },
-    { key: 'bol', label: t('service.docBolFull') },
     { key: 'other', label: t('service.docOther') },
   ]
 }
@@ -952,10 +951,13 @@ function BolSection({ userId, vehicleId }) {
           user_id: userId,
           vehicle_id: vehicleId || null,
           type: 'bol',
-          title: file.name,
+          title: file.name || 'BOL',
           file_url: fileUrl,
           storage_path: path,
           notes: '',
+          file_name: file.name || '',
+          file_size: file.size || 0,
+          mime_type: file.type || '',
         })
       if (dbError) throw dbError
       loadBolFiles()

@@ -919,6 +919,9 @@ const translations = {
       empty: '\u0421\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u0439 \u043f\u043e\u043a\u0430 \u043d\u0435\u0442',
       newMessages: '\u041d\u043e\u0432\u044b\u0435 \u0441\u043e\u043e\u0431\u0449\u0435\u043d\u0438\u044f',
     },
+    finance: {
+      exportExcel: '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel',
+    },
   },
   en: {
     tabs: {
@@ -1838,6 +1841,9 @@ const translations = {
       empty: 'No messages yet',
       newMessages: 'New messages',
     },
+    finance: {
+      exportExcel: 'Export to Excel',
+    },
   },
   uk: {
     tabs: {
@@ -2756,6 +2762,9 @@ const translations = {
       empty: '\u041f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u044c \u043f\u043e\u043a\u0438 \u043d\u0435\u043c\u0430\u0454',
       newMessages: '\u041d\u043e\u0432\u0456 \u043f\u043e\u0432\u0456\u0434\u043e\u043c\u043b\u0435\u043d\u043d\u044f',
     },
+    finance: {
+      exportExcel: '\u0415\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel',
+    },
   },
   es: {
     tabs: {
@@ -3659,6 +3668,9 @@ const translations = {
       send: 'Enviar',
       empty: 'No hay mensajes a\u00fan',
       newMessages: 'Nuevos mensajes',
+    },
+    finance: {
+      exportExcel: 'Exportar a Excel',
     },
   },
   de: {
@@ -4564,6 +4576,9 @@ const translations = {
       empty: 'Noch keine Nachrichten',
       newMessages: 'Neue Nachrichten',
     },
+    finance: {
+      exportExcel: 'Export nach Excel',
+    },
   },
   fr: {
     tabs: {
@@ -5467,6 +5482,9 @@ const translations = {
       send: 'Envoyer',
       empty: 'Aucun message pour le moment',
       newMessages: 'Nouveaux messages',
+    },
+    finance: {
+      exportExcel: 'Exporter vers Excel',
     },
   },
   tr: {
@@ -6372,6 +6390,9 @@ const translations = {
       empty: 'Hen\u00fcz mesaj yok',
       newMessages: 'Yeni mesajlar',
     },
+    finance: {
+      exportExcel: "Excel'e aktar",
+    },
   },
   pl: {
     tabs: {
@@ -7275,6 +7296,9 @@ const translations = {
       send: 'Wy\u015blij',
       empty: 'Brak wiadomo\u015bci',
       newMessages: 'Nowe wiadomo\u015bci',
+    },
+    finance: {
+      exportExcel: 'Eksport do Excela',
     },
   },
 }

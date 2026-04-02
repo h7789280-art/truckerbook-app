@@ -1776,9 +1776,9 @@ export async function fetchDriverReportExportData(userId, year, month) {
     supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date'),
     supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', start + 'T00:00:00').lt('created_at', end + 'T00:00:00').order('created_at'),
     supabase.from('byt_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date'),
-    supabase.from('service_records').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date').catch(() => ({ data: [] })),
-    supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date').catch(() => ({ data: [] })),
-    supabase.from('tire_records').select('*').eq('user_id', userId).gte('installed_at', start).lt('installed_at', end).order('installed_at').catch(() => ({ data: [] })),
+    Promise.resolve(supabase.from('service_records').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')).catch(() => ({ data: [] })),
+    Promise.resolve(supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')).catch(() => ({ data: [] })),
+    Promise.resolve(supabase.from('tire_records').select('*').eq('user_id', userId).gte('installed_at', start).lt('installed_at', end).order('installed_at')).catch(() => ({ data: [] })),
     fetchDriverAdvances(userId, start, end),
     supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at'),
   ])

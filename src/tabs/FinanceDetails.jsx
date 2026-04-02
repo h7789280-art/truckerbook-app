@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/theme'
-import { useLanguage, getCurrencySymbol } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriversSalaryData } from '../lib/api'
+import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriversSalaryData, fetchDriverReportExportData, getTireRecords } from '../lib/api'
+import { exportDriverReportExcel } from '../utils/export'
 
 function formatNumber(n) {
   return n.toLocaleString('ru-RU')
@@ -33,7 +34,9 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   const [expenseBreakdown, setExpenseBreakdown] = useState([])
   const [tooltip, setTooltip] = useState(null)
   const [totalSalary, setTotalSalary] = useState(0)
+  const [exporting, setExporting] = useState(false)
   const chartRef = useRef(null)
+  const units = getUnits()
 
   // Determine view mode
   const isCompanyRole = profile?.role === 'company'
@@ -476,6 +479,172 @@ export default function FinanceDetails({ userId, profile, onBack }) {
     )
   }
 
+  const handleExportExcel = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      const distLabel = units.dist || 'mi'
+      const isImperial = units.dist === 'mi'
+
+      const data = await fetchDriverReportExportData(userId, year, month)
+
+      // Trips
+      const tripsArr = data.trips.map(tr => ({
+        date: (tr.created_at || '').slice(0, 10),
+        origin: tr.origin || '',
+        destination: tr.destination || '',
+        miles: isImperial ? Math.round((tr.distance_km || 0) * 0.621371) : Math.round(tr.distance_km || 0),
+        income: tr.income || 0,
+        driverPay: tr.driver_pay || 0,
+      }))
+
+      // All expenses merged
+      const expensesArr = []
+      data.fuels.forEach(f => expensesArr.push({
+        date: f.date || '',
+        description: f.station || 'Fuel',
+        category: 'Fuel',
+        gallons: isImperial ? Math.round((f.liters || 0) * 0.264172 * 100) / 100 : (f.liters || 0),
+        amount: f.cost || 0,
+        odometer: f.odometer ? (isImperial ? Math.round(f.odometer * 0.621371) : f.odometer) : '',
+      }))
+      data.bytExps.forEach(e => expensesArr.push({
+        date: e.date || '',
+        description: e.description || e.category || '',
+        category: e.category || 'Personal',
+        gallons: '',
+        amount: e.amount || 0,
+        odometer: '',
+      }))
+      data.serviceRecs.forEach(e => expensesArr.push({
+        date: e.date || '',
+        description: e.description || e.type || 'Service',
+        category: 'Service',
+        gallons: '',
+        amount: e.cost || 0,
+        odometer: '',
+      }))
+      data.vehicleExps.forEach(e => expensesArr.push({
+        date: e.date || '',
+        description: e.description || '',
+        category: e.category || 'Vehicle',
+        gallons: '',
+        amount: e.amount || 0,
+        odometer: '',
+      }))
+      data.tireRecs.forEach(e => expensesArr.push({
+        date: e.installed_at || '',
+        description: (e.brand || '') + ' ' + (e.model || ''),
+        category: 'Tires',
+        gallons: '',
+        amount: e.cost || 0,
+        odometer: '',
+      }))
+
+      // Vehicle expense categories (fuel, service, tires, vehicle_expenses by category)
+      const fuelTotal = data.fuels.reduce((s, f) => s + (f.cost || 0), 0)
+      const serviceTotal = data.serviceRecs.reduce((s, e) => s + (e.cost || 0), 0)
+      const tireTotal = data.tireRecs.reduce((s, e) => s + (e.cost || 0), 0)
+      const vExpByCat = {}
+      data.vehicleExps.forEach(e => {
+        const cat = e.category || 'other'
+        vExpByCat[cat] = (vExpByCat[cat] || 0) + (e.amount || 0)
+      })
+
+      const vehicleExpenseCategories = []
+      if (fuelTotal > 0) vehicleExpenseCategories.push({ label: t('overview.fuelShort') || 'Fuel', amount: fuelTotal })
+      if (vExpByCat.def) vehicleExpenseCategories.push({ label: 'DEF', amount: vExpByCat.def })
+      if (vExpByCat.oil) vehicleExpenseCategories.push({ label: t('overview.oilShort') || 'Oil', amount: vExpByCat.oil })
+      if (serviceTotal > 0) vehicleExpenseCategories.push({ label: t('overview.repairShort') || 'Repair', amount: serviceTotal })
+      if (vExpByCat.supplies) vehicleExpenseCategories.push({ label: t('overview.suppliesShort') || 'Supplies', amount: vExpByCat.supplies })
+      if (vExpByCat.hotel) vehicleExpenseCategories.push({ label: t('overview.housingShort') || 'Motel', amount: vExpByCat.hotel })
+      if (tireTotal > 0) vehicleExpenseCategories.push({ label: t('overview.tiresShort') || 'Tires', amount: tireTotal })
+      // Remaining vehicle expense categories
+      const knownVCats = ['def', 'oil', 'supplies', 'hotel']
+      Object.entries(vExpByCat).filter(([k]) => !knownVCats.includes(k)).forEach(([k, v]) => {
+        if (v > 0) vehicleExpenseCategories.push({ label: k, amount: v })
+      })
+
+      const vehicleExpenseTotal = vehicleExpenseCategories.reduce((s, c) => s + c.amount, 0)
+
+      // Totals
+      const totalMileage = tripsArr.reduce((s, tr) => s + (tr.miles || 0), 0)
+      const totalHours = data.sessions.reduce((s, sh) => {
+        if (!sh.ended_at) return s
+        return s + (new Date(sh.ended_at).getTime() - new Date(sh.started_at).getTime()) / 3600000
+      }, 0)
+
+      const payType = profile?.pay_type || 'none'
+      const payRate = profile?.pay_rate ? parseFloat(profile.pay_rate) : 0
+
+      const tripIncome = data.trips.reduce((s, tr) => s + (tr.income || 0), 0)
+      const earned = data.trips.reduce((s, tr) => s + (tr.driver_pay || 0), 0)
+      const personalExpenses = data.bytExps.reduce((s, e) => s + (e.amount || 0), 0)
+
+      // Pay sheet rows
+      const payRows = data.trips.map(tr => {
+        const miles = isImperial ? Math.round((tr.distance_km || 0) * 0.621371) : Math.round(tr.distance_km || 0)
+        let rate = ''
+        let rowEarned = tr.driver_pay || 0
+        if (payType === 'per_mile') {
+          rate = '$' + payRate + '/' + distLabel
+        } else if (payType === 'percent') {
+          rate = payRate + '%'
+        }
+        return {
+          date: (tr.created_at || '').slice(0, 10),
+          route: (tr.origin || '') + ' \u2192 ' + (tr.destination || ''),
+          miles,
+          rate,
+          earned: rowEarned,
+        }
+      })
+
+      const payTotal = payRows.reduce((s, r) => s + (r.earned || 0), 0)
+      const advancesTotal = data.advances.reduce((s, a) => s + (a.amount || 0), 0)
+
+      const vehicleInfo = profile?.brand ? (profile.brand + ' ' + (profile.model || '') + (profile.plate_number ? ' (' + profile.plate_number + ')' : '')) : ''
+      const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+
+      await exportDriverReportExcel({
+        driverName: profile?.full_name || profile?.name || '',
+        driverPhone: profile?.phone || '',
+        vehicleInfo,
+        period: monthNames[month - 1] + ' ' + year,
+        tripsCount: tripsArr.length,
+        totalMileage,
+        totalHours: Math.round(totalHours * 10) / 10,
+        payType,
+        payRate,
+        earned,
+        personalExpenses,
+        netClean: earned - personalExpenses,
+        vehicleExpenseCategories,
+        vehicleExpenseTotal,
+        tripIncome,
+        netProfit: tripIncome - vehicleExpenseTotal - personalExpenses,
+        trips: tripsArr,
+        expenses: expensesArr,
+        payRows,
+        payTotal,
+        advances: data.advances.map(a => ({ date: a.date, amount: a.amount || 0, note: a.note || '' })),
+        advancesTotal,
+        payDue: payTotal - advancesTotal,
+        distLabel,
+        cs,
+        filename: `driver_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
+      })
+    } catch (err) {
+      console.error('Export error:', err)
+      alert(t('common.error') || 'Error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div style={{ padding: '16px', maxWidth: 480, margin: '0 auto' }}>
       {/* Header */}
@@ -776,6 +945,30 @@ export default function FinanceDetails({ userId, profile, onBack }) {
 
           {/* Donut */}
           {renderDonut()}
+
+          {/* Export button */}
+          {!isCompanyRole && (
+            <button
+              onClick={handleExportExcel}
+              disabled={exporting}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '14px',
+                border: 'none',
+                background: exporting ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: exporting ? 'default' : 'pointer',
+                marginBottom: '12px',
+                opacity: exporting ? 0.6 : 1,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.exportExcel') || '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel'}
+            </button>
+          )}
         </>
       )}
     </div>

@@ -14,6 +14,8 @@
   "type": "module",
   "dependencies": {
     "@supabase/supabase-js": "^2.100.1",
+    "exceljs": "^4.4.0",
+    "file-saver": "^2.0.5",
     "idb": "^8.0.3",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.7",

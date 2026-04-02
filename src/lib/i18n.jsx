@@ -360,6 +360,7 @@ const translations = {
       uploadBol: '\u0417\u0430\u0433\u0440\u0443\u0437\u0438\u0442\u044c BOL',
       downloadBol: '\u0421\u043a\u0430\u0447\u0430\u0442\u044c',
       noBol: '\u041d\u0435\u0442 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043d\u043d\u044b\u0445 BOL',
+      noBolPeriod: '\u041d\u0435\u0442 BOL \u0437\u0430 \u044d\u0442\u043e\u0442 \u043f\u0435\u0440\u0438\u043e\u0434',
       bolFiles: '\u0424\u0430\u0439\u043b\u044b BOL',
       deleteDoc: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442?',
       deletePhoto: '\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u0444\u043e\u0442\u043e?',
@@ -921,6 +922,10 @@ const translations = {
     },
     finance: {
       exportExcel: '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel',
+      exportPeriod: '\u041f\u0435\u0440\u0438\u043e\u0434 \u044d\u043a\u0441\u043f\u043e\u0440\u0442\u0430',
+      thisMonth: '\u042d\u0442\u043e\u0442 \u043c\u0435\u0441\u044f\u0446',
+      prevMonth: '\u041f\u0440\u043e\u0448\u043b\u044b\u0439',
+      download: '\u0421\u043a\u0430\u0447\u0430\u0442\u044c',
     },
   },
   en: {
@@ -1282,6 +1287,7 @@ const translations = {
       uploadBol: 'Upload BOL',
       downloadBol: 'Download',
       noBol: 'No BOL files uploaded',
+      noBolPeriod: 'No BOL files for this period',
       bolFiles: 'BOL Files',
       deleteDoc: 'Delete document?',
       deletePhoto: 'Delete photo?',
@@ -1843,6 +1849,10 @@ const translations = {
     },
     finance: {
       exportExcel: 'Export to Excel',
+      exportPeriod: 'Export period',
+      thisMonth: 'This month',
+      prevMonth: 'Previous',
+      download: 'Download',
     },
   },
   uk: {
@@ -2204,6 +2214,7 @@ const translations = {
       uploadBol: '\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438 BOL',
       downloadBol: '\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438',
       noBol: '\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0435\u043d\u0438\u0445 BOL',
+      noBolPeriod: '\u041d\u0435\u043c\u0430\u0454 BOL \u0437\u0430 \u0446\u0435\u0439 \u043f\u0435\u0440\u0456\u043e\u0434',
       bolFiles: '\u0424\u0430\u0439\u043b\u0438 BOL',
       deleteDoc: '\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442?',
       deletePhoto: '\u0412\u0438\u0434\u0430\u043b\u0438\u0442\u0438 \u0444\u043e\u0442\u043e?',
@@ -2764,6 +2775,10 @@ const translations = {
     },
     finance: {
       exportExcel: '\u0415\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel',
+      exportPeriod: '\u041f\u0435\u0440\u0456\u043e\u0434 \u0435\u043a\u0441\u043f\u043e\u0440\u0442\u0443',
+      thisMonth: '\u0426\u0435\u0439 \u043c\u0456\u0441\u044f\u0446\u044c',
+      prevMonth: '\u041c\u0438\u043d\u0443\u043b\u0438\u0439',
+      download: '\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438',
     },
   },
   es: {

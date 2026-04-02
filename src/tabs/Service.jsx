@@ -884,20 +884,40 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
 /* ===== BOL SECTION ===== */
 function BolSection({ userId, vehicleId }) {
   const { t } = useLanguage()
+  const now = new Date()
   const [bolFiles, setBolFiles] = useState([])
   const [loadingBol, setLoadingBol] = useState(true)
   const [uploading, setUploading] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [bolMonth, setBolMonth] = useState(now.getMonth() + 1)
+  const [bolYear, setBolYear] = useState(now.getFullYear())
   const bolInputRef = useRef(null)
+
+  const MONTH_NAMES = [
+    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
+    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
+    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
+    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
+  ]
+
+  const years = []
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y)
 
   const loadBolFiles = useCallback(async () => {
     if (!userId) return
     try {
       setLoadingBol(true)
+      const start = `${bolYear}-${String(bolMonth).padStart(2, '0')}-01`
+      const endMonth = bolMonth === 12 ? 1 : bolMonth + 1
+      const endYear = bolMonth === 12 ? bolYear + 1 : bolYear
+      const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
       const { data, error } = await supabase
         .from('documents')
         .select('*')
         .eq('user_id', userId)
         .eq('type', 'bol')
+        .gte('created_at', start + 'T00:00:00')
+        .lt('created_at', end + 'T00:00:00')
         .order('created_at', { ascending: false })
       if (error) throw error
       setBolFiles(data || [])
@@ -906,7 +926,7 @@ function BolSection({ userId, vehicleId }) {
     } finally {
       setLoadingBol(false)
     }
-  }, [userId])
+  }, [userId, bolMonth, bolYear])
 
   useEffect(() => { loadBolFiles() }, [loadBolFiles])
 
@@ -960,6 +980,37 @@ function BolSection({ userId, vehicleId }) {
     }
   }
 
+  const handleDownloadAllBol = async () => {
+    if (bolFiles.length === 0 || downloading) return
+    setDownloading(true)
+    try {
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+      for (const bol of bolFiles) {
+        if (!bol.file_url) continue
+        try {
+          const resp = await fetch(bol.file_url)
+          if (!resp.ok) continue
+          const blob = await resp.blob()
+          const dateStr = bol.created_at ? new Date(bol.created_at).toISOString().slice(0, 10).replace(/-/g, '') : 'nodate'
+          const ext = (bol.title || '').split('.').pop() || 'jpg'
+          const name = `BOL_${bol.title ? bol.title.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_') : bol.id}_${dateStr}.${ext}`
+          zip.file(name, blob)
+        } catch (err) {
+          console.warn('Skip BOL file:', bol.id, err)
+        }
+      }
+      const content = await zip.generateAsync({ type: 'blob' })
+      const { saveAs } = await import('file-saver')
+      saveAs(content, `BOL_${String(bolMonth).padStart(2, '0')}_${bolYear}.zip`)
+    } catch (err) {
+      console.error('ZIP download error:', err)
+      alert('ZIP error: ' + (err?.message || 'Unknown'))
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   const formatDate = (dateStr) => {
     if (!dateStr) return ''
     const d = new Date(dateStr)
@@ -973,8 +1024,27 @@ function BolSection({ userId, vehicleId }) {
     padding: '14px',
   }
 
+  const selectStyle = {
+    flex: 1, padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border)',
+    background: 'var(--bg)', color: 'var(--text)', fontSize: '13px',
+  }
+
   return (
     <>
+      {/* Period filter */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+        <select value={bolMonth} onChange={e => setBolMonth(Number(e.target.value))} style={selectStyle}>
+          {MONTH_NAMES.map((name, i) => (
+            <option key={i} value={i + 1}>{name}</option>
+          ))}
+        </select>
+        <select value={bolYear} onChange={e => setBolYear(Number(e.target.value))} style={selectStyle}>
+          {years.map(y => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      </div>
+
       <input
         ref={bolInputRef}
         type="file"
@@ -982,24 +1052,41 @@ function BolSection({ userId, vehicleId }) {
         onChange={handleBolUpload}
         style={{ display: 'none' }}
       />
-      <button
-        onClick={() => bolInputRef.current?.click()}
-        disabled={uploading}
-        style={{
-          width: '100%',
-          padding: '14px',
-          borderRadius: '12px',
-          border: 'none',
-          background: uploading ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-          color: uploading ? 'var(--dim)' : '#000',
-          fontSize: '15px',
-          fontWeight: 700,
-          cursor: uploading ? 'default' : 'pointer',
-          marginBottom: '16px',
-        }}
-      >
-        {uploading ? t('common.loading') : '\uD83D\uDCE5 ' + t('service.uploadBol')}
-      </button>
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        <button
+          onClick={() => bolInputRef.current?.click()}
+          disabled={uploading}
+          style={{
+            flex: 1,
+            padding: '12px',
+            borderRadius: '12px',
+            border: 'none',
+            background: uploading ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: uploading ? 'var(--dim)' : '#000',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: uploading ? 'default' : 'pointer',
+          }}
+        >
+          {uploading ? t('common.loading') : '\uD83D\uDCE5 ' + t('service.uploadBol')}
+        </button>
+        <button
+          onClick={handleDownloadAllBol}
+          disabled={downloading || bolFiles.length === 0}
+          style={{
+            padding: '12px 16px',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: (downloading || bolFiles.length === 0) ? 'var(--border)' : 'var(--card2)',
+            color: (downloading || bolFiles.length === 0) ? 'var(--dim)' : '#3b82f6',
+            fontSize: '14px',
+            fontWeight: 700,
+            cursor: (downloading || bolFiles.length === 0) ? 'default' : 'pointer',
+          }}
+        >
+          {downloading ? '\u23f3' : '\uD83D\uDCE6'} ZIP
+        </button>
+      </div>
 
       {loadingBol ? (
         <div style={{ textAlign: 'center', padding: '20px 0', color: 'var(--dim)', fontSize: 14 }}>
@@ -1007,7 +1094,7 @@ function BolSection({ userId, vehicleId }) {
         </div>
       ) : bolFiles.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
-          {t('service.noBol')}
+          {t('service.noBolPeriod') || t('service.noBol')}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
@@ -1032,6 +1119,7 @@ function BolSection({ userId, vehicleId }) {
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
                     {formatDate(bol.created_at)}
+                    {bol.vehicle_id && <span> | {t('service.vehicle') || 'Vehicle'}: {bol.vehicle_id.slice(0, 8)}</span>}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>

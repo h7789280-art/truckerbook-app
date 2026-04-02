@@ -355,6 +355,7 @@ export async function exportFleetReportExcel(opts) {
     vehicleExps: _vehicleExps,
     sessions: _sessions,
     advances: _advances,
+    bolDocs: _bolDocs,
     period, // string "April 2026"
     distLabel, // 'mi' or 'km'
     cs, // '$'
@@ -375,6 +376,7 @@ export async function exportFleetReportExcel(opts) {
   const vehicleExps = Array.isArray(_vehicleExps) ? _vehicleExps : []
   const sessions = Array.isArray(_sessions) ? _sessions : []
   const advances = Array.isArray(_advances) ? _advances : []
+  const bolDocs = Array.isArray(_bolDocs) ? _bolDocs : []
   const driverMap = _driverMap && typeof _driverMap === 'object' ? _driverMap : {}
   const vehicleMap = _vehicleMap && typeof _vehicleMap === 'object' ? _vehicleMap : {}
 
@@ -714,6 +716,27 @@ export async function exportFleetReportExcel(opts) {
   const payTotal = ws8.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', '', '', fmtNum(payTotEarned), fmtNum(payTotAdv), fmtNum(payTotDue)])
   payTotal.eachCell(c => { c.font = boldFont })
   autoWidth(ws8)
+
+  // ---- SHEET 9: BOL ----
+  if (bolDocs.length > 0) {
+    const ws9 = wb.addWorksheet('BOL')
+    const bolHeaders = ['\u0414\u0430\u0442\u0430', 'BOL #', '\u041c\u0430\u0440\u0448\u0440\u0443\u0442', '\u041c\u0430\u0448\u0438\u043d\u0430', '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u0424\u0430\u0439\u043b']
+    ws9.addRow(bolHeaders)
+    styleHeaders(ws9, bolHeaders.length)
+
+    let bolRowIdx = 2
+    bolDocs.forEach(doc => {
+      const date = doc.created_at ? doc.created_at.slice(0, 10) : ''
+      const bolNum = doc.title || doc.notes || ''
+      const vehicle = getVehicleLabel(doc.vehicle_id)
+      const driver = getDriverName(doc.user_id)
+      const hasFile = doc.file_url ? '\u0414\u0430' : '\u041d\u0435\u0442'
+      ws9.addRow([date, bolNum, '', vehicle, driver, hasFile])
+      bolRowIdx++
+    })
+    styleAltRows(ws9, 2, bolRowIdx - 1, bolHeaders.length)
+    autoWidth(ws9)
+  }
 
   // Write file
   const buffer = await wb.xlsx.writeBuffer()

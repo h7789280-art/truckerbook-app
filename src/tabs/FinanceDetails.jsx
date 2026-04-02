@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData, fetchFleetBolDocuments } from '../lib/api'
 import { exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
 
 function formatNumber(n) {
@@ -35,6 +35,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   const [tooltip, setTooltip] = useState(null)
   const [totalSalary, setTotalSalary] = useState(0)
   const [exporting, setExporting] = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
   const chartRef = useRef(null)
   const units = getUnits()
 
@@ -471,13 +472,12 @@ export default function FinanceDetails({ userId, profile, onBack }) {
     )
   }
 
-  const handleExportExcel = async () => {
+  const handleExportExcel = async (expYear, expMonth) => {
     if (exporting) return
     setExporting(true)
     try {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = now.getMonth() + 1
+      const year = expYear
+      const month = expMonth
       const isImperial = units === 'imperial'
       const distLabel = isImperial ? 'mi' : 'km'
 
@@ -637,17 +637,24 @@ export default function FinanceDetails({ userId, profile, onBack }) {
     }
   }
 
-  const handleFleetExportExcel = async () => {
+  const handleFleetExportExcel = async (expYear, expMonth) => {
     if (exporting) return
     setExporting(true)
     try {
-      const now = new Date()
-      const year = now.getFullYear()
-      const month = now.getMonth() + 1
+      const year = expYear
+      const month = expMonth
       const isImperial = units === 'imperial'
       const distLabel = isImperial ? 'mi' : 'km'
 
-      const data = await fetchFleetReportExportData(userId, year, month)
+      const start = `${year}-${String(month).padStart(2, '0')}-01`
+      const endMonth = month === 12 ? 1 : month + 1
+      const endYear = month === 12 ? year + 1 : year
+      const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+
+      const [data, bolDocs] = await Promise.all([
+        fetchFleetReportExportData(userId, year, month),
+        fetchFleetBolDocuments(userId, start, end),
+      ])
 
       // Defensive: ensure all arrays exist
       const vehicles = Array.isArray(data?.vehicles) ? data.vehicles : []
@@ -698,6 +705,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         vehicleExps,
         sessions,
         advances,
+        bolDocs,
         period: monthNames[month - 1] + ' ' + year,
         distLabel,
         cs,
@@ -1018,7 +1026,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
 
           {/* Export button */}
           <button
-            onClick={isCompanyRole ? handleFleetExportExcel : handleExportExcel}
+            onClick={() => setShowExportModal(true)}
             disabled={exporting}
             style={{
               width: '100%',
@@ -1039,6 +1047,126 @@ export default function FinanceDetails({ userId, profile, onBack }) {
           </button>
         </>
       )}
+
+      {showExportModal && (
+        <ExportPeriodModal
+          theme={theme}
+          t={t}
+          exporting={exporting}
+          onClose={() => setShowExportModal(false)}
+          onExport={(y, m) => {
+            setShowExportModal(false)
+            if (isCompanyRole) handleFleetExportExcel(y, m)
+            else handleExportExcel(y, m)
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ===== EXPORT PERIOD MODAL ===== */
+function ExportPeriodModal({ theme, t, exporting, onClose, onExport }) {
+  const now = new Date()
+  const [selYear, setSelYear] = useState(now.getFullYear())
+  const [selMonth, setSelMonth] = useState(now.getMonth() + 1)
+
+  const MONTH_NAMES = [
+    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
+    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
+    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
+    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
+  ]
+
+  const years = []
+  for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y)
+
+  const quickSelect = (label) => {
+    const n = new Date()
+    if (label === 'this') {
+      setSelYear(n.getFullYear())
+      setSelMonth(n.getMonth() + 1)
+    } else if (label === 'prev') {
+      const prev = new Date(n.getFullYear(), n.getMonth() - 1, 1)
+      setSelYear(prev.getFullYear())
+      setSelMonth(prev.getMonth() + 1)
+    }
+  }
+
+  const overlayStyle = {
+    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex',
+    alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px',
+  }
+  const modalStyle = {
+    background: theme.card, borderRadius: '16px', padding: '24px', width: '100%',
+    maxWidth: '360px', border: '1px solid ' + theme.border,
+  }
+  const btnStyle = (active) => ({
+    flex: 1, padding: '8px 4px', border: 'none', borderRadius: '10px', fontSize: '12px',
+    fontWeight: 600, cursor: 'pointer',
+    background: active ? 'linear-gradient(135deg, #f59e0b, #d97706)' : theme.bg,
+    color: active ? '#fff' : theme.dim,
+  })
+  const selectStyle = {
+    flex: 1, padding: '10px 12px', borderRadius: '10px', border: '1px solid ' + theme.border,
+    background: theme.bg, color: theme.text, fontSize: '14px',
+  }
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={modalStyle} onClick={e => e.stopPropagation()}>
+        <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: theme.text }}>
+          {t('finance.exportPeriod') || '\u041f\u0435\u0440\u0438\u043e\u0434 \u044d\u043a\u0441\u043f\u043e\u0440\u0442\u0430'}
+        </div>
+
+        {/* Quick buttons */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+          <button style={btnStyle(false)} onClick={() => quickSelect('this')}>
+            {t('finance.thisMonth') || '\u042d\u0442\u043e\u0442 \u043c\u0435\u0441\u044f\u0446'}
+          </button>
+          <button style={btnStyle(false)} onClick={() => quickSelect('prev')}>
+            {t('finance.prevMonth') || '\u041f\u0440\u043e\u0448\u043b\u044b\u0439'}
+          </button>
+        </div>
+
+        {/* Month + Year selects */}
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+          <select value={selMonth} onChange={e => setSelMonth(Number(e.target.value))} style={selectStyle}>
+            {MONTH_NAMES.map((name, i) => (
+              <option key={i} value={i + 1}>{name}</option>
+            ))}
+          </select>
+          <select value={selYear} onChange={e => setSelYear(Number(e.target.value))} style={selectStyle}>
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1, padding: '12px', borderRadius: '12px', border: '1px solid ' + theme.border,
+              background: 'transparent', color: theme.dim, fontSize: '14px', fontWeight: 600, cursor: 'pointer',
+            }}
+          >
+            {t('common.cancel') || '\u041e\u0442\u043c\u0435\u043d\u0430'}
+          </button>
+          <button
+            onClick={() => onExport(selYear, selMonth)}
+            disabled={exporting}
+            style={{
+              flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
+              background: exporting ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#fff', fontSize: '14px', fontWeight: 700, cursor: exporting ? 'default' : 'pointer',
+            }}
+          >
+            {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.download') || '\u0421\u043a\u0430\u0447\u0430\u0442\u044c'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

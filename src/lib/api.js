@@ -1855,3 +1855,46 @@ export async function fetchFleetReportExportData(userId, year, month) {
   console.log('fetchFleetReportExportData result keys:', Object.keys(result).map(k => k + ':' + (Array.isArray(result[k]) ? result[k].length : typeof result[k])).join(', '))
   return result
 }
+
+// --- Fetch BOL documents for a user filtered by period ---
+
+export async function fetchBolDocuments(userId, startDate, endDate) {
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('type', 'bol')
+    .gte('created_at', startDate + 'T00:00:00')
+    .lt('created_at', endDate + 'T00:00:00')
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.warn('fetchBolDocuments error:', error.message)
+    return []
+  }
+  return data || []
+}
+
+// --- Fetch BOL documents for fleet (all users) ---
+
+export async function fetchFleetBolDocuments(userId, startDate, endDate) {
+  // Get fleet driver IDs
+  const { data: drivers } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('company_id', userId)
+  const allUserIds = [userId, ...(drivers || []).map(d => d.id)]
+
+  const { data, error } = await supabase
+    .from('documents')
+    .select('*')
+    .in('user_id', allUserIds)
+    .eq('type', 'bol')
+    .gte('created_at', startDate + 'T00:00:00')
+    .lt('created_at', endDate + 'T00:00:00')
+    .order('created_at', { ascending: false })
+  if (error) {
+    console.warn('fetchFleetBolDocuments error:', error.message)
+    return []
+  }
+  return data || []
+}

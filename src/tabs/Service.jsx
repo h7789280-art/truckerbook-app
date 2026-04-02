@@ -1409,6 +1409,7 @@ function DocsTab({ userId, vehicleId }) {
         return `${namePart}_${plate}`.replace(/[<>:"/\\|?*]/g, '_')
       }
 
+      const usedNames = {}
       for (const photo of vehiclePhotos) {
         if (!photo.photo_url) continue
         try {
@@ -1418,8 +1419,16 @@ function DocsTab({ userId, vehicleId }) {
           const dateStr = photo.created_at ? new Date(photo.created_at).toISOString().slice(0, 10) : 'nodate'
           const titlePart = (photo.notes || photo.photo_type || 'photo').replace(/[<>:"/\\|?*]/g, '_').slice(0, 50)
           const ext = (photo.photo_url.split('.').pop() || 'jpg').split('?')[0]
-          const fileName = `${titlePart}_${dateStr}.${ext}`
           const folder = getFolderName(photo.vehicle_id)
+          let baseName = `${titlePart}_${dateStr}`
+          const nameKey = `${folder}/${baseName}.${ext}`
+          if (usedNames[nameKey]) {
+            usedNames[nameKey]++
+            baseName = `${baseName}_${usedNames[nameKey]}`
+          } else {
+            usedNames[nameKey] = 1
+          }
+          const fileName = `${baseName}.${ext}`
           zip.file(`${folder}/${fileName}`, blob)
         } catch (err) {
           console.warn('Skip photo:', photo.id, err)
@@ -1876,20 +1885,22 @@ function DocsTab({ userId, vehicleId }) {
             padding: '16px',
           }}
         >
-          <img
-            src={fullscreenPhoto.photo_url}
-            alt=""
-            style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }}
-          />
-          <div style={{ color: '#fff', fontSize: '14px', marginTop: '12px', textAlign: 'center' }}>
-            <span style={{ color: '#f59e0b', fontWeight: 600 }}>
-              {PHOTO_TYPE_LABELS[fullscreenPhoto.photo_type] || fullscreenPhoto.photo_type}
-            </span>
-            {' \u00b7 '}{formatDate(fullscreenPhoto.created_at)}
-            {fullscreenPhoto.notes && <div style={{ marginTop: '4px', color: '#ccc' }}>{fullscreenPhoto.notes}</div>}
+          <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '100%' }}>
+            <img
+              src={fullscreenPhoto.photo_url}
+              alt=""
+              style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }}
+            />
+            <div style={{ color: '#fff', fontSize: '14px', marginTop: '12px', textAlign: 'center' }}>
+              <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                {PHOTO_TYPE_LABELS[fullscreenPhoto.photo_type] || fullscreenPhoto.photo_type}
+              </span>
+              {' \u00b7 '}{formatDate(fullscreenPhoto.created_at)}
+              {fullscreenPhoto.notes && <div style={{ marginTop: '4px', color: '#ccc' }}>{fullscreenPhoto.notes}</div>}
+            </div>
           </div>
           <button
-            onClick={() => setFullscreenPhoto(null)}
+            onClick={(e) => { e.stopPropagation(); setFullscreenPhoto(null) }}
             style={{
               position: 'absolute', top: '16px', right: '16px',
               width: '40px', height: '40px', borderRadius: '50%',

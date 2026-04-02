@@ -1420,7 +1420,9 @@ function DocsTab({ userId, vehicleId }) {
           const titlePart = (photo.notes || photo.photo_type || 'photo').replace(/[<>:"/\\|?*]/g, '_').slice(0, 50)
           const ext = (photo.photo_url.split('.').pop() || 'jpg').split('?')[0]
           const folder = getFolderName(photo.vehicle_id)
-          let baseName = `${titlePart}_${dateStr}`
+          const v = photo.vehicle_id ? vehicleMap[photo.vehicle_id] : null
+          const vehiclePart = v ? [v.brand, v.model, v.plate_number].filter(Boolean).join('_').replace(/[<>:"/\\|?*]/g, '_') : ''
+          let baseName = vehiclePart ? `${vehiclePart}_${titlePart}_${dateStr}` : `${titlePart}_${dateStr}`
           const nameKey = `${folder}/${baseName}.${ext}`
           if (usedNames[nameKey]) {
             usedNames[nameKey]++
@@ -1903,6 +1905,7 @@ function DocsTab({ userId, vehicleId }) {
             onClick={(e) => { e.stopPropagation(); setFullscreenPhoto(null) }}
             style={{
               position: 'absolute', top: '16px', right: '16px',
+              zIndex: 10,
               width: '40px', height: '40px', borderRadius: '50%',
               border: 'none', background: 'rgba(255,255,255,0.2)',
               color: '#fff', fontSize: '20px', cursor: 'pointer',

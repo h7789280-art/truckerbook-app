@@ -263,7 +263,13 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         if (salaryMode === 'fixed') {
           try {
             const salData = await fetchDriversSalaryData(userId)
-            setTotalSalary(salData.length * salaryRate)
+            // For custom period, compute months from date range; otherwise use getMonthCount()
+            let periodMonths = getMonthCount() || 1
+            if (period === 'custom' && customFrom && customTo) {
+              const d1 = new Date(customFrom), d2 = new Date(customTo)
+              periodMonths = Math.max(1, Math.round((d2 - d1) / (1000 * 60 * 60 * 24 * 30)))
+            }
+            setTotalSalary(salData.length * salaryRate * periodMonths)
           } catch { setTotalSalary(0) }
         } else {
           const computedSalary = sorted.reduce((s, m) => s + (m.salary || 0), 0)

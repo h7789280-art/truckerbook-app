@@ -166,6 +166,7 @@ export async function exportDriverReportExcel(opts) {
   }
 
   const autoWidth = (ws) => {
+    if (!ws.columns || ws.columns.length === 0) return
     ws.columns.forEach(col => {
       let maxLen = 10
       col.eachCell({ includeEmpty: true }, cell => {
@@ -410,6 +411,7 @@ export async function exportFleetReportExcel(opts) {
   }
 
   const autoWidth = (ws) => {
+    if (!ws.columns || ws.columns.length === 0) return
     ws.columns.forEach(col => {
       let maxLen = 10
       col.eachCell({ includeEmpty: true }, cell => {

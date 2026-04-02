@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriversSalaryData, fetchDriverReportExportData, getTireRecords } from '../lib/api'
-import { exportDriverReportExcel } from '../utils/export'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriversSalaryData, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData } from '../lib/api'
+import { exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
 
 function formatNumber(n) {
   return n.toLocaleString('ru-RU')
@@ -645,6 +645,73 @@ export default function FinanceDetails({ userId, profile, onBack }) {
     }
   }
 
+  const handleFleetExportExcel = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const now = new Date()
+      const year = now.getFullYear()
+      const month = now.getMonth() + 1
+      const distLabel = units.dist || 'mi'
+      const isImperial = units.dist === 'mi'
+
+      const data = await fetchFleetReportExportData(userId, year, month)
+
+      // Build lookup maps
+      const driverMap = {}
+      data.drivers.forEach(d => {
+        driverMap[d.id] = {
+          name: d.full_name || d.name || '',
+          pay_type: d.pay_type || '',
+          pay_rate: d.pay_rate ? parseFloat(d.pay_rate) : 0,
+        }
+      })
+      // Include owner in driverMap
+      driverMap[userId] = {
+        name: profile?.full_name || profile?.name || 'Owner',
+        pay_type: '',
+        pay_rate: 0,
+      }
+
+      const vehicleMap = {}
+      data.vehicles.forEach(v => {
+        const label = ((v.brand || '') + ' ' + (v.model || '')).trim()
+        vehicleMap[v.id] = {
+          label,
+          plate: v.plate_number || '',
+          driver: v.driver_name || (v.driver_id && driverMap[v.driver_id] ? driverMap[v.driver_id].name : ''),
+        }
+      })
+
+      const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+
+      await exportFleetReportExcel({
+        vehicles: data.vehicles,
+        drivers: data.drivers,
+        fuels: data.fuels,
+        trips: data.trips,
+        serviceRecs: data.serviceRecs,
+        tireRecs: data.tireRecs,
+        vehicleExps: data.vehicleExps,
+        sessions: data.sessions,
+        advances: data.advances,
+        period: monthNames[month - 1] + ' ' + year,
+        distLabel,
+        cs,
+        isImperial,
+        ownerProfile: profile,
+        driverMap,
+        vehicleMap,
+        filename: `fleet_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
+      })
+    } catch (err) {
+      console.error('Fleet export error:', err)
+      alert(t('common.error') || 'Error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div style={{ padding: '16px', maxWidth: 480, margin: '0 auto' }}>
       {/* Header */}
@@ -947,28 +1014,26 @@ export default function FinanceDetails({ userId, profile, onBack }) {
           {renderDonut()}
 
           {/* Export button */}
-          {!isCompanyRole && (
-            <button
-              onClick={handleExportExcel}
-              disabled={exporting}
-              style={{
-                width: '100%',
-                padding: '14px',
-                borderRadius: '14px',
-                border: 'none',
-                background: exporting ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: '#fff',
-                fontSize: '15px',
-                fontWeight: 700,
-                cursor: exporting ? 'default' : 'pointer',
-                marginBottom: '12px',
-                opacity: exporting ? 0.6 : 1,
-                transition: 'opacity 0.2s',
-              }}
-            >
-              {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.exportExcel') || '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel'}
-            </button>
-          )}
+          <button
+            onClick={isCompanyRole ? handleFleetExportExcel : handleExportExcel}
+            disabled={exporting}
+            style={{
+              width: '100%',
+              padding: '14px',
+              borderRadius: '14px',
+              border: 'none',
+              background: exporting ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#fff',
+              fontSize: '15px',
+              fontWeight: 700,
+              cursor: exporting ? 'default' : 'pointer',
+              marginBottom: '12px',
+              opacity: exporting ? 0.6 : 1,
+              transition: 'opacity 0.2s',
+            }}
+          >
+            {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.exportExcel') || '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel'}
+          </button>
         </>
       )}
     </div>

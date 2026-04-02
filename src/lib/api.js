@@ -1794,3 +1794,46 @@ export async function fetchDriverReportExportData(userId, year, month) {
     sessions: sessions.data || [],
   }
 }
+
+// --- Fleet report data for Excel export (company role) ---
+
+export async function fetchFleetReportExportData(userId, year, month) {
+  const start = `${year}-${String(month).padStart(2, '0')}-01`
+  const endMonth = month === 12 ? 1 : month + 1
+  const endYear = month === 12 ? year + 1 : year
+  const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+
+  // Fetch fleet vehicles + drivers (profiles with company_id = userId)
+  const [vehiclesRes, driversRes] = await Promise.all([
+    supabase.from('vehicles').select('*').eq('user_id', userId).order('created_at'),
+    supabase.from('profiles').select('*').eq('company_id', userId),
+  ])
+  const vehicles = vehiclesRes.data || []
+  const drivers = driversRes.data || []
+
+  // Collect all user IDs: fleet owner + all drivers
+  const allUserIds = [userId, ...drivers.map(d => d.id)]
+
+  // Fetch all data for all users in the fleet for the month
+  const [fuelsRes, tripsRes, serviceRes, tireRes, vehicleExpsRes, sessionsRes, advancesRes] = await Promise.all([
+    supabase.from('fuel_entries').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'),
+    supabase.from('trips').select('*').in('user_id', allUserIds).gte('created_at', start + 'T00:00:00').lt('created_at', end + 'T00:00:00').order('created_at'),
+    supabase.from('service_records').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date').then(r => r).catch(() => ({ data: [] })),
+    supabase.from('tire_records').select('*').in('user_id', allUserIds).gte('installed_at', start).lt('installed_at', end).order('installed_at').then(r => r).catch(() => ({ data: [] })),
+    supabase.from('vehicle_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date').then(r => r).catch(() => ({ data: [] })),
+    supabase.from('driving_sessions').select('*').in('user_id', allUserIds).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at'),
+    supabase.from('driver_advances').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date').then(r => r).catch(() => ({ data: [] })),
+  ])
+
+  return {
+    vehicles,
+    drivers,
+    fuels: fuelsRes.data || [],
+    trips: tripsRes.data || [],
+    serviceRecs: serviceRes.data || [],
+    tireRecs: tireRes.data || [],
+    vehicleExps: vehicleExpsRes.data || [],
+    sessions: sessionsRes.data || [],
+    advances: advancesRes.data || [],
+  }
+}

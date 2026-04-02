@@ -2237,7 +2237,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Mini cards — mode-specific */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {(isCompanyRole ? [
-              { label: t('overview.fleetVehicles') || '\u041c\u0430\u0448\u0438\u043d', value: String(fleetData ? fleetData.totalVehicles : 0), unit: '', icon: '\ud83d\ude9b', action: () => {} },
+              { label: t('overview.fleetVehicles') || '\u041c\u0430\u0448\u0438\u043d', value: String(fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : (profile?.brand ? 1 : 0)), unit: '', icon: '\ud83d\ude9b', action: () => {} },
               { label: t('overview.mileage'), value: formatNumber(Math.round(fleetData ? fleetData.totalKm : monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => {} },
               { label: t('overview.tripsLabel'), value: String(fleetData ? fleetData.tripCount : monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
               { label: t('overview.costPerKm'), value: (() => { const km = fleetData ? fleetData.totalKm : monthData.totalKm; const exp = fleetData ? fleetData.totalExpenses : totalExpenses; return km > 0 ? (exp / km).toFixed(1) : '\u2014' })(), unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },

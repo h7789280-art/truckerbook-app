@@ -2,8 +2,8 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels, fetchWaypoints } from '../lib/api'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { exportToExcel, exportToPDF, exportDriverReportExcel } from '../utils/export'
-import { fetchDriverReportExportData } from '../lib/api'
+import { exportToExcel, exportToPDF, exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
+import { fetchDriverReportExportData, fetchFleetReportExportData } from '../lib/api'
 import { startTracking, stopTracking, isTracking as isGpsTracking } from '../lib/gpsTracker'
 import TripMap from '../components/TripMap'
 
@@ -503,6 +503,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
+  const isCompanyRole = profile?.role === 'company'
   const [entries, setEntries] = useState([])
   const [loading, setLoading] = useState(true)
   const [showExportMenu, setShowExportMenu] = useState(false)
@@ -604,100 +605,148 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
 
     if (format === 'excel') {
       try {
-        const data = await fetchDriverReportExportData(userId, year, month)
+        if (isCompanyRole) {
+          // Fleet export for company role
+          const data = await fetchFleetReportExportData(userId, year, month)
+          const driverMap = {}
+          data.drivers.forEach(d => {
+            driverMap[d.id] = {
+              name: d.full_name || d.name || '',
+              pay_type: d.pay_type || '',
+              pay_rate: d.pay_rate ? parseFloat(d.pay_rate) : 0,
+            }
+          })
+          driverMap[userId] = {
+            name: profile?.full_name || profile?.name || 'Owner',
+            pay_type: '',
+            pay_rate: 0,
+          }
+          const vehicleMap = {}
+          data.vehicles.forEach(v => {
+            const label = ((v.brand || '') + ' ' + (v.model || '')).trim()
+            vehicleMap[v.id] = {
+              label,
+              plate: v.plate_number || '',
+              driver: v.driver_name || (v.driver_id && driverMap[v.driver_id] ? driverMap[v.driver_id].name : ''),
+            }
+          })
+          const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+          await exportFleetReportExcel({
+            vehicles: data.vehicles,
+            drivers: data.drivers,
+            fuels: data.fuels,
+            trips: data.trips,
+            serviceRecs: data.serviceRecs,
+            tireRecs: data.tireRecs,
+            vehicleExps: data.vehicleExps,
+            sessions: data.sessions,
+            advances: data.advances,
+            period: monthNames[month - 1] + ' ' + year,
+            distLabel,
+            cs,
+            isImperial,
+            ownerProfile: profile,
+            driverMap,
+            vehicleMap,
+            filename: `fleet_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
+          })
+        } else {
+          // Driver export
+          const data = await fetchDriverReportExportData(userId, year, month)
 
-        const tripsArr = data.trips.map(tr => ({
-          date: (tr.created_at || '').slice(0, 10),
-          origin: tr.origin || '',
-          destination: tr.destination || '',
-          miles: isImperial ? Math.round((tr.distance_km || 0) * 0.621371) : Math.round(tr.distance_km || 0),
-          income: tr.income || 0,
-          driverPay: tr.driver_pay || 0,
-        }))
+          const tripsArr = data.trips.map(tr => ({
+            date: (tr.created_at || '').slice(0, 10),
+            origin: tr.origin || '',
+            destination: tr.destination || '',
+            miles: isImperial ? Math.round((tr.distance_km || 0) * 0.621371) : Math.round(tr.distance_km || 0),
+            income: tr.income || 0,
+            driverPay: tr.driver_pay || 0,
+          }))
 
-        const expensesArr = []
-        data.fuels.forEach(f => expensesArr.push({
-          date: f.date || '', description: f.station || 'Fuel', category: 'Fuel',
-          gallons: isImperial ? Math.round((f.liters || 0) * 0.264172 * 100) / 100 : (f.liters || 0),
-          amount: f.cost || 0, odometer: f.odometer ? (isImperial ? Math.round(f.odometer * 0.621371) : f.odometer) : '',
-        }))
-        data.bytExps.forEach(e => expensesArr.push({
-          date: e.date || '', description: e.description || e.category || '', category: e.category || 'Personal',
-          gallons: '', amount: e.amount || 0, odometer: '',
-        }))
-        data.serviceRecs.forEach(e => expensesArr.push({
-          date: e.date || '', description: e.description || e.type || 'Service', category: 'Service',
-          gallons: '', amount: e.cost || 0, odometer: '',
-        }))
-        data.vehicleExps.forEach(e => expensesArr.push({
-          date: e.date || '', description: e.description || '', category: e.category || 'Vehicle',
-          gallons: '', amount: e.amount || 0, odometer: '',
-        }))
-        data.tireRecs.forEach(e => expensesArr.push({
-          date: e.installed_at || '', description: (e.brand || '') + ' ' + (e.model || ''), category: 'Tires',
-          gallons: '', amount: e.cost || 0, odometer: '',
-        }))
+          const expensesArr = []
+          data.fuels.forEach(f => expensesArr.push({
+            date: f.date || '', description: f.station || 'Fuel', category: 'Fuel',
+            gallons: isImperial ? Math.round((f.liters || 0) * 0.264172 * 100) / 100 : (f.liters || 0),
+            amount: f.cost || 0, odometer: f.odometer ? (isImperial ? Math.round(f.odometer * 0.621371) : f.odometer) : '',
+          }))
+          data.bytExps.forEach(e => expensesArr.push({
+            date: e.date || '', description: e.description || e.category || '', category: e.category || 'Personal',
+            gallons: '', amount: e.amount || 0, odometer: '',
+          }))
+          data.serviceRecs.forEach(e => expensesArr.push({
+            date: e.date || '', description: e.description || e.type || 'Service', category: 'Service',
+            gallons: '', amount: e.cost || 0, odometer: '',
+          }))
+          data.vehicleExps.forEach(e => expensesArr.push({
+            date: e.date || '', description: e.description || '', category: e.category || 'Vehicle',
+            gallons: '', amount: e.amount || 0, odometer: '',
+          }))
+          data.tireRecs.forEach(e => expensesArr.push({
+            date: e.installed_at || '', description: (e.brand || '') + ' ' + (e.model || ''), category: 'Tires',
+            gallons: '', amount: e.cost || 0, odometer: '',
+          }))
 
-        const fuelTotal = data.fuels.reduce((s, f) => s + (f.cost || 0), 0)
-        const serviceTotal = data.serviceRecs.reduce((s, e) => s + (e.cost || 0), 0)
-        const tireTotal = data.tireRecs.reduce((s, e) => s + (e.cost || 0), 0)
-        const vExpByCat = {}
-        data.vehicleExps.forEach(e => { const cat = e.category || 'other'; vExpByCat[cat] = (vExpByCat[cat] || 0) + (e.amount || 0) })
+          const fuelTotal = data.fuels.reduce((s, f) => s + (f.cost || 0), 0)
+          const serviceTotal = data.serviceRecs.reduce((s, e) => s + (e.cost || 0), 0)
+          const tireTotal = data.tireRecs.reduce((s, e) => s + (e.cost || 0), 0)
+          const vExpByCat = {}
+          data.vehicleExps.forEach(e => { const cat = e.category || 'other'; vExpByCat[cat] = (vExpByCat[cat] || 0) + (e.amount || 0) })
 
-        const vehicleExpenseCategories = []
-        if (fuelTotal > 0) vehicleExpenseCategories.push({ label: 'Fuel', amount: fuelTotal })
-        if (vExpByCat.def) vehicleExpenseCategories.push({ label: 'DEF', amount: vExpByCat.def })
-        if (serviceTotal > 0) vehicleExpenseCategories.push({ label: 'Repair', amount: serviceTotal })
-        if (tireTotal > 0) vehicleExpenseCategories.push({ label: 'Tires', amount: tireTotal })
-        const knownVCats = ['def', 'oil', 'supplies', 'hotel']
-        Object.entries(vExpByCat).filter(([k]) => !knownVCats.includes(k)).forEach(([k, v]) => {
-          if (v > 0) vehicleExpenseCategories.push({ label: k, amount: v })
-        })
+          const vehicleExpenseCategories = []
+          if (fuelTotal > 0) vehicleExpenseCategories.push({ label: 'Fuel', amount: fuelTotal })
+          if (vExpByCat.def) vehicleExpenseCategories.push({ label: 'DEF', amount: vExpByCat.def })
+          if (serviceTotal > 0) vehicleExpenseCategories.push({ label: 'Repair', amount: serviceTotal })
+          if (tireTotal > 0) vehicleExpenseCategories.push({ label: 'Tires', amount: tireTotal })
+          const knownVCats = ['def', 'oil', 'supplies', 'hotel']
+          Object.entries(vExpByCat).filter(([k]) => !knownVCats.includes(k)).forEach(([k, v]) => {
+            if (v > 0) vehicleExpenseCategories.push({ label: k, amount: v })
+          })
 
-        const vehicleExpenseTotal = vehicleExpenseCategories.reduce((s, c) => s + c.amount, 0)
-        const totalMiles = tripsArr.reduce((s, tr) => s + (tr.miles || 0), 0)
-        const totalHours = data.sessions.reduce((s, sh) => {
-          if (!sh.ended_at) return s
-          return s + (new Date(sh.ended_at).getTime() - new Date(sh.started_at).getTime()) / 3600000
-        }, 0)
+          const vehicleExpenseTotal = vehicleExpenseCategories.reduce((s, c) => s + c.amount, 0)
+          const totalMiles = tripsArr.reduce((s, tr) => s + (tr.miles || 0), 0)
+          const totalHours = data.sessions.reduce((s, sh) => {
+            if (!sh.ended_at) return s
+            return s + (new Date(sh.ended_at).getTime() - new Date(sh.started_at).getTime()) / 3600000
+          }, 0)
 
-        const payType = profile?.pay_type || 'none'
-        const payRate = profile?.pay_rate ? parseFloat(profile.pay_rate) : 0
-        const tripIncome = data.trips.reduce((s, tr) => s + (tr.income || 0), 0)
-        const earned = data.trips.reduce((s, tr) => s + (tr.driver_pay || 0), 0)
-        const personalExpenses = data.bytExps.reduce((s, e) => s + (e.amount || 0), 0)
+          const payType = profile?.pay_type || 'none'
+          const payRate = profile?.pay_rate ? parseFloat(profile.pay_rate) : 0
+          const tripIncome = data.trips.reduce((s, tr) => s + (tr.income || 0), 0)
+          const earned = data.trips.reduce((s, tr) => s + (tr.driver_pay || 0), 0)
+          const personalExpenses = data.bytExps.reduce((s, e) => s + (e.amount || 0), 0)
 
-        const payRows = data.trips.map(tr => {
-          const miles = isImperial ? Math.round((tr.distance_km || 0) * 0.621371) : Math.round(tr.distance_km || 0)
-          let rate = ''
-          if (payType === 'per_mile') rate = '$' + payRate + '/' + distLabel
-          else if (payType === 'percent') rate = payRate + '%'
-          return { date: (tr.created_at || '').slice(0, 10), route: (tr.origin || '') + ' \u2192 ' + (tr.destination || ''), miles, rate, earned: tr.driver_pay || 0 }
-        })
+          const payRows = data.trips.map(tr => {
+            const miles = isImperial ? Math.round((tr.distance_km || 0) * 0.621371) : Math.round(tr.distance_km || 0)
+            let rate = ''
+            if (payType === 'per_mile') rate = '$' + payRate + '/' + distLabel
+            else if (payType === 'percent') rate = payRate + '%'
+            return { date: (tr.created_at || '').slice(0, 10), route: (tr.origin || '') + ' \u2192 ' + (tr.destination || ''), miles, rate, earned: tr.driver_pay || 0 }
+          })
 
-        const payTotal = payRows.reduce((s, r) => s + (r.earned || 0), 0)
-        const advancesTotal = data.advances.reduce((s, a) => s + (a.amount || 0), 0)
-        const vehicleInfo = profile?.brand ? (profile.brand + ' ' + (profile.model || '') + (profile.plate_number ? ' (' + profile.plate_number + ')' : '')) : ''
-        const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+          const payTotal = payRows.reduce((s, r) => s + (r.earned || 0), 0)
+          const advancesTotal = data.advances.reduce((s, a) => s + (a.amount || 0), 0)
+          const vehicleInfo = profile?.brand ? (profile.brand + ' ' + (profile.model || '') + (profile.plate_number ? ' (' + profile.plate_number + ')' : '')) : ''
+          const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
 
-        await exportDriverReportExcel({
-          driverName: profile?.full_name || profile?.name || '',
-          driverPhone: profile?.phone || '',
-          vehicleInfo,
-          period: monthNames[month - 1] + ' ' + year,
-          tripsCount: tripsArr.length,
-          totalMileage: totalMiles,
-          totalHours: Math.round(totalHours * 10) / 10,
-          payType, payRate, earned, personalExpenses,
-          netClean: earned - personalExpenses,
-          vehicleExpenseCategories, vehicleExpenseTotal,
-          tripIncome, netProfit: tripIncome - vehicleExpenseTotal - personalExpenses,
-          trips: tripsArr, expenses: expensesArr, payRows, payTotal,
-          advances: data.advances.map(a => ({ date: a.date, amount: a.amount || 0, note: a.note || '' })),
-          advancesTotal, payDue: payTotal - advancesTotal,
-          distLabel, cs,
-          filename: `driver_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
-        })
+          await exportDriverReportExcel({
+            driverName: profile?.full_name || profile?.name || '',
+            driverPhone: profile?.phone || '',
+            vehicleInfo,
+            period: monthNames[month - 1] + ' ' + year,
+            tripsCount: tripsArr.length,
+            totalMileage: totalMiles,
+            totalHours: Math.round(totalHours * 10) / 10,
+            payType, payRate, earned, personalExpenses,
+            netClean: earned - personalExpenses,
+            vehicleExpenseCategories, vehicleExpenseTotal,
+            tripIncome, netProfit: tripIncome - vehicleExpenseTotal - personalExpenses,
+            trips: tripsArr, expenses: expensesArr, payRows, payTotal,
+            advances: data.advances.map(a => ({ date: a.date, amount: a.amount || 0, note: a.note || '' })),
+            advancesTotal, payDue: payTotal - advancesTotal,
+            distLabel, cs,
+            filename: `driver_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
+          })
+        }
       } catch (err) {
         console.error('Export error:', err)
         alert(t('common.error') || 'Error')
@@ -860,15 +909,28 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
                     {t('trips.costPerKmTotal')}{': '}{((trip.income || 0) / ((trip.distance_km || 0) + (trip.deadhead_km || 0))).toFixed(2)} {cs}/{distUnit}
                   </div>
                 )}
+                {isCompanyRole && trip.driver_name && (
+                  <div style={{ color: '#3b82f6', fontSize: '12px', marginTop: '3px' }}>
+                    {'\ud83d\udc64'} {trip.driver_name}
+                  </div>
+                )}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
                   +{fmtFull(trip.income || 0)} {cs}
                 </div>
-                {(trip.driver_pay != null && trip.driver_pay > 0) && (
-                  <div style={{ color: '#22c55e', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
-                    {t('pay.myEarnings')}: {fmtFull(trip.driver_pay)} {cs}
-                  </div>
+                {isCompanyRole ? (
+                  (trip.driver_pay != null && trip.driver_pay > 0) && (
+                    <div style={{ color: '#f59e0b', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
+                      {t('overview.salariesLabel') || '\u0417\u041f'}: {fmtFull(trip.driver_pay)} {cs}
+                    </div>
+                  )
+                ) : (
+                  (trip.driver_pay != null && trip.driver_pay > 0) && (
+                    <div style={{ color: '#22c55e', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
+                      {t('pay.myEarnings')}: {fmtFull(trip.driver_pay)} {cs}
+                    </div>
+                  )
                 )}
               </div>
             </div>

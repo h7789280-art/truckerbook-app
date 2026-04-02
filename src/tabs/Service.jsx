@@ -890,6 +890,9 @@ function BolSection({ userId, vehicleId }) {
   const [downloading, setDownloading] = useState(false)
   const [bolMonth, setBolMonth] = useState(now.getMonth() + 1)
   const [bolYear, setBolYear] = useState(now.getFullYear())
+  const [bolFilterMode, setBolFilterMode] = useState('month') // 'month' | 'period'
+  const [bolDateFrom, setBolDateFrom] = useState('')
+  const [bolDateTo, setBolDateTo] = useState('')
   const bolInputRef = useRef(null)
 
   const MONTH_NAMES = [
@@ -902,22 +905,40 @@ function BolSection({ userId, vehicleId }) {
   const years = []
   for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y)
 
+  const getBolDateRange = useCallback(() => {
+    if (bolFilterMode === 'period') {
+      if (!bolDateFrom || !bolDateTo) return null
+      return {
+        start: bolDateFrom + 'T00:00:00',
+        end: bolDateTo + 'T23:59:59',
+      }
+    }
+    const start = `${bolYear}-${String(bolMonth).padStart(2, '0')}-01`
+    const endMonth = bolMonth === 12 ? 1 : bolMonth + 1
+    const endYear = bolMonth === 12 ? bolYear + 1 : bolYear
+    const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+    return { start: start + 'T00:00:00', end: end + 'T00:00:00' }
+  }, [bolFilterMode, bolMonth, bolYear, bolDateFrom, bolDateTo])
+
   const loadBolFiles = useCallback(async () => {
     if (!userId) return
+    const range = getBolDateRange()
+    if (!range) { setBolFiles([]); setLoadingBol(false); return }
     try {
       setLoadingBol(true)
-      const start = `${bolYear}-${String(bolMonth).padStart(2, '0')}-01`
-      const endMonth = bolMonth === 12 ? 1 : bolMonth + 1
-      const endYear = bolMonth === 12 ? bolYear + 1 : bolYear
-      const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
-      const { data, error } = await supabase
+      let query = supabase
         .from('documents')
         .select('*')
         .eq('user_id', userId)
         .eq('type', 'bol')
-        .gte('created_at', start + 'T00:00:00')
-        .lt('created_at', end + 'T00:00:00')
+        .gte('created_at', range.start)
         .order('created_at', { ascending: false })
+      if (bolFilterMode === 'period') {
+        query = query.lte('created_at', range.end)
+      } else {
+        query = query.lt('created_at', range.end)
+      }
+      const { data, error } = await query
       if (error) throw error
       setBolFiles(data || [])
     } catch (err) {
@@ -925,7 +946,7 @@ function BolSection({ userId, vehicleId }) {
     } finally {
       setLoadingBol(false)
     }
-  }, [userId, bolMonth, bolYear])
+  }, [userId, bolFilterMode, bolMonth, bolYear, bolDateFrom, bolDateTo, getBolDateRange])
 
   useEffect(() => { loadBolFiles() }, [loadBolFiles])
 
@@ -1004,7 +1025,10 @@ function BolSection({ userId, vehicleId }) {
       }
       const content = await zip.generateAsync({ type: 'blob' })
       const { saveAs } = await import('file-saver')
-      saveAs(content, `BOL_${String(bolMonth).padStart(2, '0')}_${bolYear}.zip`)
+      const zipName = bolFilterMode === 'period'
+        ? `BOL_${bolDateFrom}_${bolDateTo}.zip`
+        : `BOL_${String(bolMonth).padStart(2, '0')}_${bolYear}.zip`
+      saveAs(content, zipName)
     } catch (err) {
       console.error('ZIP download error:', err)
       alert('ZIP error: ' + (err?.message || 'Unknown'))
@@ -1033,19 +1057,63 @@ function BolSection({ userId, vehicleId }) {
 
   return (
     <>
-      {/* Period filter */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-        <select value={bolMonth} onChange={e => setBolMonth(Number(e.target.value))} style={selectStyle}>
-          {MONTH_NAMES.map((name, i) => (
-            <option key={i} value={i + 1}>{name}</option>
-          ))}
-        </select>
-        <select value={bolYear} onChange={e => setBolYear(Number(e.target.value))} style={selectStyle}>
-          {years.map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
+      {/* Filter mode switcher */}
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', background: 'var(--card2)', borderRadius: '10px', padding: '3px' }}>
+        {['month', 'period'].map(mode => (
+          <button
+            key={mode}
+            onClick={() => setBolFilterMode(mode)}
+            style={{
+              flex: 1,
+              padding: '7px 0',
+              borderRadius: '8px',
+              border: 'none',
+              background: bolFilterMode === mode ? 'var(--card)' : 'transparent',
+              color: bolFilterMode === mode ? 'var(--text)' : 'var(--dim)',
+              fontSize: '13px',
+              fontWeight: bolFilterMode === mode ? 600 : 400,
+              cursor: 'pointer',
+              boxShadow: bolFilterMode === mode ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
+            }}
+          >
+            {mode === 'month' ? (t('common.month') || '\u041c\u0435\u0441\u044f\u0446') : (t('common.period') || '\u041f\u0435\u0440\u0438\u043e\u0434')}
+          </button>
+        ))}
       </div>
+
+      {/* Month mode */}
+      {bolFilterMode === 'month' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <select value={bolMonth} onChange={e => setBolMonth(Number(e.target.value))} style={selectStyle}>
+            {MONTH_NAMES.map((name, i) => (
+              <option key={i} value={i + 1}>{name}</option>
+            ))}
+          </select>
+          <select value={bolYear} onChange={e => setBolYear(Number(e.target.value))} style={selectStyle}>
+            {years.map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Period mode */}
+      {bolFilterMode === 'period' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <input
+            type="date"
+            value={bolDateFrom}
+            onChange={e => setBolDateFrom(e.target.value)}
+            style={selectStyle}
+          />
+          <input
+            type="date"
+            value={bolDateTo}
+            onChange={e => setBolDateTo(e.target.value)}
+            style={selectStyle}
+          />
+        </div>
+      )}
 
       <input
         ref={bolInputRef}

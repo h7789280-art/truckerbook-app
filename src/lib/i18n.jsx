@@ -33,6 +33,8 @@ const translations = {
       error: '\u041e\u0448\u0438\u0431\u043a\u0430',
       profile: '\u041f\u0440\u043e\u0444\u0438\u043b\u044c',
       language: '\u042f\u0437\u044b\u043a',
+      month: '\u041c\u0435\u0441\u044f\u0446',
+      period: '\u041f\u0435\u0440\u0438\u043e\u0434',
     },
     auth: {
       phone: '\u0422\u0435\u043b\u0435\u0444\u043e\u043d',
@@ -960,6 +962,8 @@ const translations = {
       error: 'Error',
       profile: 'Profile',
       language: 'Language',
+      month: 'Month',
+      period: 'Period',
     },
     auth: {
       phone: 'Phone',
@@ -1887,6 +1891,8 @@ const translations = {
       error: '\u041f\u043e\u043c\u0438\u043b\u043a\u0430',
       profile: '\u041f\u0440\u043e\u0444\u0456\u043b\u044c',
       language: '\u041c\u043e\u0432\u0430',
+      month: '\u041c\u0456\u0441\u044f\u0446\u044c',
+      period: '\u041f\u0435\u0440\u0456\u043e\u0434',
     },
     auth: {
       phone: '\u0422\u0435\u043b\u0435\u0444\u043e\u043d',
@@ -2813,6 +2819,8 @@ const translations = {
       error: 'Error',
       profile: 'Perfil',
       language: 'Idioma',
+      month: 'Mes',
+      period: 'Per\u00edodo',
     },
     auth: {
       phone: 'Tel\u00e9fono',
@@ -3720,6 +3728,8 @@ const translations = {
       error: 'Fehler',
       profile: 'Profil',
       language: 'Sprache',
+      month: 'Monat',
+      period: 'Zeitraum',
     },
     auth: {
       phone: 'Telefon',
@@ -4627,6 +4637,8 @@ const translations = {
       error: 'Erreur',
       profile: 'Profil',
       language: 'Langue',
+      month: 'Mois',
+      period: 'P\u00e9riode',
     },
     auth: {
       phone: 'T\u00e9l\u00e9phone',
@@ -5534,6 +5546,8 @@ const translations = {
       error: 'Hata',
       profile: 'Profil',
       language: 'Dil',
+      month: 'Ay',
+      period: 'D\u00f6nem',
     },
     auth: {
       phone: 'Telefon',
@@ -6441,6 +6455,8 @@ const translations = {
       error: 'B\u0142\u0105d',
       profile: 'Profil',
       language: 'J\u0119zyk',
+      month: 'Miesi\u0105c',
+      period: 'Okres',
     },
     auth: {
       phone: 'Telefon',

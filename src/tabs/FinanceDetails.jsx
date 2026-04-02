@@ -150,6 +150,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         rangeTrips.forEach(tr => {
           addToGroup(tr.created_at, 'income', tr.income || 0)
           addToGroup(tr.created_at, 'km', tr.distance_km || 0)
+          if (isCompanyRole) addToGroup(tr.created_at, 'driverPay', tr.driver_pay || 0)
         })
         rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
         if (!isCompanyRole) {
@@ -222,12 +223,10 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         return MONTH_NAMES_FULL_RU[mo - 1] + ' ' + yr
       }
 
-      // Compute per-period salary for fleet mode
+      // Compute per-period salary for fleet mode: use actual driver_pay from trips
       const calcPeriodSalary = (vals) => {
         if (!isCompanyRole) return 0
-        if (salaryMode === 'percent') return vals.income * (salaryRate / 100)
-        if (salaryMode === 'per_km') return vals.km * salaryRate
-        return 0 // fixed mode handled separately
+        return vals.driverPay || 0
       }
 
       const sorted = Object.entries(dataMap)

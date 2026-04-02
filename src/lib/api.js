@@ -1770,26 +1770,41 @@ export async function fetchDriverReportExportData(userId, year, month) {
   const endYear = month === 12 ? year + 1 : year
   const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
 
+  // Safe query wrapper: handles both Supabase error responses and rejections
+  const safeQuery = async (query) => {
+    try {
+      const res = await query
+      if (res.error) {
+        console.warn('Supabase query error:', res.error.message)
+        return []
+      }
+      return res.data || []
+    } catch (e) {
+      console.warn('Supabase query rejected:', e)
+      return []
+    }
+  }
+
   const [fuels, trips, bytExps, serviceRecs, vehicleExps, tireRecs, advances, sessions] = await Promise.all([
-    supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date'),
-    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', start + 'T00:00:00').lt('created_at', end + 'T00:00:00').order('created_at'),
-    supabase.from('byt_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date'),
-    Promise.resolve(supabase.from('service_records').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')).catch(() => ({ data: [] })),
-    Promise.resolve(supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')).catch(() => ({ data: [] })),
-    Promise.resolve(supabase.from('tire_records').select('*').eq('user_id', userId).gte('installed_at', start).lt('installed_at', end).order('installed_at')).catch(() => ({ data: [] })),
+    safeQuery(supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    safeQuery(supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', start + 'T00:00:00').lt('created_at', end + 'T00:00:00').order('created_at')),
+    safeQuery(supabase.from('byt_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    safeQuery(supabase.from('service_records').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    safeQuery(supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    safeQuery(supabase.from('tire_records').select('*').eq('user_id', userId).gte('installed_at', start).lt('installed_at', end).order('installed_at')),
     fetchDriverAdvances(userId, start, end),
-    supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at'),
+    safeQuery(supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at')),
   ])
 
   return {
-    fuels: fuels.data || [],
-    trips: trips.data || [],
-    bytExps: bytExps.data || [],
-    serviceRecs: serviceRecs.data || [],
-    vehicleExps: vehicleExps.data || [],
-    tireRecs: tireRecs.data || [],
+    fuels,
+    trips,
+    bytExps,
+    serviceRecs,
+    vehicleExps,
+    tireRecs,
     advances,
-    sessions: sessions.data || [],
+    sessions,
   }
 }
 
@@ -1801,37 +1816,50 @@ export async function fetchFleetReportExportData(userId, year, month) {
   const endYear = month === 12 ? year + 1 : year
   const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
 
+  // Safe query wrapper: handles both Supabase error responses and rejections
+  const safeQuery = async (query) => {
+    try {
+      const res = await query
+      if (res.error) {
+        console.warn('Supabase query error:', res.error.message)
+        return []
+      }
+      return res.data || []
+    } catch (e) {
+      console.warn('Supabase query rejected:', e)
+      return []
+    }
+  }
+
   // Fetch fleet vehicles + drivers (profiles with company_id = userId)
-  const [vehiclesRes, driversRes] = await Promise.all([
-    supabase.from('vehicles').select('*').eq('user_id', userId).order('created_at'),
-    supabase.from('profiles').select('*').eq('company_id', userId),
+  const [vehicles, drivers] = await Promise.all([
+    safeQuery(supabase.from('vehicles').select('*').eq('user_id', userId).order('created_at')),
+    safeQuery(supabase.from('profiles').select('*').eq('company_id', userId)),
   ])
-  const vehicles = vehiclesRes.data || []
-  const drivers = driversRes.data || []
 
   // Collect all user IDs: fleet owner + all drivers
   const allUserIds = [userId, ...drivers.map(d => d.id)]
 
   // Fetch all data for all users in the fleet for the month
-  const [fuelsRes, tripsRes, serviceRes, tireRes, vehicleExpsRes, sessionsRes, advancesRes] = await Promise.all([
-    supabase.from('fuel_entries').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'),
-    supabase.from('trips').select('*').in('user_id', allUserIds).gte('created_at', start + 'T00:00:00').lt('created_at', end + 'T00:00:00').order('created_at'),
-    supabase.from('service_records').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date').then(r => r).catch(() => ({ data: [] })),
-    supabase.from('tire_records').select('*').in('user_id', allUserIds).gte('installed_at', start).lt('installed_at', end).order('installed_at').then(r => r).catch(() => ({ data: [] })),
-    supabase.from('vehicle_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date').then(r => r).catch(() => ({ data: [] })),
-    supabase.from('driving_sessions').select('*').in('user_id', allUserIds).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at'),
-    supabase.from('driver_advances').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date').then(r => r).catch(() => ({ data: [] })),
+  const [fuels, trips, serviceRecs, tireRecs, vehicleExps, sessions, advances] = await Promise.all([
+    safeQuery(supabase.from('fuel_entries').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
+    safeQuery(supabase.from('trips').select('*').in('user_id', allUserIds).gte('created_at', start + 'T00:00:00').lt('created_at', end + 'T00:00:00').order('created_at')),
+    safeQuery(supabase.from('service_records').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
+    safeQuery(supabase.from('tire_records').select('*').in('user_id', allUserIds).gte('installed_at', start).lt('installed_at', end).order('installed_at')),
+    safeQuery(supabase.from('vehicle_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
+    safeQuery(supabase.from('driving_sessions').select('*').in('user_id', allUserIds).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at')),
+    safeQuery(supabase.from('driver_advances').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
   ])
 
   return {
     vehicles,
     drivers,
-    fuels: fuelsRes.data || [],
-    trips: tripsRes.data || [],
-    serviceRecs: serviceRes.data || [],
-    tireRecs: tireRes.data || [],
-    vehicleExps: vehicleExpsRes.data || [],
-    sessions: sessionsRes.data || [],
-    advances: advancesRes.data || [],
+    fuels,
+    trips,
+    serviceRecs,
+    tireRecs,
+    vehicleExps,
+    sessions,
+    advances,
   }
 }

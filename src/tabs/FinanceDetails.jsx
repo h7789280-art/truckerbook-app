@@ -486,8 +486,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       const now = new Date()
       const year = now.getFullYear()
       const month = now.getMonth() + 1
-      const distLabel = units.dist || 'mi'
-      const isImperial = units.dist === 'mi'
+      const isImperial = units === 'imperial'
+      const distLabel = isImperial ? 'mi' : 'km'
 
       const data = await fetchDriverReportExportData(userId, year, month)
 
@@ -652,8 +652,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       const now = new Date()
       const year = now.getFullYear()
       const month = now.getMonth() + 1
-      const distLabel = units.dist || 'mi'
-      const isImperial = units.dist === 'mi'
+      const isImperial = units === 'imperial'
+      const distLabel = isImperial ? 'mi' : 'km'
 
       const data = await fetchFleetReportExportData(userId, year, month)
 

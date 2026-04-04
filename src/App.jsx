@@ -13,6 +13,7 @@ import Jobs from './tabs/Jobs'
 import News from './tabs/News'
 import Marketplace from './tabs/Marketplace'
 import FinanceDetails from './tabs/FinanceDetails'
+import TripsDetails from './tabs/TripsDetails'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import PinLock from './components/PinLock'
@@ -433,6 +434,8 @@ function AppInner() {
         return <Marketplace />
       case 'finance':
         return <FinanceDetails userId={userId} profile={profile} onBack={handleBackFromExtra} />
+      case 'trips_detail':
+        return <TripsDetails userId={userId} profile={profile} onBack={handleBackFromExtra} />
       default:
         return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} />
     }

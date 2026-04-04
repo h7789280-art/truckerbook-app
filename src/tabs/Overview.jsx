@@ -909,110 +909,124 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       {/* Fleet panel — only for company role with 2+ vehicles */}
       {fleetData && profile?.role === 'company' && (
         <div style={{ marginBottom: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <div style={dimText}>{'\ud83c\udfe2'} {t('overview.fleetPanel')}</div>
-            <div ref={fleetExportRef} style={{ position: 'relative' }}>
-              <button
-                onClick={() => setShowFleetExportMenu(v => !v)}
-                style={{
-                  padding: '6px 12px',
-                  borderRadius: '10px',
-                  border: '1px solid ' + theme.border,
-                  background: theme.card,
-                  color: theme.text,
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                }}
-              >
-                {'\ud83d\udce5'} {t('fuel.export')}
-              </button>
-              {showFleetExportMenu && (
-                <div style={{
-                  position: 'absolute',
-                  right: 0,
-                  top: '100%',
-                  marginTop: '6px',
-                  background: theme.card,
-                  border: '1px solid ' + theme.border,
-                  borderRadius: '10px',
-                  overflow: 'hidden',
-                  zIndex: 50,
-                  minWidth: '160px',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                }}>
-                  <button
-                    onClick={() => handleFleetExport('excel')}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '12px 16px',
-                      border: 'none',
-                      background: 'transparent',
-                      color: theme.text,
-                      fontSize: '14px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {'\ud83d\udcc4'} {t('fuel.exportExcel')}
-                  </button>
-                  <button
-                    onClick={() => handleFleetExport('pdf')}
-                    style={{
-                      display: 'block',
-                      width: '100%',
-                      padding: '12px 16px',
-                      border: 'none',
-                      borderTop: '1px solid ' + theme.border,
-                      background: 'transparent',
-                      color: theme.text,
-                      fontSize: '14px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {'\ud83d\udcc3'} {t('fuel.exportPDF')}
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-          {/* Summary cards — compact 2x2 grid */}
+          {/* Fleet finances card with export */}
           {(() => {
-            const fleetVehicleCount = fleetData.totalVehicles + (profile?.brand ? 1 : 0)
+            const calcSalaryForFleet = (d) => {
+              if (salaryMode === 'per_km') return d.km * salaryRate
+              if (salaryMode === 'percent') return d.income * (salaryRate / 100)
+              return salaryRate
+            }
+            const fleetTotalSalary = salaryData.reduce((s, d) => s + calcSalaryForFleet(d), 0)
             const fleetIncome = fleetData.totalIncome
             const fleetExpense = fleetData.totalExpenses
-            const fleetGross = fleetIncome - fleetExpense
+            const fleetGrossProfit = fleetIncome - fleetExpense
+            const fleetNetProfit = fleetGrossProfit - fleetTotalSalary
+            const fleetVehicleCount = fleetData.totalVehicles + (profile?.brand ? 1 : 0)
             const onTrip = fleetData.onTripCount || 0
             const freeVehicles = Math.max(0, fleetVehicleCount - onTrip)
-            const gridItems = [
-              { label: t('overview.fleetVehicles'), value: String(fleetVehicleCount), color: '#3b82f6' },
-              { label: t('overview.fleetIncome'), value: formatNumber(Math.round(fleetIncome)) + ' ' + cs, color: '#22c55e' },
-              { label: t('overview.fleetExpense'), value: formatNumber(Math.round(fleetExpense)) + ' ' + cs, color: '#ef4444' },
-              { label: t('overview.grossProfit'), value: (fleetGross >= 0 ? '+' : '') + formatNumber(Math.round(fleetGross)) + ' ' + cs, color: fleetGross >= 0 ? '#22c55e' : '#ef4444' },
-            ]
             return (
               <>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '8px',
-                  marginBottom: '10px',
-                }}>
-                  {gridItems.map((item, i) => (
-                    <div key={i} style={{
-                      ...cardStyle,
-                      textAlign: 'center',
-                      padding: '10px 8px',
-                    }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: item.color }}>{item.value}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
+                <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '10px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <div style={dimText}>{'\ud83c\udfe2'} {t('overview.fleetFinances')} — {getMonthName(new Date())}</div>
+                    <div ref={fleetExportRef} style={{ position: 'relative' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); setShowFleetExportMenu(v => !v) }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '10px',
+                          border: '1px solid ' + theme.border,
+                          background: theme.card,
+                          color: theme.text,
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {'\ud83d\udce5'} {t('fuel.export')}
+                      </button>
+                      {showFleetExportMenu && (
+                        <div style={{
+                          position: 'absolute',
+                          right: 0,
+                          top: '100%',
+                          marginTop: '6px',
+                          background: theme.card,
+                          border: '1px solid ' + theme.border,
+                          borderRadius: '10px',
+                          overflow: 'hidden',
+                          zIndex: 50,
+                          minWidth: '160px',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+                        }}>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleFleetExport('excel') }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '12px 16px',
+                              border: 'none',
+                              background: 'transparent',
+                              color: theme.text,
+                              fontSize: '14px',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleFleetExport('pdf') }}
+                            style={{
+                              display: 'block',
+                              width: '100%',
+                              padding: '12px 16px',
+                              border: 'none',
+                              borderTop: '1px solid ' + theme.border,
+                              background: 'transparent',
+                              color: theme.text,
+                              fontSize: '14px',
+                              textAlign: 'left',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ))}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>{fleetVehicleCount}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetVehicles')}</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{formatNumber(Math.round(fleetIncome))} {cs}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetIncome')}</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>{formatNumber(Math.round(fleetExpense))} {cs}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetExpense')}</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: fleetGrossProfit >= 0 ? '#22c55e' : '#ef4444' }}>{fleetGrossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(fleetGrossProfit))} {cs}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.grossProfit')}</div>
+                    </div>
+                  </div>
+                  {fleetTotalSalary > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed ' + theme.border }}>
+                      <div style={{ fontSize: '12px', color: theme.dim }}>
+                        {t('overview.salariesLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(fleetTotalSalary))} {cs}</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: theme.dim }}>
+                        {t('overview.netLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: fleetNetProfit >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(fleetNetProfit))} {cs}</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 {/* Fleet status — one row */}
                 <div style={{
@@ -1791,60 +1805,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       ) : (
         <>
-          {/* Finance card — 3 modes: hired driver / owner-operator / fleet owner (hidden for job_seeker) */}
-          {role !== 'job_seeker' && (
+          {/* Finance card — hired driver / owner-operator (company finances moved to fleet panel above) */}
+          {role !== 'job_seeker' && !isCompanyRole && (
           <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
             <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
-            {isCompanyRole ? (
-              <>
-                {(() => {
-                  const calcSalaryForCard = (d) => {
-                    if (salaryMode === 'per_km') return d.km * salaryRate
-                    if (salaryMode === 'percent') return d.income * (salaryRate / 100)
-                    return salaryRate
-                  }
-                  const fleetTotalSalary = salaryData.reduce((s, d) => s + calcSalaryForCard(d), 0)
-                  const fleetIncome = fleetData ? fleetData.totalIncome : monthData.income
-                  const fleetExpense = fleetData ? fleetData.totalExpenses : totalExpenses
-                  const fleetGrossProfit = fleetIncome - fleetExpense
-                  const fleetNetProfit = fleetGrossProfit - fleetTotalSalary
-                  const fleetVehicleCount = fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : 1
-                  return (
-                    <>
-                      <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83c\udfe2'} {t('overview.fleetFinances')} — {getMonthName(new Date())}</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>{fleetVehicleCount}</div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetVehicles')}</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{formatNumber(Math.round(fleetIncome))} {cs}</div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetIncome')}</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>{formatNumber(Math.round(fleetExpense))} {cs}</div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetExpense')}</div>
-                        </div>
-                        <div style={{ textAlign: 'center' }}>
-                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: fleetGrossProfit >= 0 ? '#22c55e' : '#ef4444' }}>{fleetGrossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(fleetGrossProfit))} {cs}</div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.grossProfit')}</div>
-                        </div>
-                      </div>
-                      {fleetTotalSalary > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed ' + theme.border }}>
-                          <div style={{ fontSize: '12px', color: theme.dim }}>
-                            {t('overview.salariesLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(fleetTotalSalary))} {cs}</span>
-                          </div>
-                          <div style={{ fontSize: '12px', color: theme.dim }}>
-                            {t('overview.netLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: fleetNetProfit >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(fleetNetProfit))} {cs}</span>
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )
-                })()}
-              </>
-            ) : isHiredDriver ? (
+            {isHiredDriver ? (
               <>
                 <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcb5'} {t('pay.myEarnings')} — {getMonthName(new Date())}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>

@@ -1442,6 +1442,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         ))}
       </div>
 
+      {/* Shift blocks — hidden for company role (fleet owner doesn't drive) */}
+      {!isCompanyRole && (<>
       {/* Combined Shift + HOS card */}
       <div ref={shiftBlockRef} style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {t('overview.shift')}</div>
@@ -2024,9 +2026,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
         )
       })()}
+      </>)}
 
-      {/* Quick links */}
-      {onExtraNav && userRole !== 'job_seeker' && (
+      {/* Quick links — for non-company roles, shown here (before finance); for company — shown inside loading block at bottom */}
+      {onExtraNav && userRole !== 'job_seeker' && !isCompanyRole && (
         <div style={{ ...cardStyle, marginBottom: '12px' }}>
           <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
           <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -2297,6 +2300,47 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             )}
           </div>
+
+          {/* Quick links — for company role, shown at bottom */}
+          {isCompanyRole && onExtraNav && (
+            <div style={{ ...cardStyle, marginBottom: '12px' }}>
+              <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
+              <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+                {[
+                  { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs') },
+                  { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews') },
+                  { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace') },
+                ].map(item => (
+                  <button
+                    key={item.key}
+                    onClick={() => onExtraNav(item.key)}
+                    style={{
+                      flex: '0 0 80px',
+                      width: '80px',
+                      height: '80px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      background: theme.card,
+                      border: '1px solid ' + theme.border,
+                      borderRadius: '14px',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                      transition: 'transform 0.15s, box-shadow 0.15s',
+                    }}
+                    onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+                    onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                    onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                  >
+                    <span style={{ fontSize: '28px', lineHeight: 1 }}>{item.icon}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: theme.text, lineHeight: 1.2, textAlign: 'center' }}>{item.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Reminders */}
           {reminders.length > 0 && (

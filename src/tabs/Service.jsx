@@ -12,15 +12,17 @@ function getUserCountry() {
   try { return localStorage.getItem('truckerbook_country') || 'RU' } catch { return 'RU' }
 }
 
-function getSubTabs(t) {
+function getSubTabs(t, userRole) {
   const country = getUserCountry()
   const showDVIR = !ELD_COUNTRIES.includes(country)
   const tabs = [
     { key: 'service', label: '\uD83D\uDD27 ' + t('service.service') },
     { key: 'tires', label: '\uD83D\uDEDE ' + t('service.tires') },
-    { key: 'checklist', label: '\u2705 ' + t('service.checklist') },
-    { key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') },
   ]
+  if (userRole !== 'company') {
+    tabs.push({ key: 'checklist', label: '\u2705 ' + t('service.checklist') })
+  }
+  tabs.push({ key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') })
   if (showDVIR) {
     tabs.push({ key: 'dvir', label: '\uD83D\uDD0D ' + t('service.inspection') })
   }
@@ -141,7 +143,7 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service({ userId, activeVehicleId }) {
+export default function Service({ userId, activeVehicleId, userRole }) {
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
@@ -149,7 +151,7 @@ export default function Service({ userId, activeVehicleId }) {
   const [odometer, setOdometer] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const SUB_TABS = getSubTabs(t)
+  const SUB_TABS = getSubTabs(t, userRole)
 
   const loadData = useCallback(async () => {
     if (!userId) return

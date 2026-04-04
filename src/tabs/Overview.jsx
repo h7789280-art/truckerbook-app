@@ -2317,8 +2317,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             <AIForecast userId={userId} activeVehicleId={activeVehicleId} />
           )}
 
-          {/* Achievements preview — hidden for job_seeker */}
-          {role !== 'job_seeker' && (
+          {/* Achievements preview — hidden for job_seeker and company */}
+          {role !== 'job_seeker' && role !== 'company' && (
           <div
             style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer' }}
             onClick={() => setShowAchievements(true)}

@@ -22,9 +22,7 @@ function getSubTabs(t, userRole) {
   if (userRole !== 'company') {
     tabs.push({ key: 'checklist', label: '\u2705 ' + t('service.checklist') })
   }
-  if (userRole !== 'company') {
-    tabs.push({ key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') })
-  }
+  tabs.push({ key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') })
   if (showDVIR) {
     tabs.push({ key: 'dvir', label: '\uD83D\uDD0D ' + t('service.inspection') })
   }
@@ -263,7 +261,7 @@ export default function Service({ userId, activeVehicleId, userRole }) {
           getCheckedCount={getCheckedCount}
         />
       )}
-      {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} />}
+      {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} userRole={userRole} vehicles={vehicles} />}
       {activeTab === 'dvir' && <DVIRInspection userId={userId} vehicleId={activeVehicleId} />}
     </div>
   )
@@ -1708,84 +1706,188 @@ function BolSection({ userId, vehicleId }) {
 }
 
 /* ===== DOCS TAB ===== */
-export function DocsTab({ userId, vehicleId }) {
+export function DocsTab({ userId, vehicleId, userRole, vehicles }) {
+  const { t } = useLanguage()
+  const [activeTile, setActiveTile] = useState(null)
+  const isCompany = userRole === 'company'
+  const [selectedVehicleId, setSelectedVehicleId] = useState(vehicleId || '')
+
+  const effectiveVehicleId = isCompany ? selectedVehicleId : vehicleId
+
+  const TILES = [
+    { key: 'documents', icon: '\uD83D\uDCC4', label: t('service.tileDocuments') },
+    { key: 'bol', icon: '\uD83D\uDCCB', label: t('service.tileBol') },
+    { key: 'vehicle_inspection', icon: '\uD83D\uDCF8', label: t('service.tileVehicleInspection') },
+    { key: 'trailer_inspection', icon: '\uD83D\uDE9B', label: t('service.tileTrailerInspection') },
+    { key: 'fines', icon: '\u26A0\uFE0F', label: t('service.tileFines') },
+  ]
+
+  if (!activeTile) {
+    return (
+      <>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '12px',
+        }}>
+          {TILES.map((tile, idx) => (
+            <div
+              key={tile.key}
+              onClick={() => setActiveTile(tile.key)}
+              style={{
+                ...cardStyle,
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '24px 12px',
+                minHeight: '110px',
+                textAlign: 'center',
+                ...(idx === TILES.length - 1 ? { gridColumn: '1 / -1', maxWidth: 'calc(50% - 6px)', justifySelf: 'center' } : {}),
+              }}
+            >
+              <div style={{ fontSize: '32px', marginBottom: '10px' }}>{tile.icon}</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', lineHeight: '1.3' }}>{tile.label}</div>
+            </div>
+          ))}
+        </div>
+      </>
+    )
+  }
+
+  const tileInfo = TILES.find(t2 => t2.key === activeTile)
+
+  const vehicleSelector = isCompany && vehicles && vehicles.length > 0 ? (
+    <div style={{ marginBottom: '16px' }}>
+      <select
+        value={selectedVehicleId}
+        onChange={e => setSelectedVehicleId(e.target.value)}
+        style={{
+          width: '100%', padding: '10px 12px', borderRadius: '10px',
+          border: '1px solid var(--border)', background: 'var(--bg)',
+          color: 'var(--text)', fontSize: '14px',
+        }}
+      >
+        <option value="" disabled>{t('service.selectVehicle')}</option>
+        {vehicles.map(v => (
+          <option key={v.id} value={v.id}>
+            {[v.brand, v.model, v.plate_number].filter(Boolean).join(' ') || v.id.slice(0, 8)}
+          </option>
+        ))}
+      </select>
+    </div>
+  ) : null
+
+  if (activeTile === 'trailer_inspection' || activeTile === 'fines') {
+    return (
+      <>
+        <button
+          onClick={() => setActiveTile(null)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text)',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
+          }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+          {tileInfo.icon + ' ' + tileInfo.label}
+        </div>
+        {vehicleSelector}
+        <div style={{
+          textAlign: 'center', padding: '60px 20px', color: 'var(--dim)', fontSize: 15,
+          ...cardStyle,
+        }}>
+          {t('service.comingSoon')}
+        </div>
+      </>
+    )
+  }
+
+  if (activeTile === 'documents') {
+    return (
+      <>
+        <button
+          onClick={() => setActiveTile(null)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text)',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
+          }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+          {tileInfo.icon + ' ' + tileInfo.label}
+        </div>
+        {vehicleSelector}
+        <DocsDocumentsContent userId={userId} vehicleId={effectiveVehicleId} />
+      </>
+    )
+  }
+
+  if (activeTile === 'bol') {
+    return (
+      <>
+        <button
+          onClick={() => setActiveTile(null)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text)',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
+          }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+          {tileInfo.icon + ' ' + tileInfo.label}
+        </div>
+        {vehicleSelector}
+        <BolSection userId={userId} vehicleId={effectiveVehicleId} />
+      </>
+    )
+  }
+
+  if (activeTile === 'vehicle_inspection') {
+    return (
+      <>
+        <button
+          onClick={() => setActiveTile(null)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text)',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
+          }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+          {tileInfo.icon + ' ' + tileInfo.label}
+        </div>
+        {vehicleSelector}
+        <VehicleInspectionContent userId={userId} vehicleId={effectiveVehicleId} />
+      </>
+    )
+  }
+
+  return null
+}
+
+/* ===== DOCS - DOCUMENTS CONTENT ===== */
+function DocsDocumentsContent({ userId, vehicleId }) {
   const { t } = useLanguage()
   const DOC_TYPES = getDocTypes(t)
   const DOC_TYPE_MAP = Object.fromEntries(DOC_TYPES.map(d => [d.key, d]))
-  const PHOTO_TYPE_LABELS = getPhotoTypeLabels(t)
-  const [vehiclePhotos, setVehiclePhotos] = useState([])
-  const [showAddPhotoModal, setShowAddPhotoModal] = useState(false)
-  const [fullscreenPhoto, setFullscreenPhoto] = useState(null)
-  const [loadingPhotos, setLoadingPhotos] = useState(true)
-  // Inspection photos filter state
-  const now2 = new Date()
-  const [photoFilterMode, setPhotoFilterMode] = useState('month')
-  const [photoMonth, setPhotoMonth] = useState(now2.getMonth() + 1)
-  const [photoYear, setPhotoYear] = useState(now2.getFullYear())
-  const [photoDateFrom, setPhotoDateFrom] = useState('')
-  const [photoDateTo, setPhotoDateTo] = useState('')
-  const [downloadingPhotos, setDownloadingPhotos] = useState(false)
 
-  const PHOTO_MONTH_NAMES = [
-    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
-    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
-    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
-    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
-  ]
-  const photoYears = []
-  for (let y = now2.getFullYear(); y >= now2.getFullYear() - 3; y--) photoYears.push(y)
-
-  const getPhotoDateRange = useCallback(() => {
-    if (photoFilterMode === 'period') {
-      if (!photoDateFrom || !photoDateTo) return null
-      return {
-        start: photoDateFrom + 'T00:00:00',
-        end: photoDateTo + 'T23:59:59',
-      }
-    }
-    const start = `${photoYear}-${String(photoMonth).padStart(2, '0')}-01`
-    const endMonth = photoMonth === 12 ? 1 : photoMonth + 1
-    const endYear = photoMonth === 12 ? photoYear + 1 : photoYear
-    const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
-    return { start: start + 'T00:00:00', end: end + 'T00:00:00' }
-  }, [photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo])
-
-  // Documents state
   const [documents, setDocuments] = useState([])
   const [loadingDocs, setLoadingDocs] = useState(true)
   const [showDocModal, setShowDocModal] = useState(false)
   const [docFilter, setDocFilter] = useState('all')
   const [expandedDoc, setExpandedDoc] = useState(null)
-  // Insurance state
   const [insurance, setInsurance] = useState([])
   const [loadingInsurance, setLoadingInsurance] = useState(true)
-
-  const loadPhotos = useCallback(async () => {
-    if (!userId) return
-    const range = getPhotoDateRange()
-    if (!range) { setVehiclePhotos([]); setLoadingPhotos(false); return }
-    try {
-      setLoadingPhotos(true)
-      let query = supabase
-        .from('vehicle_photos')
-        .select('*')
-        .eq('user_id', userId)
-        .gte('created_at', range.start)
-        .order('created_at', { ascending: false })
-      if (photoFilterMode === 'period') {
-        query = query.lte('created_at', range.end)
-      } else {
-        query = query.lt('created_at', range.end)
-      }
-      const { data, error } = await query
-      if (error) throw error
-      setVehiclePhotos(data || [])
-    } catch (err) {
-      console.error('loadVehiclePhotos error:', err)
-    } finally {
-      setLoadingPhotos(false)
-    }
-  }, [userId, photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo, getPhotoDateRange])
 
   const loadDocs = useCallback(async () => {
     if (!userId) return
@@ -1814,89 +1916,9 @@ export function DocsTab({ userId, vehicleId }) {
   }, [userId])
 
   useEffect(() => {
-    loadPhotos()
     loadDocs()
     loadInsurance()
-  }, [loadPhotos, loadDocs, loadInsurance])
-
-  const handleDeletePhoto = async (photo) => {
-    if (!confirm(t('service.deletePhoto'))) return
-    try {
-      await deleteVehiclePhoto(photo.id, photo.photo_url)
-      setVehiclePhotos(prev => prev.filter(p => p.id !== photo.id))
-    } catch (err) {
-      console.error('deleteVehiclePhoto error:', err)
-    }
-  }
-
-  const handleDownloadPhotosZip = async () => {
-    if (vehiclePhotos.length === 0 || downloadingPhotos) return
-    setDownloadingPhotos(true)
-    try {
-      const JSZip = (await import('jszip')).default
-      const zip = new JSZip()
-
-      const vIds = [...new Set(vehiclePhotos.map(p => p.vehicle_id).filter(Boolean))]
-      let vehicleMap = {}
-      if (vIds.length > 0) {
-        const { data: vData } = await supabase
-          .from('vehicles')
-          .select('id, brand, model, plate_number')
-          .in('id', vIds)
-        if (vData) {
-          for (const v of vData) { vehicleMap[v.id] = v }
-        }
-      }
-
-      const getFolderName = (vid) => {
-        if (!vid) return '\u0411\u0435\u0437 \u043c\u0430\u0448\u0438\u043d\u044b'
-        const v = vehicleMap[vid]
-        if (!v) return vid.slice(0, 8)
-        const namePart = [v.brand, v.model].filter(Boolean).join(' ') || 'Vehicle'
-        const plate = v.plate_number || ''
-        return `${namePart}_${plate}`.replace(/[<>:"/\\|?*]/g, '_')
-      }
-
-      const usedNames = {}
-      for (const photo of vehiclePhotos) {
-        if (!photo.photo_url) continue
-        try {
-          const resp = await fetch(photo.photo_url)
-          if (!resp.ok) continue
-          const blob = await resp.blob()
-          const dateStr = photo.created_at ? new Date(photo.created_at).toISOString().slice(0, 10) : 'nodate'
-          const titlePart = (photo.notes || photo.photo_type || 'photo').replace(/[<>:"/\\|?*]/g, '_').slice(0, 50)
-          const ext = (photo.photo_url.split('.').pop() || 'jpg').split('?')[0]
-          const folder = getFolderName(photo.vehicle_id)
-          const v = photo.vehicle_id ? vehicleMap[photo.vehicle_id] : null
-          const vehiclePart = v ? [v.brand, v.model, v.plate_number].filter(Boolean).join('_').replace(/[<>:"/\\|?*]/g, '_') : ''
-          let baseName = vehiclePart ? `${vehiclePart}_${titlePart}_${dateStr}` : `${titlePart}_${dateStr}`
-          const nameKey = `${folder}/${baseName}.${ext}`
-          if (usedNames[nameKey]) {
-            usedNames[nameKey]++
-            baseName = `${baseName}_${usedNames[nameKey]}`
-          } else {
-            usedNames[nameKey] = 1
-          }
-          const fileName = `${baseName}.${ext}`
-          zip.file(`${folder}/${fileName}`, blob)
-        } catch (err) {
-          console.warn('Skip photo:', photo.id, err)
-        }
-      }
-      const content = await zip.generateAsync({ type: 'blob' })
-      const { saveAs } = await import('file-saver')
-      const zipName = photoFilterMode === 'period'
-        ? `Inspection_${photoDateFrom}_${photoDateTo}.zip`
-        : `Inspection_${String(photoMonth).padStart(2, '0')}_${photoYear}.zip`
-      saveAs(content, zipName)
-    } catch (err) {
-      console.error('Photos ZIP error:', err)
-      alert('ZIP error: ' + (err?.message || 'Unknown'))
-    } finally {
-      setDownloadingPhotos(false)
-    }
-  }
+  }, [loadDocs, loadInsurance])
 
   const handleDeleteDoc = async (doc) => {
     if (!confirm(t('service.deleteDoc'))) return
@@ -1926,11 +1948,6 @@ export function DocsTab({ userId, vehicleId }) {
     const key = d.id
     docPhotoCounts[key] = (docPhotoCounts[key] || 0) + 1
   })
-
-  const selectStyle = {
-    flex: 1, padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border)',
-    background: 'var(--bg)', color: 'var(--text)', fontSize: '13px',
-  }
 
   return (
     <>
@@ -2135,18 +2152,173 @@ export function DocsTab({ userId, vehicleId }) {
         </div>
       )}
 
-      {/* ===== BOL FILES SECTION ===== */}
-      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
-        {'\uD83D\uDCE6 ' + t('service.bolFiles')}
-      </div>
+    </>
+  )
+}
 
-      <BolSection userId={userId} vehicleId={vehicleId} />
+/* ===== DOCS - VEHICLE INSPECTION CONTENT ===== */
+function VehicleInspectionContent({ userId, vehicleId }) {
+  const { t } = useLanguage()
+  const PHOTO_TYPE_LABELS = getPhotoTypeLabels(t)
+  const [vehiclePhotos, setVehiclePhotos] = useState([])
+  const [showAddPhotoModal, setShowAddPhotoModal] = useState(false)
+  const [fullscreenPhoto, setFullscreenPhoto] = useState(null)
+  const [loadingPhotos, setLoadingPhotos] = useState(true)
+  const now2 = new Date()
+  const [photoFilterMode, setPhotoFilterMode] = useState('month')
+  const [photoMonth, setPhotoMonth] = useState(now2.getMonth() + 1)
+  const [photoYear, setPhotoYear] = useState(now2.getFullYear())
+  const [photoDateFrom, setPhotoDateFrom] = useState('')
+  const [photoDateTo, setPhotoDateTo] = useState('')
+  const [downloadingPhotos, setDownloadingPhotos] = useState(false)
 
-      {/* ===== VEHICLE INSPECTION PHOTOS SECTION ===== */}
-      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginTop: '24px', marginBottom: '12px' }}>
-        {t('service.inspectionPhotos')}
-      </div>
+  const PHOTO_MONTH_NAMES = [
+    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
+    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
+    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
+    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
+  ]
+  const photoYears = []
+  for (let y = now2.getFullYear(); y >= now2.getFullYear() - 3; y--) photoYears.push(y)
 
+  const getPhotoDateRange = useCallback(() => {
+    if (photoFilterMode === 'period') {
+      if (!photoDateFrom || !photoDateTo) return null
+      return {
+        start: photoDateFrom + 'T00:00:00',
+        end: photoDateTo + 'T23:59:59',
+      }
+    }
+    const start = `${photoYear}-${String(photoMonth).padStart(2, '0')}-01`
+    const endMonth = photoMonth === 12 ? 1 : photoMonth + 1
+    const endYear = photoMonth === 12 ? photoYear + 1 : photoYear
+    const end = `${endYear}-${String(endMonth).padStart(2, '0')}-01`
+    return { start: start + 'T00:00:00', end: end + 'T00:00:00' }
+  }, [photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo])
+
+  const loadPhotos = useCallback(async () => {
+    if (!userId) return
+    const range = getPhotoDateRange()
+    if (!range) { setVehiclePhotos([]); setLoadingPhotos(false); return }
+    try {
+      setLoadingPhotos(true)
+      let query = supabase
+        .from('vehicle_photos')
+        .select('*')
+        .eq('user_id', userId)
+        .gte('created_at', range.start)
+        .order('created_at', { ascending: false })
+      if (photoFilterMode === 'period') {
+        query = query.lte('created_at', range.end)
+      } else {
+        query = query.lt('created_at', range.end)
+      }
+      const { data, error } = await query
+      if (error) throw error
+      setVehiclePhotos(data || [])
+    } catch (err) {
+      console.error('loadVehiclePhotos error:', err)
+    } finally {
+      setLoadingPhotos(false)
+    }
+  }, [userId, photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo, getPhotoDateRange])
+
+  useEffect(() => {
+    loadPhotos()
+  }, [loadPhotos])
+
+  const handleDeletePhoto = async (photo) => {
+    if (!confirm(t('service.deletePhoto'))) return
+    try {
+      await deleteVehiclePhoto(photo.id, photo.photo_url)
+      setVehiclePhotos(prev => prev.filter(p => p.id !== photo.id))
+    } catch (err) {
+      console.error('deleteVehiclePhoto error:', err)
+    }
+  }
+
+  const handleDownloadPhotosZip = async () => {
+    if (vehiclePhotos.length === 0 || downloadingPhotos) return
+    setDownloadingPhotos(true)
+    try {
+      const JSZip = (await import('jszip')).default
+      const zip = new JSZip()
+
+      const vIds = [...new Set(vehiclePhotos.map(p => p.vehicle_id).filter(Boolean))]
+      let vehicleMap = {}
+      if (vIds.length > 0) {
+        const { data: vData } = await supabase
+          .from('vehicles')
+          .select('id, brand, model, plate_number')
+          .in('id', vIds)
+        if (vData) {
+          for (const v of vData) { vehicleMap[v.id] = v }
+        }
+      }
+
+      const getFolderName = (vid) => {
+        if (!vid) return '\u0411\u0435\u0437 \u043c\u0430\u0448\u0438\u043d\u044b'
+        const v = vehicleMap[vid]
+        if (!v) return vid.slice(0, 8)
+        const namePart = [v.brand, v.model].filter(Boolean).join(' ') || 'Vehicle'
+        const plate = v.plate_number || ''
+        return `${namePart}_${plate}`.replace(/[<>:"/\\|?*]/g, '_')
+      }
+
+      const usedNames = {}
+      for (const photo of vehiclePhotos) {
+        if (!photo.photo_url) continue
+        try {
+          const resp = await fetch(photo.photo_url)
+          if (!resp.ok) continue
+          const blob = await resp.blob()
+          const dateStr = photo.created_at ? new Date(photo.created_at).toISOString().slice(0, 10) : 'nodate'
+          const titlePart = (photo.notes || photo.photo_type || 'photo').replace(/[<>:"/\\|?*]/g, '_').slice(0, 50)
+          const ext = (photo.photo_url.split('.').pop() || 'jpg').split('?')[0]
+          const folder = getFolderName(photo.vehicle_id)
+          const v = photo.vehicle_id ? vehicleMap[photo.vehicle_id] : null
+          const vehiclePart = v ? [v.brand, v.model, v.plate_number].filter(Boolean).join('_').replace(/[<>:"/\\|?*]/g, '_') : ''
+          let baseName = vehiclePart ? `${vehiclePart}_${titlePart}_${dateStr}` : `${titlePart}_${dateStr}`
+          const nameKey = `${folder}/${baseName}.${ext}`
+          if (usedNames[nameKey]) {
+            usedNames[nameKey]++
+            baseName = `${baseName}_${usedNames[nameKey]}`
+          } else {
+            usedNames[nameKey] = 1
+          }
+          const fileName = `${baseName}.${ext}`
+          zip.file(`${folder}/${fileName}`, blob)
+        } catch (err) {
+          console.warn('Skip photo:', photo.id, err)
+        }
+      }
+      const content = await zip.generateAsync({ type: 'blob' })
+      const { saveAs } = await import('file-saver')
+      const zipName = photoFilterMode === 'period'
+        ? `Inspection_${photoDateFrom}_${photoDateTo}.zip`
+        : `Inspection_${String(photoMonth).padStart(2, '0')}_${photoYear}.zip`
+      saveAs(content, zipName)
+    } catch (err) {
+      console.error('Photos ZIP error:', err)
+      alert('ZIP error: ' + (err?.message || 'Unknown'))
+    } finally {
+      setDownloadingPhotos(false)
+    }
+  }
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return ''
+    const d = new Date(dateStr)
+    return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  }
+
+  const selectStyle = {
+    flex: 1, padding: '8px 10px', borderRadius: '10px', border: '1px solid var(--border)',
+    background: 'var(--bg)', color: 'var(--text)', fontSize: '13px',
+  }
+
+  return (
+    <>
       {/* Filter mode switcher */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '10px', background: 'var(--card2)', borderRadius: '10px', padding: '3px' }}>
         {['month', 'period'].map(mode => (

@@ -16,6 +16,7 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
     { key: 'overview', label: t('tabs.overview').toUpperCase(), icon: '\ud83d\udcca' },
     { key: 'expenses', label: t('tabs.expenses').toUpperCase(), icon: '\ud83d\udcb5' },
     { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
+    { key: 'documents', label: t('tabs.documents').toUpperCase(), icon: '\ud83d\udcc4' },
   ]
 
   const JOB_SEEKER_TABS = [

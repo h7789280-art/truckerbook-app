@@ -12,6 +12,7 @@ const translations = {
       jobs: '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438',
       news: '\u041d\u043e\u0432\u043e\u0441\u0442\u0438',
       marketplace: '\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441',
+      documents: '\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b',
     },
     greeting: {
       morning: '\u0414\u043e\u0431\u0440\u043e\u0435 \u0443\u0442\u0440\u043e',
@@ -975,6 +976,7 @@ const translations = {
       jobs: 'Jobs',
       news: 'News',
       marketplace: 'Marketplace',
+      documents: 'Documents',
     },
     greeting: {
       morning: 'Good morning',
@@ -1938,6 +1940,7 @@ const translations = {
       jobs: '\u0412\u0430\u043a\u0430\u043d\u0441\u0456\u0457',
       news: '\u041d\u043e\u0432\u0438\u043d\u0438',
       marketplace: '\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441',
+      documents: '\u0414\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0438',
     },
     greeting: {
       morning: '\u0414\u043e\u0431\u0440\u043e\u0433\u043e \u0440\u0430\u043d\u043a\u0443',
@@ -2900,6 +2903,7 @@ const translations = {
       jobs: 'Empleos',
       news: 'Noticias',
       marketplace: 'Mercado',
+      documents: 'Documentos',
     },
     greeting: {
       morning: 'Buenos d\u00edas',
@@ -3843,6 +3847,7 @@ const translations = {
       jobs: 'Stellenangebote',
       news: 'Nachrichten',
       marketplace: 'Marktplatz',
+      documents: 'Dokumente',
     },
     greeting: {
       morning: 'Guten Morgen',
@@ -4786,6 +4791,7 @@ const translations = {
       jobs: 'Emplois',
       news: 'Actualit\u00e9s',
       marketplace: 'March\u00e9',
+      documents: 'Documents',
     },
     greeting: {
       morning: 'Bonjour',
@@ -5729,6 +5735,7 @@ const translations = {
       jobs: '\u0130\u015f \u0130lanlar\u0131',
       news: 'Haberler',
       marketplace: 'Pazar Yeri',
+      documents: 'Belgeler',
     },
     greeting: {
       morning: 'G\u00fcnayd\u0131n',
@@ -6672,6 +6679,7 @@ const translations = {
       jobs: 'Oferty pracy',
       news: 'Aktualno\u015bci',
       marketplace: 'Rynek',
+      documents: 'Dokumenty',
     },
     greeting: {
       morning: 'Dzie\u0144 dobry',

@@ -8,7 +8,7 @@ import { supabase } from './lib/supabase'
 import Overview from './tabs/Overview'
 import Expenses from './tabs/Expenses'
 import Trips from './tabs/Trips'
-import Service from './tabs/Service'
+import Service, { DocsTab } from './tabs/Service'
 import Jobs from './tabs/Jobs'
 import News from './tabs/News'
 import Marketplace from './tabs/Marketplace'
@@ -426,6 +426,8 @@ function AppInner() {
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} />
+      case 'documents':
+        return <DocsTab userId={userId} vehicleId={vehicleId} />
       case 'jobs':
         return <Jobs refreshKey={0} profile={profile} />
       case 'news':

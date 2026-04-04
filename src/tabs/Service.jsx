@@ -22,7 +22,9 @@ function getSubTabs(t, userRole) {
   if (userRole !== 'company') {
     tabs.push({ key: 'checklist', label: '\u2705 ' + t('service.checklist') })
   }
-  tabs.push({ key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') })
+  if (userRole !== 'company') {
+    tabs.push({ key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') })
+  }
   if (showDVIR) {
     tabs.push({ key: 'dvir', label: '\uD83D\uDD0D ' + t('service.inspection') })
   }
@@ -1269,7 +1271,7 @@ function BolSection({ userId, vehicleId }) {
 }
 
 /* ===== DOCS TAB ===== */
-function DocsTab({ userId, vehicleId }) {
+export function DocsTab({ userId, vehicleId }) {
   const { t } = useLanguage()
   const DOC_TYPES = getDocTypes(t)
   const DOC_TYPE_MAP = Object.fromEntries(DOC_TYPES.map(d => [d.key, d]))

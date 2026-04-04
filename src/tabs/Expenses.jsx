@@ -1,17 +1,25 @@
 import { useState, useEffect } from 'react'
 import { useLanguage } from '../lib/i18n'
+import { fetchVehicles } from '../lib/api'
 import Fuel from './Fuel'
 import Byt from './Byt'
 
 export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile }) {
   const { t } = useLanguage()
   const [subTab, setSubTab] = useState('vehicle')
+  const [vehicles, setVehicles] = useState([])
+  const [filterVehicleId, setFilterVehicleId] = useState('all')
 
   const isCompany = userRole === 'company'
 
   useEffect(() => {
     if (onSubTabChange) onSubTabChange(subTab)
   }, [subTab])
+
+  useEffect(() => {
+    if (!isCompany || !userId) return
+    fetchVehicles(userId).then(v => setVehicles(v || [])).catch(() => {})
+  }, [userId, isCompany])
 
   const tabs = isCompany
     ? [{ key: 'vehicle', label: t('expenses.vehicle') }]
@@ -59,9 +67,45 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
         })}
       </div>
 
+      {/* Vehicle filter for company role */}
+      {isCompany && subTab === 'vehicle' && vehicles.length > 0 && (
+        <div style={{ margin: '12px 16px 0' }}>
+          <select
+            value={filterVehicleId}
+            onChange={e => setFilterVehicleId(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              border: '1px solid var(--border, #1e2a3f)',
+              background: 'var(--card, #111827)',
+              color: 'var(--text, #e2e8f0)',
+              fontSize: '14px',
+              fontWeight: 500,
+              cursor: 'pointer',
+              outline: 'none',
+              appearance: 'auto',
+            }}
+          >
+            <option value="all">{t('expenses.allVehicles')}</option>
+            {vehicles.map(v => (
+              <option key={v.id} value={v.id}>
+                {`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim() || v.id}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Content */}
       {subTab === 'vehicle' ? (
-        <Fuel userId={userId} refreshKey={fuelRefreshKey} activeVehicleId={activeVehicleId} profile={profile} />
+        <Fuel
+          userId={userId}
+          refreshKey={fuelRefreshKey}
+          activeVehicleId={activeVehicleId}
+          profile={profile}
+          filterVehicleId={isCompany && filterVehicleId !== 'all' ? filterVehicleId : null}
+        />
       ) : (
         <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} />
       )}

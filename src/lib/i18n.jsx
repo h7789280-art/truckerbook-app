@@ -173,6 +173,7 @@ const translations = {
       dateTo: '\u0414\u043e',
       allExpenses: '\u0412\u0441\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b',
       collapse: '\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c',
+      allVehicles: '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
     },
     trips: {
       addTrip: '\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0440\u0435\u0439\u0441',
@@ -1111,6 +1112,7 @@ const translations = {
       dateTo: 'To',
       allExpenses: 'All expenses',
       collapse: 'Collapse',
+      allVehicles: 'All vehicles',
     },
     trips: {
       addTrip: 'Add trip',
@@ -2049,6 +2051,7 @@ const translations = {
       dateTo: '\u0414\u043e',
       allExpenses: '\u0412\u0441\u0456 \u0432\u0438\u0442\u0440\u0430\u0442\u0438',
       collapse: '\u0417\u0433\u043e\u0440\u043d\u0443\u0442\u0438',
+      allVehicles: '\u0412\u0441\u0456 \u043c\u0430\u0448\u0438\u043d\u0438',
     },
     trips: {
       addTrip: '\u0414\u043e\u0434\u0430\u0442\u0438 \u0440\u0435\u0439\u0441',
@@ -2986,6 +2989,7 @@ const translations = {
       dateTo: 'Hasta',
       allExpenses: 'Todos los gastos',
       collapse: 'Colapsar',
+      allVehicles: 'Todos los veh\u00edculos',
     },
     trips: {
       addTrip: 'A\u00f1adir viaje',
@@ -3904,6 +3908,7 @@ const translations = {
       dateTo: 'Bis',
       allExpenses: 'Alle Ausgaben',
       collapse: 'Einklappen',
+      allVehicles: 'Alle Fahrzeuge',
     },
     trips: {
       addTrip: 'Fahrt hinzuf\u00fcgen',
@@ -4822,6 +4827,7 @@ const translations = {
       dateTo: '\u00c0',
       allExpenses: 'Toutes les d\u00e9penses',
       collapse: 'R\u00e9duire',
+      allVehicles: 'Tous les v\u00e9hicules',
     },
     trips: {
       addTrip: 'Ajouter un trajet',
@@ -5740,6 +5746,7 @@ const translations = {
       dateTo: 'Bit.',
       allExpenses: 'T\u00fcm giderler',
       collapse: 'Daralt',
+      allVehicles: 'T\u00fcm ara\u00e7lar',
     },
     trips: {
       addTrip: 'Sefer ekle',
@@ -6658,6 +6665,7 @@ const translations = {
       dateTo: 'Do',
       allExpenses: 'Wszystkie wydatki',
       collapse: 'Zwi\u0144',
+      allVehicles: 'Wszystkie pojazdy',
     },
     trips: {
       addTrip: 'Dodaj tras\u0119',

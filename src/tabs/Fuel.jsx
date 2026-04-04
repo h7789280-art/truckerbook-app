@@ -49,7 +49,7 @@ function getDateRange(period, customFrom, customTo) {
   return { from: null, to: null }
 }
 
-export default function Fuel({ userId, refreshKey, profile }) {
+export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -162,9 +162,9 @@ export default function Fuel({ userId, refreshKey, profile }) {
       date: e.date || '',
       description: e.name || '',
       category: getCat(e.category).label,
-      volume: e.source === 'fuel' ? (fuelEntries.find(f => f.id === e.id)?.liters || '') : '',
+      volume: e.source === 'fuel' ? (filteredFuels.find(f => f.id === e.id)?.liters || '') : '',
       amount: Math.round(e.amount),
-      odometer: e.source === 'fuel' ? (fuelEntries.find(f => f.id === e.id)?.odometer || '') : '',
+      odometer: e.source === 'fuel' ? (filteredFuels.find(f => f.id === e.id)?.odometer || '') : '',
     }))
     const now2 = new Date()
     const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
@@ -233,9 +233,13 @@ export default function Fuel({ userId, refreshKey, profile }) {
     }
   }
 
+  // Filter by vehicle if filterVehicleId is set (company role)
+  const filteredFuels = filterVehicleId ? fuelEntries.filter(e => e.vehicle_id === filterVehicleId) : fuelEntries
+  const filteredVehicleExps = filterVehicleId ? vehicleExpenses.filter(e => e.vehicle_id === filterVehicleId) : vehicleExpenses
+
   // Normalize all entries into a unified list
   const allEntries = [
-    ...fuelEntries.map(e => ({
+    ...filteredFuels.map(e => ({
       id: e.id,
       source: 'fuel',
       category: 'fuel',
@@ -244,7 +248,7 @@ export default function Fuel({ userId, refreshKey, profile }) {
       date: e.date,
       amount: e.cost || 0,
     })),
-    ...vehicleExpenses.map(e => ({
+    ...filteredVehicleExps.map(e => ({
       id: e.id,
       source: 'vehicle_expense',
       category: e.category || 'other',

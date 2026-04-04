@@ -659,7 +659,7 @@ function AppInner() {
         )}
         {renderTab()}
       </div>
-      {userRole !== 'job_seeker' && (
+      {userRole !== 'job_seeker' && userRole !== 'company' && (
         <>
           <FAB onClick={() => setIsModalOpen(true)} />
           <AddModal

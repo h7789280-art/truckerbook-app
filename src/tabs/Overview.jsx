@@ -872,6 +872,40 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         )
       })()}
 
+      {/* Theme switcher — for company role, placed right after greeting/trial banner */}
+      {isCompanyRole && (
+      <div style={{
+        display: 'flex',
+        gap: '6px',
+        marginBottom: '16px',
+        background: theme.card,
+        borderRadius: '12px',
+        padding: '4px',
+        border: '1px solid ' + theme.border,
+      }}>
+        {THEME_OPTIONS.map(opt => (
+          <button
+            key={opt.key}
+            onClick={() => setMode(opt.key)}
+            style={{
+              flex: 1,
+              padding: '8px 4px',
+              border: 'none',
+              borderRadius: '10px',
+              fontSize: '12px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              background: mode === opt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+              color: mode === opt.key ? '#fff' : theme.dim,
+              transition: 'all 0.2s',
+            }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+      )}
+
       {/* Fleet panel — only for company role with 2+ vehicles */}
       {fleetData && profile?.role === 'company' && (
         <div style={{ marginBottom: '12px' }}>
@@ -976,442 +1010,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             ))}
           </div>
-          {/* Vehicles / Drivers tab switcher */}
-          <div style={{
-            display: 'flex', gap: '6px', marginBottom: '12px',
-            background: theme.card, borderRadius: '12px', padding: '4px',
-            border: '1px solid ' + theme.border,
-          }}>
-            {['vehicles', 'drivers', 'analytics', 'dispatch'].map(tab => (
-              <button
-                key={tab}
-                onClick={() => setFleetTab(tab)}
-                style={{
-                  flex: 1, padding: '8px 4px', border: 'none', borderRadius: '10px',
-                  fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                  background: fleetTab === tab ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-                  color: fleetTab === tab ? '#fff' : theme.dim,
-                  transition: 'all 0.2s',
-                }}
-              >
-                {tab === 'vehicles' ? t('overview.vehiclesTab') : tab === 'drivers' ? t('overview.driversTab') : tab === 'analytics' ? t('overview.analyticsTab') : t('overview.dispatchTab')}
-              </button>
-            ))}
-          </div>
-
-          {/* Vehicle list */}
-          {fleetTab === 'vehicles' && (
-            <>
-              <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.fleetVehicleList')}</div>
-              {fleetData.vehicleStats.map((v) => (
-                <div
-                  key={v.id}
-                  onClick={() => {
-                    if (typeof activeVehicleId !== 'undefined') {
-                      const event = new CustomEvent('switchVehicle', { detail: v.id })
-                      window.dispatchEvent(event)
-                    }
-                  }}
-                  style={{
-                    ...cardStyle,
-                    marginBottom: '8px',
-                    cursor: 'pointer',
-                    borderLeft: activeVehicleId === v.id ? '3px solid #f59e0b' : '3px solid transparent',
-                    transition: 'border-color 0.2s',
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <div>
-                      <span style={{ fontSize: '15px', fontWeight: 700 }}>{v.brand} {v.model}</span>
-                      {v.plate_number && <span style={{ fontSize: '13px', color: theme.dim, marginLeft: '8px' }}>{v.plate_number}</span>}
-                    </div>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); openVehicleReport(v) }}
-                      style={{
-                        background: 'none',
-                        border: '1px solid ' + theme.border,
-                        borderRadius: '8px',
-                        padding: '4px 8px',
-                        fontSize: '16px',
-                        cursor: 'pointer',
-                        color: theme.text,
-                      }}
-                      title={t('overview.vehicleReport')}
-                    >{'\ud83d\udcca'}</button>
-                  </div>
-                  <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '6px' }}>
-                    {'\ud83d\udc64'} {t('overview.fleetDriver')}: {v.driver_name || t('overview.fleetNoDriver')}
-                  </div>
-                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
-                    <span>{'\u26fd'} {t('overview.fleetFuel')}: {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
-                    <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
-                    <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
-                  </div>
-                </div>
-              ))}
-            </>
-          )}
-
-          {/* Drivers list */}
-          {fleetTab === 'drivers' && (
-            <>
-              <div style={{ ...dimText, marginBottom: '8px' }}>{t('overview.fleetDriversList')}</div>
-              {driversComparison.length === 0 ? (
-                <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
-                  {t('overview.noDrivers')}
-                </div>
-              ) : (
-                <>
-                  {driversComparison.map((d) => (
-                    <div
-                      key={d.name}
-                      onClick={() => openDriverReport(d.name)}
-                      style={{
-                        ...cardStyle,
-                        marginBottom: '8px',
-                        cursor: 'pointer',
-                        transition: 'border-color 0.2s',
-                      }}
-                    >
-                      <div style={{ fontSize: '15px', fontWeight: 700, marginBottom: '6px' }}>
-                        {'\ud83d\udc64'} {d.name}
-                      </div>
-                      <div style={{ display: 'flex', gap: '16px', fontSize: '12px' }}>
-                        <span>{'\ud83d\udcc5'} {d.shifts} {t('overview.driverShifts').toLowerCase()}</span>
-                        <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(d.km))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
-                        <span>{'\u23f1\ufe0f'} {d.hours.toFixed(1)} {t('overview.driverHours').toLowerCase()}</span>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Comparison table — only if 2+ drivers */}
-                  {driversComparison.length >= 2 && (() => {
-                    const maxKm = Math.max(...driversComparison.map(d => d.km))
-                    const minKm = Math.min(...driversComparison.map(d => d.km))
-                    const maxShifts = Math.max(...driversComparison.map(d => d.shifts))
-                    const minShifts = Math.min(...driversComparison.map(d => d.shifts))
-                    const maxHours = Math.max(...driversComparison.map(d => d.hours))
-                    const minHours = Math.min(...driversComparison.map(d => d.hours))
-                    const maxTrips = Math.max(...driversComparison.map(d => d.trips))
-                    const minTrips = Math.min(...driversComparison.map(d => d.trips))
-                    const cellColor = (val, max, min) => {
-                      if (max === min) return theme.text
-                      if (val === max) return '#22c55e'
-                      if (val === min) return '#ef4444'
-                      return theme.text
-                    }
-                    return (
-                      <div style={{ marginTop: '4px' }}>
-                        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcca'} {t('overview.driverComparison')}</div>
-
-                        {/* Period switcher */}
-                        <div style={{
-                          display: 'flex', gap: '6px', marginBottom: '10px',
-                          background: theme.card, borderRadius: '12px', padding: '4px',
-                          border: '1px solid ' + theme.border,
-                        }}>
-                          {['week', 'month'].map(p => (
-                            <button
-                              key={p}
-                              onClick={() => setDriversComparisonPeriod(p)}
-                              style={{
-                                flex: 1, padding: '6px 4px', border: 'none', borderRadius: '10px',
-                                fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                                background: driversComparisonPeriod === p ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-                                color: driversComparisonPeriod === p ? '#fff' : theme.dim,
-                                transition: 'all 0.2s',
-                              }}
-                            >
-                              {p === 'week' ? t('overview.reportPeriodWeek') : t('overview.reportPeriodMonth')}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div style={{ ...cardStyle, padding: '0', overflow: 'hidden' }}>
-                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                            <thead>
-                              <tr style={{ borderBottom: '1px solid ' + theme.border }}>
-                                <th style={{ padding: '10px 8px', textAlign: 'left', color: theme.dim, fontWeight: 600 }}>{t('overview.driverNameCol')}</th>
-                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.driverShifts')}</th>
-                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{unitSys === 'imperial' ? 'Mi' : t('overview.kmLabel')}</th>
-                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.driverHours')}</th>
-                                <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.driverTrips')}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {driversComparison.map((d, i) => (
-                                <tr key={d.name} style={{ borderBottom: i < driversComparison.length - 1 ? '1px solid ' + theme.border : 'none' }}>
-                                  <td style={{ padding: '10px 8px', fontWeight: 600 }}>{d.name}</td>
-                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.shifts, maxShifts, minShifts) }}>{d.shifts}</td>
-                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.km, maxKm, minKm) }}>{formatNumber(Math.round(d.km))}</td>
-                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.hours, maxHours, minHours) }}>{d.hours.toFixed(1)}</td>
-                                  <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700, color: cellColor(d.trips, maxTrips, minTrips) }}>{d.trips}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {/* Salary block */}
-                  <div style={{ marginTop: '12px' }}>
-                    <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcb0'} {t('overview.salaryBlock')}</div>
-                    {/* Salary mode switcher */}
-                    <div style={{
-                      display: 'flex', gap: '6px', marginBottom: '10px',
-                      background: theme.card, borderRadius: '12px', padding: '4px',
-                      border: '1px solid ' + theme.border,
-                    }}>
-                      {['per_km', 'percent', 'fixed'].map(m => (
-                        <button
-                          key={m}
-                          onClick={() => setSalaryMode(m)}
-                          style={{
-                            flex: 1, padding: '6px 4px', border: 'none', borderRadius: '10px',
-                            fontSize: '11px', fontWeight: 600, cursor: 'pointer',
-                            background: salaryMode === m ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-                            color: salaryMode === m ? '#fff' : theme.dim,
-                            transition: 'all 0.2s',
-                          }}
-                        >
-                          {m === 'per_km' ? (unitSys === 'imperial' ? t('overview.salaryPerMile') : t('overview.salaryPerKm')) : m === 'percent' ? t('overview.salaryPercent') : t('overview.salaryFixed')}
-                        </button>
-                      ))}
-                    </div>
-                    {/* Rate input */}
-                    <div style={{ ...cardStyle, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ fontSize: '13px', color: theme.dim }}>{t('overview.salaryRate')}:</span>
-                      <input
-                        type="number"
-                        value={salaryRate}
-                        onChange={e => setSalaryRate(parseFloat(e.target.value) || 0)}
-                        style={{
-                          flex: 1, padding: '8px 10px', borderRadius: '8px',
-                          border: '1px solid ' + theme.border, background: theme.card2,
-                          color: theme.text, fontSize: '14px', fontFamily: 'monospace',
-                          outline: 'none',
-                        }}
-                      />
-                      <span style={{ fontSize: '12px', color: theme.dim }}>
-                        {salaryMode === 'per_km' ? (cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c')) : salaryMode === 'percent' ? '%' : cs + '/' + t('overview.reportPeriodMonth').toLowerCase()}
-                      </span>
-                    </div>
-                    {/* Salary table */}
-                    {salaryData.length > 0 ? (() => {
-                      const calcSalary = (d) => {
-                        if (salaryMode === 'per_km') return d.km * salaryRate
-                        if (salaryMode === 'percent') return d.income * (salaryRate / 100)
-                        return salaryRate
-                      }
-                      const totalPayroll = salaryData.reduce((s, d) => s + calcSalary(d), 0)
-                      return (
-                        <>
-                          <div style={{ ...cardStyle, padding: '0', overflow: 'hidden' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
-                              <thead>
-                                <tr style={{ borderBottom: '1px solid ' + theme.border }}>
-                                  <th style={{ padding: '10px 8px', textAlign: 'left', color: theme.dim, fontWeight: 600 }}>{t('overview.salaryDriverName')}</th>
-                                  <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{t('overview.salaryTrips')}</th>
-                                  <th style={{ padding: '10px 4px', textAlign: 'center', color: theme.dim, fontWeight: 600 }}>{unitSys === 'imperial' ? 'Mi' : t('overview.kmLabel')}</th>
-                                  <th style={{ padding: '10px 4px', textAlign: 'right', color: theme.dim, fontWeight: 600 }}>{t('overview.salarySalary')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {salaryData.map((d, i) => (
-                                  <tr key={d.name} style={{ borderBottom: i < salaryData.length - 1 ? '1px solid ' + theme.border : 'none' }}>
-                                    <td style={{ padding: '10px 8px', fontWeight: 600 }}>{d.name}</td>
-                                    <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace' }}>{d.trips}</td>
-                                    <td style={{ padding: '10px 4px', textAlign: 'center', fontFamily: 'monospace' }}>{formatNumber(Math.round(d.km))}</td>
-                                    <td style={{ padding: '10px 4px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: '#f59e0b' }}>{formatNumber(Math.round(calcSalary(d)))} {cs}</td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          <div style={{ ...cardStyle, marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span style={{ fontSize: '14px', fontWeight: 700 }}>{t('overview.salaryTotal')}</span>
-                            <span style={{ fontSize: '18px', fontFamily: 'monospace', fontWeight: 700, color: '#f59e0b' }}>{formatNumber(Math.round(totalPayroll))} {cs}</span>
-                          </div>
-                          {/* Export salary report */}
-                          <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-                            {['excel', 'pdf'].map(fmt => (
-                              <button
-                                key={fmt}
-                                onClick={() => {
-                                  const distLabel = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
-                                  const modeLabel = salaryMode === 'per_km' ? (unitSys === 'imperial' ? t('overview.salaryPerMile') : t('overview.salaryPerKm')) : salaryMode === 'percent' ? t('overview.salaryPercent') : t('overview.salaryFixed')
-                                  const columns = [
-                                    { header: t('overview.salaryDriverName'), key: 'name' },
-                                    { header: t('overview.salaryTrips'), key: 'trips' },
-                                    { header: distLabel, key: 'km' },
-                                    { header: t('overview.salaryCalcMode'), key: 'mode' },
-                                    { header: t('overview.salaryRate'), key: 'rate' },
-                                    { header: t('overview.salarySalary') + ' (' + cs + ')', key: 'salary' },
-                                  ]
-                                  const rows = salaryData.map(d => ({
-                                    name: d.name,
-                                    trips: d.trips,
-                                    km: Math.round(d.km),
-                                    mode: modeLabel,
-                                    rate: salaryMode === 'percent' ? salaryRate + '%' : salaryRate + ' ' + cs,
-                                    salary: Math.round(calcSalary(d)),
-                                  }))
-                                  rows.push({
-                                    name: t('overview.salaryTotal'),
-                                    trips: '',
-                                    km: '',
-                                    mode: '',
-                                    rate: '',
-                                    salary: Math.round(totalPayroll),
-                                  })
-                                  const now2 = new Date()
-                                  const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
-                                  if (fmt === 'excel') {
-                                    exportToExcel(rows, columns, `salary_report_${ym}.xlsx`)
-                                  } else {
-                                    exportToPDF(rows, columns, t('overview.exportSalary'), `salary_report_${ym}.pdf`)
-                                  }
-                                }}
-                                style={{
-                                  flex: 1, padding: '10px', borderRadius: '10px', border: '1px solid ' + theme.border,
-                                  background: theme.card2, color: theme.text, fontSize: '12px', fontWeight: 600,
-                                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-                                }}
-                              >
-                                {'\uD83D\uDCE5 ' + t('overview.exportSalary') + ' ' + fmt.toUpperCase()}
-                              </button>
-                            ))}
-                          </div>
-                        </>
-                      )
-                    })() : (
-                      <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
-                        {t('overview.noData')}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-
-          {/* Analytics tab */}
-          {fleetTab === 'analytics' && (
-            <>
-              {/* Period switcher: Day / Week / Month */}
-              <div style={{
-                display: 'flex', gap: '6px', marginBottom: '12px',
-                background: theme.card, borderRadius: '12px', padding: '4px',
-                border: '1px solid ' + theme.border,
-              }}>
-                {['day', 'week', 'month'].map(p => (
-                  <button
-                    key={p}
-                    onClick={() => setAnalyticsPeriod(p)}
-                    style={{
-                      flex: 1, padding: '6px 4px', border: 'none', borderRadius: '10px',
-                      fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                      background: analyticsPeriod === p ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-                      color: analyticsPeriod === p ? '#fff' : theme.dim,
-                      transition: 'all 0.2s',
-                    }}
-                  >
-                    {p === 'day' ? t('overview.reportPeriodDay') : p === 'week' ? t('overview.reportPeriodWeek') : t('overview.reportPeriodMonth')}
-                  </button>
-                ))}
-              </div>
-
-              {analyticsLoading ? (
-                <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
-                  {t('common.loading')}
-                </div>
-              ) : analyticsData ? (
-                <>
-                  {/* Summary cards grid */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, 1fr)',
-                    gap: '8px',
-                    marginBottom: '12px',
-                  }}>
-                    {[
-                      { label: t('overview.analyticsTotalIncome'), value: formatNumber(Math.round(analyticsData.totalIncome)) + ' ' + cs, color: '#22c55e', icon: '\ud83d\udcb0' },
-                      { label: t('overview.analyticsTotalExpense'), value: formatNumber(Math.round(analyticsData.totalExpenses)) + ' ' + cs, color: '#ef4444', icon: '\ud83d\udcc9' },
-                      { label: t('overview.analyticsProfit'), value: formatNumber(Math.round(analyticsData.profit)) + ' ' + cs, color: analyticsData.profit >= 0 ? '#22c55e' : '#ef4444', icon: '\ud83d\udcca' },
-                      { label: t('overview.analyticsFuel'), value: formatNumber(Math.round(analyticsData.totalFuelLiters)) + ' ' + (unitSys === 'imperial' ? 'gal' : '\u043b') + ' / ' + formatNumber(Math.round(analyticsData.totalFuelCost)) + ' ' + cs, color: '#f59e0b', icon: '\u26fd' },
-                      { label: t('overview.analyticsMileage'), value: formatNumber(Math.round(analyticsData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), color: '#3b82f6', icon: '\ud83d\udee3\ufe0f' },
-                      { label: t('overview.analyticsTripsCount'), value: String(analyticsData.tripCount), color: '#8b5cf6', icon: '\ud83d\ude9a' },
-                    ].map((item, i) => (
-                      <div key={i} style={{
-                        ...cardStyle,
-                        textAlign: 'center',
-                        padding: '12px 8px',
-                      }}>
-                        <div style={{ fontSize: '18px', marginBottom: '2px' }}>{item.icon}</div>
-                        <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: item.color }}>{item.value}</div>
-                        <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Bar chart: Income vs Expense */}
-                  {analyticsData.daily.length > 0 && (() => {
-                    const maxVal = Math.max(...analyticsData.daily.map(d => Math.max(d.income, d.expense)), 1)
-                    return (
-                      <div style={{ marginTop: '4px' }}>
-                        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcca'} {t('overview.chartIncomeVsExpense')}</div>
-                        <div style={{ ...cardStyle }}>
-                          {/* Legend */}
-                          <div style={{ display: 'flex', gap: '16px', marginBottom: '10px', fontSize: '11px' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#22c55e', display: 'inline-block' }} />
-                              {t('overview.chartIncome')}
-                            </span>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span style={{ width: '10px', height: '10px', borderRadius: '2px', background: '#ef4444', display: 'inline-block' }} />
-                              {t('overview.chartExpense')}
-                            </span>
-                          </div>
-                          {/* Bars */}
-                          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '4px', height: '140px', overflowX: 'auto' }}>
-                            {analyticsData.daily.map((d, i) => {
-                              const incH = Math.max((d.income / maxVal) * 120, 2)
-                              const expH = Math.max((d.expense / maxVal) * 120, 2)
-                              const dayLabel = d.date.slice(5) // MM-DD
-                              return (
-                                <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: '1 0 auto', minWidth: '28px' }}>
-                                  <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '120px' }}>
-                                    <div style={{ width: '10px', height: incH + 'px', background: '#22c55e', borderRadius: '2px 2px 0 0' }} title={formatNumber(Math.round(d.income))} />
-                                    <div style={{ width: '10px', height: expH + 'px', background: '#ef4444', borderRadius: '2px 2px 0 0' }} title={formatNumber(Math.round(d.expense))} />
-                                  </div>
-                                  <div style={{ fontSize: '9px', color: theme.dim, marginTop: '4px', transform: 'rotate(-45deg)', whiteSpace: 'nowrap' }}>{dayLabel}</div>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })()}
-                </>
-              ) : (
-                <div style={{ ...cardStyle, textAlign: 'center', color: theme.dim, padding: '20px' }}>
-                  {t('overview.noData')}
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Dispatch tab */}
-          {fleetTab === 'dispatch' && (
-            <DispatchBoard userId={userId} />
-          )}
         </div>
       )}
 
-      {/* Theme switcher */}
+      {/* Theme switcher — for non-company roles (company has it above fleet panel) */}
+      {!isCompanyRole && (
       <div style={{
         display: 'flex',
         gap: '6px',
@@ -1442,6 +1045,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </button>
         ))}
       </div>
+      )}
 
       {/* Shift blocks — hidden for company and job_seeker roles */}
       {role !== 'company' && role !== 'job_seeker' && (<>
@@ -2284,8 +1888,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
-          {/* Mini cards — mode-specific (hidden for job_seeker and driver) */}
-          {role !== 'job_seeker' && role !== 'driver' && (
+          {/* Mini cards — mode-specific (hidden for job_seeker, driver, and company) */}
+          {role !== 'job_seeker' && role !== 'driver' && !isCompanyRole && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {(isCompanyRole ? [
               { label: t('overview.fleetVehicles') || '\u041c\u0430\u0448\u0438\u043d', value: String(fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : (profile?.brand ? 1 : 0)), unit: '', icon: '\ud83d\ude9b', action: () => {} },

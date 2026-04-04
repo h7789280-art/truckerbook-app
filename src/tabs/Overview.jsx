@@ -627,8 +627,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
   const dimText = { color: theme.dim, fontSize: '13px' }
 
-  // Achievements full view
-  if (showAchievements) {
+  // Achievements full view — not for company role
+  if (showAchievements && !isCompanyRole) {
     return <Achievements userId={userId} onClose={() => setShowAchievements(false)} />
   }
 
@@ -2269,7 +2269,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* AI Forecast */}
           <AIForecast userId={userId} activeVehicleId={activeVehicleId} />
 
-          {/* Achievements preview */}
+          {/* Achievements preview — hidden for company role */}
+          {!isCompanyRole && (
           <div
             style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer' }}
             onClick={() => setShowAchievements(true)}
@@ -2300,6 +2301,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             )}
           </div>
+          )}
 
           {/* Quick links — for company role, shown at bottom */}
           {isCompanyRole && onExtraNav && (

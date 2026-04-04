@@ -601,18 +601,6 @@ export async function getTrailerHistory(userId, limit = 5) {
   return data || []
 }
 
-export async function uploadTrailerPhoto(userId, trailerId, file) {
-  const timestamp = Date.now()
-  const path = `${userId}/${trailerId}_${timestamp}.jpg`
-  const { error: uploadError } = await supabase.storage
-    .from('trailer-photos')
-    .upload(path, file, { contentType: file.type || 'image/jpeg' })
-  if (uploadError) throw uploadError
-  const { data: urlData } = supabase.storage
-    .from('trailer-photos')
-    .getPublicUrl(path)
-  return urlData.publicUrl
-}
 
 export async function pickUpTrailer(userId, vehicleId, trailerNumber, driverName, notes, photos) {
   const row = {
@@ -1922,4 +1910,118 @@ export async function fetchFleetBolDocuments(userId, startDate, endDate) {
     return []
   }
   return data || []
+}
+
+// --- Trailer photos (stored in vehicle_photos with trailer_ prefix on photo_type) ---
+
+export async function uploadTrailerPhoto(userId, vehicleId, file, photoType, notes) {
+  const timestamp = Date.now()
+  const path = `${userId}/trailer_${vehicleId}_${timestamp}.jpg`
+  const { error: uploadError } = await supabase.storage
+    .from('vehicle-photos')
+    .upload(path, file, { contentType: file.type || 'image/jpeg' })
+  if (uploadError) throw uploadError
+  const { data: urlData } = supabase.storage
+    .from('vehicle-photos')
+    .getPublicUrl(path)
+  const photoUrl = urlData.publicUrl
+
+  const row = {
+    user_id: userId,
+    vehicle_id: vehicleId || null,
+    photo_url: photoUrl,
+    photo_type: 'trailer_' + (photoType || 'overview'),
+    driver_name: '',
+    notes: notes || '',
+    storage_path: path,
+  }
+  const { data, error } = await supabase
+    .from('vehicle_photos')
+    .insert(row)
+    .select()
+  if (error) { console.error('trailer photo insert error:', JSON.stringify(error)); throw error }
+  return data?.[0]
+}
+
+// --- Incidents (stored in documents with type = fine|inspection_record|accident) ---
+
+const INCIDENT_TYPES = ['fine', 'inspection_record', 'accident']
+
+export async function addIncidentRecord(userId, vehicleId, incidentType, date, description, amount, files) {
+  const results = []
+  if (files && files.length > 0) {
+    for (const file of files) {
+      const timestamp = Date.now()
+      const ext = (file.name || '').split('.').pop() || 'jpg'
+      const path = `${userId}/incident_${timestamp}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(path, file, { contentType: file.type || 'image/jpeg' })
+      if (uploadError) throw uploadError
+      const { data: urlData } = supabase.storage
+        .from('documents')
+        .getPublicUrl(path)
+      const fileUrl = urlData.publicUrl
+      const row = {
+        user_id: userId,
+        vehicle_id: vehicleId || null,
+        type: incidentType,
+        title: description || '',
+        notes: amount ? JSON.stringify({ amount: Number(amount), date }) : JSON.stringify({ date }),
+        file_url: fileUrl,
+        storage_path: path,
+        file_name: file.name || '',
+        file_size: file.size || 0,
+        mime_type: file.type || '',
+      }
+      const { data, error } = await supabase.from('documents').insert(row).select()
+      if (error) throw error
+      if (data?.[0]) results.push(data[0])
+    }
+  } else {
+    const row = {
+      user_id: userId,
+      vehicle_id: vehicleId || null,
+      type: incidentType,
+      title: description || '',
+      notes: amount ? JSON.stringify({ amount: Number(amount), date }) : JSON.stringify({ date }),
+      file_url: null,
+      storage_path: null,
+      file_name: '',
+      file_size: 0,
+      mime_type: '',
+    }
+    const { data, error } = await supabase.from('documents').insert(row).select()
+    if (error) throw error
+    if (data?.[0]) results.push(data[0])
+  }
+  return results
+}
+
+export async function getIncidentRecords(userId, vehicleId, startDate, endDate) {
+  let query = supabase
+    .from('documents')
+    .select('*')
+    .eq('user_id', userId)
+    .in('type', INCIDENT_TYPES)
+    .order('created_at', { ascending: false })
+  if (vehicleId) query = query.eq('vehicle_id', vehicleId)
+  if (startDate) query = query.gte('created_at', startDate)
+  if (endDate) query = query.lte('created_at', endDate)
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function deleteIncidentRecord(docId) {
+  const { data: doc } = await supabase
+    .from('documents')
+    .select('storage_path')
+    .eq('id', docId)
+    .single()
+  if (doc?.storage_path) {
+    await supabase.storage.from('documents').remove([doc.storage_path])
+  }
+  const { error } = await supabase.from('documents').delete().eq('id', docId)
+  if (error) throw error
 }

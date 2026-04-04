@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchServiceRecords, fetchInsurance, fetchVehicles, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import DVIRInspection from '../components/DVIRInspection'
+import TrailerInspectionContent from '../components/TrailerInspection'
+import IncidentsContent from '../components/IncidentsSection'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToExcel, exportAllVehiclesExcel } from '../utils/export'
@@ -1779,7 +1781,7 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles }) {
     </div>
   ) : null
 
-  if (activeTile === 'trailer_inspection' || activeTile === 'fines') {
+  if (activeTile === 'trailer_inspection') {
     return (
       <>
         <button
@@ -1796,12 +1798,29 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles }) {
           {tileInfo.icon + ' ' + tileInfo.label}
         </div>
         {vehicleSelector}
-        <div style={{
-          textAlign: 'center', padding: '60px 20px', color: 'var(--dim)', fontSize: 15,
-          ...cardStyle,
-        }}>
-          {t('service.comingSoon')}
+        <TrailerInspectionContent userId={userId} vehicleId={effectiveVehicleId} />
+      </>
+    )
+  }
+
+  if (activeTile === 'fines') {
+    return (
+      <>
+        <button
+          onClick={() => setActiveTile(null)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text)',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
+          }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+          {tileInfo.icon + ' ' + tileInfo.label}
         </div>
+        {vehicleSelector}
+        <IncidentsContent userId={userId} vehicleId={effectiveVehicleId} />
       </>
     )
   }
@@ -1937,10 +1956,11 @@ function DocsDocumentsContent({ userId, vehicleId }) {
     return d.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
   }
 
-  const nonBolDocs = documents.filter(d => d.type !== 'bol')
+  const nonBolDocs = documents.filter(d => d.type !== 'bol' && !['fine', 'inspection_record', 'accident'].includes(d.type))
+  const vehicleFilteredDocs = vehicleId ? nonBolDocs.filter(d => d.vehicle_id === vehicleId) : nonBolDocs
   const filteredDocs = docFilter === 'all'
-    ? nonBolDocs
-    : nonBolDocs.filter(d => d.type === docFilter)
+    ? vehicleFilteredDocs
+    : vehicleFilteredDocs.filter(d => d.type === docFilter)
 
   // Group documents by id to count photos per document title+type
   const docPhotoCounts = {}

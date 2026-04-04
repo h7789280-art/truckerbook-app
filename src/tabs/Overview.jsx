@@ -1049,6 +1049,21 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     <span style={{ fontSize: '13px', color: theme.text }}>{t('overview.fleetFree')}: {freeVehicles}</span>
                   </div>
                 </div>
+                {/* Go to Trips link */}
+                <div
+                  onClick={() => onExtraNav?.('trips')}
+                  style={{
+                    textAlign: 'center',
+                    padding: '10px 16px',
+                    marginBottom: '12px',
+                    cursor: 'pointer',
+                    color: '#f59e0b',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                  }}
+                >
+                  {t('overview.goToTrips')}
+                </div>
               </>
             )
           })()}

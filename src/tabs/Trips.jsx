@@ -521,6 +521,11 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const [showMapTripId, setShowMapTripId] = useState(null)
   const [waypointCounts, setWaypointCounts] = useState({})
   const [expandedVehicleId, setExpandedVehicleId] = useState(null)
+  // Company filters
+  const [filterVehicleId, setFilterVehicleId] = useState('all')
+  const [periodFilter, setPeriodFilter] = useState('month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -805,70 +810,195 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
   const miniCard = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '12px', textAlign: 'center' }
 
+  // Period date range for company role
+  const periodRange = useMemo(() => {
+    const now = new Date()
+    if (periodFilter === 'week') {
+      const d = new Date(now)
+      d.setDate(d.getDate() - d.getDay() + (d.getDay() === 0 ? -6 : 1))
+      d.setHours(0, 0, 0, 0)
+      return { from: d, to: now }
+    }
+    if (periodFilter === 'custom' && customFrom && customTo) {
+      return { from: new Date(customFrom), to: new Date(customTo + 'T23:59:59') }
+    }
+    // default: month
+    return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now }
+  }, [periodFilter, customFrom, customTo])
+
+  // Filtered trips for company role
+  const companyTrips = useMemo(() => {
+    if (!isCompanyRole) return []
+    let filtered = entries.filter(tr => {
+      const d = new Date(tr.created_at)
+      return d >= periodRange.from && d <= periodRange.to
+    })
+    if (filterVehicleId !== 'all') {
+      filtered = filtered.filter(tr => tr.vehicle_id === filterVehicleId)
+    }
+    return filtered
+  }, [isCompanyRole, entries, periodRange, filterVehicleId])
+
   // Group trips by vehicle for company role
   const tripsByVehicle = useMemo(() => {
-    if (!isCompanyRole) return null
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthTrips = entries.filter(tr => new Date(tr.created_at) >= monthStart)
+    if (!isCompanyRole || filterVehicleId !== 'all') return null
     const map = {}
     vehicles.forEach(v => { map[v.id] = [] })
-    monthTrips.forEach(tr => {
+    companyTrips.forEach(tr => {
       if (tr.vehicle_id && map[tr.vehicle_id]) {
         map[tr.vehicle_id].push(tr)
       }
     })
     return map
-  }, [isCompanyRole, entries, vehicles])
+  }, [isCompanyRole, companyTrips, vehicles, filterVehicleId])
 
   const renderTripCard = (trip, compact) => (
-    <div key={trip.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: compact ? '8px 0' : '10px 0' }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ color: theme.text, fontSize: compact ? '14px' : '16px', fontWeight: 600 }}>
-          {trip.origin || '?'} {'\u2192'} {trip.destination || '?'}
+    <div key={trip.id} style={{ padding: compact ? '8px 0' : '10px 0' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ color: theme.text, fontSize: compact ? '14px' : '16px', fontWeight: 600 }}>
+            {trip.origin || '?'} {'\u2192'} {trip.destination || '?'}
+          </div>
+          <div style={{ color: theme.dim, fontSize: '12px', marginTop: '2px' }}>
+            {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {distUnit}
+            {(trip.deadhead_km || 0) > 0 && (
+              <span style={{ color: '#f59e0b', marginLeft: '6px' }}>
+                {'\u00b7 '}{t('trips.deadhead')}{': '}{fmtFull(trip.deadhead_km)}{' '}{distUnit}
+              </span>
+            )}
+          </div>
         </div>
-        <div style={{ color: theme.dim, fontSize: '12px', marginTop: '2px' }}>
-          {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {distUnit}
-          {(trip.deadhead_km || 0) > 0 && (
-            <span style={{ color: '#f59e0b', marginLeft: '6px' }}>
-              {'\u00b7 '}{t('trips.deadhead')}{': '}{fmtFull(trip.deadhead_km)}{' '}{distUnit}
-            </span>
+        <div style={{ textAlign: 'right', flexShrink: 0 }}>
+          <div style={{ color: '#22c55e', fontSize: compact ? '14px' : '16px', fontWeight: 700, fontFamily: 'monospace' }}>
+            +{fmtFull(trip.income || 0)} {cs}
+          </div>
+          {trip.driver_pay != null && trip.driver_pay > 0 && isCompanyRole && (
+            <div style={{ color: '#f59e0b', fontSize: '11px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
+              {t('trips.driverSalary')}: {fmtFull(trip.driver_pay)} {cs}
+            </div>
           )}
         </div>
       </div>
-      <div style={{ textAlign: 'right', flexShrink: 0 }}>
-        <div style={{ color: '#22c55e', fontSize: compact ? '14px' : '16px', fontWeight: 700, fontFamily: 'monospace' }}>
-          +{fmtFull(trip.income || 0)} {cs}
+      {isCompanyRole && (trip.started_at || trip.ended_at) && (
+        <div style={{ display: 'flex', gap: '12px', marginTop: '4px', fontSize: '11px', color: theme.dim }}>
+          {trip.started_at && <span>{t('trips.tripStart')}: {formatDate(trip.started_at)}</span>}
+          {trip.ended_at && <span>{t('trips.tripEnd')}: {formatDate(trip.ended_at)}</span>}
         </div>
-        {trip.driver_pay != null && trip.driver_pay > 0 && isCompanyRole && (
-          <div style={{ color: '#f59e0b', fontSize: '11px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
-            {t('overview.salariesLabel') || '\u0417\u041f'}: {fmtFull(trip.driver_pay)} {cs}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
+
+  // Company totals
+  const companyTotalIncome = isCompanyRole ? companyTrips.reduce((s, t) => s + (t.income || 0), 0) : 0
+  const companyTotalKm = isCompanyRole ? companyTrips.reduce((s, t) => s + (t.distance_km || 0), 0) : 0
+
+  const periodBtnStyle = (key) => ({
+    flex: 1,
+    padding: '8px 4px',
+    borderRadius: '8px',
+    border: periodFilter === key ? '2px solid #f59e0b' : '1px solid ' + theme.border,
+    background: periodFilter === key ? '#f59e0b22' : 'transparent',
+    color: periodFilter === key ? '#f59e0b' : theme.dim,
+    fontSize: '13px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    textAlign: 'center',
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
       {/* Trailer block for driver / Report button for company */}
       {isCompanyRole ? (
-        <button
-          onClick={() => handleExport('excel')}
-          style={{
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            border: 'none',
-            borderRadius: '12px',
-            color: '#fff',
-            fontSize: '15px',
-            fontWeight: 600,
-            padding: '14px',
-            cursor: 'pointer',
-            width: '100%',
-          }}
-        >
-          {'\ud83d\udcca ' + t('trips.reportByVehicles')}
-        </button>
+        <>
+          <button
+            onClick={() => handleExport('excel')}
+            style={{
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              border: 'none',
+              borderRadius: '12px',
+              color: '#fff',
+              fontSize: '15px',
+              fontWeight: 600,
+              padding: '14px',
+              cursor: 'pointer',
+              width: '100%',
+            }}
+          >
+            {'\ud83d\udcca ' + t('trips.reportByVehicles')}
+          </button>
+          {/* Vehicle filter */}
+          {vehicles.length > 0 && (
+            <select
+              value={filterVehicleId}
+              onChange={e => setFilterVehicleId(e.target.value)}
+              style={{
+                width: '100%',
+                minHeight: '48px',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                border: '1px solid ' + theme.border,
+                background: theme.card,
+                color: theme.text,
+                fontSize: '16px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none',
+                appearance: 'auto',
+              }}
+            >
+              <option value="all">{'\ud83d\ude9b'} {t('expenses.allVehicles')}</option>
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>
+                  {'\ud83d\ude9b'} {`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim() || v.id}
+                </option>
+              ))}
+            </select>
+          )}
+          {/* Period filter */}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={() => setPeriodFilter('week')} style={periodBtnStyle('week')}>
+              {t('trips.week')}
+            </button>
+            <button onClick={() => setPeriodFilter('month')} style={periodBtnStyle('month')}>
+              {t('common.month')}
+            </button>
+            <button onClick={() => setPeriodFilter('custom')} style={periodBtnStyle('custom')}>
+              {t('trips.periodFilter')}
+            </button>
+          </div>
+          {periodFilter === 'custom' && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '14px',
+                }}
+              />
+              <input
+                type="date"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+          )}
+        </>
       ) : (
         <TrailerBlock userId={userId} theme={theme} />
       )}
@@ -880,7 +1010,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             {t('trips.income')}
           </div>
           <div style={{ color: '#22c55e', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
-            {fmt(totalIncome)} {cs}
+            {fmt(isCompanyRole ? companyTotalIncome : totalIncome)} {cs}
           </div>
         </div>
         <div style={miniCard}>
@@ -888,7 +1018,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             {t('trips.kmLabel')}
           </div>
           <div style={{ color: theme.text, fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
-            {fmt(totalKm)}
+            {fmt(isCompanyRole ? companyTotalKm : totalKm)}
           </div>
         </div>
       </div>
@@ -897,6 +1027,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: 44 }}>
         <div style={{ color: theme.dim, fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
           {t('trips.tripsHeader')}
+          {isCompanyRole && <span style={{ fontWeight: 400, marginLeft: '8px' }}>({companyTrips.length} {t('trips.tripsCount')})</span>}
         </div>
         {!isCompanyRole && (
           <div ref={exportRef} style={{ position: 'relative' }}>
@@ -977,21 +1108,35 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
           {t('common.loading')}
         </div>
       ) : isCompanyRole ? (
-        /* Company role: grouped by vehicles */
-        vehicles.length === 0 ? (
+        /* Company role */
+        filterVehicleId !== 'all' ? (
+          /* Single vehicle selected — flat list */
+          companyTrips.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
+              {t('trips.noTripsVehicle')}
+            </div>
+          ) : (
+            companyTrips.map(tr => (
+              <div key={tr.id} style={{ ...card, borderBottom: '1px solid ' + theme.border }}>
+                {renderTripCard(tr, false)}
+              </div>
+            ))
+          )
+        ) : vehicles.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
             {t('trips.noVehicles')}
           </div>
         ) : (
+          /* Grouped by vehicles */
           vehicles.map(v => {
             const vTrips = tripsByVehicle[v.id] || []
-            const lastTrip = vTrips[0]
+            const visibleTrips = vTrips.slice(0, 3)
             const isExpanded = expandedVehicleId === v.id
             const vLabel = ((v.brand || '') + ' ' + (v.model || '')).trim()
             return (
               <div key={v.id} style={card}>
                 {/* Vehicle header */}
-                <div style={{ marginBottom: lastTrip ? '10px' : 0 }}>
+                <div style={{ marginBottom: visibleTrips.length > 0 ? '10px' : 0 }}>
                   <div style={{ color: theme.text, fontSize: '16px', fontWeight: 700 }}>
                     {'\ud83d\udc64 '}{v.driver_name || '\u2014'}
                   </div>
@@ -999,16 +1144,16 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
                     {v.plate_number || ''}{vLabel ? ' \u00b7 ' + vLabel : ''}
                   </div>
                 </div>
-                {/* Last trip */}
-                {lastTrip ? (
+                {visibleTrips.length > 0 ? (
                   <>
                     <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px' }}>
-                      <div style={{ color: theme.dim, fontSize: '11px', fontWeight: 600, marginBottom: '4px', letterSpacing: '0.5px' }}>
-                        {t('trips.lastTrip')}
-                      </div>
-                      {renderTripCard(lastTrip, true)}
+                      {visibleTrips.map((tr, idx) => (
+                        <div key={tr.id} style={idx > 0 ? { borderTop: '1px solid ' + theme.border } : {}}>
+                          {renderTripCard(tr, true)}
+                        </div>
+                      ))}
                     </div>
-                    {vTrips.length > 1 && (
+                    {vTrips.length > 3 && (
                       <button
                         onClick={() => setExpandedVehicleId(isExpanded ? null : v.id)}
                         style={{
@@ -1028,12 +1173,12 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
                           gap: '6px',
                         }}
                       >
-                        {isExpanded ? '\u25b2' : '\u25bc'} {t('trips.allTripsMonth')} ({vTrips.length})
+                        {isExpanded ? '\u25b2' : '\u25bc'} {t('trips.allTripsForPeriod')} ({vTrips.length})
                       </button>
                     )}
-                    {isExpanded && vTrips.length > 1 && (
+                    {isExpanded && vTrips.length > 3 && (
                       <div style={{ marginTop: '8px', borderTop: '1px solid ' + theme.border }}>
-                        {vTrips.slice(1).map(tr => (
+                        {vTrips.slice(3).map(tr => (
                           <div key={tr.id} style={{ borderBottom: '1px solid ' + theme.border }}>
                             {renderTripCard(tr, true)}
                           </div>
@@ -1552,7 +1697,8 @@ function IFTATab({ userId, theme }) {
 export default function Trips({ userId, refreshKey, profile }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
-  const showIfta = profile?.hos_mode === 'usa' || profile?.units === 'imperial'
+  const isCompanyRole = profile?.role === 'company'
+  const showIfta = !isCompanyRole && (profile?.hos_mode === 'usa' || profile?.units === 'imperial')
   const [subTab, setSubTab] = useState('trips')
 
   const tabBtn = (key) => ({

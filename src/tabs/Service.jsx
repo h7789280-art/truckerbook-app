@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchVehicles, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import DVIRInspection from '../components/DVIRInspection'
 import { supabase } from '../lib/supabase'
-import { useLanguage, getCurrencySymbol } from '../lib/i18n'
-import { exportToExcel, exportToPDF } from '../utils/export'
+import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { exportToExcel, exportAllVehiclesExcel } from '../utils/export'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 
 const ELD_COUNTRIES = ['US','CA','DE','FR','PL','GB','NL','BE','AT','CZ','SK','IT','ES','SE','DK','FI','NO','HU','RO','BG','HR','LT','LV','EE','SI','IE','PT','GR','LU']
@@ -150,7 +150,9 @@ export default function Service({ userId, activeVehicleId, userRole }) {
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
   const [repairs, setRepairs] = useState([])
+  const [vehicles, setVehicles] = useState([])
   const [odometer, setOdometer] = useState(null)
+  const [profilePlate, setProfilePlate] = useState('')
   const [loading, setLoading] = useState(true)
 
   const SUB_TABS = getSubTabs(t, userRole)
@@ -162,19 +164,24 @@ export default function Service({ userId, activeVehicleId, userRole }) {
       const serviceRecs = await fetchServiceRecords(userId).catch(() => [])
       setRepairs(serviceRecs)
 
-      // Get odometer from profile
+      if (userRole === 'company') {
+        const vehs = await fetchVehicles(userId).catch(() => [])
+        setVehicles(vehs)
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
-        .select('odometer')
+        .select('odometer, plate_number, brand, model')
         .eq('id', userId)
         .single()
       if (profile?.odometer) setOdometer(profile.odometer)
+      if (profile?.plate_number) setProfilePlate(profile.plate_number)
     } catch (err) {
       console.error('Service loadData error:', err)
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, userRole])
 
   useEffect(() => {
     loadData()
@@ -221,7 +228,16 @@ export default function Service({ userId, activeVehicleId, userRole }) {
         ))}
       </div>
 
-      {activeTab === 'service' && <ServiceTab repairs={repairs} odometer={odometer} loading={loading} />}
+      {activeTab === 'service' && (
+        <ServiceTab
+          repairs={repairs}
+          odometer={odometer}
+          loading={loading}
+          userRole={userRole}
+          vehicles={vehicles}
+          profilePlate={profilePlate}
+        />
+      )}
       {activeTab === 'tires' && <TiresTab userId={userId} odometer={odometer} />}
       {activeTab === 'checklist' && (
         <ChecklistTab
@@ -236,44 +252,187 @@ export default function Service({ userId, activeVehicleId, userRole }) {
   )
 }
 
+function getServiceCategoryMap(t) {
+  return {
+    repair: { label: t('service.catRepair'), icon: '\uD83D\uDD27' },
+    oil_change: { label: t('service.catOilChange'), icon: '\uD83D\uDEE2\uFE0F' },
+    maintenance: { label: t('service.catMaintenance'), icon: '\uD83D\uDEE0\uFE0F' },
+    filters: { label: t('service.catFilters'), icon: '\uD83C\uDF2C\uFE0F' },
+    brakes: { label: t('service.catBrakes'), icon: '\uD83D\uDED1' },
+    electrical: { label: t('service.catElectrical'), icon: '\u26A1' },
+    bodywork: { label: t('service.catBodywork'), icon: '\uD83D\uDE97' },
+    diagnostics: { label: t('service.catDiagnostics'), icon: '\uD83D\uDD0D' },
+    belts_chains: { label: t('service.catBeltsChains'), icon: '\u26D3\uFE0F' },
+  }
+}
+
+function getDateRange(period, customFrom, customTo) {
+  const now = new Date()
+  let from, to
+  if (period === 'week') {
+    from = new Date(now)
+    from.setDate(from.getDate() - 7)
+  } else if (period === 'month') {
+    from = new Date(now.getFullYear(), now.getMonth(), 1)
+  } else if (period === 'custom' && customFrom) {
+    from = new Date(customFrom)
+  } else {
+    from = new Date(now.getFullYear(), now.getMonth(), 1)
+  }
+  to = (period === 'custom' && customTo) ? new Date(customTo + 'T23:59:59') : now
+  return { from, to }
+}
+
 /* ===== SERVICE TAB ===== */
-function ServiceTab({ repairs, odometer, loading }) {
+function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePlate }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
-  const [showExportMenu, setShowExportMenu] = useState(false)
-  const exportRef = useRef(null)
+  const unitSys = getUnits()
+  const distUnit = unitSys === 'imperial' ? 'mi' : t('trips.km')
 
-  useEffect(() => {
-    if (!showExportMenu) return
-    const handler = (e) => {
-      if (exportRef.current && !exportRef.current.contains(e.target)) {
-        setShowExportMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showExportMenu])
+  const [period, setPeriod] = useState('month')
+  const [customFrom, setCustomFrom] = useState('')
+  const [customTo, setCustomTo] = useState('')
+  const [selectedVehicleId, setSelectedVehicleId] = useState('all')
 
-  const handleExport = (format) => {
-    setShowExportMenu(false)
-    const columns = [
-      { header: t('fuel.exportDate'), key: 'date' },
-      { header: t('service.repair'), key: 'type' },
-      { header: t('fuel.exportDescription'), key: 'description' },
-      { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
-    ]
-    const rows = repairs.map(r => ({
-      date: r.date || '',
-      type: t('service.repair'),
-      description: r.description || r.name || '',
-      amount: Math.round(r.cost || 0),
-    }))
+  const isCompany = userRole === 'company'
+  const catMap = getServiceCategoryMap(t)
+
+  // Filter repairs by period
+  const { from: dateFrom, to: dateTo } = getDateRange(period, customFrom, customTo)
+  const filteredRepairs = repairs.filter(r => {
+    if (!r.date) return false
+    const d = new Date(r.date)
+    if (d < dateFrom || d > dateTo) return false
+    if (isCompany && selectedVehicleId !== 'all' && r.vehicle_id !== selectedVehicleId) return false
+    return true
+  })
+
+  const totalCost = filteredRepairs.reduce((s, r) => s + (r.cost || 0), 0)
+
+  // Build vehicle lookup
+  const vehMap = {}
+  ;(vehicles || []).forEach(v => { vehMap[v.id] = v })
+
+  const getVehicleLabel = (vid) => {
+    const v = vehMap[vid]
+    if (!v) return ''
+    return `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()
+  }
+
+  // Export
+  const handleExport = () => {
     const now2 = new Date()
-    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
-    if (format === 'excel') {
-      exportToExcel(rows, columns, `service_report_${ym}.xlsx`)
+    const ym = `${String(now2.getMonth() + 1).padStart(2, '0')}_${now2.getFullYear()}`
+
+    if (isCompany && selectedVehicleId === 'all') {
+      // Multi-sheet export for all vehicles
+      const columns = [
+        { header: t('fuel.exportDate'), key: 'date' },
+        { header: t('service.vehicleLabel'), key: 'vehicle' },
+        { header: t('service.categoryLabel'), key: 'category' },
+        { header: t('fuel.exportDescription'), key: 'description' },
+        { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
+        { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
+        { header: t('service.stoLabel'), key: 'sto' },
+      ]
+      const allRows = filteredRepairs.map(r => ({
+        date: r.date || '',
+        vehicle: getVehicleLabel(r.vehicle_id),
+        category: (catMap[r.category] || catMap.repair).label,
+        description: r.description || '',
+        amount: Math.round(r.cost || 0),
+        odometer: r.odometer || '',
+        sto: r.service_station || '',
+      }))
+
+      // Category summary
+      const catAgg = {}
+      filteredRepairs.forEach(r => {
+        const key = r.category || 'repair'
+        if (!catAgg[key]) catAgg[key] = { count: 0, amount: 0 }
+        catAgg[key].count++
+        catAgg[key].amount += (r.cost || 0)
+      })
+      const categoryData = Object.entries(catAgg).map(([k, v]) => ({
+        label: (catMap[k] || catMap.repair).label,
+        count: v.count,
+        amount: Math.round(v.amount),
+      }))
+
+      // Vehicle summary
+      const vehAgg = {}
+      filteredRepairs.forEach(r => {
+        const vid = r.vehicle_id || 'unknown'
+        if (!vehAgg[vid]) vehAgg[vid] = { count: 0, amount: 0 }
+        vehAgg[vid].count++
+        vehAgg[vid].amount += (r.cost || 0)
+      })
+      const vehicleSummary = Object.entries(vehAgg).map(([vid, v]) => {
+        const veh = vehMap[vid]
+        return {
+          name: veh ? `${veh.brand || ''} ${veh.model || ''}`.trim() : '',
+          plate: veh ? (veh.plate_number || '') : '',
+          driver: veh ? (veh.driver_name || '') : '',
+          amount: Math.round(v.amount),
+          count: v.count,
+        }
+      })
+
+      exportAllVehiclesExcel({
+        allRows,
+        columns,
+        categoryData,
+        vehicleSummary,
+        labels: {
+          total: t('service.totalLabel'),
+          category: t('service.categoryLabel'),
+          entriesCount: t('service.entriesCount'),
+          amount: t('fuel.exportAmount'),
+          vehicle: t('service.vehicleLabel'),
+          plate: t('service.plateLabel'),
+          driver: t('service.driverLabel'),
+        },
+        sheetNames: {
+          byDate: t('service.exportByDate'),
+          byCategory: t('service.exportByCategory'),
+          byVehicle: t('service.exportByVehicle'),
+        },
+        cs,
+        filename: `service_all_vehicles_${ym}.xlsx`,
+      })
     } else {
-      exportToPDF(rows, columns, t('service.repairHistory'), `service_report_${ym}.pdf`)
+      // Single vehicle export
+      let plate = ''
+      if (isCompany && selectedVehicleId !== 'all') {
+        const v = vehMap[selectedVehicleId]
+        plate = v ? (v.plate_number || '').replace(/\s/g, '_') : ''
+      } else {
+        // owner_operator — get plate from profile
+        plate = (profilePlate || '').replace(/\s/g, '_')
+      }
+      const columns = [
+        { header: t('fuel.exportDate'), key: 'date' },
+        { header: t('service.categoryLabel'), key: 'category' },
+        { header: t('fuel.exportDescription'), key: 'description' },
+        { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
+        { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
+        { header: t('service.stoLabel'), key: 'sto' },
+      ]
+      const rows = filteredRepairs.map(r => ({
+        date: r.date || '',
+        category: (catMap[r.category] || catMap.repair).label,
+        description: r.description || '',
+        amount: Math.round(r.cost || 0),
+        odometer: r.odometer || '',
+        sto: r.service_station || '',
+      }))
+      // Add totals row
+      const totalRow = { date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '' }
+      rows.push(totalRow)
+
+      const fn = plate ? `service_${plate}_${ym}.xlsx` : `service_report_${ym}.xlsx`
+      exportToExcel(rows, columns, fn)
     }
   }
 
@@ -285,142 +444,175 @@ function ServiceTab({ repairs, odometer, loading }) {
     )
   }
 
-  const totalRepair = repairs.reduce((s, r) => s + (r.cost || 0), 0)
+  const periodBtnStyle = (active) => ({
+    padding: '6px 12px',
+    borderRadius: '8px',
+    border: active ? 'none' : '1px solid var(--border)',
+    background: active ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--card)',
+    color: active ? '#000' : 'var(--dim)',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'pointer',
+    whiteSpace: 'nowrap',
+  })
 
   return (
     <>
-      {/* Export button */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px', paddingRight: 44 }}>
-        <div ref={exportRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowExportMenu(v => !v)}
+      {/* Vehicle filter (company only) */}
+      {isCompany && vehicles.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <select
+            value={selectedVehicleId}
+            onChange={(e) => setSelectedVehicleId(e.target.value)}
             style={{
-              padding: '8px 14px',
+              width: '100%',
+              padding: '10px 12px',
               borderRadius: '10px',
-              border: '1px solid var(--border, #1e2a3f)',
-              background: 'var(--card, #111827)',
-              color: 'var(--text, #e2e8f0)',
-              fontSize: '13px',
+              border: '1px solid var(--border)',
+              background: 'var(--card)',
+              color: 'var(--text)',
+              fontSize: '14px',
               fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
+              appearance: 'none',
+              WebkitAppearance: 'none',
             }}
           >
-            {'\ud83d\udce5'} {t('fuel.export')}
-          </button>
-          {showExportMenu && (
-            <div style={{
-              position: 'absolute',
-              right: 0,
-              top: '100%',
-              marginTop: '6px',
-              background: 'var(--card, #111827)',
-              border: '1px solid var(--border, #1e2a3f)',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              zIndex: 50,
-              minWidth: '160px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-            }}>
-              <button
-                onClick={() => handleExport('excel')}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: 'var(--text, #e2e8f0)',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
-              >
-                {'\ud83d\udcc4'} {t('fuel.exportExcel')}
-              </button>
-              <button
-                onClick={() => handleExport('pdf')}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: 'none',
-                  borderTop: '1px solid var(--border, #1e2a3f)',
-                  background: 'transparent',
-                  color: 'var(--text, #e2e8f0)',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
-              >
-                {'\ud83d\udcc3'} {t('fuel.exportPDF')}
-              </button>
-            </div>
-          )}
+            <option value="all">{t('service.allVehicles')}</option>
+            {vehicles.map(v => (
+              <option key={v.id} value={v.id}>
+                {`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()}
+              </option>
+            ))}
+          </select>
         </div>
+      )}
+
+      {/* Period filter */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+        <button style={periodBtnStyle(period === 'week')} onClick={() => setPeriod('week')}>
+          {t('service.periodWeek')}
+        </button>
+        <button style={periodBtnStyle(period === 'month')} onClick={() => setPeriod('month')}>
+          {t('service.periodMonth')}
+        </button>
+        <button style={periodBtnStyle(period === 'custom')} onClick={() => setPeriod('custom')}>
+          {t('service.periodCustom')}
+        </button>
       </div>
+      {period === 'custom' && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+          <span style={{ color: 'var(--dim)', fontSize: '12px' }}>{t('service.fromDate')}</span>
+          <input
+            type="date"
+            value={customFrom}
+            onChange={(e) => setCustomFrom(e.target.value)}
+            style={{
+              flex: 1, padding: '8px', borderRadius: '8px',
+              border: '1px solid var(--border)', background: 'var(--card)',
+              color: 'var(--text)', fontSize: '13px',
+            }}
+          />
+          <span style={{ color: 'var(--dim)', fontSize: '12px' }}>{t('service.toDate')}</span>
+          <input
+            type="date"
+            value={customTo}
+            onChange={(e) => setCustomTo(e.target.value)}
+            style={{
+              flex: 1, padding: '8px', borderRadius: '8px',
+              border: '1px solid var(--border)', background: 'var(--card)',
+              color: 'var(--text)', fontSize: '13px',
+            }}
+          />
+        </div>
+      )}
+
+      {/* Export button */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+        <button
+          onClick={handleExport}
+          style={{
+            padding: '8px 14px',
+            borderRadius: '10px',
+            border: '1px solid var(--border)',
+            background: 'var(--card)',
+            color: 'var(--text)',
+            fontSize: '13px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+          }}
+        >
+          {'\ud83d\udce5'} {t('fuel.exportExcel')}
+        </button>
+      </div>
+
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
         <div style={{ ...cardStyle, textAlign: 'center' }}>
-          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.repair')}</div>
+          <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.totalCost')}</div>
           <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444' }}>
-            {totalRepair.toLocaleString('ru-RU')} {'\u20BD'}
+            {totalCost.toLocaleString('en-US')} {cs}
           </div>
         </div>
         <div style={{ ...cardStyle, textAlign: 'center' }}>
           <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.odometer')}</div>
           <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
-            {odometer ? odometer.toLocaleString('ru-RU') : '\u2014'} {t('trips.km')}
+            {odometer ? odometer.toLocaleString('en-US') : '\u2014'} {distUnit}
           </div>
         </div>
       </div>
 
-      {/* Repair history */}
+      {/* Service history */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
-        {t('service.repairHistory')}
+        {t('service.serviceHistory')}
       </div>
-      {repairs.length === 0 ? (
+      {filteredRepairs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
-          {t('service.noRepairs')}
+          {t('service.noServiceRecords')}
         </div>
       ) : (
         <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
-          {repairs.map((r, i) => (
-            <div
-              key={r.id || i}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px',
-                padding: '14px 16px',
-                borderTop: i > 0 ? '1px solid var(--border)' : 'none',
-              }}
-            >
-              <div style={{
-                width: '40px', height: '40px', backgroundColor: 'var(--card2)',
-                borderRadius: '10px', display: 'flex', alignItems: 'center',
-                justifyContent: 'center', fontSize: '20px', flexShrink: 0,
-              }}>
-                {'\uD83D\uDD27'}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {r.description || r.name || t('service.repair')}
+          {filteredRepairs.map((r, i) => {
+            const cat = catMap[r.category] || catMap.repair
+            return (
+              <div
+                key={r.id || i}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '14px 16px',
+                  borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+                }}
+              >
+                <div style={{
+                  width: '40px', height: '40px', backgroundColor: 'var(--card2)',
+                  borderRadius: '10px', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', fontSize: '20px', flexShrink: 0,
+                }}>
+                  {cat.icon}
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
-                  {r.date || ''} {r.odometer ? `\u00b7 ${r.odometer.toLocaleString('ru-RU')} ${t('trips.km')}` : ''} {r.place ? `\u00b7 ${r.place}` : ''}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cat.label}{r.description ? ` \u2014 ${r.description}` : ''}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
+                    {r.date || ''}
+                    {r.odometer ? ` \u00b7 ${r.odometer.toLocaleString('en-US')} ${distUnit}` : ''}
+                    {r.service_station ? ` \u00b7 ${r.service_station}` : ''}
+                    {isCompany && r.vehicle_id ? ` \u00b7 ${getVehicleLabel(r.vehicle_id)}` : ''}
+                  </div>
+                </div>
+                <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
+                  {(r.cost || 0).toLocaleString('en-US')} {cs}
                 </div>
               </div>
-              <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
-                {(r.cost || 0).toLocaleString('ru-RU')} {'\u20BD'}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
-
     </>
   )
 }

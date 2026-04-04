@@ -234,6 +234,7 @@ export async function addServiceRecord(entry) {
   const row = {
     user_id: user.id,
     vehicle_id: entry.vehicle_id || null,
+    category: entry.category || 'repair',
     description: entry.name || '',
     service_station: entry.sto || '',
     cost: parseFloat(entry.amount) || 0,

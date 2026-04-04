@@ -316,10 +316,33 @@ function BytFields({ form, onChange, theme, inputStyle, t, cs }) {
   )
 }
 
+function getServiceCategories(t) {
+  return [
+    { value: 'repair', label: t('service.catRepair') },
+    { value: 'oil_change', label: t('service.catOilChange') },
+    { value: 'maintenance', label: t('service.catMaintenance') },
+    { value: 'filters', label: t('service.catFilters') },
+    { value: 'brakes', label: t('service.catBrakes') },
+    { value: 'electrical', label: t('service.catElectrical') },
+    { value: 'bodywork', label: t('service.catBodywork') },
+    { value: 'diagnostics', label: t('service.catDiagnostics') },
+    { value: 'belts_chains', label: t('service.catBeltsChains') },
+  ]
+}
+
 function RepairFields({ form, onChange, theme, inputStyle, t, cs, unitSys }) {
   const odomLabel = t('addModal.odometer') + (unitSys === 'imperial' ? ' (mi)' : ' (' + t('addModal.kmShort') + ')')
+  const selectStyle = { ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }
+  const categories = getServiceCategories(t)
   return (
     <>
+      <FieldGroup label={t('service.categoryLabel')} theme={theme}>
+        <select style={selectStyle} value={form.category || 'repair'} onChange={(e) => onChange('category', e.target.value)}>
+          {categories.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+      </FieldGroup>
       <FieldGroup label={t('addModal.workDescription')} theme={theme}>
         <input style={inputStyle} placeholder={t('addModal.whatDone')} value={form.name || ''} onChange={(e) => onChange('name', e.target.value)} />
       </FieldGroup>

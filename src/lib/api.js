@@ -754,6 +754,7 @@ export async function addTireRecord(entry) {
     vehicle_id: entry.vehicle_id || null,
     brand: entry.brand || '',
     model: entry.model || '',
+    size: entry.size || '',
     position: entry.position || '',
     installed_at: entry.installed_at || new Date().toISOString().slice(0, 10),
     installed_odometer: parseInt(entry.installed_odometer, 10) || 0,
@@ -777,6 +778,7 @@ export async function updateTireRecord(id, entry) {
   const updates = {}
   if (entry.brand !== undefined) updates.brand = entry.brand
   if (entry.model !== undefined) updates.model = entry.model
+  if (entry.size !== undefined) updates.size = entry.size
   if (entry.position !== undefined) updates.position = entry.position
   if (entry.installed_at !== undefined) updates.installed_at = entry.installed_at
   if (entry.installed_odometer !== undefined) updates.installed_odometer = parseInt(entry.installed_odometer, 10) || 0
@@ -794,6 +796,16 @@ export async function updateTireRecord(id, entry) {
     throw error
   }
   return data
+}
+
+export async function getTireRecordsByVehicle(vehicleId) {
+  const { data, error } = await supabase
+    .from('tire_records')
+    .select('*')
+    .eq('vehicle_id', vehicleId)
+    .order('installed_at', { ascending: false })
+  if (error) throw error
+  return data || []
 }
 
 export async function deleteTireRecord(id) {

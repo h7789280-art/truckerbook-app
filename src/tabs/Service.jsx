@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchVehicles, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchVehicles, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import DVIRInspection from '../components/DVIRInspection'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
@@ -33,12 +33,12 @@ function getSubTabs(t, userRole) {
 
 function getTirePositions(t) {
   return [
-    { key: 'front_left', label: t('service.frontLeft') },
-    { key: 'front_right', label: t('service.frontRight') },
-    { key: 'rear_left_outer', label: t('service.rearLeftOuter') },
-    { key: 'rear_left_inner', label: t('service.rearLeftInner') },
-    { key: 'rear_right_outer', label: t('service.rearRightOuter') },
-    { key: 'rear_right_inner', label: t('service.rearRightInner') },
+    { key: 'FL', label: 'FL \u2014 ' + t('service.frontLeft') },
+    { key: 'FR', label: 'FR \u2014 ' + t('service.frontRight') },
+    { key: 'RL1', label: 'RL1 \u2014 ' + t('service.rearLeftOuter') },
+    { key: 'RL2', label: 'RL2 \u2014 ' + t('service.rearLeftInner') },
+    { key: 'RR1', label: 'RR1 \u2014 ' + t('service.rearRightOuter') },
+    { key: 'RR2', label: 'RR2 \u2014 ' + t('service.rearRightInner') },
     { key: 'spare', label: t('service.spare') },
   ]
 }
@@ -153,6 +153,9 @@ export default function Service({ userId, activeVehicleId, userRole }) {
   const [vehicles, setVehicles] = useState([])
   const [odometer, setOdometer] = useState(null)
   const [profilePlate, setProfilePlate] = useState('')
+  const [profileBrand, setProfileBrand] = useState('')
+  const [profileModel, setProfileModel] = useState('')
+  const [profileDriverName, setProfileDriverName] = useState('')
   const [loading, setLoading] = useState(true)
 
   const SUB_TABS = getSubTabs(t, userRole)
@@ -171,11 +174,14 @@ export default function Service({ userId, activeVehicleId, userRole }) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('odometer, plate_number, brand, model')
+        .select('odometer, plate_number, brand, model, name')
         .eq('id', userId)
         .single()
       if (profile?.odometer) setOdometer(profile.odometer)
       if (profile?.plate_number) setProfilePlate(profile.plate_number)
+      if (profile?.brand) setProfileBrand(profile.brand)
+      if (profile?.model) setProfileModel(profile.model)
+      if (profile?.name) setProfileDriverName(profile.name)
     } catch (err) {
       console.error('Service loadData error:', err)
     } finally {
@@ -238,7 +244,18 @@ export default function Service({ userId, activeVehicleId, userRole }) {
           profilePlate={profilePlate}
         />
       )}
-      {activeTab === 'tires' && <TiresTab userId={userId} odometer={odometer} />}
+      {activeTab === 'tires' && (
+        <TiresTab
+          userId={userId}
+          odometer={odometer}
+          userRole={userRole}
+          vehicles={vehicles}
+          profilePlate={profilePlate}
+          profileBrand={profileBrand}
+          profileModel={profileModel}
+          profileDriverName={profileDriverName}
+        />
+      )}
       {activeTab === 'checklist' && (
         <ChecklistTab
           checkedItems={checkedItems}
@@ -618,30 +635,57 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
 }
 
 /* ===== TIRES TAB ===== */
-function TiresTab({ userId, odometer }) {
+
+function TiresTab({ userId, odometer, userRole, vehicles, profilePlate, profileBrand, profileModel, profileDriverName }) {
   const { t } = useLanguage()
+  const isCompany = userRole === 'company'
+  const isOwnerOp = userRole === 'owner_operator'
+  const isSchemaView = isCompany || isOwnerOp
+
   const [tires, setTires] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editTire, setEditTire] = useState(null)
+  const [editPosition, setEditPosition] = useState(null)
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
 
   const TIRE_POSITIONS = getTirePositions(t)
   const TIRE_CONDITIONS = getTireConditions(t)
   const TIRE_POSITION_LABELS = Object.fromEntries(TIRE_POSITIONS.map(p => [p.key, p.label]))
   const TIRE_CONDITION_MAP = Object.fromEntries(TIRE_CONDITIONS.map(c => [c.key, c]))
 
+  // For company: set first vehicle as default
+  useEffect(() => {
+    if (isCompany && vehicles?.length > 0 && !selectedVehicleId) {
+      setSelectedVehicleId(vehicles[0].id)
+    }
+  }, [isCompany, vehicles, selectedVehicleId])
+
+  const selectedVehicle = isCompany
+    ? vehicles?.find(v => v.id === selectedVehicleId) || null
+    : null
+
+  const currentOdometer = isCompany
+    ? (selectedVehicle?.odometer || 0)
+    : (odometer || 0)
+
   const loadTires = useCallback(async () => {
     if (!userId) return
     try {
       setLoading(true)
-      const data = await getTireRecords(userId)
-      setTires(data)
+      if (isCompany && selectedVehicleId) {
+        const data = await getTireRecordsByVehicle(selectedVehicleId)
+        setTires(data)
+      } else {
+        const data = await getTireRecords(userId)
+        setTires(data)
+      }
     } catch (err) {
       console.error('loadTires error:', err)
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, isCompany, selectedVehicleId])
 
   useEffect(() => {
     loadTires()
@@ -651,7 +695,7 @@ function TiresTab({ userId, odometer }) {
     if (!confirm(t('service.deleteTire'))) return
     try {
       await deleteTireRecord(id)
-      setTires(prev => prev.filter(t => t.id !== id))
+      setTires(prev => prev.filter(tr => tr.id !== id))
     } catch (err) {
       console.error('deleteTire error:', err)
     }
@@ -659,17 +703,32 @@ function TiresTab({ userId, odometer }) {
 
   const handleEdit = (tire) => {
     setEditTire(tire)
+    setEditPosition(null)
     setShowModal(true)
   }
 
   const handleAdd = () => {
     setEditTire(null)
+    setEditPosition(null)
+    setShowModal(true)
+  }
+
+  const handlePositionClick = (posKey) => {
+    const existing = tires.find(tr => tr.position === posKey)
+    if (existing) {
+      setEditTire(existing)
+      setEditPosition(null)
+    } else {
+      setEditTire(null)
+      setEditPosition(posKey)
+    }
     setShowModal(true)
   }
 
   const handleSaved = () => {
     setShowModal(false)
     setEditTire(null)
+    setEditPosition(null)
     loadTires()
   }
 
@@ -687,6 +746,163 @@ function TiresTab({ userId, odometer }) {
     )
   }
 
+  // ===== Schema view for company / owner_operator =====
+  if (isSchemaView) {
+    const tireByPos = {}
+    tires.forEach(tr => { if (tr.position) tireByPos[tr.position] = tr })
+
+    const renderWheelCard = (posKey) => {
+      const tire = tireByPos[posKey]
+      const kmDriven = tire && currentOdometer && tire.installed_odometer
+        ? Math.max(0, currentOdometer - tire.installed_odometer)
+        : null
+      const cond = tire ? (TIRE_CONDITION_MAP[tire.condition] || { color: 'var(--dim)' }) : null
+      const hasTire = !!tire
+
+      return (
+        <div
+          key={posKey}
+          onClick={() => handlePositionClick(posKey)}
+          style={{
+            ...cardStyle,
+            cursor: 'pointer',
+            flex: '1 1 45%',
+            minWidth: '140px',
+            maxWidth: '48%',
+            borderLeft: hasTire ? `3px solid ${cond?.color || '#f59e0b'}` : '3px solid var(--border)',
+            position: 'relative',
+          }}
+        >
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#f59e0b', marginBottom: '6px' }}>
+            {posKey}
+          </div>
+          {hasTire ? (
+            <>
+              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {tire.brand}{tire.model ? ' ' + tire.model : ''}
+              </div>
+              {tire.size ? (
+                <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '2px' }}>
+                  {t('service.tireSize')}: {tire.size}
+                </div>
+              ) : null}
+              <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '2px' }}>
+                {t('service.installDate')}: {formatDate(tire.installed_at)}
+              </div>
+              {tire.installed_odometer ? (
+                <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '2px' }}>
+                  {t('service.installOdometer')}: {tire.installed_odometer.toLocaleString('ru-RU')}
+                </div>
+              ) : null}
+              {kmDriven !== null ? (
+                <div style={{ fontSize: '11px', fontWeight: 600, color: cond?.color || 'var(--dim)' }}>
+                  {t('service.tireMileage')}: {kmDriven.toLocaleString('ru-RU')} {t('trips.km')}
+                </div>
+              ) : null}
+            </>
+          ) : (
+            <div style={{ fontSize: '12px', color: 'var(--dim)', fontStyle: 'italic' }}>
+              {t('service.noTireInstalled')}
+            </div>
+          )}
+        </div>
+      )
+    }
+
+    return (
+      <>
+        {/* Vehicle selector for company */}
+        {isCompany && vehicles?.length > 0 && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '6px' }}>{t('service.selectVehicle')}</div>
+            <select
+              value={selectedVehicleId || ''}
+              onChange={e => setSelectedVehicleId(e.target.value)}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: '10px',
+                border: '1px solid var(--border)', background: 'var(--bg)',
+                color: 'var(--text)', fontSize: '14px', boxSizing: 'border-box',
+              }}
+            >
+              {vehicles.map(v => (
+                <option key={v.id} value={v.id}>
+                  {v.brand} {v.model} {v.plate_number ? `\u00b7 ${v.plate_number}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Vehicle info card */}
+        <div style={{ ...cardStyle, marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '44px', height: '44px', borderRadius: '12px',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '22px', flexShrink: 0,
+          }}>
+            {'\uD83D\uDE9B'}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)' }}>
+              {isCompany
+                ? `${selectedVehicle?.brand || ''} ${selectedVehicle?.model || ''}`
+                : `${profileBrand} ${profileModel}`
+              }
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
+              {isCompany && selectedVehicle?.driver_name
+                ? `${t('service.driverLabel')}: ${selectedVehicle.driver_name} \u00b7 `
+                : isOwnerOp && profileDriverName
+                  ? `${t('service.driverLabel')}: ${profileDriverName} \u00b7 `
+                  : ''
+              }
+              {t('service.plateLabel')}: {isCompany ? (selectedVehicle?.plate_number || '\u2014') : (profilePlate || '\u2014')}
+            </div>
+          </div>
+        </div>
+
+        {/* Wheel positions title */}
+        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', marginBottom: '10px' }}>
+          {t('service.wheelPositions')}
+        </div>
+
+        {/* Front axle */}
+        <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {t('service.frontAxle')}
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
+          {renderWheelCard('FL')}
+          {renderWheelCard('FR')}
+        </div>
+
+        {/* Rear axle */}
+        <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          {t('service.rearAxle')}
+        </div>
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '14px', flexWrap: 'wrap' }}>
+          {renderWheelCard('RL1')}
+          {renderWheelCard('RL2')}
+          {renderWheelCard('RR2')}
+          {renderWheelCard('RR1')}
+        </div>
+
+        {showModal && (
+          <TireModal
+            userId={userId}
+            vehicleId={isCompany ? selectedVehicleId : null}
+            tire={editTire}
+            defaultPosition={editPosition}
+            onClose={() => { setShowModal(false); setEditTire(null); setEditPosition(null) }}
+            onSaved={handleSaved}
+            onDelete={editTire ? () => handleDelete(editTire.id) : null}
+          />
+        )}
+      </>
+    )
+  }
+
+  // ===== List view for driver (hired) — existing behavior =====
   return (
     <>
       <button
@@ -804,13 +1020,14 @@ function TiresTab({ userId, odometer }) {
 }
 
 /* ===== TIRE MODAL ===== */
-function TireModal({ userId, tire, onClose, onSaved }) {
+function TireModal({ userId, vehicleId, tire, defaultPosition, onClose, onSaved, onDelete }) {
   const { t } = useLanguage()
   const TIRE_POSITIONS = getTirePositions(t)
   const TIRE_CONDITIONS = getTireConditions(t)
   const [brand, setBrand] = useState(tire?.brand || '')
   const [model, setModel] = useState(tire?.model || '')
-  const [position, setPosition] = useState(tire?.position || 'front_left')
+  const [size, setSize] = useState(tire?.size || '')
+  const [position, setPosition] = useState(tire?.position || defaultPosition || 'front_left')
   const [installedAt, setInstalledAt] = useState(tire?.installed_at?.slice(0, 10) || new Date().toISOString().slice(0, 10))
   const [installedOdometer, setInstalledOdometer] = useState(tire?.installed_odometer?.toString() || '')
   const [condition, setCondition] = useState(tire?.condition || 'new')
@@ -823,9 +1040,10 @@ function TireModal({ userId, tire, onClose, onSaved }) {
     setSaving(true)
     try {
       const entry = {
-        vehicle_id: null,
+        vehicle_id: vehicleId || null,
         brand: brand.trim(),
         model: model.trim(),
+        size: size.trim(),
         position,
         installed_at: installedAt,
         installed_odometer: installedOdometer,
@@ -899,6 +1117,18 @@ function TireModal({ userId, tire, onClose, onSaved }) {
             value={model}
             onChange={e => setModel(e.target.value)}
             placeholder="X Line Energy, EcoPlus..."
+            style={inputStyle}
+          />
+        </div>
+
+        {/* Size */}
+        <div style={{ marginBottom: '14px' }}>
+          <div style={labelStyle}>{t('service.tireSize')}</div>
+          <input
+            type="text"
+            value={size}
+            onChange={e => setSize(e.target.value)}
+            placeholder="315/80 R22.5"
             style={inputStyle}
           />
         </div>
@@ -979,6 +1209,21 @@ function TireModal({ userId, tire, onClose, onSaved }) {
         >
           {saving ? t('common.saving') : t('common.save')}
         </button>
+
+        {/* Delete button (when editing existing tire) */}
+        {tire && onDelete && (
+          <button
+            onClick={() => { onDelete(); onClose() }}
+            style={{
+              width: '100%', padding: '12px', borderRadius: '12px',
+              border: '1px solid #ef4444', background: 'transparent',
+              color: '#ef4444', fontSize: '14px', fontWeight: 600,
+              cursor: 'pointer', marginTop: '10px',
+            }}
+          >
+            {t('service.deleteTire')}
+          </button>
+        )}
       </div>
     </div>
   )

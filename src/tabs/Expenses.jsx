@@ -75,22 +75,23 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
             onChange={e => setFilterVehicleId(e.target.value)}
             style={{
               width: '100%',
-              padding: '10px 12px',
+              minHeight: '48px',
+              padding: '12px 16px',
               borderRadius: '10px',
               border: '1px solid var(--border, #1e2a3f)',
               background: 'var(--card, #111827)',
               color: 'var(--text, #e2e8f0)',
-              fontSize: '14px',
+              fontSize: '16px',
               fontWeight: 500,
               cursor: 'pointer',
               outline: 'none',
               appearance: 'auto',
             }}
           >
-            <option value="all">{t('expenses.allVehicles')}</option>
+            <option value="all">{'\uD83D\uDE9B'} {t('expenses.allVehicles')}</option>
             {vehicles.map(v => (
               <option key={v.id} value={v.id}>
-                {`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim() || v.id}
+                {'\uD83D\uDE9B'} {`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim() || v.id}
               </option>
             ))}
           </select>

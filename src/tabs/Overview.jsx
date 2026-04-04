@@ -1060,20 +1060,24 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     <span style={{ fontSize: '13px', color: theme.text }}>{t('overview.fleetFree')}: {freeVehicles}</span>
                   </div>
                 </div>
-                {/* Inline trips toggle */}
+                {/* Inline trips card */}
+                <div style={{ ...cardStyle, marginBottom: '12px', padding: 0, overflow: 'hidden' }}>
                 <div
                   onClick={() => setShowInlineTrips(v => !v)}
                   style={{
-                    textAlign: 'center',
-                    padding: '10px 16px',
-                    marginBottom: showInlineTrips ? '0' : '12px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '12px 16px',
                     cursor: 'pointer',
                     color: '#f59e0b',
                     fontSize: '14px',
                     fontWeight: 600,
+                    userSelect: 'none',
                   }}
                 >
-                  {t('overview.goToTrips')} {showInlineTrips ? '\u25b2' : '\u25bc'}
+                  <span>{t('overview.goToTrips')}</span>
+                  <span style={{ transition: 'transform 0.2s', transform: showInlineTrips ? 'rotate(180deg)' : 'rotate(0deg)' }}>{'\u25bc'}</span>
                 </div>
                 {/* Inline trips block */}
                 {showInlineTrips && (() => {
@@ -1122,7 +1126,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   }
                   const fmtNum = (n) => n.toLocaleString('ru-RU')
                   return (
-                    <div style={{ ...cardStyle, marginBottom: '12px' }}>
+                    <div style={{ padding: '0 16px 16px' }}>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: theme.text, letterSpacing: '1px', marginBottom: '12px' }}>
                         {t('overview.inlineTripsTitle')}
                       </div>
@@ -1271,6 +1275,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     </div>
                   )
                 })()}
+                </div>
               </>
             )
           })()}

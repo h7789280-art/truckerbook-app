@@ -981,35 +981,63 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               )}
             </div>
           </div>
-          {/* Summary cards — horizontal scroll */}
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            overflowX: 'auto',
-            paddingBottom: '8px',
-            marginBottom: '12px',
-            WebkitOverflowScrolling: 'touch',
-          }}>
-            {[
-              { label: t('overview.fleetVehicles'), value: String(fleetData.totalVehicles + (profile?.brand ? 1 : 0)), icon: '\ud83d\ude9b', color: '#3b82f6' },
-              { label: t('overview.fleetIncome'), value: formatNumber(Math.round(fleetData.totalIncome)) + ' ' + cs, icon: '\ud83d\udcb0', color: '#22c55e' },
-              { label: t('overview.fleetExpense'), value: formatNumber(Math.round(fleetData.totalExpenses)) + ' ' + cs, icon: '\ud83d\udcc9', color: '#ef4444' },
-              { label: t('overview.fleetMileage'), value: formatNumber(Math.round(fleetData.totalKm)) + ' ' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udee3\ufe0f', color: '#f59e0b' },
-              { label: t('overview.fleetTrips'), value: String(fleetData.tripCount), icon: '\ud83d\ude9a', color: '#8b5cf6' },
-            ].map((item, i) => (
-              <div key={i} style={{
-                ...cardStyle,
-                minWidth: '130px',
-                flex: '0 0 auto',
-                textAlign: 'center',
-                padding: '12px 10px',
-              }}>
-                <div style={{ fontSize: '20px', marginBottom: '4px' }}>{item.icon}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: item.color }}>{item.value}</div>
-                <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
-              </div>
-            ))}
-          </div>
+          {/* Summary cards — compact 2x2 grid */}
+          {(() => {
+            const fleetVehicleCount = fleetData.totalVehicles + (profile?.brand ? 1 : 0)
+            const fleetIncome = fleetData.totalIncome
+            const fleetExpense = fleetData.totalExpenses
+            const fleetGross = fleetIncome - fleetExpense
+            const onTrip = fleetData.onTripCount || 0
+            const freeVehicles = Math.max(0, fleetVehicleCount - onTrip)
+            const gridItems = [
+              { label: t('overview.fleetVehicles'), value: String(fleetVehicleCount), color: '#3b82f6' },
+              { label: t('overview.fleetIncome'), value: formatNumber(Math.round(fleetIncome)) + ' ' + cs, color: '#22c55e' },
+              { label: t('overview.fleetExpense'), value: formatNumber(Math.round(fleetExpense)) + ' ' + cs, color: '#ef4444' },
+              { label: t('overview.grossProfit'), value: (fleetGross >= 0 ? '+' : '') + formatNumber(Math.round(fleetGross)) + ' ' + cs, color: fleetGross >= 0 ? '#22c55e' : '#ef4444' },
+            ]
+            return (
+              <>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gap: '8px',
+                  marginBottom: '10px',
+                }}>
+                  {gridItems.map((item, i) => (
+                    <div key={i} style={{
+                      ...cardStyle,
+                      textAlign: 'center',
+                      padding: '10px 8px',
+                    }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: item.color }}>{item.value}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+                {/* Fleet status — one row */}
+                <div style={{
+                  ...cardStyle,
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: '24px',
+                  padding: '10px 16px',
+                  marginBottom: '12px',
+                }}>
+                  <div style={{ fontSize: '12px', color: theme.dim }}>
+                    {t('overview.fleetStatusTitle')}:
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }} />
+                    <span style={{ fontSize: '13px', color: theme.text }}>{t('overview.fleetOnTrip')}: {onTrip}</span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#64748b' }} />
+                    <span style={{ fontSize: '13px', color: theme.text }}>{t('overview.fleetFree')}: {freeVehicles}</span>
+                  </div>
+                </div>
+              </>
+            )
+          })()}
         </div>
       )}
 
@@ -1738,36 +1766,35 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   const fleetExpense = fleetData ? fleetData.totalExpenses : totalExpenses
                   const fleetGrossProfit = fleetIncome - fleetExpense
                   const fleetNetProfit = fleetGrossProfit - fleetTotalSalary
+                  const fleetVehicleCount = fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : 1
                   return (
                     <>
-                      <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83c\udfe2'} {t('overview.fleetFinances') || '\u0424\u0438\u043d\u0430\u043d\u0441\u044b \u043f\u0430\u0440\u043a\u0430'} — {getMonthName(new Date())}</div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <div>
-                          <div style={dimText}>{t('overview.income')}</div>
-                          <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
-                            {formatNumber(Math.round(fleetIncome))} {cs}
-                          </div>
+                      <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83c\udfe2'} {t('overview.fleetFinances')} — {getMonthName(new Date())}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>{fleetVehicleCount}</div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetVehicles')}</div>
                         </div>
-                        <div style={{ textAlign: 'right' }}>
-                          <div style={dimText}>{t('overview.expense')}</div>
-                          <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
-                            {formatNumber(Math.round(fleetExpense))} {cs}
-                          </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{formatNumber(Math.round(fleetIncome))} {cs}</div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetIncome')}</div>
                         </div>
-                      </div>
-                      <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
-                        <div style={dimText}>{t('overview.grossProfit') || '\u0412\u0430\u043b\u043e\u0432\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c'}</div>
-                        <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: fleetGrossProfit >= 0 ? '#22c55e' : '#ef4444' }}>
-                          {fleetGrossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(fleetGrossProfit))} {cs}
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>{formatNumber(Math.round(fleetExpense))} {cs}</div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetExpense')}</div>
+                        </div>
+                        <div style={{ textAlign: 'center' }}>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: fleetGrossProfit >= 0 ? '#22c55e' : '#ef4444' }}>{fleetGrossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(fleetGrossProfit))} {cs}</div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.grossProfit')}</div>
                         </div>
                       </div>
                       {fleetTotalSalary > 0 && (
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed ' + theme.border }}>
                           <div style={{ fontSize: '12px', color: theme.dim }}>
-                            {t('overview.salariesLabel') || '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u044b'}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(fleetTotalSalary))} {cs}</span>
+                            {t('overview.salariesLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(fleetTotalSalary))} {cs}</span>
                           </div>
                           <div style={{ fontSize: '12px', color: theme.dim }}>
-                            {t('overview.netLabel') || '\u0427\u0438\u0441\u0442\u0430\u044f'}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: fleetNetProfit >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(fleetNetProfit))} {cs}</span>
+                            {t('overview.netLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: fleetNetProfit >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(fleetNetProfit))} {cs}</span>
                           </div>
                         </div>
                       )}

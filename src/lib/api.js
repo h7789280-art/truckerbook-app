@@ -1260,6 +1260,11 @@ export async function fetchFleetSummary(userId) {
     }
   })
 
+  // Active driving sessions (no ended_at) = vehicles on trip
+  const onTripCount = new Set(
+    shifts.filter(sh => !sh.ended_at).map(sh => sh.vehicle_id).filter(Boolean)
+  ).size
+
   return {
     vehicles,
     vehicleStats,
@@ -1268,6 +1273,7 @@ export async function fetchFleetSummary(userId) {
     totalExpenses,
     totalKm,
     tripCount,
+    onTripCount,
   }
 }
 

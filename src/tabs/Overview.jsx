@@ -614,7 +614,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
   const greeting = getGreeting(profileName, t)
   const isCompanyRole = profile?.role === 'company'
-  const isHiredDriver = profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent'
+  const role = profile?.role || 'owner_operator'
+  const isHiredDriver = role === 'driver' || profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent'
   const totalExpenses = monthData.fuelCost + (isCompanyRole ? 0 : monthData.bytCost) + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
 
@@ -1442,8 +1443,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         ))}
       </div>
 
-      {/* Shift blocks — hidden for company role (fleet owner doesn't drive) */}
-      {!isCompanyRole && (<>
+      {/* Shift blocks — hidden for company and job_seeker roles */}
+      {role !== 'company' && role !== 'job_seeker' && (<>
       {/* Combined Shift + HOS card */}
       <div ref={shiftBlockRef} style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {t('overview.shift')}</div>
@@ -2028,8 +2029,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       })()}
       </>)}
 
-      {/* Quick links — for non-company roles, shown here (before finance); for company — shown inside loading block at bottom */}
-      {onExtraNav && userRole !== 'job_seeker' && !isCompanyRole && (
+      {/* Quick links — for owner_operator only, shown here (before finance); for company/driver — shown inside loading block at bottom */}
+      {onExtraNav && role !== 'job_seeker' && role !== 'company' && role !== 'driver' && (
         <div style={{ ...cardStyle, marginBottom: '12px' }}>
           <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
           <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -2069,13 +2070,55 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       )}
 
-      {loading ? (
+      {/* Job seeker — only quick links */}
+      {role === 'job_seeker' && onExtraNav && (
+        <div style={{ ...cardStyle, marginBottom: '12px' }}>
+          <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {[
+              { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs') },
+              { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews') },
+              { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace') },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => onExtraNav(item.key)}
+                style={{
+                  flex: '0 0 80px',
+                  width: '80px',
+                  height: '80px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  background: theme.card,
+                  border: '1px solid ' + theme.border,
+                  borderRadius: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+                onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <span style={{ fontSize: '28px', lineHeight: 1 }}>{item.icon}</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: theme.text, lineHeight: 1.2, textAlign: 'center' }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {role !== 'job_seeker' && (loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
           {t('common.loading')}
         </div>
       ) : (
         <>
-          {/* Finance card — 3 modes: hired driver / owner-operator / fleet owner */}
+          {/* Finance card — 3 modes: hired driver / owner-operator / fleet owner (hidden for job_seeker) */}
+          {role !== 'job_seeker' && (
           <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
             <div style={{ position: 'absolute', top: '12px', right: '12px', fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
             {isCompanyRole ? (
@@ -2239,8 +2282,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               )
             })()}
           </div>
+          )}
 
-          {/* Mini cards — mode-specific */}
+          {/* Mini cards — mode-specific (hidden for job_seeker and driver) */}
+          {role !== 'job_seeker' && role !== 'driver' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {(isCompanyRole ? [
               { label: t('overview.fleetVehicles') || '\u041c\u0430\u0448\u0438\u043d', value: String(fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : (profile?.brand ? 1 : 0)), unit: '', icon: '\ud83d\ude9b', action: () => {} },
@@ -2265,12 +2310,15 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             ))}
           </div>
+          )}
 
-          {/* AI Forecast */}
-          <AIForecast userId={userId} activeVehicleId={activeVehicleId} />
+          {/* AI Forecast — hidden for job_seeker and driver */}
+          {role !== 'job_seeker' && role !== 'driver' && (
+            <AIForecast userId={userId} activeVehicleId={activeVehicleId} />
+          )}
 
-          {/* Achievements preview — hidden for company role */}
-          {!isCompanyRole && (
+          {/* Achievements preview — hidden for job_seeker */}
+          {role !== 'job_seeker' && (
           <div
             style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer' }}
             onClick={() => setShowAchievements(true)}
@@ -2303,8 +2351,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
-          {/* Quick links — for company role, shown at bottom */}
-          {isCompanyRole && onExtraNav && (
+          {/* Quick links — for company and driver roles, shown at bottom */}
+          {(isCompanyRole || role === 'driver') && onExtraNav && (
             <div style={{ ...cardStyle, marginBottom: '12px' }}>
               <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
               <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
@@ -2345,7 +2393,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           )}
 
           {/* Reminders */}
-          {reminders.length > 0 && (
+          {role !== 'job_seeker' && reminders.length > 0 && (
             <div style={{ ...cardStyle }}>
               <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udd14'} {t('overview.reminders')}</div>
               {reminders.map((r, i) => (
@@ -2366,7 +2414,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             </div>
           )}
         </>
-      )}
+      ))}
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
       `}</style>

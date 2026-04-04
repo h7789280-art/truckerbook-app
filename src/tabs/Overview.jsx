@@ -1038,6 +1038,48 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </>
             )
           })()}
+          {/* Vehicle cards — driver-first */}
+          {fleetData.vehicleStats.map((v) => (
+            <div
+              key={v.id}
+              onClick={() => {
+                if (typeof activeVehicleId !== 'undefined') {
+                  const event = new CustomEvent('switchVehicle', { detail: v.id })
+                  window.dispatchEvent(event)
+                }
+              }}
+              style={{
+                ...cardStyle,
+                marginBottom: '8px',
+                cursor: 'pointer',
+                borderLeft: activeVehicleId === v.id ? '3px solid #f59e0b' : '3px solid transparent',
+                transition: 'border-color 0.2s',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 700 }}>
+                    {v.driver_name || t('overview.fleetNoDriver')}
+                  </div>
+                  {v.plate_number && <div style={{ fontSize: '13px', color: theme.dim, marginTop: '2px' }}>{v.plate_number}</div>}
+                  <div style={{ fontSize: '12px', color: theme.dim }}>{v.brand} {v.model}</div>
+                </div>
+                <span style={{
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  padding: '3px 10px',
+                  borderRadius: '12px',
+                  background: v.isOnTrip ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)',
+                  color: v.isOnTrip ? '#22c55e' : '#64748b',
+                }}>{v.isOnTrip ? t('overview.fleetBadgeOnTrip') : t('overview.fleetBadgeFree')}</span>
+              </div>
+              <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: theme.text }}>
+                <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                <span>{'\u26fd'} {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
+                <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

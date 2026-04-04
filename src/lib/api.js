@@ -1247,6 +1247,12 @@ export async function fetchFleetSummary(userId) {
   const totalKm = shifts.reduce((s, sh) => s + (sh.km_driven || 0), 0)
   const tripCount = trips.length
 
+  // Active driving sessions (no ended_at) = vehicles on trip
+  const onTripVehicleIds = new Set(
+    shifts.filter(sh => !sh.ended_at).map(sh => sh.vehicle_id).filter(Boolean)
+  )
+  const onTripCount = onTripVehicleIds.size
+
   // Per-vehicle stats
   const vehicleStats = vehicles.map(v => {
     const vFuel = fuels.filter(f => f.vehicle_id === v.id).reduce((s, e) => s + (e.cost || 0), 0)
@@ -1257,13 +1263,9 @@ export async function fetchFleetSummary(userId) {
       monthFuelCost: vFuel,
       monthTrips: vTrips.length,
       monthKm: vKm,
+      isOnTrip: onTripVehicleIds.has(v.id),
     }
   })
-
-  // Active driving sessions (no ended_at) = vehicles on trip
-  const onTripCount = new Set(
-    shifts.filter(sh => !sh.ended_at).map(sh => sh.vehicle_id).filter(Boolean)
-  ).size
 
   return {
     vehicles,

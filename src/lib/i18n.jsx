@@ -656,6 +656,8 @@ const translations = {
       fleetStatusTitle: '\u0421\u0442\u0430\u0442\u0443\u0441 \u043f\u0430\u0440\u043a\u0430',
       fleetOnTrip: '\u0412 \u0440\u0435\u0439\u0441\u0435',
       fleetFree: '\u0421\u0432\u043e\u0431\u043e\u0434\u043d\u044b',
+      fleetBadgeOnTrip: '\u0412 \u0440\u0435\u0439\u0441\u0435',
+      fleetBadgeFree: '\u0421\u0432\u043e\u0431\u043e\u0434\u0435\u043d',
       noDataForPeriod: '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434',
     },
     ai: {
@@ -1598,6 +1600,8 @@ const translations = {
       fleetStatusTitle: 'Fleet Status',
       fleetOnTrip: 'On Trip',
       fleetFree: 'Available',
+      fleetBadgeOnTrip: 'On Trip',
+      fleetBadgeFree: 'Available',
       noDataForPeriod: 'No data for period',
     },
     ai: {
@@ -2540,6 +2544,8 @@ const translations = {
       fleetStatusTitle: '\u0421\u0442\u0430\u0442\u0443\u0441 \u043f\u0430\u0440\u043a\u0443',
       fleetOnTrip: '\u0412 \u0440\u0435\u0439\u0441\u0456',
       fleetFree: '\u0412\u0456\u043b\u044c\u043d\u0456',
+      fleetBadgeOnTrip: '\u0412 \u0440\u0435\u0439\u0441\u0456',
+      fleetBadgeFree: '\u0412\u0456\u043b\u044c\u043d\u0438\u0439',
       noDataForPeriod: '\u041d\u0435\u043c\u0430\u0454 \u0434\u0430\u043d\u0438\u0445 \u0437\u0430 \u043f\u0435\u0440\u0456\u043e\u0434',
     },
     ai: {
@@ -3480,6 +3486,8 @@ const translations = {
       fleetStatusTitle: 'Estado de la flota',
       fleetOnTrip: 'En ruta',
       fleetFree: 'Disponibles',
+      fleetBadgeOnTrip: 'En ruta',
+      fleetBadgeFree: 'Disponible',
       noDataForPeriod: 'Sin datos para el per\u00edodo',
     },
     ai: {
@@ -4402,6 +4410,8 @@ const translations = {
       fleetStatusTitle: 'Flottenstatus',
       fleetOnTrip: 'Unterwegs',
       fleetFree: 'Verf\u00fcgbar',
+      fleetBadgeOnTrip: 'Unterwegs',
+      fleetBadgeFree: 'Verf\u00fcgbar',
       noDataForPeriod: 'No data for period',
     },
     ai: {
@@ -5324,6 +5334,8 @@ const translations = {
       fleetStatusTitle: '\u00c9tat de la flotte',
       fleetOnTrip: 'En route',
       fleetFree: 'Disponibles',
+      fleetBadgeOnTrip: 'En route',
+      fleetBadgeFree: 'Disponible',
       noDataForPeriod: 'No data for period',
     },
     ai: {
@@ -6246,6 +6258,8 @@ const translations = {
       fleetStatusTitle: 'Filo durumu',
       fleetOnTrip: 'Yolda',
       fleetFree: 'M\u00fcsait',
+      fleetBadgeOnTrip: 'Yolda',
+      fleetBadgeFree: 'M\u00fcsait',
       noDataForPeriod: 'No data for period',
     },
     ai: {
@@ -7168,6 +7182,8 @@ const translations = {
       fleetStatusTitle: 'Status floty',
       fleetOnTrip: 'W trasie',
       fleetFree: 'Dost\u0119pne',
+      fleetBadgeOnTrip: 'W trasie',
+      fleetBadgeFree: 'Dost\u0119pny',
       noDataForPeriod: 'No data for period',
     },
     ai: {

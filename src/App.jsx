@@ -197,7 +197,7 @@ function AppInner() {
   const [setupDone, setSetupDone] = useState(() => {
     try { return !!localStorage.getItem('truckerbook_country') } catch { return false }
   })
-  const userRole = profile?.role || 'driver'
+  const userRole = profile?.role || 'owner_operator'
   const [activeTab, setActiveTab] = useState(userRole === 'job_seeker' ? 'jobs' : 'overview')
   const [prevTab, setPrevTab] = useState('overview')
   const isExtraTab = ['jobs', 'news', 'marketplace'].includes(activeTab) && userRole !== 'job_seeker'
@@ -354,7 +354,7 @@ function AppInner() {
         odometer: Number(vehicleForm.mileage),
         plate_number: vehicleForm.plate || null,
         fuel_consumption: vehicleForm.consumption,
-        role: 'driver',
+        role: 'owner_operator',
         plan: 'trial',
         trial_ends_at: trialEnds,
       }).eq('id', userId)

@@ -548,8 +548,9 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
 function RoleScreen({ role, setRole, onNext }) {
   const { t } = useLanguage()
   const roles = [
-    { value: 'driver', icon: '\ud83d\ude9b', title: t('roles.driver'), desc: t('roles.driverDesc') },
+    { value: 'owner_operator', icon: '\ud83d\ude9b', title: t('roles.ownerOperator'), desc: t('roles.ownerOperatorDesc') },
     { value: 'company', icon: '\ud83c\udfe2', title: t('roles.company'), desc: t('roles.companyDesc') },
+    { value: 'driver', icon: '\ud83d\udc68\u200d\ud83d\udd27', title: t('roles.hiredDriver'), desc: t('roles.hiredDriverDesc') },
     { value: 'job_seeker', icon: '\ud83d\udd0d', title: t('roles.jobSeeker'), desc: t('roles.jobSeekerDesc') },
   ]
 

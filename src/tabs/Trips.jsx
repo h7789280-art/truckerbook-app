@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels, fetchWaypoints } from '../lib/api'
+import { fetchTrips, deleteTrip, getActiveTrailer, getTrailerHistory, pickUpTrailer, dropOffTrailer, deleteTrailer, uploadTrailerPhoto, fetchFuels, fetchWaypoints, fetchVehicles } from '../lib/api'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
@@ -512,6 +512,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const unitSys = getUnits()
   const isCompanyRole = profile?.role === 'company'
   const [entries, setEntries] = useState([])
+  const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
   const [showExportMenu, setShowExportMenu] = useState(false)
   const exportRef = useRef(null)
@@ -519,6 +520,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const [currentPos, setCurrentPos] = useState(null)
   const [showMapTripId, setShowMapTripId] = useState(null)
   const [waypointCounts, setWaypointCounts] = useState({})
+  const [expandedVehicleId, setExpandedVehicleId] = useState(null)
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -526,6 +528,10 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
       setLoading(true)
       const data = await fetchTrips(userId)
       setEntries(data)
+      if (isCompanyRole) {
+        const v = await fetchVehicles(userId)
+        setVehicles(v || [])
+      }
       // Check which trip is currently tracking
       const tracking = data.find(t => t.is_tracking)
       if (tracking && !isGpsTracking()) {
@@ -534,20 +540,22 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         setTrackingTripId(tracking.id)
       }
       // Load waypoint counts for route buttons
-      const counts = {}
-      for (const trip of data) {
-        try {
-          const wp = await fetchWaypoints(trip.id)
-          if (wp.length > 0) counts[trip.id] = wp.length
-        } catch {}
+      if (!isCompanyRole) {
+        const counts = {}
+        for (const trip of data) {
+          try {
+            const wp = await fetchWaypoints(trip.id)
+            if (wp.length > 0) counts[trip.id] = wp.length
+          } catch {}
+        }
+        setWaypointCounts(counts)
       }
-      setWaypointCounts(counts)
     } catch (err) {
       console.error('Failed to load trips:', err)
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, isCompanyRole])
 
   useEffect(() => {
     loadData()
@@ -797,10 +805,73 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
   const miniCard = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '12px', textAlign: 'center' }
 
+  // Group trips by vehicle for company role
+  const tripsByVehicle = useMemo(() => {
+    if (!isCompanyRole) return null
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const monthTrips = entries.filter(tr => new Date(tr.created_at) >= monthStart)
+    const map = {}
+    vehicles.forEach(v => { map[v.id] = [] })
+    monthTrips.forEach(tr => {
+      if (tr.vehicle_id && map[tr.vehicle_id]) {
+        map[tr.vehicle_id].push(tr)
+      }
+    })
+    return map
+  }, [isCompanyRole, entries, vehicles])
+
+  const renderTripCard = (trip, compact) => (
+    <div key={trip.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: compact ? '8px 0' : '10px 0' }}>
+      <div style={{ flex: 1 }}>
+        <div style={{ color: theme.text, fontSize: compact ? '14px' : '16px', fontWeight: 600 }}>
+          {trip.origin || '?'} {'\u2192'} {trip.destination || '?'}
+        </div>
+        <div style={{ color: theme.dim, fontSize: '12px', marginTop: '2px' }}>
+          {formatDate(trip.created_at)} {'\u00b7'} {fmtFull(trip.distance_km || 0)} {distUnit}
+          {(trip.deadhead_km || 0) > 0 && (
+            <span style={{ color: '#f59e0b', marginLeft: '6px' }}>
+              {'\u00b7 '}{t('trips.deadhead')}{': '}{fmtFull(trip.deadhead_km)}{' '}{distUnit}
+            </span>
+          )}
+        </div>
+      </div>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        <div style={{ color: '#22c55e', fontSize: compact ? '14px' : '16px', fontWeight: 700, fontFamily: 'monospace' }}>
+          +{fmtFull(trip.income || 0)} {cs}
+        </div>
+        {trip.driver_pay != null && trip.driver_pay > 0 && isCompanyRole && (
+          <div style={{ color: '#f59e0b', fontSize: '11px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
+            {t('overview.salariesLabel') || '\u0417\u041f'}: {fmtFull(trip.driver_pay)} {cs}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Trailer block */}
-      <TrailerBlock userId={userId} theme={theme} />
+      {/* Trailer block for driver / Report button for company */}
+      {isCompanyRole ? (
+        <button
+          onClick={() => handleExport('excel')}
+          style={{
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            border: 'none',
+            borderRadius: '12px',
+            color: '#fff',
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px',
+            cursor: 'pointer',
+            width: '100%',
+          }}
+        >
+          {'\ud83d\udcca ' + t('trips.reportByVehicles')}
+        </button>
+      ) : (
+        <TrailerBlock userId={userId} theme={theme} />
+      )}
 
       {/* Mini cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
@@ -827,75 +898,77 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         <div style={{ color: theme.dim, fontSize: '13px', fontWeight: 600, letterSpacing: '1px' }}>
           {t('trips.tripsHeader')}
         </div>
-        <div ref={exportRef} style={{ position: 'relative' }}>
-          <button
-            onClick={() => setShowExportMenu(v => !v)}
-            style={{
-              padding: '8px 14px',
-              borderRadius: '10px',
-              border: '1px solid ' + theme.border,
-              background: theme.card,
-              color: theme.text,
-              fontSize: '13px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-            }}
-          >
-            {'\ud83d\udce5'} {t('fuel.export')}
-          </button>
-          {showExportMenu && (
-            <div style={{
-              position: 'absolute',
-              right: 0,
-              top: '100%',
-              marginTop: '6px',
-              background: theme.card,
-              border: '1px solid ' + theme.border,
-              borderRadius: '10px',
-              overflow: 'hidden',
-              zIndex: 50,
-              minWidth: '160px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-            }}>
-              <button
-                onClick={() => handleExport('excel')}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: 'none',
-                  background: 'transparent',
-                  color: theme.text,
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
-              >
-                {'\ud83d\udcc4'} {t('fuel.exportExcel')}
-              </button>
-              <button
-                onClick={() => handleExport('pdf')}
-                style={{
-                  display: 'block',
-                  width: '100%',
-                  padding: '12px 16px',
-                  border: 'none',
-                  borderTop: '1px solid ' + theme.border,
-                  background: 'transparent',
-                  color: theme.text,
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  cursor: 'pointer',
-                }}
-              >
-                {'\ud83d\udcc3'} {t('fuel.exportPDF')}
-              </button>
-            </div>
-          )}
-        </div>
+        {!isCompanyRole && (
+          <div ref={exportRef} style={{ position: 'relative' }}>
+            <button
+              onClick={() => setShowExportMenu(v => !v)}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '10px',
+                border: '1px solid ' + theme.border,
+                background: theme.card,
+                color: theme.text,
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+            >
+              {'\ud83d\udce5'} {t('fuel.export')}
+            </button>
+            {showExportMenu && (
+              <div style={{
+                position: 'absolute',
+                right: 0,
+                top: '100%',
+                marginTop: '6px',
+                background: theme.card,
+                border: '1px solid ' + theme.border,
+                borderRadius: '10px',
+                overflow: 'hidden',
+                zIndex: 50,
+                minWidth: '160px',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
+              }}>
+                <button
+                  onClick={() => handleExport('excel')}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    background: 'transparent',
+                    color: theme.text,
+                    fontSize: '14px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+                </button>
+                <button
+                  onClick={() => handleExport('pdf')}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    padding: '12px 16px',
+                    border: 'none',
+                    borderTop: '1px solid ' + theme.border,
+                    background: 'transparent',
+                    color: theme.text,
+                    fontSize: '14px',
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Trip cards */}
@@ -903,6 +976,80 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
           {t('common.loading')}
         </div>
+      ) : isCompanyRole ? (
+        /* Company role: grouped by vehicles */
+        vehicles.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
+            {t('trips.noVehicles')}
+          </div>
+        ) : (
+          vehicles.map(v => {
+            const vTrips = tripsByVehicle[v.id] || []
+            const lastTrip = vTrips[0]
+            const isExpanded = expandedVehicleId === v.id
+            const vLabel = ((v.brand || '') + ' ' + (v.model || '')).trim()
+            return (
+              <div key={v.id} style={card}>
+                {/* Vehicle header */}
+                <div style={{ marginBottom: lastTrip ? '10px' : 0 }}>
+                  <div style={{ color: theme.text, fontSize: '16px', fontWeight: 700 }}>
+                    {'\ud83d\udc64 '}{v.driver_name || '\u2014'}
+                  </div>
+                  <div style={{ color: theme.dim, fontSize: '13px', marginTop: '2px' }}>
+                    {v.plate_number || ''}{vLabel ? ' \u00b7 ' + vLabel : ''}
+                  </div>
+                </div>
+                {/* Last trip */}
+                {lastTrip ? (
+                  <>
+                    <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px' }}>
+                      <div style={{ color: theme.dim, fontSize: '11px', fontWeight: 600, marginBottom: '4px', letterSpacing: '0.5px' }}>
+                        {t('trips.lastTrip')}
+                      </div>
+                      {renderTripCard(lastTrip, true)}
+                    </div>
+                    {vTrips.length > 1 && (
+                      <button
+                        onClick={() => setExpandedVehicleId(isExpanded ? null : v.id)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          marginTop: '6px',
+                          borderRadius: '8px',
+                          border: '1px solid ' + theme.border,
+                          background: 'transparent',
+                          color: '#f59e0b',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                        }}
+                      >
+                        {isExpanded ? '\u25b2' : '\u25bc'} {t('trips.allTripsMonth')} ({vTrips.length})
+                      </button>
+                    )}
+                    {isExpanded && vTrips.length > 1 && (
+                      <div style={{ marginTop: '8px', borderTop: '1px solid ' + theme.border }}>
+                        {vTrips.slice(1).map(tr => (
+                          <div key={tr.id} style={{ borderBottom: '1px solid ' + theme.border }}>
+                            {renderTripCard(tr, true)}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ color: theme.dim, fontSize: '13px', textAlign: 'center', padding: '8px 0', borderTop: '1px solid ' + theme.border, marginTop: '8px' }}>
+                    {t('trips.noTripsVehicle')}
+                  </div>
+                )}
+              </div>
+            )
+          })
+        )
       ) : entries.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
           {t('trips.noTrips')}
@@ -928,28 +1075,15 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
                     {t('trips.costPerKmTotal')}{': '}{((trip.income || 0) / ((trip.distance_km || 0) + (trip.deadhead_km || 0))).toFixed(2)} {cs}/{distUnit}
                   </div>
                 )}
-                {isCompanyRole && trip.driver_name && (
-                  <div style={{ color: '#3b82f6', fontSize: '12px', marginTop: '3px' }}>
-                    {'\ud83d\udc64'} {trip.driver_name}
-                  </div>
-                )}
               </div>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
                   +{fmtFull(trip.income || 0)} {cs}
                 </div>
-                {isCompanyRole ? (
-                  (trip.driver_pay != null && trip.driver_pay > 0) && (
-                    <div style={{ color: '#f59e0b', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
-                      {t('overview.salariesLabel') || '\u0417\u041f'}: {fmtFull(trip.driver_pay)} {cs}
-                    </div>
-                  )
-                ) : (
-                  (trip.driver_pay != null && trip.driver_pay > 0) && (
-                    <div style={{ color: '#22c55e', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
-                      {t('pay.myEarnings')}: {fmtFull(trip.driver_pay)} {cs}
-                    </div>
-                  )
+                {(trip.driver_pay != null && trip.driver_pay > 0) && (
+                  <div style={{ color: '#22c55e', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
+                    {t('pay.myEarnings')}: {fmtFull(trip.driver_pay)} {cs}
+                  </div>
                 )}
               </div>
             </div>

@@ -176,10 +176,28 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
     const ym = `${now2.getFullYear()}_${mm}`
 
     // --- All vehicles multi-sheet export (company + "all" selected) ---
-    if (format === 'excel' && isAllVehicles && vehicles && vehicles.length > 0) {
-      const vehicleSheets = vehicles.map(v => {
-        const vFuels = fuelEntries.filter(e => e.vehicle_id === v.id)
-        const vExps = vehicleExpenses.filter(e => e.vehicle_id === v.id)
+    if (format === 'excel' && isAllVehicles) {
+      const vehicleIds = new Set((vehicles || []).map(v => v.id))
+      const allVehicleList = [...(vehicles || [])]
+
+      // Collect entries with vehicle_id not matching any known vehicle (e.g. null or profile vehicle)
+      const orphanFuels = fuelEntries.filter(e => !vehicleIds.has(e.vehicle_id))
+      const orphanExps = vehicleExpenses.filter(e => !vehicleIds.has(e.vehicle_id))
+      if (orphanFuels.length > 0 || orphanExps.length > 0) {
+        const p = profile || {}
+        allVehicleList.push({
+          id: '__main__',
+          brand: p.brand || '',
+          model: p.model || '',
+          plate_number: p.plate_number || '',
+          _fuels: orphanFuels,
+          _exps: orphanExps,
+        })
+      }
+
+      const vehicleSheets = allVehicleList.map(v => {
+        const vFuels = v._fuels || fuelEntries.filter(e => e.vehicle_id === v.id)
+        const vExps = v._exps || vehicleExpenses.filter(e => e.vehicle_id === v.id)
         const vEntries = [
           ...vFuels.map(e => ({
             id: e.id, source: 'fuel', category: 'fuel',
@@ -204,12 +222,22 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         return { sheetName, rows: buildExportRows(filtered, vFuels) }
       }).filter(s => s.rows.length > 0)
 
-      exportAllVehiclesExcel({
-        vehicleSheets,
-        columns,
-        labels: { total: t('fuel.total') },
-        filename: `expenses_all_vehicles_${mm}_${now2.getFullYear()}.xlsx`,
-      })
+      if (vehicleSheets.length === 0) {
+        // Fallback: export all entries as a single sheet when no per-vehicle data
+        const fallbackRows = buildExportRows(periodEntries, filteredFuels)
+        if (fallbackRows.length > 0) {
+          vehicleSheets.push({ sheetName: t('fuel.vehicleExpenses'), rows: fallbackRows })
+        }
+      }
+
+      if (vehicleSheets.length > 0) {
+        exportAllVehiclesExcel({
+          vehicleSheets,
+          columns,
+          labels: { total: t('fuel.total') },
+          filename: `expenses_all_vehicles_${mm}_${now2.getFullYear()}.xlsx`,
+        })
+      }
       return
     }
 

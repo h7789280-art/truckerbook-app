@@ -1051,8 +1051,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 </div>
                 {/* Trips card — clickable, navigates to detail screen */}
                 <div onClick={() => onExtraNav?.('trips_detail')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
-                  <div style={dimText}>{t('overview.goToTrips')}</div>
-                  <div style={{ position: 'absolute', top: '14px', right: '16px', fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
+                  <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{t('overview.goToTrips')}</div>
                 </div>
               </>
             )

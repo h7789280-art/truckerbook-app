@@ -12,11 +12,19 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
     { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
   ]
 
+  const COMPANY_TABS = [
+    { key: 'overview', label: t('tabs.overview').toUpperCase(), icon: '\ud83d\udcca' },
+    { key: 'expenses', label: t('tabs.expenses').toUpperCase(), icon: '\ud83d\udcb5' },
+    { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
+  ]
+
   const JOB_SEEKER_TABS = [
     { key: 'jobs', label: t('tabs.jobs').toUpperCase(), icon: '\ud83d\udcbc' },
     { key: 'news', label: t('tabs.news').toUpperCase(), icon: '\ud83d\udcf0' },
     { key: 'marketplace', label: t('tabs.marketplace').toUpperCase(), icon: '\ud83d\udce2' },
   ]
+
+  const tabs = role === 'job_seeker' ? JOB_SEEKER_TABS : role === 'company' ? COMPANY_TABS : DRIVER_TABS
 
   return (
     <nav
@@ -37,7 +45,7 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
         zIndex: 100,
       }}
     >
-      {(role === 'job_seeker' ? JOB_SEEKER_TABS : DRIVER_TABS).map((tab) => {
+      {tabs.map((tab) => {
         const isActive = activeTab === tab.key
         return (
           <button

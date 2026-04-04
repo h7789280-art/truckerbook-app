@@ -889,8 +889,6 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   )
 
   // Company totals
-  const companyTotalIncome = isCompanyRole ? companyTrips.reduce((s, t) => s + (t.income || 0), 0) : 0
-  const companyTotalKm = isCompanyRole ? companyTrips.reduce((s, t) => s + (t.distance_km || 0), 0) : 0
 
   const periodBtnStyle = (key) => ({
     flex: 1,
@@ -907,25 +905,9 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Trailer block for driver / Report button for company */}
+      {/* Trailer block for driver / Filters for company */}
       {isCompanyRole ? (
         <>
-          <button
-            onClick={() => handleExport('excel')}
-            style={{
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              border: 'none',
-              borderRadius: '12px',
-              color: '#fff',
-              fontSize: '15px',
-              fontWeight: 600,
-              padding: '14px',
-              cursor: 'pointer',
-              width: '100%',
-            }}
-          >
-            {'\ud83d\udcca ' + t('trips.reportByVehicles')}
-          </button>
           {/* Vehicle filter */}
           {vehicles.length > 0 && (
             <select
@@ -1003,14 +985,15 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         <TrailerBlock userId={userId} theme={theme} />
       )}
 
-      {/* Mini cards */}
+      {/* Mini cards — only for non-company */}
+      {!isCompanyRole && (
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <div style={miniCard}>
           <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
             {t('trips.income')}
           </div>
           <div style={{ color: '#22c55e', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
-            {fmt(isCompanyRole ? companyTotalIncome : totalIncome)} {cs}
+            {fmt(totalIncome)} {cs}
           </div>
         </div>
         <div style={miniCard}>
@@ -1018,10 +1001,11 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             {t('trips.kmLabel')}
           </div>
           <div style={{ color: theme.text, fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
-            {fmt(isCompanyRole ? companyTotalKm : totalKm)}
+            {fmt(totalKm)}
           </div>
         </div>
       </div>
+      )}
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingRight: 44 }}>

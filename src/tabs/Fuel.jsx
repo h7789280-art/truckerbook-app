@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchFuels, deleteFuel, fetchVehicleExpenses, deleteVehicleExpense } from '../lib/api'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { exportToPDF, exportToExcelWithSummary } from '../utils/export'
+import { exportToPDF, exportToExcelWithSummary, exportAllVehiclesExcel } from '../utils/export'
 
 function formatNumber(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -49,7 +49,7 @@ function getDateRange(period, customFrom, customTo) {
   return { from: null, to: null }
 }
 
-export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
+export default function Fuel({ userId, refreshKey, profile, filterVehicleId, userRole, vehicles, isAllVehicles }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -146,6 +146,18 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [showFilterDropdown])
 
+  const isCompany = userRole === 'company'
+
+  // Helper: build export rows from an entries list
+  const buildExportRows = (entries, fuelsSource) => entries.map(e => ({
+    date: e.date || '',
+    description: e.name || '',
+    category: getCat(e.category).label,
+    volume: e.source === 'fuel' ? (fuelsSource.find(f => f.id === e.id)?.liters || '') : '',
+    amount: Math.round(e.amount),
+    odometer: e.source === 'fuel' ? (fuelsSource.find(f => f.id === e.id)?.odometer || '') : '',
+  }))
+
   const handleExport = (format) => {
     setShowExportMenu(false)
     const volLabel = unitSys === 'imperial' ? 'gal' : t('fuel.exportVolume')
@@ -158,18 +170,62 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
       { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
       { header: `${t('fuel.exportOdometer')} (${distLabel})`, key: 'odometer' },
     ]
-    const rows = periodEntries.map(e => ({
-      date: e.date || '',
-      description: e.name || '',
-      category: getCat(e.category).label,
-      volume: e.source === 'fuel' ? (filteredFuels.find(f => f.id === e.id)?.liters || '') : '',
-      amount: Math.round(e.amount),
-      odometer: e.source === 'fuel' ? (filteredFuels.find(f => f.id === e.id)?.odometer || '') : '',
-    }))
+    const rows = buildExportRows(periodEntries, filteredFuels)
     const now2 = new Date()
-    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+    const mm = String(now2.getMonth() + 1).padStart(2, '0')
+    const ym = `${now2.getFullYear()}_${mm}`
+
+    // --- All vehicles multi-sheet export (company + "all" selected) ---
+    if (format === 'excel' && isAllVehicles && vehicles && vehicles.length > 0) {
+      const vehicleSheets = vehicles.map(v => {
+        const vFuels = fuelEntries.filter(e => e.vehicle_id === v.id)
+        const vExps = vehicleExpenses.filter(e => e.vehicle_id === v.id)
+        const vEntries = [
+          ...vFuels.map(e => ({
+            id: e.id, source: 'fuel', category: 'fuel',
+            name: e.station || t('fuel.refueling'),
+            date: e.date, amount: e.cost || 0,
+          })),
+          ...vExps.map(e => ({
+            id: e.id, source: 'vehicle_expense', category: e.category || 'other',
+            name: e.description || getCat(e.category).label,
+            date: e.date, amount: e.amount || 0,
+          })),
+        ].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+        // Apply same period filter
+        const filtered = vEntries.filter(e => {
+          if (!periodFrom) return true
+          if (e.date < periodFrom) return false
+          if (periodTo && e.date > periodTo) return false
+          return true
+        })
+        const plate = (v.plate_number || v.license_plate || '').replace(/\s+/g, '')
+        const sheetName = `${v.brand || ''} ${plate}`.trim() || v.id.slice(0, 8)
+        return { sheetName, rows: buildExportRows(filtered, vFuels) }
+      }).filter(s => s.rows.length > 0)
+
+      exportAllVehiclesExcel({
+        vehicleSheets,
+        columns,
+        labels: { total: t('fuel.total') },
+        filename: `expenses_all_vehicles_${mm}_${now2.getFullYear()}.xlsx`,
+      })
+      return
+    }
+
+    // --- Single vehicle export (plate number in filename) ---
     if (format === 'excel') {
-      // Compute mileage from detail rows odometer values
+      let filenamePlate = ''
+      if (filterVehicleId && vehicles && vehicles.length > 0) {
+        const v = vehicles.find(vh => vh.id === filterVehicleId)
+        if (v) {
+          filenamePlate = (v.plate_number || v.license_plate || '').replace(/\s+/g, '').replace(/[^a-zA-Z0-9\u0400-\u04FF]/g, '')
+        }
+      }
+      const exportFilename = filenamePlate
+        ? `expenses_${filenamePlate}_${mm}_${now2.getFullYear()}.xlsx`
+        : `fuel_report_${ym}.xlsx`
+
       const odometerValues = rows
         .map(r => Number(r.odometer))
         .filter(v => v > 0)
@@ -180,7 +236,6 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
           : 0
       const costPerUnit = mileage > 0 ? Math.round((grandTotal / mileage) * 100) / 100 : 0
 
-      // Period label for the sheet
       const monthNames = [
         'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
@@ -189,11 +244,13 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
         ? `${customFrom || ''} \u2014 ${customTo || ''}`
         : `${monthNames[now2.getMonth()]} ${now2.getFullYear()}`
 
-      // Vehicle info from profile (main vehicle)
       const p = profile || {}
-      const vehicleInfo = `${p.brand || ''} ${p.model || ''} ${p.plate_number || ''}`.trim()
+      let vehicleInfo = `${p.brand || ''} ${p.model || ''} ${p.plate_number || ''}`.trim()
+      if (filterVehicleId && vehicles && vehicles.length > 0) {
+        const v = vehicles.find(vh => vh.id === filterVehicleId)
+        if (v) vehicleInfo = `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()
+      }
 
-      // Build category summary rows
       const catSummary = CATEGORIES
         .filter(c => c.key !== 'all')
         .map(c => ({ label: c.label, amount: Math.round(totals[c.key] || 0) }))
@@ -226,7 +283,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
           mileage: t('fuel.exportOdometer'),
           costPerUnit: t('fuel.exportCostPerUnit'),
         },
-        filename: `fuel_report_${ym}.xlsx`,
+        filename: exportFilename,
       })
     } else {
       exportToPDF(rows, columns, t('fuel.exportTitle'), `fuel_report_${ym}.pdf`)
@@ -692,23 +749,25 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId }) {
                 }}>
                   {formatNumber(Math.round(entry.amount))}{cs}
                 </div>
-                <button
-                  onClick={() => entry.source === 'fuel'
-                    ? handleDeleteFuel(entry.id)
-                    : handleDeleteVehicleExpense(entry.id)
-                  }
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#ef444488',
-                    fontSize: '16px',
-                    cursor: 'pointer',
-                    padding: '4px',
-                    flexShrink: 0,
-                  }}
-                >
-                  {'\u2715'}
-                </button>
+                {!isCompany && (
+                  <button
+                    onClick={() => entry.source === 'fuel'
+                      ? handleDeleteFuel(entry.id)
+                      : handleDeleteVehicleExpense(entry.id)
+                    }
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#ef444488',
+                      fontSize: '16px',
+                      cursor: 'pointer',
+                      padding: '4px',
+                      flexShrink: 0,
+                    }}
+                  >
+                    {'\u2715'}
+                  </button>
+                )}
               </div>
             )
           })}

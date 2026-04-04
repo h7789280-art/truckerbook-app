@@ -107,6 +107,48 @@ export function exportToExcelWithSummary(opts) {
 }
 
 /**
+ * Export expenses for ALL vehicles — each vehicle on its own sheet
+ * @param {Object} opts
+ * @param {Array<{sheetName: string, rows: Array<Object>}>} opts.vehicleSheets
+ * @param {Array<{header: string, key: string}>} opts.columns
+ * @param {Object} opts.labels - { total }
+ * @param {string} opts.filename
+ */
+export function exportAllVehiclesExcel(opts) {
+  const { vehicleSheets, columns, labels, filename } = opts
+  const wb = XLSX.utils.book_new()
+
+  for (const vs of vehicleSheets) {
+    const headers = columns.map(c => c.header)
+    const rows = vs.rows.map(row => columns.map(c => row[c.key] ?? ''))
+
+    const amountIdx = columns.findIndex(c => c.key === 'amount')
+    if (amountIdx >= 0 && rows.length > 0) {
+      const totalRow = columns.map(() => '')
+      totalRow[0] = labels.total || 'TOTAL'
+      totalRow[amountIdx] = vs.rows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+      rows.push([])
+      rows.push(totalRow)
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+    ws['!cols'] = columns.map((_, i) => {
+      const maxLen = Math.max(
+        headers[i].length,
+        ...rows.map(r => String(r[i]).length)
+      )
+      return { wch: Math.min(maxLen + 2, 40) }
+    })
+
+    // Sheet name max 31 chars, no special chars
+    const safeName = vs.sheetName.replace(/[\\/*?[\]:]/g, '').slice(0, 31) || 'Sheet'
+    XLSX.utils.book_append_sheet(wb, ws, safeName)
+  }
+
+  XLSX.writeFile(wb, filename)
+}
+
+/**
  * Export driver monthly report with 4 sheets: Summary, Trips, Expenses, Pay Sheet
  * Uses ExcelJS for cell styling (orange headers, alternating rows, etc.)
  */

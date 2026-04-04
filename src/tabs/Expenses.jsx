@@ -108,6 +108,9 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
           activeVehicleId={activeVehicleId}
           profile={profile}
           filterVehicleId={isCompany && filterVehicleId !== 'all' ? filterVehicleId : null}
+          userRole={userRole}
+          vehicles={vehicles}
+          isAllVehicles={isCompany && filterVehicleId === 'all'}
         />
       ) : (
         <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} />

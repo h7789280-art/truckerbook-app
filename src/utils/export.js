@@ -43,40 +43,16 @@ export function exportToExcelWithSummary(opts) {
     summary,
     detailsData,
     detailsColumns,
-    summarySheetName,
     detailsSheetName,
     labels,
     filename,
+    categoryData, // [{label, count, amount}]
+    categorySheetName,
   } = opts
 
   const cs = summary.currencySymbol || '$'
 
-  // --- Sheet 1: Summary ---
-  const summaryRows = []
-  summaryRows.push([labels.driver || 'Driver', summary.driverName || ''])
-  summaryRows.push([labels.phone || 'Phone', summary.driverPhone || ''])
-  summaryRows.push([labels.vehicle || 'Vehicle', summary.vehicleInfo || ''])
-  summaryRows.push([labels.period || 'Period', summary.period || ''])
-  summaryRows.push([]) // empty row
-
-  // Category table header
-  summaryRows.push([labels.category || 'Category', `${labels.amount || 'Amount'} (${cs})`])
-  for (const cat of summary.categories) {
-    summaryRows.push([cat.label, cat.amount])
-  }
-  summaryRows.push([]) // empty row
-  summaryRows.push([labels.total || 'TOTAL', summary.grandTotal])
-
-  summaryRows.push([]) // empty row
-  summaryRows.push([labels.mileage || 'Mileage', summary.mileage || 0])
-  summaryRows.push([labels.costPerUnit || 'Cost/unit', summary.costPerUnit || 0])
-
-  const ws1 = XLSX.utils.aoa_to_sheet(summaryRows)
-
-  // Bold the TOTAL row and header rows via basic column widths
-  ws1['!cols'] = [{ wch: 25 }, { wch: 20 }]
-
-  // --- Sheet 2: Details ---
+  // --- Sheet 1: Details (by date) ---
   const headers = detailsColumns.map(c => c.header)
   const rows = detailsData.map(row => detailsColumns.map(c => row[c.key] ?? ''))
 
@@ -90,8 +66,8 @@ export function exportToExcelWithSummary(opts) {
     rows.push(totalRow)
   }
 
-  const ws2 = XLSX.utils.aoa_to_sheet([headers, ...rows])
-  ws2['!cols'] = detailsColumns.map((_, i) => {
+  const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rows])
+  ws1['!cols'] = detailsColumns.map((_, i) => {
     const maxLen = Math.max(
       headers[i].length,
       ...rows.map(r => String(r[i]).length)
@@ -99,50 +75,101 @@ export function exportToExcelWithSummary(opts) {
     return { wch: Math.min(maxLen + 2, 40) }
   })
 
+  // --- Sheet 2: By category ---
+  const catHeaders = [
+    labels.category || 'Category',
+    labels.entriesCount || 'Entries',
+    `${labels.amount || 'Amount'} (${cs})`,
+  ]
+  const catRows = (categoryData || []).map(c => [c.label, c.count, c.amount])
+  const catTotal = (categoryData || []).reduce((s, c) => s + (c.amount || 0), 0)
+  const catCountTotal = (categoryData || []).reduce((s, c) => s + (c.count || 0), 0)
+  catRows.push([])
+  catRows.push([labels.total || 'TOTAL', catCountTotal, catTotal])
+
+  const ws2 = XLSX.utils.aoa_to_sheet([catHeaders, ...catRows])
+  ws2['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 18 }]
+
   // --- Build workbook ---
   const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws1, summarySheetName || 'Summary')
-  XLSX.utils.book_append_sheet(wb, ws2, detailsSheetName || 'Details')
+  XLSX.utils.book_append_sheet(wb, ws1, detailsSheetName || 'By date')
+  XLSX.utils.book_append_sheet(wb, ws2, categorySheetName || 'By category')
   XLSX.writeFile(wb, filename)
 }
 
 /**
- * Export expenses for ALL vehicles — each vehicle on its own sheet
+ * Export expenses for ALL vehicles — 3 sheets: by date, by category, by vehicle
  * @param {Object} opts
- * @param {Array<{sheetName: string, rows: Array<Object>}>} opts.vehicleSheets
+ * @param {Array<Object>} opts.allRows - all entries for "by date" sheet [{date, description, category, volume, amount, odometer}]
  * @param {Array<{header: string, key: string}>} opts.columns
- * @param {Object} opts.labels - { total }
+ * @param {Array<{label: string, count: number, amount: number}>} opts.categoryData - aggregated by category
+ * @param {Array<{name: string, plate: string, driver: string, amount: number, count: number}>} opts.vehicleSummary - per vehicle
+ * @param {Object} opts.labels - { total, category, entriesCount, amount, vehicle, plate, driver }
+ * @param {Object} opts.sheetNames - { byDate, byCategory, byVehicle }
+ * @param {string} opts.cs - currency symbol
  * @param {string} opts.filename
  */
 export function exportAllVehiclesExcel(opts) {
-  const { vehicleSheets, columns, labels, filename } = opts
+  const { allRows, columns, categoryData, vehicleSummary, labels, sheetNames, cs, filename } = opts
   const wb = XLSX.utils.book_new()
 
-  for (const vs of vehicleSheets) {
-    const headers = columns.map(c => c.header)
-    const rows = vs.rows.map(row => columns.map(c => row[c.key] ?? ''))
+  // --- Sheet 1: By date ---
+  const headers = columns.map(c => c.header)
+  const rows = allRows.map(row => columns.map(c => row[c.key] ?? ''))
 
-    const amountIdx = columns.findIndex(c => c.key === 'amount')
-    if (amountIdx >= 0 && rows.length > 0) {
-      const totalRow = columns.map(() => '')
-      totalRow[0] = labels.total || 'TOTAL'
-      totalRow[amountIdx] = vs.rows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
-      rows.push([])
-      rows.push(totalRow)
-    }
+  const amountIdx = columns.findIndex(c => c.key === 'amount')
+  if (amountIdx >= 0 && rows.length > 0) {
+    const totalRow = columns.map(() => '')
+    totalRow[0] = labels.total || 'TOTAL'
+    totalRow[amountIdx] = allRows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    rows.push([])
+    rows.push(totalRow)
+  }
 
-    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
-    ws['!cols'] = columns.map((_, i) => {
-      const maxLen = Math.max(
-        headers[i].length,
-        ...rows.map(r => String(r[i]).length)
-      )
-      return { wch: Math.min(maxLen + 2, 40) }
-    })
+  const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rows])
+  ws1['!cols'] = columns.map((_, i) => {
+    const maxLen = Math.max(
+      headers[i].length,
+      ...rows.map(r => String(r[i]).length)
+    )
+    return { wch: Math.min(maxLen + 2, 40) }
+  })
+  XLSX.utils.book_append_sheet(wb, ws1, (sheetNames && sheetNames.byDate) || 'By date')
 
-    // Sheet name max 31 chars, no special chars
-    const safeName = vs.sheetName.replace(/[\\/*?[\]:]/g, '').slice(0, 31) || 'Sheet'
-    XLSX.utils.book_append_sheet(wb, ws, safeName)
+  // --- Sheet 2: By category ---
+  const catHeaders = [
+    labels.category || 'Category',
+    labels.entriesCount || 'Entries',
+    `${labels.amount || 'Amount'} (${cs || '$'})`,
+  ]
+  const catRows = (categoryData || []).map(c => [c.label, c.count, c.amount])
+  const catTotal = (categoryData || []).reduce((s, c) => s + (c.amount || 0), 0)
+  const catCountTotal = (categoryData || []).reduce((s, c) => s + (c.count || 0), 0)
+  catRows.push([])
+  catRows.push([labels.total || 'TOTAL', catCountTotal, catTotal])
+
+  const ws2 = XLSX.utils.aoa_to_sheet([catHeaders, ...catRows])
+  ws2['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 18 }]
+  XLSX.utils.book_append_sheet(wb, ws2, (sheetNames && sheetNames.byCategory) || 'By category')
+
+  // --- Sheet 3: By vehicle ---
+  if (vehicleSummary && vehicleSummary.length > 0) {
+    const vehHeaders = [
+      labels.vehicle || 'Vehicle',
+      labels.plate || 'Plate',
+      labels.driver || 'Driver',
+      `${labels.amount || 'Amount'} (${cs || '$'})`,
+      labels.entriesCount || 'Entries',
+    ]
+    const vehRows = vehicleSummary.map(v => [v.name, v.plate, v.driver, v.amount, v.count])
+    const vehTotalAmount = vehicleSummary.reduce((s, v) => s + (v.amount || 0), 0)
+    const vehTotalCount = vehicleSummary.reduce((s, v) => s + (v.count || 0), 0)
+    vehRows.push([])
+    vehRows.push([labels.total || 'TOTAL', '', '', vehTotalAmount, vehTotalCount])
+
+    const ws3 = XLSX.utils.aoa_to_sheet([vehHeaders, ...vehRows])
+    ws3['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 18 }, { wch: 18 }]
+    XLSX.utils.book_append_sheet(wb, ws3, (sheetNames && sheetNames.byVehicle) || 'By vehicle')
   }
 
   XLSX.writeFile(wb, filename)

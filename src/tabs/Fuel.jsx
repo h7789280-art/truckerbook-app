@@ -190,12 +190,18 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
           brand: p.brand || '',
           model: p.model || '',
           plate_number: p.plate_number || '',
+          driver_name: p.name || p.full_name || '',
           _fuels: orphanFuels,
           _exps: orphanExps,
         })
       }
 
-      const vehicleSheets = allVehicleList.map(v => {
+      // Build per-vehicle entries for vehicle summary + combined "by date" rows
+      const allExportRows = []
+      const vehicleSummary = []
+      const catTotals = {}
+
+      for (const v of allVehicleList) {
         const vFuels = v._fuels || fuelEntries.filter(e => e.vehicle_id === v.id)
         const vExps = v._exps || vehicleExpenses.filter(e => e.vehicle_id === v.id)
         const vEntries = [
@@ -209,32 +215,68 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
             name: e.description || getCat(e.category).label,
             date: e.date, amount: e.amount || 0,
           })),
-        ].sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-        // Apply same period filter
+        ]
+        // Apply period filter
         const filtered = vEntries.filter(e => {
           if (!periodFrom) return true
           if (e.date < periodFrom) return false
           if (periodTo && e.date > periodTo) return false
           return true
         })
-        const plate = (v.plate_number || v.license_plate || '').replace(/\s+/g, '')
-        const sheetName = `${v.brand || ''} ${plate}`.trim() || v.id.slice(0, 8)
-        return { sheetName, rows: buildExportRows(filtered, vFuels) }
-      }).filter(s => s.rows.length > 0)
 
-      if (vehicleSheets.length === 0) {
-        // Fallback: export all entries as a single sheet when no per-vehicle data
-        const fallbackRows = buildExportRows(periodEntries, filteredFuels)
-        if (fallbackRows.length > 0) {
-          vehicleSheets.push({ sheetName: t('fuel.vehicleExpenses'), rows: fallbackRows })
+        const exportRows = buildExportRows(filtered, vFuels)
+        allExportRows.push(...exportRows)
+
+        // Accumulate category totals
+        for (const e of filtered) {
+          const catKey = e.category
+          if (!catTotals[catKey]) catTotals[catKey] = { count: 0, amount: 0 }
+          catTotals[catKey].count += 1
+          catTotals[catKey].amount += Math.round(e.amount)
+        }
+
+        // Vehicle summary row
+        if (filtered.length > 0) {
+          const vName = `${v.brand || ''} ${v.model || ''}`.trim()
+          vehicleSummary.push({
+            name: vName,
+            plate: v.plate_number || v.license_plate || '',
+            driver: v.driver_name || '',
+            amount: Math.round(filtered.reduce((s, e) => s + e.amount, 0)),
+            count: filtered.length,
+          })
         }
       }
 
-      if (vehicleSheets.length > 0) {
+      // Sort all rows by date descending
+      allExportRows.sort((a, b) => (b.date || '').localeCompare(a.date || ''))
+
+      // Build category data array
+      const categoryData = CATEGORIES
+        .filter(c => c.key !== 'all' && catTotals[c.key])
+        .map(c => ({ label: c.label, count: catTotals[c.key].count, amount: catTotals[c.key].amount }))
+
+      if (allExportRows.length > 0 || vehicleSummary.length > 0) {
         exportAllVehiclesExcel({
-          vehicleSheets,
+          allRows: allExportRows,
           columns,
-          labels: { total: t('fuel.total') },
+          categoryData,
+          vehicleSummary,
+          labels: {
+            total: t('fuel.total'),
+            category: t('fuel.exportCategory'),
+            entriesCount: t('fuel.entries'),
+            amount: t('fuel.exportAmount'),
+            vehicle: t('fuel.exportVehicle'),
+            plate: t('fuel.exportPlate'),
+            driver: t('fuel.exportDriver'),
+          },
+          sheetNames: {
+            byDate: t('fuel.sheetByDate'),
+            byCategory: t('fuel.sheetByCategory'),
+            byVehicle: t('fuel.sheetByVehicle'),
+          },
+          cs,
           filename: `expenses_all_vehicles_${mm}_${now2.getFullYear()}.xlsx`,
         })
       }
@@ -254,62 +296,28 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         ? `expenses_${filenamePlate}_${mm}_${now2.getFullYear()}.xlsx`
         : `fuel_report_${ym}.xlsx`
 
-      const odometerValues = rows
-        .map(r => Number(r.odometer))
-        .filter(v => v > 0)
-      const mileage = odometerValues.length >= 2
-        ? Math.max(...odometerValues) - Math.min(...odometerValues)
-        : odometerValues.length === 1
-          ? odometerValues[0]
-          : 0
-      const costPerUnit = mileage > 0 ? Math.round((grandTotal / mileage) * 100) / 100 : 0
-
-      const monthNames = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-      ]
-      const periodText = period === 'custom'
-        ? `${customFrom || ''} \u2014 ${customTo || ''}`
-        : `${monthNames[now2.getMonth()]} ${now2.getFullYear()}`
-
-      const p = profile || {}
-      let vehicleInfo = `${p.brand || ''} ${p.model || ''} ${p.plate_number || ''}`.trim()
-      if (filterVehicleId && vehicles && vehicles.length > 0) {
-        const v = vehicles.find(vh => vh.id === filterVehicleId)
-        if (v) vehicleInfo = `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()
-      }
-
-      const catSummary = CATEGORIES
-        .filter(c => c.key !== 'all')
-        .map(c => ({ label: c.label, amount: Math.round(totals[c.key] || 0) }))
-        .filter(c => c.amount > 0)
+      // Build category data with counts
+      const categoryData = CATEGORIES
+        .filter(c => c.key !== 'all' && totals[c.key] > 0)
+        .map(c => {
+          const count = periodEntries.filter(e => e.category === c.key).length
+          return { label: c.label, count, amount: Math.round(totals[c.key]) }
+        })
 
       exportToExcelWithSummary({
         summary: {
-          driverName: p.name || p.full_name || '',
-          driverPhone: p.phone || '',
-          vehicleInfo,
-          period: periodText,
-          categories: catSummary,
-          grandTotal: Math.round(grandTotal),
-          mileage: `${formatNumber(mileage)} ${distLabel}`,
-          costPerUnit: `${costPerUnit} ${cs}/${distLabel}`,
           currencySymbol: cs,
         },
         detailsData: rows,
         detailsColumns: columns,
-        summarySheetName: t('fuel.exportSheetSummary'),
-        detailsSheetName: t('fuel.exportSheetDetails'),
+        detailsSheetName: t('fuel.sheetByDate'),
+        categoryData,
+        categorySheetName: t('fuel.sheetByCategory'),
         labels: {
-          driver: t('fuel.exportDriver'),
-          phone: t('fuel.exportPhone'),
-          vehicle: t('fuel.exportVehicle'),
-          period: t('fuel.exportPeriod'),
           category: t('fuel.exportCategory'),
+          entriesCount: t('fuel.entries'),
           amount: t('fuel.exportAmount'),
           total: t('fuel.total'),
-          mileage: t('fuel.exportOdometer'),
-          costPerUnit: t('fuel.exportCostPerUnit'),
         },
         filename: exportFilename,
       })

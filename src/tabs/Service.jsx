@@ -664,8 +664,10 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
     const validFiles = []
     for (const f of files) {
       try {
-        const compressed = await validateAndCompressFile(f)
-        validFiles.push(compressed)
+        const result = await validateAndCompressFile(f, userId)
+        if (result.ok && result.file) {
+          validFiles.push(result.file)
+        }
       } catch { /* skip invalid */ }
     }
     setPhotos(prev => [...prev, ...validFiles].slice(0, 3))

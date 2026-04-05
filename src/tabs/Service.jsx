@@ -1716,11 +1716,21 @@ function BolSection({ userId, vehicleId, userRole }) {
 }
 
 /* ===== DOCS TAB ===== */
-export function DocsTab({ userId, vehicleId, userRole, vehicles }) {
+export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp }) {
   const { t } = useLanguage()
   const [activeTile, setActiveTile] = useState(null)
   const isCompany = userRole === 'company'
   const [selectedVehicleId, setSelectedVehicleId] = useState(null)
+  const [localVehicles, setLocalVehicles] = useState([])
+
+  // Load vehicles internally when not provided via props (e.g. standalone documents tab)
+  useEffect(() => {
+    if (isCompany && !vehiclesProp && userId) {
+      fetchVehicles(userId).then(v => setLocalVehicles(v || [])).catch(() => setLocalVehicles([]))
+    }
+  }, [isCompany, vehiclesProp, userId])
+
+  const vehicles = vehiclesProp || localVehicles
 
   const effectiveVehicleId = isCompany ? selectedVehicleId : vehicleId
 

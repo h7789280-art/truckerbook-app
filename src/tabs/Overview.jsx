@@ -928,7 +928,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               <>
                 <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '10px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <div style={dimText}>{'\ud83c\udfe2'} {t('overview.fleetFinances')} — {getMonthName(new Date())}</div>
+                    <div style={dimText}>{'\ud83c\udfe2'} {t('overview.analytics')} — {getMonthName(new Date())}</div>
                     <div ref={fleetExportRef} style={{ position: 'relative' }}>
                       <button
                         onClick={(e) => { e.stopPropagation(); setShowFleetExportMenu(v => !v) }}

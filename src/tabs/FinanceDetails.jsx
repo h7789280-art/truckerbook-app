@@ -271,8 +271,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         const totalMiles = Math.round(totalKm * 0.621371)
         const tripsCount = rangeTrips.length
         const fuelCost = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
-        const totalLiters = rangeFuels.reduce((s, e) => s + (e.liters || 0), 0)
-        const totalGallons = Math.round(totalLiters * 0.264172 * 100) / 100
+        const totalGallons = rangeFuels.reduce((s, e) => s + (e.liters || 0), 0)
         setFleetMetrics({ totalMiles, tripsCount, fuelCost, totalGallons })
       }
 

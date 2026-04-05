@@ -879,12 +879,13 @@ export default function FinanceDetails({ userId, profile, onBack }) {
             onChange={e => setSelectedVehicleId(e.target.value)}
             style={{
               width: '100%',
-              padding: '10px 12px',
-              borderRadius: '10px',
+              padding: '14px 16px',
+              minHeight: '50px',
+              borderRadius: '12px',
               border: `1px solid ${theme.border}`,
               background: theme.card,
               color: selectedVehicleId ? theme.text : theme.dim,
-              fontSize: '13px',
+              fontSize: '16px',
             }}
           >
             <option value="">{'\ud83d\ude9b'} {t('overview.allVehicles')}</option>

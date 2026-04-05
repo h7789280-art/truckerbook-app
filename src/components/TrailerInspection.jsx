@@ -29,7 +29,7 @@ function getTrailerPhotoTypeLabels(t) {
   }
 }
 
-export default function TrailerInspectionContent({ userId, vehicleId }) {
+export default function TrailerInspectionContent({ userId, vehicleId, userRole }) {
   const { t } = useLanguage()
   const TRAILER_LABELS = getTrailerPhotoTypeLabels(t)
   const TRAILER_PHOTO_TYPES = getTrailerPhotoTypes(t)
@@ -187,14 +187,17 @@ export default function TrailerInspectionContent({ userId, vehicleId }) {
       )}
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button onClick={() => setShowAddModal(true)} style={{
-          flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          color: '#000', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-        }}>
-          {'\uD83D\uDCF7 ' + t('service.addTrailerPhoto')}
-        </button>
+        {userRole !== 'company' && (
+          <button onClick={() => setShowAddModal(true)} style={{
+            flex: 1, padding: '12px', borderRadius: '12px', border: 'none',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#000', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+          }}>
+            {'\uD83D\uDCF7 ' + t('service.addTrailerPhoto')}
+          </button>
+        )}
         <button onClick={handleDownloadZip} disabled={downloadingPhotos || tPhotos.length === 0} style={{
+          flex: userRole === 'company' ? 1 : undefined,
           padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--border)',
           background: (downloadingPhotos || tPhotos.length === 0) ? 'var(--border)' : 'var(--card2)',
           color: (downloadingPhotos || tPhotos.length === 0) ? 'var(--dim)' : '#3b82f6',

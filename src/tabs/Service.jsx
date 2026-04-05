@@ -1323,7 +1323,7 @@ function ChecklistTab({ checkedItems, toggleCheck, getCheckedCount }) {
 }
 
 /* ===== BOL SECTION ===== */
-function BolSection({ userId, vehicleId }) {
+function BolSection({ userId, vehicleId, userRole }) {
   const { t } = useLanguage()
   const now = new Date()
   const [bolFiles, setBolFiles] = useState([])
@@ -1595,35 +1595,40 @@ function BolSection({ userId, vehicleId }) {
         </div>
       )}
 
-      <input
-        ref={bolInputRef}
-        type="file"
-        accept="image/*,.pdf"
-        onChange={handleBolUpload}
-        style={{ display: 'none' }}
-      />
+      {userRole !== 'company' && (
+        <input
+          ref={bolInputRef}
+          type="file"
+          accept="image/*,.pdf"
+          onChange={handleBolUpload}
+          style={{ display: 'none' }}
+        />
+      )}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button
-          onClick={() => bolInputRef.current?.click()}
-          disabled={uploading}
-          style={{
-            flex: 1,
-            padding: '12px',
-            borderRadius: '12px',
-            border: 'none',
-            background: uploading ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
-            color: uploading ? 'var(--dim)' : '#000',
-            fontSize: '14px',
-            fontWeight: 700,
-            cursor: uploading ? 'default' : 'pointer',
-          }}
-        >
-          {uploading ? t('common.loading') : '\uD83D\uDCE5 ' + t('service.uploadBol')}
-        </button>
+        {userRole !== 'company' && (
+          <button
+            onClick={() => bolInputRef.current?.click()}
+            disabled={uploading}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              border: 'none',
+              background: uploading ? 'var(--border)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: uploading ? 'var(--dim)' : '#000',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: uploading ? 'default' : 'pointer',
+            }}
+          >
+            {uploading ? t('common.loading') : '\uD83D\uDCE5 ' + t('service.uploadBol')}
+          </button>
+        )}
         <button
           onClick={handleDownloadAllBol}
           disabled={downloading || bolFiles.length === 0}
           style={{
+            flex: userRole === 'company' ? 1 : undefined,
             padding: '12px 16px',
             borderRadius: '12px',
             border: '1px solid var(--border)',
@@ -1712,7 +1717,7 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles }) {
   const { t } = useLanguage()
   const [activeTile, setActiveTile] = useState(null)
   const isCompany = userRole === 'company'
-  const [selectedVehicleId, setSelectedVehicleId] = useState(vehicleId || '')
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
 
   const effectiveVehicleId = isCompany ? selectedVehicleId : vehicleId
 
@@ -1724,178 +1729,177 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles }) {
     { key: 'fines', icon: '\u26A0\uFE0F', label: t('service.tileFines') },
   ]
 
+  // Tiles grid
   if (!activeTile) {
     return (
-      <>
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '12px',
-        }}>
-          {TILES.map((tile, idx) => (
-            <div
-              key={tile.key}
-              onClick={() => setActiveTile(tile.key)}
-              style={{
-                ...cardStyle,
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '24px 12px',
-                minHeight: '110px',
-                textAlign: 'center',
-                ...(idx === TILES.length - 1 ? { gridColumn: '1 / -1', maxWidth: 'calc(50% - 6px)', justifySelf: 'center' } : {}),
-              }}
-            >
-              <div style={{ fontSize: '32px', marginBottom: '10px' }}>{tile.icon}</div>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', lineHeight: '1.3' }}>{tile.label}</div>
-            </div>
-          ))}
-        </div>
-      </>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '12px',
+      }}>
+        {TILES.map((tile, idx) => (
+          <div
+            key={tile.key}
+            onClick={() => { setActiveTile(tile.key); setSelectedVehicleId(null) }}
+            style={{
+              ...cardStyle,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px 12px',
+              minHeight: '110px',
+              textAlign: 'center',
+              ...(idx === TILES.length - 1 ? { gridColumn: '1 / -1', maxWidth: 'calc(50% - 6px)', justifySelf: 'center' } : {}),
+            }}
+          >
+            <div style={{ fontSize: '32px', marginBottom: '10px' }}>{tile.icon}</div>
+            <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', lineHeight: '1.3' }}>{tile.label}</div>
+          </div>
+        ))}
+      </div>
     )
   }
 
   const tileInfo = TILES.find(t2 => t2.key === activeTile)
 
-  const vehicleSelector = isCompany && vehicles && vehicles.length > 0 ? (
-    <div style={{ marginBottom: '16px' }}>
-      <select
-        value={selectedVehicleId}
-        onChange={e => setSelectedVehicleId(e.target.value)}
-        style={{
-          width: '100%', padding: '10px 12px', borderRadius: '10px',
-          border: '1px solid var(--border)', background: 'var(--bg)',
-          color: 'var(--text)', fontSize: '14px',
-        }}
-      >
-        <option value="" disabled>{t('service.selectVehicle')}</option>
-        {vehicles.map(v => (
-          <option key={v.id} value={v.id}>
-            {[v.brand, v.model, v.plate_number].filter(Boolean).join(' ') || v.id.slice(0, 8)}
-          </option>
-        ))}
-      </select>
+  // Company: vehicle card list (before showing content)
+  if (isCompany && !selectedVehicleId) {
+    return (
+      <>
+        <button
+          onClick={() => setActiveTile(null)}
+          style={{
+            background: 'none', border: 'none', color: 'var(--text)',
+            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
+          }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+          {tileInfo.icon + ' ' + tileInfo.label}
+        </div>
+        <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '12px' }}>
+          {t('service.chooseVehicle')}
+        </div>
+        {vehicles && vehicles.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {vehicles.map(v => (
+              <div
+                key={v.id}
+                onClick={() => setSelectedVehicleId(v.id)}
+                style={{
+                  ...cardStyle,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  transition: 'border-color 0.15s',
+                }}
+              >
+                <div style={{
+                  width: '44px', height: '44px', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #f59e0b22, #d9770622)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '22px', flexShrink: 0,
+                }}>
+                  {'\uD83D\uDE9B'}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {[v.brand, v.model].filter(Boolean).join(' ') || v.id.slice(0, 8)}
+                  </div>
+                  {v.plate_number && (
+                    <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
+                      {v.plate_number}
+                    </div>
+                  )}
+                  {v.driver_name && (
+                    <div style={{ fontSize: '12px', color: '#f59e0b', marginTop: '2px' }}>
+                      {t('service.driverLabel') + ': ' + v.driver_name}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: '18px', color: 'var(--dim)', flexShrink: 0 }}>{'\u203A'}</div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14 }}>
+            {t('common.noVehicles')}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  // Back button handler: company goes to vehicle list, others go to tiles
+  const handleBack = () => {
+    if (isCompany && selectedVehicleId) {
+      setSelectedVehicleId(null)
+    } else {
+      setActiveTile(null)
+    }
+  }
+  const backLabel = isCompany && selectedVehicleId ? t('service.backToVehicles') : t('service.backToTiles')
+
+  // Selected vehicle name for header (company only)
+  const selectedVehicle = isCompany && selectedVehicleId && vehicles
+    ? vehicles.find(v => v.id === selectedVehicleId)
+    : null
+  const vehicleHeader = selectedVehicle ? (
+    <div style={{
+      fontSize: '13px', color: '#f59e0b', fontWeight: 600, marginBottom: '12px',
+      display: 'flex', alignItems: 'center', gap: '6px',
+    }}>
+      {'\uD83D\uDE9B '}
+      {[selectedVehicle.brand, selectedVehicle.model, selectedVehicle.plate_number].filter(Boolean).join(' ')}
+      {selectedVehicle.driver_name ? (' \u2014 ' + selectedVehicle.driver_name) : ''}
     </div>
   ) : null
 
-  if (activeTile === 'trailer_inspection') {
-    return (
-      <>
-        <button
-          onClick={() => setActiveTile(null)}
-          style={{
-            background: 'none', border: 'none', color: 'var(--text)',
-            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
-            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
-          }}
-        >
-          {t('service.backToTiles')}
-        </button>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
-          {tileInfo.icon + ' ' + tileInfo.label}
-        </div>
-        {vehicleSelector}
-        <TrailerInspectionContent userId={userId} vehicleId={effectiveVehicleId} />
-      </>
-    )
+  const renderTileContent = () => {
+    switch (activeTile) {
+      case 'trailer_inspection':
+        return <TrailerInspectionContent userId={userId} vehicleId={effectiveVehicleId} userRole={userRole} />
+      case 'fines':
+        return <IncidentsContent userId={userId} vehicleId={effectiveVehicleId} userRole={userRole} />
+      case 'documents':
+        return <DocsDocumentsContent userId={userId} vehicleId={effectiveVehicleId} userRole={userRole} />
+      case 'bol':
+        return <BolSection userId={userId} vehicleId={effectiveVehicleId} userRole={userRole} />
+      case 'vehicle_inspection':
+        return <VehicleInspectionContent userId={userId} vehicleId={effectiveVehicleId} userRole={userRole} />
+      default:
+        return null
+    }
   }
 
-  if (activeTile === 'fines') {
-    return (
-      <>
-        <button
-          onClick={() => setActiveTile(null)}
-          style={{
-            background: 'none', border: 'none', color: 'var(--text)',
-            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
-            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
-          }}
-        >
-          {t('service.backToTiles')}
-        </button>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
-          {tileInfo.icon + ' ' + tileInfo.label}
-        </div>
-        {vehicleSelector}
-        <IncidentsContent userId={userId} vehicleId={effectiveVehicleId} />
-      </>
-    )
-  }
-
-  if (activeTile === 'documents') {
-    return (
-      <>
-        <button
-          onClick={() => setActiveTile(null)}
-          style={{
-            background: 'none', border: 'none', color: 'var(--text)',
-            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
-            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
-          }}
-        >
-          {t('service.backToTiles')}
-        </button>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
-          {tileInfo.icon + ' ' + tileInfo.label}
-        </div>
-        {vehicleSelector}
-        <DocsDocumentsContent userId={userId} vehicleId={effectiveVehicleId} />
-      </>
-    )
-  }
-
-  if (activeTile === 'bol') {
-    return (
-      <>
-        <button
-          onClick={() => setActiveTile(null)}
-          style={{
-            background: 'none', border: 'none', color: 'var(--text)',
-            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
-            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
-          }}
-        >
-          {t('service.backToTiles')}
-        </button>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
-          {tileInfo.icon + ' ' + tileInfo.label}
-        </div>
-        {vehicleSelector}
-        <BolSection userId={userId} vehicleId={effectiveVehicleId} />
-      </>
-    )
-  }
-
-  if (activeTile === 'vehicle_inspection') {
-    return (
-      <>
-        <button
-          onClick={() => setActiveTile(null)}
-          style={{
-            background: 'none', border: 'none', color: 'var(--text)',
-            fontSize: '15px', fontWeight: 600, cursor: 'pointer',
-            padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
-          }}
-        >
-          {t('service.backToTiles')}
-        </button>
-        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
-          {tileInfo.icon + ' ' + tileInfo.label}
-        </div>
-        {vehicleSelector}
-        <VehicleInspectionContent userId={userId} vehicleId={effectiveVehicleId} />
-      </>
-    )
-  }
-
-  return null
+  return (
+    <>
+      <button
+        onClick={handleBack}
+        style={{
+          background: 'none', border: 'none', color: 'var(--text)',
+          fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+          padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
+        }}
+      >
+        {backLabel}
+      </button>
+      <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px' }}>
+        {tileInfo.icon + ' ' + tileInfo.label}
+      </div>
+      {vehicleHeader}
+      {renderTileContent()}
+    </>
+  )
 }
 
 /* ===== DOCS - DOCUMENTS CONTENT ===== */
-function DocsDocumentsContent({ userId, vehicleId }) {
+function DocsDocumentsContent({ userId, vehicleId, userRole }) {
   const { t } = useLanguage()
   const DOC_TYPES = getDocTypes(t)
   const DOC_TYPE_MAP = Object.fromEntries(DOC_TYPES.map(d => [d.key, d]))
@@ -2177,7 +2181,7 @@ function DocsDocumentsContent({ userId, vehicleId }) {
 }
 
 /* ===== DOCS - VEHICLE INSPECTION CONTENT ===== */
-function VehicleInspectionContent({ userId, vehicleId }) {
+function VehicleInspectionContent({ userId, vehicleId, userRole }) {
   const { t } = useLanguage()
   const PHOTO_TYPE_LABELS = getPhotoTypeLabels(t)
   const [vehiclePhotos, setVehiclePhotos] = useState([])
@@ -2398,26 +2402,29 @@ function VehicleInspectionContent({ userId, vehicleId }) {
       )}
 
       <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-        <button
-          onClick={() => setShowAddPhotoModal(true)}
-          style={{
-            flex: 1,
-            padding: '12px',
-            borderRadius: '12px',
-            border: 'none',
-            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-            color: '#000',
-            fontSize: '14px',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
-        >
-          {'\uD83D\uDCF7 ' + t('service.addInspectionPhoto')}
-        </button>
+        {userRole !== 'company' && (
+          <button
+            onClick={() => setShowAddPhotoModal(true)}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '12px',
+              border: 'none',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#000',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {'\uD83D\uDCF7 ' + t('service.addInspectionPhoto')}
+          </button>
+        )}
         <button
           onClick={handleDownloadPhotosZip}
           disabled={downloadingPhotos || vehiclePhotos.length === 0}
           style={{
+            flex: userRole === 'company' ? 1 : undefined,
             padding: '12px 16px',
             borderRadius: '12px',
             border: '1px solid var(--border)',

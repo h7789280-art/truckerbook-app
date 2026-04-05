@@ -18,7 +18,7 @@ function getIncidentTypes(t) {
   ]
 }
 
-export default function IncidentsContent({ userId, vehicleId }) {
+export default function IncidentsContent({ userId, vehicleId, userRole }) {
   const { t } = useLanguage()
   const INC_TYPES = getIncidentTypes(t)
   const INC_MAP = Object.fromEntries(INC_TYPES.map(it => [it.key, it]))

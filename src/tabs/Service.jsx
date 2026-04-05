@@ -5,7 +5,7 @@ import TrailerInspectionContent from '../components/TrailerInspection'
 import IncidentsContent from '../components/IncidentsSection'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { exportToExcel, exportAllVehiclesExcel } from '../utils/export'
+import { exportToExcel } from '../utils/export'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 
 const ELD_COUNTRIES = ['US','CA','DE','FR','PL','GB','NL','BE','AT','CZ','SK','IT','ES','SE','DK','FI','NO','HU','RO','BG','HR','LT','LV','EE','SI','IE','PT','GR','LU']
@@ -375,30 +375,29 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
         <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>
           {t('service.chooseVehicle')}
         </div>
-        <div
-          onClick={() => setSelectedVehicleId('all')}
-          style={{ ...cardStyle, cursor: 'pointer', padding: '14px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}
-        >
-          <div style={{ width: 40, height: 40, backgroundColor: 'var(--card2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
-            {'\uD83D\uDE9A'}
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{t('service.allVehicles')}</div>
-        </div>
         {(vehicles || []).map(v => (
           <div
             key={v.id}
             onClick={() => setSelectedVehicleId(v.id)}
             style={{ ...cardStyle, cursor: 'pointer', padding: '14px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}
           >
-            <div style={{ width: 40, height: 40, backgroundColor: 'var(--card2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+            <div style={{ width: 44, height: 44, backgroundColor: 'var(--card2)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0, background: 'linear-gradient(135deg, #f59e0b22, #d9770622)' }}>
               {'\uD83D\uDE9B'}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-                {`${v.brand || ''} ${v.model || ''}`.trim()}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {v.driver_name || '\u2014'}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--dim)' }}>{v.plate_number || ''}{v.driver_name ? ` \u00b7 ${v.driver_name}` : ''}</div>
+              {v.plate_number && (
+                <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 3, fontFamily: 'monospace', letterSpacing: '0.5px' }}>
+                  {v.plate_number}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, opacity: 0.7 }}>
+                {`${v.brand || ''} ${v.model || ''}`.trim() || v.id.slice(0, 8)}
+              </div>
             </div>
+            <div style={{ fontSize: 18, color: 'var(--dim)', flexShrink: 0 }}>{'\u203A'}</div>
           </div>
         ))}
       </>
@@ -465,7 +464,7 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
     if (!allowedCategories.includes(r.category)) return false
     const d = new Date(r.date)
     if (d < dateFrom || d > dateTo) return false
-    if (isCompany && selectedVehicleId !== 'all' && r.vehicle_id !== selectedVehicleId) return false
+    if (isCompany && selectedVehicleId && r.vehicle_id !== selectedVehicleId) return false
     return true
   })
 
@@ -477,86 +476,29 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
     const ym = `${String(now2.getMonth() + 1).padStart(2, '0')}_${now2.getFullYear()}`
     const prefix = isRepair ? 'repair' : 'maintenance'
 
-    if (isCompany && selectedVehicleId === 'all') {
-      const columns = [
-        { header: t('fuel.exportDate'), key: 'date' },
-        { header: t('service.vehicleLabel'), key: 'vehicle' },
-        { header: t('service.categoryLabel'), key: 'category' },
-        { header: t('fuel.exportDescription'), key: 'description' },
-        { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
-        { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
-        { header: t('service.stoLabel'), key: 'sto' },
-      ]
-      const allRows = filteredRepairs.map(r => ({
-        date: r.date || '',
-        vehicle: getVehicleLabel(r.vehicle_id),
-        category: (catMap[r.category] || catMap.repair).label,
-        description: r.description || '',
-        amount: Math.round(r.cost || 0),
-        odometer: r.odometer || '',
-        sto: r.service_station || '',
-      }))
-      const catAgg = {}
-      filteredRepairs.forEach(r => {
-        const key = r.category || 'repair'
-        if (!catAgg[key]) catAgg[key] = { count: 0, amount: 0 }
-        catAgg[key].count++
-        catAgg[key].amount += (r.cost || 0)
-      })
-      const categoryData = Object.entries(catAgg).map(([k, v]) => ({
-        label: (catMap[k] || catMap.repair).label, count: v.count, amount: Math.round(v.amount),
-      }))
-      const vehAgg = {}
-      filteredRepairs.forEach(r => {
-        const vid = r.vehicle_id || 'unknown'
-        if (!vehAgg[vid]) vehAgg[vid] = { count: 0, amount: 0 }
-        vehAgg[vid].count++
-        vehAgg[vid].amount += (r.cost || 0)
-      })
-      const vehicleSummary = Object.entries(vehAgg).map(([vid, v]) => {
-        const veh = vehMap[vid]
-        return {
-          name: veh ? `${veh.brand || ''} ${veh.model || ''}`.trim() : '',
-          plate: veh ? (veh.plate_number || '') : '',
-          driver: veh ? (veh.driver_name || '') : '',
-          amount: Math.round(v.amount), count: v.count,
-        }
-      })
-      exportAllVehiclesExcel({
-        allRows, columns, categoryData, vehicleSummary,
-        labels: {
-          total: t('service.totalLabel'), category: t('service.categoryLabel'),
-          entriesCount: t('service.entriesCount'), amount: t('fuel.exportAmount'),
-          vehicle: t('service.vehicleLabel'), plate: t('service.plateLabel'), driver: t('service.driverLabel'),
-        },
-        sheetNames: { byDate: t('service.exportByDate'), byCategory: t('service.exportByCategory'), byVehicle: t('service.exportByVehicle') },
-        cs, filename: `${prefix}_all_vehicles_${ym}.xlsx`,
-      })
+    let plate = ''
+    if (isCompany && selectedVehicleId) {
+      const v = vehMap[selectedVehicleId]
+      plate = v ? (v.plate_number || '').replace(/\s/g, '_') : ''
     } else {
-      let plate = ''
-      if (isCompany && selectedVehicleId !== 'all') {
-        const v = vehMap[selectedVehicleId]
-        plate = v ? (v.plate_number || '').replace(/\s/g, '_') : ''
-      } else {
-        plate = (profilePlate || '').replace(/\s/g, '_')
-      }
-      const columns = [
-        { header: t('fuel.exportDate'), key: 'date' },
-        { header: t('service.categoryLabel'), key: 'category' },
-        { header: t('fuel.exportDescription'), key: 'description' },
-        { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
-        { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
-        { header: t('service.stoLabel'), key: 'sto' },
-      ]
-      const rows = filteredRepairs.map(r => ({
-        date: r.date || '', category: (catMap[r.category] || catMap.repair).label,
-        description: r.description || '', amount: Math.round(r.cost || 0),
-        odometer: r.odometer || '', sto: r.service_station || '',
-      }))
-      rows.push({ date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '' })
-      const fn = plate ? `${prefix}_${plate}_${ym}.xlsx` : `${prefix}_report_${ym}.xlsx`
-      exportToExcel(rows, columns, fn)
+      plate = (profilePlate || '').replace(/\s/g, '_')
     }
+    const columns = [
+      { header: t('fuel.exportDate'), key: 'date' },
+      { header: t('service.categoryLabel'), key: 'category' },
+      { header: t('fuel.exportDescription'), key: 'description' },
+      { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
+      { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
+      { header: t('service.stoLabel'), key: 'sto' },
+    ]
+    const rows = filteredRepairs.map(r => ({
+      date: r.date || '', category: (catMap[r.category] || catMap.repair).label,
+      description: r.description || '', amount: Math.round(r.cost || 0),
+      odometer: r.odometer || '', sto: r.service_station || '',
+    }))
+    rows.push({ date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '' })
+    const fn = plate ? `${prefix}_${plate}_${ym}.xlsx` : `${prefix}_report_${ym}.xlsx`
+    exportToExcel(rows, columns, fn)
   }
 
   const periodBtnStyle = (active) => ({
@@ -721,7 +663,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
   const [sto, setSto] = useState('')
   const [nextKm, setNextKm] = useState('')
   const [photos, setPhotos] = useState([])
-  const [vehicleId, setVehicleId] = useState(selectedVehicleId === 'all' ? '' : (selectedVehicleId || ''))
+  const [vehicleId, setVehicleId] = useState(selectedVehicleId || '')
   const [saving, setSaving] = useState(false)
   const fileRef = useRef(null)
 
@@ -797,18 +739,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: '22px', cursor: 'pointer' }}>{'\u2715'}</button>
         </div>
 
-        {/* Vehicle select (company + all) */}
-        {userRole === 'company' && selectedVehicleId === 'all' && (
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.vehicleLabel')}</label>
-            <select value={vehicleId} onChange={e => setVehicleId(e.target.value)} style={{ ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }}>
-              <option value="">{t('service.chooseVehicle')}</option>
-              {(vehicles || []).map(v => (
-                <option key={v.id} value={v.id}>{`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* Vehicle is always pre-selected */}
 
         {/* Category */}
         <div style={{ marginBottom: '12px' }}>

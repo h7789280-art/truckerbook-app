@@ -1375,6 +1375,9 @@ function BolSection({ userId, vehicleId, userRole }) {
         .eq('type', 'bol')
         .gte('created_at', range.start)
         .order('created_at', { ascending: false })
+      if (vehicleId) {
+        query = query.eq('vehicle_id', vehicleId)
+      }
       if (bolFilterMode === 'period') {
         query = query.lte('created_at', range.end)
       } else {
@@ -1388,7 +1391,7 @@ function BolSection({ userId, vehicleId, userRole }) {
     } finally {
       setLoadingBol(false)
     }
-  }, [userId, bolFilterMode, bolMonth, bolYear, bolDateFrom, bolDateTo, getBolDateRange])
+  }, [userId, vehicleId, bolFilterMode, bolMonth, bolYear, bolDateFrom, bolDateTo, getBolDateRange])
 
   useEffect(() => { loadBolFiles() }, [loadBolFiles])
 
@@ -1808,19 +1811,17 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles }) {
                   {'\uD83D\uDE9B'}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {[v.brand, v.model].filter(Boolean).join(' ') || v.id.slice(0, 8)}
+                  <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {v.driver_name || '\u2014'}
                   </div>
                   {v.plate_number && (
-                    <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--dim)', marginTop: '3px', fontFamily: 'monospace', letterSpacing: '0.5px' }}>
                       {v.plate_number}
                     </div>
                   )}
-                  {v.driver_name && (
-                    <div style={{ fontSize: '12px', color: '#f59e0b', marginTop: '2px' }}>
-                      {t('service.driverLabel') + ': ' + v.driver_name}
-                    </div>
-                  )}
+                  <div style={{ fontSize: '12px', color: 'var(--dim)', marginTop: '2px', opacity: 0.7 }}>
+                    {[v.brand, v.model].filter(Boolean).join(' ') || v.id.slice(0, 8)}
+                  </div>
                 </div>
                 <div style={{ fontSize: '18px', color: 'var(--dim)', flexShrink: 0 }}>{'\u203A'}</div>
               </div>
@@ -2232,6 +2233,9 @@ function VehicleInspectionContent({ userId, vehicleId, userRole }) {
         .eq('user_id', userId)
         .gte('created_at', range.start)
         .order('created_at', { ascending: false })
+      if (vehicleId) {
+        query = query.eq('vehicle_id', vehicleId)
+      }
       if (photoFilterMode === 'period') {
         query = query.lte('created_at', range.end)
       } else {
@@ -2245,7 +2249,7 @@ function VehicleInspectionContent({ userId, vehicleId, userRole }) {
     } finally {
       setLoadingPhotos(false)
     }
-  }, [userId, photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo, getPhotoDateRange])
+  }, [userId, vehicleId, photoFilterMode, photoMonth, photoYear, photoDateFrom, photoDateTo, getPhotoDateRange])
 
   useEffect(() => {
     loadPhotos()

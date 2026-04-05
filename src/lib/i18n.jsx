@@ -752,6 +752,7 @@ const translations = {
       selectVehiclePlaceholder: '\u0412\u044b\u0431\u0440\u0430\u0442\u044c \u043c\u0430\u0448\u0438\u043d\u0443...',
       ratePerMileCol: '\u0421\u0442\u0430\u0432\u043a\u0430/\u043c\u0438',
       driverComparisonTable: '\u0421\u0440\u0430\u0432\u043d\u0435\u043d\u0438\u0435 \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u0439',
+      allVehicles: '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
     },
     ai: {
       recognizing: '\u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u044e...',
@@ -1789,6 +1790,7 @@ const translations = {
       selectVehiclePlaceholder: 'Select vehicle...',
       ratePerMileCol: 'Rate/mi',
       driverComparisonTable: 'Driver comparison',
+      allVehicles: 'All vehicles',
     },
     ai: {
       recognizing: 'Recognizing...',
@@ -2826,6 +2828,7 @@ const translations = {
       selectVehiclePlaceholder: '\u041e\u0431\u0440\u0430\u0442\u0438 \u043c\u0430\u0448\u0438\u043d\u0443...',
       ratePerMileCol: '\u0421\u0442\u0430\u0432\u043a\u0430/\u043c\u0456',
       driverComparisonTable: '\u041f\u043e\u0440\u0456\u0432\u043d\u044f\u043d\u043d\u044f \u0432\u043e\u0434\u0456\u0457\u0432',
+      allVehicles: '\u0412\u0441\u0456 \u043c\u0430\u0448\u0438\u043d\u0438',
     },
     ai: {
       recognizing: '\u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u044e...',
@@ -3861,6 +3864,7 @@ const translations = {
       selectVehiclePlaceholder: 'Seleccionar veh\u00edculo...',
       ratePerMileCol: 'Tarifa/mi',
       driverComparisonTable: 'Comparaci\u00f3n de conductores',
+      allVehicles: 'Todos los veh\u00edculos',
     },
     ai: {
       recognizing: 'Reconociendo...',
@@ -4878,6 +4882,7 @@ const translations = {
       selectVehiclePlaceholder: 'Fahrzeug w\u00e4hlen...',
       ratePerMileCol: 'Rate/mi',
       driverComparisonTable: 'Fahrervergleich',
+      allVehicles: 'Alle Fahrzeuge',
     },
     ai: {
       recognizing: 'Erkennung...',
@@ -5895,6 +5900,7 @@ const translations = {
       selectVehiclePlaceholder: 'Choisir un v\u00e9hicule...',
       ratePerMileCol: 'Tarif/mi',
       driverComparisonTable: 'Comparaison des chauffeurs',
+      allVehicles: 'Tous les v\u00e9hicules',
     },
     ai: {
       recognizing: 'Reconnaissance...',
@@ -6912,6 +6918,7 @@ const translations = {
       selectVehiclePlaceholder: 'Ara\u00e7 se\u00e7in...',
       ratePerMileCol: 'Oran/mi',
       driverComparisonTable: 'S\u00fcr\u00fcc\u00fc kar\u015f\u0131la\u015ft\u0131rmas\u0131',
+      allVehicles: 'T\u00fcm ara\u00e7lar',
     },
     ai: {
       recognizing: 'Tan\u0131n\u0131yor...',
@@ -7929,6 +7936,7 @@ const translations = {
       selectVehiclePlaceholder: 'Wybierz pojazd...',
       ratePerMileCol: 'Stawka/mi',
       driverComparisonTable: 'Por\u00f3wnanie kierowc\u00f3w',
+      allVehicles: 'Wszystkie pojazdy',
     },
     ai: {
       recognizing: 'Rozpoznawanie...',

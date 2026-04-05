@@ -24,7 +24,6 @@ function getSubTabs(t, userRole) {
   if (userRole !== 'company') {
     tabs.push({ key: 'checklist', label: '\u2705 ' + t('service.checklist') })
   }
-  tabs.push({ key: 'docs', label: '\uD83D\uDCC4 ' + t('service.docs') })
   if (showDVIR) {
     tabs.push({ key: 'dvir', label: '\uD83D\uDD0D ' + t('service.inspection') })
   }

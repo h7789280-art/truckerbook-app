@@ -619,14 +619,26 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const totalExpenses = monthData.fuelCost + (isCompanyRole ? 0 : monthData.bytCost) + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
 
-  const cardStyle = {
+  const isCompanyLight = isCompanyRole && (mode === 'light' || (mode === 'auto' && new Date().getHours() >= 6 && new Date().getHours() < 20))
+
+  const cardStyle = isCompanyLight ? {
+    background: '#ffffff',
+    border: 'none',
+    borderRadius: '16px',
+    padding: '16px',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+  } : {
     background: theme.card,
     border: '1px solid ' + theme.border,
-    borderRadius: '12px',
+    borderRadius: isCompanyRole ? '16px' : '12px',
     padding: '16px',
+    boxShadow: isCompanyRole ? '0 2px 8px rgba(0,0,0,0.15)' : undefined,
   }
 
-  const dimText = { color: theme.dim, fontSize: '13px' }
+  const dimText = { color: isCompanyLight ? '#8e8e93' : theme.dim, fontSize: '13px' }
+  const companyBg = isCompanyLight ? '#f8f9fa' : theme.bg
+  const companyText = isCompanyLight ? '#1a1a1a' : theme.text
+  const companyDim = isCompanyLight ? '#8e8e93' : theme.dim
 
   // Achievements full view — not for company role
   if (showAchievements && !isCompanyRole) {
@@ -822,20 +834,47 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   }
 
   return (
-    <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
+    <div style={{ background: isCompanyRole ? companyBg : theme.bg, minHeight: '100vh', color: isCompanyRole ? companyText : theme.text, padding: '16px', paddingBottom: '80px' }}>
       {/* Greeting */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', paddingRight: 44 }}>
-        <div style={{ fontSize: '20px', fontWeight: 600 }}>
-          {greeting.icon} {greeting.text}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: isCompanyRole ? '20px' : '12px', paddingRight: isCompanyRole ? 0 : 44 }}>
+        <div style={{ fontSize: isCompanyRole ? '22px' : '20px', fontWeight: isCompanyRole ? 700 : 600, color: isCompanyRole ? companyText : theme.text }}>
+          {isCompanyRole ? greeting.text : `${greeting.icon} ${greeting.text}`}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: isCompanyRole ? 6 : 12, flexShrink: 0 }}>
+          {/* Compact theme switcher icons — company role only */}
+          {isCompanyRole && (() => {
+            const themeIcons = [
+              { key: 'light', icon: '\u2600\ufe0f' },
+              { key: 'dark', icon: '\ud83c\udf19' },
+              { key: 'red_night', icon: '\ud83d\udd34' },
+              { key: 'auto', icon: '\ud83d\udd04' },
+            ]
+            return themeIcons.map(opt => (
+              <button
+                key={opt.key}
+                onClick={() => setMode(opt.key)}
+                style={{
+                  width: 32, height: 32,
+                  borderRadius: '50%',
+                  border: 'none',
+                  background: mode === opt.key ? (isCompanyLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.15)') : 'transparent',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  opacity: mode === opt.key ? 1 : 0.5,
+                  transition: 'all 0.2s',
+                }}
+              >{opt.icon}</button>
+            ))
+          })()}
           {onOpenProfile && (
             <button
               onClick={onOpenProfile}
               style={{
-                background: 'none', border: 'none', cursor: 'pointer',
+                background: isCompanyLight ? 'rgba(0,0,0,0.06)' : 'none',
+                border: 'none', cursor: 'pointer',
                 fontSize: '22px', padding: '8px', lineHeight: 1,
-                minWidth: 40, minHeight: 40,
+                minWidth: 40, minHeight: 40, borderRadius: '50%',
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}
             >{'\ud83d\udc64'}</button>
@@ -872,39 +911,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         )
       })()}
 
-      {/* Theme switcher — for company role, placed right after greeting/trial banner */}
-      {isCompanyRole && (
-      <div style={{
-        display: 'flex',
-        gap: '6px',
-        marginBottom: '16px',
-        background: theme.card,
-        borderRadius: '12px',
-        padding: '4px',
-        border: '1px solid ' + theme.border,
-      }}>
-        {THEME_OPTIONS.map(opt => (
-          <button
-            key={opt.key}
-            onClick={() => setMode(opt.key)}
-            style={{
-              flex: 1,
-              padding: '8px 4px',
-              border: 'none',
-              borderRadius: '10px',
-              fontSize: '12px',
-              fontWeight: 600,
-              cursor: 'pointer',
-              background: mode === opt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
-              color: mode === opt.key ? '#fff' : theme.dim,
-              transition: 'all 0.2s',
-            }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-      )}
+      {/* Theme switcher for company moved to header icons */}
 
       {/* Fleet panel — only for company role with 2+ vehicles */}
       {fleetData && profile?.role === 'company' && (
@@ -924,139 +931,168 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             const fleetVehicleCount = fleetData.totalVehicles + (profile?.brand ? 1 : 0)
             const onTrip = fleetData.onTripCount || 0
             const freeVehicles = Math.max(0, fleetVehicleCount - onTrip)
+            const iconCircle = (bg, svg) => (
+              <div style={{
+                width: 44, height: 44, borderRadius: '50%', background: bg,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexShrink: 0,
+              }}>{svg}</div>
+            )
+            const metricCard = (value, label, iconBg, iconContent, onClick) => (
+              <div
+                onClick={onClick}
+                style={{
+                  ...cardStyle,
+                  marginBottom: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  cursor: onClick ? 'pointer' : 'default',
+                  transition: 'opacity 0.15s',
+                }}
+                onPointerDown={onClick ? (e => e.currentTarget.style.opacity = '0.7') : undefined}
+                onPointerUp={onClick ? (e => e.currentTarget.style.opacity = '1') : undefined}
+                onPointerLeave={onClick ? (e => e.currentTarget.style.opacity = '1') : undefined}
+              >
+                <div>
+                  <div style={{ fontFamily: 'monospace', fontSize: '26px', fontWeight: 700, color: companyText, lineHeight: 1.2 }}>{value}</div>
+                  <div style={{ fontSize: '13px', color: companyDim, marginTop: '4px' }}>{label}</div>
+                </div>
+                {iconCircle(iconBg, iconContent)}
+              </div>
+            )
+            const now = new Date()
+            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+            const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+            const periodLabel = `${monthStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} to ${monthEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
             return (
               <>
-                <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '10px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <div style={dimText}>{'\ud83c\udfe2'} {t('overview.fleetFinances')} — {getMonthName(new Date())}</div>
-                    <div ref={fleetExportRef} style={{ position: 'relative' }}>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); setShowFleetExportMenu(v => !v) }}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '10px',
-                          border: '1px solid ' + theme.border,
-                          background: theme.card,
-                          color: theme.text,
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                        }}
-                      >
-                        {'\ud83d\udce5'} {t('fuel.export')}
-                      </button>
-                      {showFleetExportMenu && (
-                        <div style={{
-                          position: 'absolute',
-                          right: 0,
-                          top: '100%',
-                          marginTop: '6px',
-                          background: theme.card,
-                          border: '1px solid ' + theme.border,
-                          borderRadius: '10px',
-                          overflow: 'hidden',
-                          zIndex: 50,
-                          minWidth: '160px',
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.3)',
-                        }}>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleFleetExport('excel') }}
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: 'none',
-                              background: 'transparent',
-                              color: theme.text,
-                              fontSize: '14px',
-                              textAlign: 'left',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {'\ud83d\udcc4'} {t('fuel.exportExcel')}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleFleetExport('pdf') }}
-                            style={{
-                              display: 'block',
-                              width: '100%',
-                              padding: '12px 16px',
-                              border: 'none',
-                              borderTop: '1px solid ' + theme.border,
-                              background: 'transparent',
-                              color: theme.text,
-                              fontSize: '14px',
-                              textAlign: 'left',
-                              cursor: 'pointer',
-                            }}
-                          >
-                            {'\ud83d\udcc3'} {t('fuel.exportPDF')}
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>{fleetVehicleCount}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetVehicles')}</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#22c55e' }}>{formatNumber(Math.round(fleetIncome))} {cs}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetIncome')}</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>{formatNumber(Math.round(fleetExpense))} {cs}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fleetExpense')}</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: fleetGrossProfit >= 0 ? '#22c55e' : '#ef4444' }}>{fleetGrossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(fleetGrossProfit))} {cs}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.grossProfit')}</div>
-                    </div>
-                  </div>
-                  {fleetTotalSalary > 0 && (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', paddingTop: '8px', borderTop: '1px dashed ' + theme.border }}>
-                      <div style={{ fontSize: '12px', color: theme.dim }}>
-                        {t('overview.salariesLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(fleetTotalSalary))} {cs}</span>
-                      </div>
-                      <div style={{ fontSize: '12px', color: theme.dim }}>
-                        {t('overview.netLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: fleetNetProfit >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(fleetNetProfit))} {cs}</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {/* Fleet status — one row */}
+                {/* Period selector */}
                 <div style={{
                   ...cardStyle,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  gap: '24px',
-                  padding: '10px 16px',
-                  marginBottom: '12px',
+                  marginBottom: '16px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 16px',
                 }}>
-                  <div style={{ fontSize: '12px', color: theme.dim }}>
-                    {t('overview.fleetStatusTitle')}:
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={companyDim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>
+                    <span style={{ fontSize: '14px', fontWeight: 600, color: companyText }}>{periodLabel}</span>
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#22c55e' }} />
-                    <span style={{ fontSize: '13px', color: theme.text }}>{t('overview.fleetOnTrip')}: {onTrip}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#64748b' }} />
-                    <span style={{ fontSize: '13px', color: theme.text }}>{t('overview.fleetFree')}: {freeVehicles}</span>
+                  <div ref={fleetExportRef} style={{ position: 'relative' }}>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowFleetExportMenu(v => !v) }}
+                      style={{
+                        padding: '6px 14px', borderRadius: '10px',
+                        border: 'none',
+                        background: isCompanyLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.1)',
+                        color: companyText, fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                      }}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      {t('fuel.export')}
+                    </button>
+                    {showFleetExportMenu && (
+                      <div style={{
+                        position: 'absolute', right: 0, top: '100%', marginTop: '6px',
+                        background: isCompanyLight ? '#fff' : theme.card,
+                        border: isCompanyLight ? 'none' : ('1px solid ' + theme.border),
+                        borderRadius: '12px', overflow: 'hidden', zIndex: 50, minWidth: '160px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                      }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleFleetExport('excel') }}
+                          style={{ display: 'block', width: '100%', padding: '12px 16px', border: 'none', background: 'transparent', color: companyText, fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                        >
+                          {'\ud83d\udcc4'} {t('fuel.exportExcel')}
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleFleetExport('pdf') }}
+                          style={{ display: 'block', width: '100%', padding: '12px 16px', border: 'none', borderTop: '1px solid ' + (isCompanyLight ? '#f0f0f0' : theme.border), background: 'transparent', color: companyText, fontSize: '14px', textAlign: 'left', cursor: 'pointer' }}
+                        >
+                          {'\ud83d\udcc3'} {t('fuel.exportPDF')}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
-                {/* Trips card — clickable, navigates to detail screen */}
-                <div onClick={() => onExtraNav?.('trips_detail')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
-                  <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{t('overview.goToTrips')}</div>
+
+                {/* Metric cards — vertical list */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+                  {metricCard(
+                    String(fleetVehicleCount),
+                    t('overview.fleetVehicles'),
+                    'rgba(59,130,246,0.12)',
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" rx="2"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                  )}
+                  {metricCard(
+                    `${formatNumber(Math.round(fleetIncome))} ${cs}`,
+                    t('overview.fleetIncome'),
+                    'rgba(34,197,94,0.12)',
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                  )}
+                  {metricCard(
+                    `${formatNumber(Math.round(fleetExpense))} ${cs}`,
+                    t('overview.fleetExpense'),
+                    'rgba(239,68,68,0.12)',
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                  )}
+                  {metricCard(
+                    `${fleetGrossProfit >= 0 ? '+' : ''}${formatNumber(Math.round(fleetGrossProfit))} ${cs}`,
+                    t('overview.grossProfit'),
+                    'rgba(245,158,11,0.12)',
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>,
+                    () => onExtraNav?.('finance')
+                  )}
+                </div>
+                {fleetTotalSalary > 0 && (
+                  <div style={{ ...cardStyle, marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontSize: '13px', color: companyDim }}>{t('overview.salariesLabel')}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>{formatNumber(Math.round(fleetTotalSalary))} {cs}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ fontSize: '13px', color: companyDim }}>{t('overview.netLabel')}</div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: fleetNetProfit >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(fleetNetProfit))} {cs}</div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Fleet status card */}
+                <div style={{
+                  ...cardStyle,
+                  marginBottom: '16px',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px',
+                  padding: '14px 16px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: '#22c55e' }} />
+                    <span style={{ fontSize: '14px', color: companyText, fontWeight: 500 }}>{t('overview.fleetOnTrip')}: {onTrip}</span>
+                  </div>
+                  <div style={{ width: 1, height: 20, background: isCompanyLight ? '#e5e5e5' : theme.border }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '50%', background: '#94a3b8' }} />
+                    <span style={{ fontSize: '14px', color: companyText, fontWeight: 500 }}>{t('overview.fleetFree')}: {freeVehicles}</span>
+                  </div>
+                </div>
+
+                {/* Trips card */}
+                <div onClick={() => onExtraNav?.('trips_detail')} style={{
+                  ...cardStyle, marginBottom: '16px', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  transition: 'opacity 0.15s',
+                }} onPointerDown={e => e.currentTarget.style.opacity = '0.7'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: '50%', background: 'rgba(59,130,246,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </div>
+                    <div style={{ fontSize: '16px', fontWeight: 600, color: companyText }}>{t('overview.goToTrips')}</div>
+                  </div>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={companyDim} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </div>
               </>
             )
           })()}
-          {/* Vehicle cards — driver-first */}
+
+          {/* Vehicle cards — modern style */}
           {fleetData.vehicleStats.map((v) => (
             <div
               key={v.id}
@@ -1068,33 +1104,32 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               }}
               style={{
                 ...cardStyle,
-                marginBottom: '8px',
+                marginBottom: '12px',
                 cursor: 'pointer',
-                borderLeft: activeVehicleId === v.id ? '3px solid #f59e0b' : '3px solid transparent',
-                transition: 'border-color 0.2s',
+                borderLeft: activeVehicleId === v.id ? ('3px solid #f59e0b') : ('3px solid transparent'),
+                transition: 'border-color 0.2s, opacity 0.15s',
               }}
+              onPointerDown={e => e.currentTarget.style.opacity = '0.7'}
+              onPointerUp={e => e.currentTarget.style.opacity = '1'}
+              onPointerLeave={e => e.currentTarget.style.opacity = '1'}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <div>
-                  <div style={{ fontSize: '16px', fontWeight: 700 }}>
+                  <div style={{ fontSize: '17px', fontWeight: 700, color: companyText }}>
                     {v.driver_name || t('overview.fleetNoDriver')}
                   </div>
-                  {v.plate_number && <div style={{ fontSize: '13px', color: theme.dim, marginTop: '2px' }}>{v.plate_number}</div>}
-                  <div style={{ fontSize: '12px', color: theme.dim }}>{v.brand} {v.model}</div>
+                  <div style={{ fontSize: '13px', color: companyDim, marginTop: '2px' }}>{v.brand} {v.model}{v.plate_number ? ` \u00b7 ${v.plate_number}` : ''}</div>
                 </div>
                 <span style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '3px 10px',
-                  borderRadius: '12px',
-                  background: v.isOnTrip ? 'rgba(34,197,94,0.15)' : 'rgba(100,116,139,0.15)',
-                  color: v.isOnTrip ? '#22c55e' : '#64748b',
+                  fontSize: '12px', fontWeight: 600, padding: '4px 12px', borderRadius: '20px',
+                  background: v.isOnTrip ? 'rgba(34,197,94,0.12)' : 'rgba(148,163,184,0.12)',
+                  color: v.isOnTrip ? '#22c55e' : '#94a3b8',
                 }}>{v.isOnTrip ? t('overview.fleetBadgeOnTrip') : t('overview.fleetBadgeFree')}</span>
               </div>
-              <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: theme.text }}>
-                <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
-                <span>{'\u26fd'} {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
-                <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
+              <div style={{ display: 'flex', gap: '20px', fontSize: '13px', color: companyDim }}>
+                <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 500 }}>{v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
               </div>
             </div>
           ))}
@@ -1996,38 +2031,31 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Quick links — for company and driver roles, shown at bottom */}
           {(isCompanyRole || role === 'driver') && onExtraNav && (
             <div style={{ ...cardStyle, marginBottom: '12px' }}>
-              <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
+              <div style={{ ...dimText, marginBottom: '12px' }}>{t('overview.quickLinks')}</div>
               <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
                 {[
-                  { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs') },
-                  { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews') },
-                  { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace') },
+                  { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs'), bg: 'rgba(59,130,246,0.12)' },
+                  { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews'), bg: 'rgba(34,197,94,0.12)' },
+                  { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace'), bg: 'rgba(245,158,11,0.12)' },
                 ].map(item => (
                   <button
                     key={item.key}
                     onClick={() => onExtraNav(item.key)}
                     style={{
-                      flex: '0 0 80px',
-                      width: '80px',
-                      height: '80px',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      background: theme.card,
-                      border: '1px solid ' + theme.border,
-                      borderRadius: '14px',
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                      transition: 'transform 0.15s, box-shadow 0.15s',
+                      flex: '0 0 80px', width: '80px', height: '80px',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      background: isCompanyRole ? item.bg : theme.card,
+                      border: isCompanyRole ? 'none' : ('1px solid ' + theme.border),
+                      borderRadius: '16px', cursor: 'pointer',
+                      boxShadow: isCompanyLight ? '0 2px 8px rgba(0,0,0,0.06)' : '0 2px 8px rgba(0,0,0,0.15)',
+                      transition: 'transform 0.15s',
                     }}
                     onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
                     onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
                     onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
                   >
                     <span style={{ fontSize: '28px', lineHeight: 1 }}>{item.icon}</span>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: theme.text, lineHeight: 1.2, textAlign: 'center' }}>{item.label}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: isCompanyRole ? companyText : theme.text, lineHeight: 1.2, textAlign: 'center' }}>{item.label}</span>
                   </button>
                 ))}
               </div>
@@ -2037,18 +2065,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Reminders */}
           {role !== 'job_seeker' && reminders.length > 0 && (
             <div style={{ ...cardStyle }}>
-              <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udd14'} {t('overview.reminders')}</div>
+              <div style={{ ...dimText, marginBottom: '12px' }}>{t('overview.reminders')}</div>
               {reminders.map((r, i) => (
                 <div key={i} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                   padding: '10px 0',
-                  borderTop: i > 0 ? '1px solid ' + theme.border : 'none',
+                  borderTop: i > 0 ? ('1px solid ' + (isCompanyLight ? '#f0f0f0' : theme.border)) : 'none',
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <span style={{ fontSize: '18px' }}>{r.icon}</span>
-                    <span style={{ fontSize: '14px' }}>{r.text}</span>
+                    <span style={{ fontSize: '14px', color: isCompanyRole ? companyText : theme.text }}>{r.text}</span>
                   </div>
                   <span style={{ fontFamily: 'monospace', fontSize: '13px', color: '#f59e0b' }}>{r.sub}</span>
                 </div>

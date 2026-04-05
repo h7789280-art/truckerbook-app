@@ -871,6 +871,34 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         </div>
       )}
 
+      {/* Vehicle selector — company only, before metrics */}
+      {isCompanyRole && vehicles.length > 0 && (
+        <div style={{ marginBottom: '12px' }}>
+          <select
+            value={selectedVehicleId}
+            onChange={e => setSelectedVehicleId(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: '10px',
+              border: `1px solid ${theme.border}`,
+              background: theme.card,
+              color: selectedVehicleId ? theme.text : theme.dim,
+              fontSize: '13px',
+            }}
+          >
+            <option value="">{'\ud83d\ude9b'} {t('overview.allVehicles')}</option>
+            {vehicles.map(v => (
+              <option key={v.id} value={v.id}>
+                {((v.brand || '') + ' ' + (v.model || '')).trim() || v.plate_number || v.id.slice(0, 8)}
+                {v.driver_name ? ` \u2014 ${v.driver_name}` : ''}
+                {v.plate_number ? ` (${v.plate_number})` : ''}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
           {t('common.loading')}
@@ -1159,36 +1187,9 @@ export default function FinanceDetails({ userId, profile, onBack }) {
           {/* Donut */}
           {renderDonut()}
 
-          {/* Per-vehicle section — company only */}
+          {/* Driver comparison section — company only */}
           {isCompanyRole && vehicles.length > 0 && (
             <div style={{ ...cardStyle, marginBottom: '12px' }}>
-              <div style={{ ...dimText, marginBottom: '12px', fontWeight: 600 }}>
-                {'\ud83d\ude9b'} {t('overview.byVehiclesSection')}
-              </div>
-              <select
-                value={selectedVehicleId}
-                onChange={e => setSelectedVehicleId(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '10px 12px',
-                  borderRadius: '10px',
-                  border: `1px solid ${theme.border}`,
-                  background: theme.bg,
-                  color: selectedVehicleId ? theme.text : theme.dim,
-                  fontSize: '13px',
-                  marginBottom: driverComparisonData.length > 0 ? '16px' : 0,
-                }}
-              >
-                <option value="">{t('overview.selectVehiclePlaceholder')}</option>
-                {vehicles.map(v => (
-                  <option key={v.id} value={v.id}>
-                    {((v.brand || '') + ' ' + (v.model || '')).trim() || v.plate_number || v.id.slice(0, 8)}
-                    {v.driver_name ? ` — ${v.driver_name}` : ''}
-                    {v.plate_number ? ` (${v.plate_number})` : ''}
-                  </option>
-                ))}
-              </select>
-
               {/* Driver comparison table */}
               {driverComparisonData.length > 0 && (() => {
                 const isImperial = units === 'imperial'

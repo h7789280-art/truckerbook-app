@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchVehicles, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchVehicles, addServiceRecord, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
 import DVIRInspection from '../components/DVIRInspection'
 import TrailerInspectionContent from '../components/TrailerInspection'
 import IncidentsContent from '../components/IncidentsSection'
@@ -241,6 +241,8 @@ export default function Service({ userId, activeVehicleId, userRole }) {
           userRole={userRole}
           vehicles={vehicles}
           profilePlate={profilePlate}
+          userId={userId}
+          onReload={loadData}
         />
       )}
       {activeTab === 'tires' && (
@@ -279,8 +281,20 @@ function getServiceCategoryMap(t) {
     bodywork: { label: t('service.catBodywork'), icon: '\uD83D\uDE97' },
     diagnostics: { label: t('service.catDiagnostics'), icon: '\uD83D\uDD0D' },
     belts_chains: { label: t('service.catBeltsChains'), icon: '\u26D3\uFE0F' },
+    engine: { label: t('service.catEngine'), icon: '\u2699\uFE0F' },
+    transmission: { label: t('service.catTransmission'), icon: '\uD83D\uDD29' },
+    suspension: { label: t('service.catSuspension'), icon: '\uD83D\uDEDE' },
+    exhaust: { label: t('service.catExhaust'), icon: '\uD83D\uDCA8' },
+    repair_other: { label: t('service.catRepairOther'), icon: '\uD83D\uDCE6' },
+    coolant: { label: t('service.catCoolant'), icon: '\u2744\uFE0F' },
+    brake_pads: { label: t('service.catBrakePads'), icon: '\uD83D\uDED1' },
+    spark_plugs: { label: t('service.catSparkPlugs'), icon: '\uD83D\uDD0C' },
+    maintenance_other: { label: t('service.catMaintenanceOther'), icon: '\uD83D\uDCE6' },
   }
 }
+
+const REPAIR_CATEGORIES = ['engine', 'transmission', 'brakes', 'electrical', 'bodywork', 'suspension', 'exhaust', 'repair_other', 'repair']
+const MAINTENANCE_CATEGORIES = ['oil_change', 'filters', 'belts_chains', 'coolant', 'diagnostics', 'brake_pads', 'spark_plugs', 'maintenance', 'maintenance_other']
 
 function getDateRange(period, customFrom, customTo) {
   const now = new Date()
@@ -300,7 +314,122 @@ function getDateRange(period, customFrom, customTo) {
 }
 
 /* ===== SERVICE TAB ===== */
-function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePlate }) {
+function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePlate, userId, onReload }) {
+  const { t } = useLanguage()
+  const [activeTile, setActiveTile] = useState(null)
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null)
+
+  const isCompany = userRole === 'company'
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+        {t('common.loading')}
+      </div>
+    )
+  }
+
+  // Tiles grid (main screen)
+  if (!activeTile) {
+    const TILES = [
+      { key: 'repair', icon: '\uD83D\uDD27', label: t('service.tileRepair'), desc: t('service.tileRepairDesc') },
+      { key: 'maintenance', icon: '\uD83D\uDEE0\uFE0F', label: t('service.tileMaintenance'), desc: t('service.tileMaintenanceDesc') },
+    ]
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        {TILES.map(tile => (
+          <div
+            key={tile.key}
+            onClick={() => { setActiveTile(tile.key); setSelectedVehicleId(null) }}
+            style={{
+              ...cardStyle,
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '24px 12px',
+              minHeight: '110px',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '32px', marginBottom: '8px' }}>{tile.icon}</div>
+            <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text)' }}>{tile.label}</div>
+            <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '4px' }}>{tile.desc}</div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // Company: vehicle selection screen
+  if (isCompany && !selectedVehicleId) {
+    return (
+      <>
+        <button
+          onClick={() => setActiveTile(null)}
+          style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: '14px', cursor: 'pointer', marginBottom: '12px', padding: 0 }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>
+          {t('service.chooseVehicle')}
+        </div>
+        <div
+          onClick={() => setSelectedVehicleId('all')}
+          style={{ ...cardStyle, cursor: 'pointer', padding: '14px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}
+        >
+          <div style={{ width: 40, height: 40, backgroundColor: 'var(--card2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+            {'\uD83D\uDE9A'}
+          </div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>{t('service.allVehicles')}</div>
+        </div>
+        {(vehicles || []).map(v => (
+          <div
+            key={v.id}
+            onClick={() => setSelectedVehicleId(v.id)}
+            style={{ ...cardStyle, cursor: 'pointer', padding: '14px 16px', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '12px' }}
+          >
+            <div style={{ width: 40, height: 40, backgroundColor: 'var(--card2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>
+              {'\uD83D\uDE9B'}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                {`${v.brand || ''} ${v.model || ''}`.trim()}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--dim)' }}>{v.plate_number || ''}{v.driver_name ? ` \u00b7 ${v.driver_name}` : ''}</div>
+            </div>
+          </div>
+        ))}
+      </>
+    )
+  }
+
+  // Content view (repair or maintenance list)
+  const allowedCats = activeTile === 'repair' ? REPAIR_CATEGORIES : MAINTENANCE_CATEGORIES
+  return (
+    <ServiceListView
+      repairs={repairs}
+      odometer={odometer}
+      userRole={userRole}
+      vehicles={vehicles}
+      profilePlate={profilePlate}
+      userId={userId}
+      allowedCategories={allowedCats}
+      tileKey={activeTile}
+      selectedVehicleId={selectedVehicleId}
+      onBack={() => {
+        if (isCompany) { setSelectedVehicleId(null) }
+        else { setActiveTile(null) }
+      }}
+      onBackToTiles={() => setActiveTile(null)}
+      onReload={onReload}
+    />
+  )
+}
+
+/* ===== SERVICE LIST VIEW (shared for Repair / Maintenance) ===== */
+function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, userId, allowedCategories, tileKey, selectedVehicleId, onBack, onBackToTiles, onReload }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -309,15 +438,31 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
   const [period, setPeriod] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
-  const [selectedVehicleId, setSelectedVehicleId] = useState('all')
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const isCompany = userRole === 'company'
+  const isDriver = userRole === 'driver'
   const catMap = getServiceCategoryMap(t)
 
-  // Filter repairs by period
+  const isRepair = tileKey === 'repair'
+  const historyLabel = isRepair ? t('service.repairHistory') : t('service.maintenanceHistory')
+  const noRecordsLabel = isRepair ? t('service.noRepairRecords') : t('service.noMaintenanceRecords')
+  const addLabel = isRepair ? t('service.addRepair') : t('service.addMaintenance')
+
+  // Build vehicle lookup
+  const vehMap = {}
+  ;(vehicles || []).forEach(v => { vehMap[v.id] = v })
+  const getVehicleLabel = (vid) => {
+    const v = vehMap[vid]
+    if (!v) return ''
+    return `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()
+  }
+
+  // Filter by allowed categories + period + vehicle
   const { from: dateFrom, to: dateTo } = getDateRange(period, customFrom, customTo)
   const filteredRepairs = repairs.filter(r => {
     if (!r.date) return false
+    if (!allowedCategories.includes(r.category)) return false
     const d = new Date(r.date)
     if (d < dateFrom || d > dateTo) return false
     if (isCompany && selectedVehicleId !== 'all' && r.vehicle_id !== selectedVehicleId) return false
@@ -326,23 +471,13 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
 
   const totalCost = filteredRepairs.reduce((s, r) => s + (r.cost || 0), 0)
 
-  // Build vehicle lookup
-  const vehMap = {}
-  ;(vehicles || []).forEach(v => { vehMap[v.id] = v })
-
-  const getVehicleLabel = (vid) => {
-    const v = vehMap[vid]
-    if (!v) return ''
-    return `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()
-  }
-
   // Export
   const handleExport = () => {
     const now2 = new Date()
     const ym = `${String(now2.getMonth() + 1).padStart(2, '0')}_${now2.getFullYear()}`
+    const prefix = isRepair ? 'repair' : 'maintenance'
 
     if (isCompany && selectedVehicleId === 'all') {
-      // Multi-sheet export for all vehicles
       const columns = [
         { header: t('fuel.exportDate'), key: 'date' },
         { header: t('service.vehicleLabel'), key: 'vehicle' },
@@ -361,8 +496,6 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
         odometer: r.odometer || '',
         sto: r.service_station || '',
       }))
-
-      // Category summary
       const catAgg = {}
       filteredRepairs.forEach(r => {
         const key = r.category || 'repair'
@@ -371,12 +504,8 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
         catAgg[key].amount += (r.cost || 0)
       })
       const categoryData = Object.entries(catAgg).map(([k, v]) => ({
-        label: (catMap[k] || catMap.repair).label,
-        count: v.count,
-        amount: Math.round(v.amount),
+        label: (catMap[k] || catMap.repair).label, count: v.count, amount: Math.round(v.amount),
       }))
-
-      // Vehicle summary
       const vehAgg = {}
       filteredRepairs.forEach(r => {
         const vid = r.vehicle_id || 'unknown'
@@ -390,41 +519,25 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
           name: veh ? `${veh.brand || ''} ${veh.model || ''}`.trim() : '',
           plate: veh ? (veh.plate_number || '') : '',
           driver: veh ? (veh.driver_name || '') : '',
-          amount: Math.round(v.amount),
-          count: v.count,
+          amount: Math.round(v.amount), count: v.count,
         }
       })
-
       exportAllVehiclesExcel({
-        allRows,
-        columns,
-        categoryData,
-        vehicleSummary,
+        allRows, columns, categoryData, vehicleSummary,
         labels: {
-          total: t('service.totalLabel'),
-          category: t('service.categoryLabel'),
-          entriesCount: t('service.entriesCount'),
-          amount: t('fuel.exportAmount'),
-          vehicle: t('service.vehicleLabel'),
-          plate: t('service.plateLabel'),
-          driver: t('service.driverLabel'),
+          total: t('service.totalLabel'), category: t('service.categoryLabel'),
+          entriesCount: t('service.entriesCount'), amount: t('fuel.exportAmount'),
+          vehicle: t('service.vehicleLabel'), plate: t('service.plateLabel'), driver: t('service.driverLabel'),
         },
-        sheetNames: {
-          byDate: t('service.exportByDate'),
-          byCategory: t('service.exportByCategory'),
-          byVehicle: t('service.exportByVehicle'),
-        },
-        cs,
-        filename: `service_all_vehicles_${ym}.xlsx`,
+        sheetNames: { byDate: t('service.exportByDate'), byCategory: t('service.exportByCategory'), byVehicle: t('service.exportByVehicle') },
+        cs, filename: `${prefix}_all_vehicles_${ym}.xlsx`,
       })
     } else {
-      // Single vehicle export
       let plate = ''
       if (isCompany && selectedVehicleId !== 'all') {
         const v = vehMap[selectedVehicleId]
         plate = v ? (v.plate_number || '').replace(/\s/g, '_') : ''
       } else {
-        // owner_operator — get plate from profile
         plate = (profilePlate || '').replace(/\s/g, '_')
       }
       const columns = [
@@ -436,72 +549,43 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
         { header: t('service.stoLabel'), key: 'sto' },
       ]
       const rows = filteredRepairs.map(r => ({
-        date: r.date || '',
-        category: (catMap[r.category] || catMap.repair).label,
-        description: r.description || '',
-        amount: Math.round(r.cost || 0),
-        odometer: r.odometer || '',
-        sto: r.service_station || '',
+        date: r.date || '', category: (catMap[r.category] || catMap.repair).label,
+        description: r.description || '', amount: Math.round(r.cost || 0),
+        odometer: r.odometer || '', sto: r.service_station || '',
       }))
-      // Add totals row
-      const totalRow = { date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '' }
-      rows.push(totalRow)
-
-      const fn = plate ? `service_${plate}_${ym}.xlsx` : `service_report_${ym}.xlsx`
+      rows.push({ date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '' })
+      const fn = plate ? `${prefix}_${plate}_${ym}.xlsx` : `${prefix}_report_${ym}.xlsx`
       exportToExcel(rows, columns, fn)
     }
   }
 
-  if (loading) {
-    return (
-      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
-        {t('common.loading')}
-      </div>
-    )
-  }
-
   const periodBtnStyle = (active) => ({
-    padding: '6px 12px',
-    borderRadius: '8px',
+    padding: '6px 12px', borderRadius: '8px',
     border: active ? 'none' : '1px solid var(--border)',
     background: active ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'var(--card)',
-    color: active ? '#000' : 'var(--dim)',
-    fontSize: '12px',
-    fontWeight: 600,
-    cursor: 'pointer',
-    whiteSpace: 'nowrap',
+    color: active ? '#000' : 'var(--dim)', fontSize: '12px', fontWeight: 600,
+    cursor: 'pointer', whiteSpace: 'nowrap',
   })
 
   return (
     <>
-      {/* Vehicle filter (company only) */}
-      {isCompany && vehicles.length > 0 && (
-        <div style={{ marginBottom: '12px' }}>
-          <select
-            value={selectedVehicleId}
-            onChange={(e) => setSelectedVehicleId(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: '10px',
-              border: '1px solid var(--border)',
-              background: 'var(--card)',
-              color: 'var(--text)',
-              fontSize: '14px',
-              fontWeight: 600,
-              appearance: 'none',
-              WebkitAppearance: 'none',
-            }}
+      {/* Back button */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+        <button
+          onClick={onBack}
+          style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: '14px', cursor: 'pointer', padding: 0 }}
+        >
+          {t('service.backToTiles')}
+        </button>
+        {isCompany && (
+          <button
+            onClick={onBackToTiles}
+            style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: '12px', cursor: 'pointer', padding: 0, marginLeft: 'auto' }}
           >
-            <option value="all">{t('service.allVehicles')}</option>
-            {vehicles.map(v => (
-              <option key={v.id} value={v.id}>
-                {`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+            {'\uD83C\uDFE0'}
+          </button>
+        )}
+      </div>
 
       {/* Period filter */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -518,51 +602,23 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
       {period === 'custom' && (
         <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
           <span style={{ color: 'var(--dim)', fontSize: '12px' }}>{t('service.fromDate')}</span>
-          <input
-            type="date"
-            value={customFrom}
-            onChange={(e) => setCustomFrom(e.target.value)}
-            style={{
-              flex: 1, padding: '8px', borderRadius: '8px',
-              border: '1px solid var(--border)', background: 'var(--card)',
-              color: 'var(--text)', fontSize: '13px',
-            }}
-          />
+          <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+            style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: '13px' }} />
           <span style={{ color: 'var(--dim)', fontSize: '12px' }}>{t('service.toDate')}</span>
-          <input
-            type="date"
-            value={customTo}
-            onChange={(e) => setCustomTo(e.target.value)}
-            style={{
-              flex: 1, padding: '8px', borderRadius: '8px',
-              border: '1px solid var(--border)', background: 'var(--card)',
-              color: 'var(--text)', fontSize: '13px',
-            }}
-          />
+          <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+            style={{ flex: 1, padding: '8px', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: '13px' }} />
         </div>
       )}
 
-      {/* Export button */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
-        <button
-          onClick={handleExport}
-          style={{
-            padding: '8px 14px',
-            borderRadius: '10px',
-            border: '1px solid var(--border)',
-            background: 'var(--card)',
-            color: 'var(--text)',
-            fontSize: '13px',
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}
-        >
-          {'\ud83d\udce5'} {t('fuel.exportExcel')}
-        </button>
-      </div>
+      {/* Export button (not for driver role) */}
+      {!isDriver && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' }}>
+          <button onClick={handleExport}
+            style={{ padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: '13px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {'\uD83D\uDCE5'} {t('fuel.exportExcel')}
+          </button>
+        </div>
+      )}
 
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
@@ -580,34 +636,22 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
         </div>
       </div>
 
-      {/* Service history */}
+      {/* History list */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
-        {t('service.serviceHistory')}
+        {historyLabel}
       </div>
       {filteredRepairs.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
-          {t('service.noServiceRecords')}
+          {noRecordsLabel}
         </div>
       ) : (
         <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
           {filteredRepairs.map((r, i) => {
             const cat = catMap[r.category] || catMap.repair
             return (
-              <div
-                key={r.id || i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  padding: '14px 16px',
-                  borderTop: i > 0 ? '1px solid var(--border)' : 'none',
-                }}
-              >
-                <div style={{
-                  width: '40px', height: '40px', backgroundColor: 'var(--card2)',
-                  borderRadius: '10px', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: '20px', flexShrink: 0,
-                }}>
+              <div key={r.id || i}
+                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
+                <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--card2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                   {cat.icon}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -629,7 +673,231 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
           })}
         </div>
       )}
+
+      {/* Add button */}
+      <button
+        onClick={() => setShowAddModal(true)}
+        style={{
+          width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000',
+          fontSize: '15px', fontWeight: 700, cursor: 'pointer', marginBottom: '16px',
+        }}
+      >
+        {addLabel}
+      </button>
+
+      {/* Add modal */}
+      {showAddModal && (
+        <AddServiceModal
+          tileKey={tileKey}
+          userId={userId}
+          vehicles={vehicles}
+          userRole={userRole}
+          selectedVehicleId={selectedVehicleId}
+          onClose={() => setShowAddModal(false)}
+          onSaved={() => { setShowAddModal(false); if (onReload) onReload() }}
+        />
+      )}
     </>
+  )
+}
+
+/* ===== ADD SERVICE MODAL ===== */
+function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleId, onClose, onSaved }) {
+  const { t } = useLanguage()
+  const cs = getCurrencySymbol()
+  const unitSys = getUnits()
+  const distUnit = unitSys === 'imperial' ? 'mi' : t('trips.km')
+  const catMap = getServiceCategoryMap(t)
+
+  const isRepair = tileKey === 'repair'
+  const categories = isRepair ? REPAIR_CATEGORIES : MAINTENANCE_CATEGORIES
+
+  const [category, setCategory] = useState(categories[0])
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [description, setDescription] = useState('')
+  const [odometerVal, setOdometerVal] = useState('')
+  const [cost, setCost] = useState('')
+  const [sto, setSto] = useState('')
+  const [nextKm, setNextKm] = useState('')
+  const [photos, setPhotos] = useState([])
+  const [vehicleId, setVehicleId] = useState(selectedVehicleId === 'all' ? '' : (selectedVehicleId || ''))
+  const [saving, setSaving] = useState(false)
+  const fileRef = useRef(null)
+
+  const handlePhotoChange = async (e) => {
+    const files = Array.from(e.target.files || [])
+    if (photos.length + files.length > 3) return
+    const validFiles = []
+    for (const f of files) {
+      try {
+        const compressed = await validateAndCompressFile(f)
+        validFiles.push(compressed)
+      } catch { /* skip invalid */ }
+    }
+    setPhotos(prev => [...prev, ...validFiles].slice(0, 3))
+  }
+
+  const removePhoto = (idx) => {
+    setPhotos(prev => prev.filter((_, i) => i !== idx))
+  }
+
+  const handleSave = async () => {
+    if (!category || !date) return
+    setSaving(true)
+    try {
+      let receiptUrl = null
+      // Upload first photo as receipt if present
+      if (photos.length > 0) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const file = photos[0]
+          const ext = file.name?.split('.').pop() || 'jpg'
+          const path = `${user.id}/service_${Date.now()}.${ext}`
+          const { error: upErr } = await supabase.storage.from('receipts').upload(path, file)
+          if (!upErr) {
+            const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
+            receiptUrl = urlData?.publicUrl || null
+          }
+        }
+      }
+
+      await addServiceRecord({
+        vehicle_id: vehicleId || null,
+        category,
+        name: description,
+        amount: cost,
+        odometer: odometerVal,
+        date,
+        sto,
+        receipt_url: receiptUrl,
+      })
+      if (onSaved) onSaved()
+    } catch (err) {
+      console.error('Save service record error:', err)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const inputStyle = {
+    width: '100%', padding: '10px 12px', borderRadius: '10px',
+    border: '1px solid var(--border)', background: 'var(--card)',
+    color: 'var(--text)', fontSize: '14px', boxSizing: 'border-box',
+  }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ width: '100%', maxWidth: '480px', maxHeight: '90vh', overflowY: 'auto', background: 'var(--bg)', borderRadius: '20px 20px 0 0', padding: '20px', paddingBottom: '32px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)' }}>
+            {isRepair ? t('service.addRepair') : t('service.addMaintenance')}
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: '22px', cursor: 'pointer' }}>{'\u2715'}</button>
+        </div>
+
+        {/* Vehicle select (company + all) */}
+        {userRole === 'company' && selectedVehicleId === 'all' && (
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.vehicleLabel')}</label>
+            <select value={vehicleId} onChange={e => setVehicleId(e.target.value)} style={{ ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }}>
+              <option value="">{t('service.chooseVehicle')}</option>
+              {(vehicles || []).map(v => (
+                <option key={v.id} value={v.id}>{`${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim()}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* Category */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.selectCategory')}</label>
+          <select value={category} onChange={e => setCategory(e.target.value)} style={{ ...inputStyle, appearance: 'none', WebkitAppearance: 'none' }}>
+            {categories.map(c => {
+              const cat = catMap[c]
+              return cat ? <option key={c} value={c}>{cat.icon} {cat.label}</option> : null
+            })}
+          </select>
+        </div>
+
+        {/* Date */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.dateLabel')}</label>
+          <input type="date" value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+        </div>
+
+        {/* Description */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>
+            {isRepair ? t('service.descriptionWork') : t('service.descriptionOptional')}
+          </label>
+          <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2}
+            style={{ ...inputStyle, resize: 'vertical', fontFamily: 'inherit' }} />
+        </div>
+
+        {/* Odometer */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.odometerAtService')} ({distUnit})</label>
+          <input type="number" value={odometerVal} onChange={e => setOdometerVal(e.target.value)} style={inputStyle} />
+        </div>
+
+        {/* Cost */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.costLabel')} ({cs})</label>
+          <input type="number" value={cost} onChange={e => setCost(e.target.value)} style={inputStyle} />
+        </div>
+
+        {/* Service station */}
+        <div style={{ marginBottom: '12px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.serviceStationLabel')} ({t('service.optional')})</label>
+          <input type="text" value={sto} onChange={e => setSto(e.target.value)} style={inputStyle} />
+        </div>
+
+        {/* Next maintenance km (maintenance only) */}
+        {!isRepair && (
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.nextMaintenanceKm')} ({t('service.optional')})</label>
+            <input type="number" value={nextKm} onChange={e => setNextKm(e.target.value)} style={inputStyle} />
+          </div>
+        )}
+
+        {/* Receipt photos */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '4px', display: 'block' }}>{t('service.receiptPhotos')}</label>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            {photos.map((p, i) => (
+              <div key={i} style={{ position: 'relative', width: 64, height: 64, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                <img src={URL.createObjectURL(p)} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <button onClick={() => removePhoto(i)}
+                  style={{ position: 'absolute', top: 2, right: 2, width: 20, height: 20, borderRadius: '50%', background: 'rgba(0,0,0,0.6)', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {'\u2715'}
+                </button>
+              </div>
+            ))}
+            {photos.length < 3 && (
+              <div onClick={() => fileRef.current?.click()}
+                style={{ width: 64, height: 64, borderRadius: 8, border: '2px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--dim)', fontSize: 24 }}>
+                +
+              </div>
+            )}
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handlePhotoChange} />
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onClose}
+            style={{ flex: 1, padding: '12px', borderRadius: '10px', border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}>
+            {t('service.cancelRecord')}
+          </button>
+          <button onClick={handleSave} disabled={saving}
+            style={{ flex: 1, padding: '12px', borderRadius: '10px', border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000', fontSize: '14px', fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.6 : 1 }}>
+            {saving ? t('service.saving') || '...' : t('service.saveRecord')}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

@@ -265,8 +265,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         setTotalSalary(actualSalary)
       }
 
-      // Fleet metrics (company mode)
-      if (isCompanyRole) {
+      // Fleet metrics (company + owner-operator)
+      if (!isHiredDriver) {
         const totalKm = rangeTrips.reduce((s, tr) => s + (tr.distance_km || 0), 0)
         const totalMiles = Math.round(totalKm * 0.621371)
         const tripsCount = rangeTrips.length
@@ -420,7 +420,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   const incomeLabel = isHiredDriver ? (t('pay.earnedMonth') || '\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e') : t('overview.income')
   const expenseLabel = isHiredDriver ? (t('byt.personalExpenses') || '\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b') : t('overview.expense')
   const profitLabel = isHiredDriver ? (t('pay.netClean') || '\u0427\u0438\u0441\u0442\u044b\u043c\u0438') : isCompanyRole ? (t('overview.grossProfit') || '\u0412\u0430\u043b\u043e\u0432\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c') : t('overview.netProfit')
-  const headerTitle = isHiredDriver ? (t('pay.myEarnings') || '\u041c\u043e\u0439 \u0437\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a') : isCompanyRole ? (t('overview.analytics') || 'Analytics') : t('overview.finances')
+  const headerTitle = isHiredDriver ? (t('pay.myEarnings') || '\u041c\u043e\u0439 \u0437\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a') : (t('overview.analytics') || 'Analytics')
 
   // Donut chart
   const renderDonut = () => {
@@ -868,8 +868,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
             )
           })()}
 
-          {/* Fleet metrics (company only) */}
-          {isCompanyRole && (
+          {/* Fleet metrics (company + owner-operator) */}
+          {!isHiredDriver && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
               {/* Total Distance */}
               <div style={{ ...cardStyle, padding: '12px' }}>

@@ -1841,7 +1841,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </>
             ) : (
               <>
-                <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.finances')} — {getMonthName(new Date())}</div>
+                <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.analytics') || 'Analytics'} — {getMonthName(new Date())}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <div>
                     <div style={dimText}>{t('overview.income')}</div>

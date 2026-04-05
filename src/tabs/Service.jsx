@@ -421,14 +421,13 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
         if (isCompany) { setSelectedVehicleId(null) }
         else { setActiveTile(null) }
       }}
-      onBackToTiles={() => setActiveTile(null)}
       onReload={onReload}
     />
   )
 }
 
 /* ===== SERVICE LIST VIEW (shared for Repair / Maintenance) ===== */
-function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, userId, allowedCategories, tileKey, selectedVehicleId, onBack, onBackToTiles, onReload }) {
+function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, userId, allowedCategories, tileKey, selectedVehicleId, onBack, onReload }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -519,14 +518,6 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
         >
           {t('service.backToTiles')}
         </button>
-        {isCompany && (
-          <button
-            onClick={onBackToTiles}
-            style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: '12px', cursor: 'pointer', padding: 0, marginLeft: 'auto' }}
-          >
-            {'\uD83C\uDFE0'}
-          </button>
-        )}
       </div>
 
       {/* Period filter */}

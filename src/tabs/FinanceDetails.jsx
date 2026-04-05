@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData, fetchFleetBolDocuments } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData, fetchFleetBolDocuments, fetchVehicles } from '../lib/api'
 import { exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
 
 function formatNumber(n) {
@@ -37,6 +37,9 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   const [exporting, setExporting] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
   const [fleetMetrics, setFleetMetrics] = useState({ totalMiles: 0, tripsCount: 0, fuelCost: 0, totalGallons: 0 })
+  const [vehicles, setVehicles] = useState([])
+  const [selectedVehicleId, setSelectedVehicleId] = useState('')
+  const [driverComparisonData, setDriverComparisonData] = useState([])
   const chartRef = useRef(null)
   const units = getUnits()
 
@@ -94,11 +97,51 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         return d >= start && d <= end
       }
 
-      const rangeFuels = fuels.filter(e => inRange(e.date))
-      const rangeTrips = trips.filter(e => inRange(e.created_at))
-      const rangeByt = bytExps.filter(e => inRange(e.date))
-      const rangeService = serviceRecs.filter(e => inRange(e.date))
-      const rangeVehicleExp = vehicleExps.filter(e => inRange(e.date))
+      let rangeFuels = fuels.filter(e => inRange(e.date))
+      let rangeTrips = trips.filter(e => inRange(e.created_at))
+      let rangeByt = bytExps.filter(e => inRange(e.date))
+      let rangeService = serviceRecs.filter(e => inRange(e.date))
+      let rangeVehicleExp = vehicleExps.filter(e => inRange(e.date))
+
+      // Company: compute driver comparison from all-vehicle data before filtering
+      if (isCompanyRole) {
+        const vehMap = {}
+        // Group trips by vehicle_id
+        rangeTrips.forEach(tr => {
+          const vid = tr.vehicle_id
+          if (!vid) return
+          if (!vehMap[vid]) vehMap[vid] = { income: 0, expense: 0, km: 0 }
+          vehMap[vid].income += (tr.income || 0)
+          vehMap[vid].km += (tr.distance_km || 0)
+        })
+        rangeFuels.forEach(e => {
+          const vid = e.vehicle_id
+          if (!vid) return
+          if (!vehMap[vid]) vehMap[vid] = { income: 0, expense: 0, km: 0 }
+          vehMap[vid].expense += (e.cost || 0)
+        })
+        rangeService.forEach(e => {
+          const vid = e.vehicle_id
+          if (!vid) return
+          if (!vehMap[vid]) vehMap[vid] = { income: 0, expense: 0, km: 0 }
+          vehMap[vid].expense += (e.cost || 0)
+        })
+        rangeVehicleExp.forEach(e => {
+          const vid = e.vehicle_id
+          if (!vid) return
+          if (!vehMap[vid]) vehMap[vid] = { income: 0, expense: 0, km: 0 }
+          vehMap[vid].expense += (e.amount || 0)
+        })
+        setDriverComparisonData(Object.entries(vehMap).map(([vid, d]) => ({ vehicleId: vid, ...d })))
+      }
+
+      // Filter by selected vehicle (company role)
+      if (isCompanyRole && selectedVehicleId) {
+        rangeFuels = rangeFuels.filter(e => e.vehicle_id === selectedVehicleId)
+        rangeTrips = rangeTrips.filter(e => e.vehicle_id === selectedVehicleId)
+        rangeService = rangeService.filter(e => e.vehicle_id === selectedVehicleId)
+        rangeVehicleExp = rangeVehicleExp.filter(e => e.vehicle_id === selectedVehicleId)
+      }
 
       // Determine grouping mode based on period
       const startDate = new Date(start)
@@ -322,9 +365,15 @@ export default function FinanceDetails({ userId, profile, onBack }) {
     } finally {
       setLoading(false)
     }
-  }, [userId, getDateRange, t, isHiredDriver, isCompanyRole, salaryMode, salaryRate])
+  }, [userId, getDateRange, t, isHiredDriver, isCompanyRole, salaryMode, salaryRate, selectedVehicleId])
 
   useEffect(() => { loadData() }, [loadData])
+
+  // Fetch vehicles for company role
+  useEffect(() => {
+    if (!isCompanyRole || !userId) return
+    fetchVehicles(userId).then(v => setVehicles(v || [])).catch(() => {})
+  }, [isCompanyRole, userId])
 
   const cardStyle = {
     background: theme.card,
@@ -1109,6 +1158,109 @@ export default function FinanceDetails({ userId, profile, onBack }) {
 
           {/* Donut */}
           {renderDonut()}
+
+          {/* Per-vehicle section — company only */}
+          {isCompanyRole && vehicles.length > 0 && (
+            <div style={{ ...cardStyle, marginBottom: '12px' }}>
+              <div style={{ ...dimText, marginBottom: '12px', fontWeight: 600 }}>
+                {'\ud83d\ude9b'} {t('overview.byVehiclesSection')}
+              </div>
+              <select
+                value={selectedVehicleId}
+                onChange={e => setSelectedVehicleId(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: `1px solid ${theme.border}`,
+                  background: theme.bg,
+                  color: selectedVehicleId ? theme.text : theme.dim,
+                  fontSize: '13px',
+                  marginBottom: driverComparisonData.length > 0 ? '16px' : 0,
+                }}
+              >
+                <option value="">{t('overview.selectVehiclePlaceholder')}</option>
+                {vehicles.map(v => (
+                  <option key={v.id} value={v.id}>
+                    {((v.brand || '') + ' ' + (v.model || '')).trim() || v.plate_number || v.id.slice(0, 8)}
+                    {v.driver_name ? ` — ${v.driver_name}` : ''}
+                    {v.plate_number ? ` (${v.plate_number})` : ''}
+                  </option>
+                ))}
+              </select>
+
+              {/* Driver comparison table */}
+              {driverComparisonData.length > 0 && (() => {
+                const isImperial = units === 'imperial'
+                const distLabel = isImperial ? 'mi' : t('overview.kmLabel') || 'km'
+                const rows = driverComparisonData.map(d => {
+                  const v = vehicles.find(vh => vh.id === d.vehicleId)
+                  const name = v?.driver_name || (v ? ((v.brand || '') + ' ' + (v.model || '')).trim() : '—')
+                  const miles = isImperial ? Math.round(d.km * 0.621371) : Math.round(d.km)
+                  const profit = d.income - d.expense
+                  const rateMile = miles > 0 ? (d.income / miles) : 0
+                  return { name, miles, income: d.income, expense: d.expense, profit, rateMile }
+                })
+                const totals = rows.reduce((acc, r) => ({
+                  miles: acc.miles + r.miles,
+                  income: acc.income + r.income,
+                  expense: acc.expense + r.expense,
+                  profit: acc.profit + r.profit,
+                }), { miles: 0, income: 0, expense: 0, profit: 0 })
+                totals.rateMile = totals.miles > 0 ? (totals.income / totals.miles) : 0
+
+                const thStyle = { textAlign: 'right', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '10px', whiteSpace: 'nowrap' }
+                const tdStyle = { padding: '6px 4px', textAlign: 'right', fontFamily: 'monospace', fontSize: '11px' }
+
+                return (
+                  <>
+                    <div style={{ ...dimText, marginBottom: '8px', fontWeight: 600 }}>
+                      {t('overview.driverComparisonTable')}
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
+                        <thead>
+                          <tr style={{ borderBottom: `1px solid ${theme.border}` }}>
+                            <th style={{ ...thStyle, textAlign: 'left' }}>{t('overview.driverNameCol')}</th>
+                            <th style={thStyle}>{distLabel}</th>
+                            <th style={thStyle}>{t('overview.income')}</th>
+                            <th style={thStyle}>{t('overview.expense')}</th>
+                            <th style={thStyle}>{t('overview.analyticsProfit')}</th>
+                            <th style={thStyle}>{t('overview.ratePerMileCol')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r, i) => (
+                            <tr key={i} style={{ borderBottom: `1px solid ${theme.border}22` }}>
+                              <td style={{ padding: '6px 4px', fontSize: '11px', color: theme.text, maxWidth: '90px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+                              <td style={tdStyle}>{formatNumber(r.miles)}</td>
+                              <td style={{ ...tdStyle, color: '#22c55e' }}>{formatNumber(Math.round(r.income))}</td>
+                              <td style={{ ...tdStyle, color: '#ef4444' }}>{formatNumber(Math.round(r.expense))}</td>
+                              <td style={{ ...tdStyle, color: r.profit >= 0 ? '#22c55e' : '#ef4444', fontWeight: 600 }}>
+                                {r.profit >= 0 ? '+' : ''}{formatNumber(Math.round(r.profit))}
+                              </td>
+                              <td style={{ ...tdStyle, color: '#8b5cf6' }}>{r.rateMile.toFixed(2)}</td>
+                            </tr>
+                          ))}
+                          {/* Totals row */}
+                          <tr style={{ borderTop: `2px solid ${theme.border}`, background: `${theme.border}33` }}>
+                            <td style={{ padding: '6px 4px', fontSize: '11px', fontWeight: 700, color: theme.text }}>{t('overview.total')}</td>
+                            <td style={{ ...tdStyle, fontWeight: 700 }}>{formatNumber(totals.miles)}</td>
+                            <td style={{ ...tdStyle, fontWeight: 700, color: '#22c55e' }}>{formatNumber(Math.round(totals.income))}</td>
+                            <td style={{ ...tdStyle, fontWeight: 700, color: '#ef4444' }}>{formatNumber(Math.round(totals.expense))}</td>
+                            <td style={{ ...tdStyle, fontWeight: 700, color: totals.profit >= 0 ? '#22c55e' : '#ef4444' }}>
+                              {totals.profit >= 0 ? '+' : ''}{formatNumber(Math.round(totals.profit))}
+                            </td>
+                            <td style={{ ...tdStyle, fontWeight: 700, color: '#8b5cf6' }}>{totals.rateMile.toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+          )}
 
           {/* Export button */}
           <button

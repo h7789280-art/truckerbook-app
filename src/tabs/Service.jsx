@@ -656,6 +656,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
   const [photos, setPhotos] = useState([])
   const [vehicleId, setVehicleId] = useState(selectedVehicleId || '')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const fileRef = useRef(null)
 
   const handlePhotoChange = async (e) => {
@@ -680,6 +681,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
   const handleSave = async () => {
     if (!category || !date) return
     setSaving(true)
+    setSaveError('')
     try {
       let receiptUrl = null
       // Upload first photo as receipt if present
@@ -710,6 +712,14 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
       if (onSaved) onSaved()
     } catch (err) {
       console.error('Save service record error:', err)
+      const msg = err?.message || ''
+      if (msg.includes('relation') && msg.includes('does not exist')) {
+        setSaveError('\u0422\u0430\u0431\u043b\u0438\u0446\u0430 service_records \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430 \u0432 Supabase. \u0421\u043c. SQL \u0432 \u043a\u043e\u043d\u0441\u043e\u043b\u0438.')
+      } else if (msg.includes('violates row-level security') || msg.includes('RLS')) {
+        setSaveError('\u041e\u0448\u0438\u0431\u043a\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 (RLS). \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u043b\u0438\u0442\u0438\u043a\u0438 \u0442\u0430\u0431\u043b\u0438\u0446\u044b.')
+      } else {
+        setSaveError(t('service.saveError') || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451.')
+      }
     } finally {
       setSaving(false)
     }
@@ -808,6 +818,13 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
           </div>
           <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: 'none' }} onChange={handlePhotoChange} />
         </div>
+
+        {/* Error message */}
+        {saveError && (
+          <div style={{ padding: '10px 12px', marginBottom: '12px', borderRadius: '10px', background: 'rgba(239,68,68,0.15)', color: '#ef4444', fontSize: '13px' }}>
+            {saveError}
+          </div>
+        )}
 
         {/* Buttons */}
         <div style={{ display: 'flex', gap: '10px' }}>

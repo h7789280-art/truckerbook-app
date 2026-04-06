@@ -9,9 +9,25 @@ import 'jspdf-autotable'
  */
 export function exportToExcel(data, columns, filename) {
   const headers = columns.map(c => c.header)
-  const rows = data.map(row => columns.map(c => row[c.key] ?? ''))
+  const rows = data.map(row => columns.map(c => {
+    const v = row[c.key] ?? ''
+    return (v && typeof v === 'object' && v.hyperlink) ? (v.text || v.hyperlink) : v
+  }))
 
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+
+  // Add hyperlinks for cells with link data
+  data.forEach((row, ri) => {
+    columns.forEach((c, ci) => {
+      const v = row[c.key]
+      if (v && typeof v === 'object' && v.hyperlink) {
+        const cellRef = XLSX.utils.encode_cell({ r: ri + 1, c: ci })
+        if (ws[cellRef]) {
+          ws[cellRef].l = { Target: v.hyperlink, Tooltip: v.text || '' }
+        }
+      }
+    })
+  })
 
   // Auto-width columns
   ws['!cols'] = columns.map((_, i) => {

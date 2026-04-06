@@ -489,13 +489,15 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
       { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
       { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
       { header: t('service.stoLabel'), key: 'sto' },
+      { header: t('service.receiptPhoto') || '\u0424\u043e\u0442\u043e \u0447\u0435\u043a\u0430', key: 'receipt' },
     ]
     const rows = filteredRepairs.map(r => ({
       date: r.date || '', category: (catMap[r.category] || catMap.repair).label,
       description: r.description || '', amount: Math.round(r.cost || 0),
       odometer: r.odometer || '', sto: r.service_station || '',
+      receipt: r.receipt_url ? { text: t('service.downloadReceipt') || '\u0421\u043a\u0430\u0447\u0430\u0442\u044c \u0447\u0435\u043a', hyperlink: r.receipt_url } : '',
     }))
-    rows.push({ date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '' })
+    rows.push({ date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '', receipt: '' })
     const fn = plate ? `${prefix}_${plate}_${ym}.xlsx` : `${prefix}_report_${ym}.xlsx`
     exportToExcel(rows, columns, fn)
   }

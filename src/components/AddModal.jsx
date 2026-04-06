@@ -387,7 +387,7 @@ function VehicleExpenseFields({ form, onChange, theme, inputStyle, t, cs }) {
   )
 }
 
-export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, expensesSubTab, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved, onVehicleExpenseSaved }) {
+export default function AddModal({ isOpen, onClose, userId, activeTab, activeVehicleId, profilePlate, expensesSubTab, onFuelSaved, onTripSaved, onBytSaved, onServiceSaved, onVehicleExpenseSaved }) {
   const { theme } = useTheme()
   const { t, lang } = useLanguage()
   const [formType, setFormType] = useState(null)
@@ -491,7 +491,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
       // Upload receipt photo if selected
       if (receiptFile && userId) {
         try {
-          const url = await uploadReceiptPhoto(userId, formType || 'other', receiptFile)
+          const url = await uploadReceiptPhoto(userId, formType || 'other', receiptFile, { date: form.date, plate: profilePlate, amount: form.amount })
           entry.receipt_url = url
         } catch (photoErr) {
           console.error('Receipt photo upload failed:', photoErr)

@@ -673,6 +673,7 @@ function AppInner() {
             userId={userId}
             activeTab={activeTab}
             activeVehicleId={vehicleId}
+            profilePlate={profile?.plate_number}
             expensesSubTab={expensesSubTab}
             onFuelSaved={handleFuelSaved}
             onTripSaved={handleTripSaved}

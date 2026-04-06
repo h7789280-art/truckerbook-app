@@ -8,9 +8,13 @@ async function offlineInsert(table, row) {
 
 // --- Receipt photo upload ---
 
-export async function uploadReceiptPhoto(userId, category, file) {
+export async function uploadReceiptPhoto(userId, category, file, { date, plate, amount } = {}) {
   const ext = file.name ? file.name.split('.').pop() : 'jpg'
-  const path = `${userId}/receipts/${category}_${Date.now()}.${ext}`
+  const d = date || new Date().toISOString().slice(0, 10)
+  const p = (plate || '').replace(/[\s\/\\<>:"|?*]/g, '_') || 'noplate'
+  const c = (category || 'other').replace(/[\s\/\\<>:"|?*]/g, '_')
+  const a = amount ? String(Math.round(Number(amount))) : '0'
+  const path = `${userId}/receipts/${d}_${p}_${c}_${a}.${ext}`
   const { error: upErr } = await supabase.storage
     .from('receipts')
     .upload(path, file, { contentType: file.type || 'image/jpeg' })

@@ -678,6 +678,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
         alert('Photo error: ' + (err.message || String(err)))
       }
     }
+    alert('handlePhotoChange: files selected=' + files.length + ', valid=' + validFiles.length + ', photos before=' + photos.length)
     setPhotos(prev => [...prev, ...validFiles].slice(0, 3))
   }
 
@@ -686,6 +687,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
   }
 
   const handleSave = async () => {
+    alert('handleSave: photos count=' + photos.length)
     if (!category || !date) return
     setSaving(true)
     setSaveError('')

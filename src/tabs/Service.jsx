@@ -661,6 +661,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
 
   const handlePhotoChange = async (e) => {
     const files = Array.from(e.target.files || [])
+    if (!files.length) return
     if (photos.length + files.length > 3) return
     const validFiles = []
     for (const f of files) {
@@ -668,8 +669,14 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
         const result = await validateAndCompressFile(f, userId)
         if (result.ok && result.file) {
           validFiles.push(result.file)
+        } else {
+          console.error('Photo validation failed:', result.errorKey, result.errorParams)
+          alert(interpolate(t(result.errorKey || 'fileUpload.invalidType'), result.errorParams))
         }
-      } catch { /* skip invalid */ }
+      } catch (err) {
+        console.error('Photo validation exception:', err)
+        alert('Photo error: ' + (err.message || String(err)))
+      }
     }
     setPhotos(prev => [...prev, ...validFiles].slice(0, 3))
   }
@@ -684,13 +691,16 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
     setSaveError('')
     try {
       let receiptUrl = null
+      console.log('handleSave: photos.length =', photos.length, 'photos:', photos.map(p => ({ name: p.name, size: p.size, type: p.type })))
       // Upload first photo as receipt if present
       if (photos.length > 0) {
         const { data: { user } } = await supabase.auth.getUser()
+        console.log('handleSave: user =', user?.id || 'NULL')
         if (user) {
           const file = photos[0]
           const ext = file.name?.split('.').pop() || 'jpg'
           const path = `${user.id}/service_${Date.now()}.${ext}`
+          console.log('handleSave: uploading to path:', path, 'file size:', file.size, 'type:', file.type)
           const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
           if (upErr) {
             console.error('Service photo upload FULL error:', JSON.stringify(upErr, null, 2))
@@ -701,6 +711,9 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
             receiptUrl = urlData?.publicUrl || null
             console.log('Service photo uploaded OK:', receiptUrl)
           }
+        } else {
+          console.error('handleSave: no authenticated user, skipping photo upload')
+          alert('Photo upload skipped: user not authenticated')
         }
       }
 

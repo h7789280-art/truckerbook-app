@@ -1233,11 +1233,12 @@ export async function fetchFleetSummary(userId) {
   const now = new Date()
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
 
-  const [vehiclesRes, fuelsRes, tripsRes, vehicleExpRes, shiftsRes] = await Promise.all([
+  const [vehiclesRes, fuelsRes, tripsRes, vehicleExpRes, serviceRes, shiftsRes] = await Promise.all([
     supabase.from('vehicles').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
     supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', monthStart),
     supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', monthStart + 'T00:00:00'),
     supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', monthStart),
+    supabase.from('service_records').select('*').eq('user_id', userId).gte('date', monthStart),
     supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', monthStart + 'T00:00:00'),
   ])
 
@@ -1245,13 +1246,15 @@ export async function fetchFleetSummary(userId) {
   const fuels = fuelsRes.data || []
   const trips = tripsRes.data || []
   const vehicleExps = vehicleExpRes.data || []
+  const serviceRecs = serviceRes.data || []
   const shifts = shiftsRes.data || []
 
   const totalIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
   const totalFuelCost = fuels.reduce((s, e) => s + (e.cost || 0), 0)
   const totalVehicleExpCost = vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalServiceCost = serviceRecs.reduce((s, e) => s + (e.cost || 0), 0)
   // Company role should NOT see personal expenses (byt) — only vehicle/business expenses
-  const totalExpenses = totalFuelCost + totalVehicleExpCost
+  const totalExpenses = totalFuelCost + totalVehicleExpCost + totalServiceCost
   const totalKm = shifts.reduce((s, sh) => s + (sh.km_driven || 0), 0)
   const tripCount = trips.length
 
@@ -1264,11 +1267,18 @@ export async function fetchFleetSummary(userId) {
   // Per-vehicle stats
   const vehicleStats = vehicles.map(v => {
     const vFuel = fuels.filter(f => f.vehicle_id === v.id).reduce((s, e) => s + (e.cost || 0), 0)
+    const vService = serviceRecs.filter(r => r.vehicle_id === v.id).reduce((s, e) => s + (e.cost || 0), 0)
+    const vVehicleExp = vehicleExps.filter(e => e.vehicle_id === v.id).reduce((s, e) => s + (e.amount || 0), 0)
     const vTrips = trips.filter(t => t.vehicle_id === v.id)
+    const vIncome = vTrips.reduce((s, t) => s + (t.income || 0), 0)
     const vKm = shifts.filter(sh => sh.vehicle_id === v.id).reduce((s, sh) => s + (sh.km_driven || 0), 0)
     return {
       ...v,
       monthFuelCost: vFuel,
+      monthServiceCost: vService,
+      monthVehicleExpCost: vVehicleExp,
+      monthExpenses: vFuel + vService + vVehicleExp,
+      monthIncome: vIncome,
       monthTrips: vTrips.length,
       monthKm: vKm,
       isOnTrip: onTripVehicleIds.has(v.id),

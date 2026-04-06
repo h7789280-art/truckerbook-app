@@ -386,16 +386,13 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {v.driver_name || '\u2014'}
+                {[v.brand, v.model].filter(Boolean).join(' ') || v.id.slice(0, 8)}{v.plate_number ? ` \u00b7 ${v.plate_number}` : ''}
               </div>
-              {v.plate_number && (
-                <div style={{ fontSize: 13, color: 'var(--dim)', marginTop: 3, fontFamily: 'monospace', letterSpacing: '0.5px' }}>
-                  {v.plate_number}
+              {v.driver_name && (
+                <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 3 }}>
+                  {t('service.driverLabel')}: {v.driver_name}
                 </div>
               )}
-              <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, opacity: 0.7 }}>
-                {`${v.brand || ''} ${v.model || ''}`.trim() || v.id.slice(0, 8)}
-              </div>
             </div>
             <div style={{ fontSize: 18, color: 'var(--dim)', flexShrink: 0 }}>{'\u203A'}</div>
           </div>

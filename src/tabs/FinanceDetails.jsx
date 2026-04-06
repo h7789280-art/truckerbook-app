@@ -136,11 +136,12 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       }
 
       // Filter by selected vehicle (company role)
+      // Include entries with null vehicle_id (orphaned / main profile vehicle entries)
       if (isCompanyRole && selectedVehicleId) {
-        rangeFuels = rangeFuels.filter(e => e.vehicle_id === selectedVehicleId)
-        rangeTrips = rangeTrips.filter(e => e.vehicle_id === selectedVehicleId)
-        rangeService = rangeService.filter(e => e.vehicle_id === selectedVehicleId)
-        rangeVehicleExp = rangeVehicleExp.filter(e => e.vehicle_id === selectedVehicleId)
+        rangeFuels = rangeFuels.filter(e => e.vehicle_id === selectedVehicleId || !e.vehicle_id)
+        rangeTrips = rangeTrips.filter(e => e.vehicle_id === selectedVehicleId || !e.vehicle_id)
+        rangeService = rangeService.filter(e => e.vehicle_id === selectedVehicleId || !e.vehicle_id)
+        rangeVehicleExp = rangeVehicleExp.filter(e => e.vehicle_id === selectedVehicleId || !e.vehicle_id)
       }
 
       // Determine grouping mode based on period

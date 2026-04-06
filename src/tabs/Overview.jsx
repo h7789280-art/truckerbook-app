@@ -1132,10 +1132,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
                 <div>
                   <div style={{ fontSize: '16px', fontWeight: 700 }}>
-                    {v.driver_name || t('overview.fleetNoDriver')}
+                    {[v.brand, v.model].filter(Boolean).join(' ') || v.id.slice(0, 8)}{v.plate_number ? ` \u00b7 ${v.plate_number}` : ''}
                   </div>
-                  {v.plate_number && <div style={{ fontSize: '13px', color: theme.dim, marginTop: '2px' }}>{v.plate_number}</div>}
-                  <div style={{ fontSize: '12px', color: theme.dim }}>{v.brand} {v.model}</div>
+                  {v.driver_name && <div style={{ fontSize: '12px', color: theme.dim, marginTop: '2px' }}>{t('overview.fleetDriver') || '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c'}: {v.driver_name}</div>}
                 </div>
                 <span style={{
                   fontSize: '11px',

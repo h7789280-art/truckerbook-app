@@ -716,7 +716,8 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
             const plateName = (veh?.plate_number || '').replace(/\s/g, '') || 'noplate'
             const costStr = String(cost || '0')
             const dateStr = new Date().toISOString().slice(0, 10)
-            const path = `${user.id}/receipts/${dateStr}-${plateName}-${costStr}-${Date.now()}.${ext}`
+            const catStr = category || 'other'
+            const path = `${user.id}/receipts/${dateStr}-${plateName}-${catStr}-${costStr}-${Date.now()}.${ext}`
             const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
             if (upErr) {
               console.error('Service photo upload error:', JSON.stringify(upErr))

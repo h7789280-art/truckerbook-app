@@ -680,6 +680,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             ownerProfile: profile,
             driverMap,
             vehicleMap,
+            t,
             filename: `fleet_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
           })
         } else {

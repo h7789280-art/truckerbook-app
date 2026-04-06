@@ -773,6 +773,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         ownerProfile: profile,
         driverMap,
         vehicleMap,
+        t,
         filename: `fleet_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
       })
     } catch (err) {

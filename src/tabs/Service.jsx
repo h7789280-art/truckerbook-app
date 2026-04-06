@@ -437,6 +437,7 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showAllRecords, setShowAllRecords] = useState(false)
 
   const isCompany = userRole === 'company'
   const isDriver = userRole === 'driver'
@@ -566,60 +567,15 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
         <div style={{ ...cardStyle, textAlign: 'center' }}>
           <div style={{ fontSize: '11px', color: 'var(--dim)', marginBottom: '4px' }}>{t('service.odometer')}</div>
           <div style={{ fontSize: '22px', fontWeight: 700, fontFamily: 'monospace', color: 'var(--text)' }}>
-            {odometer ? odometer.toLocaleString('en-US') : '\u2014'} {distUnit}
+            {(() => {
+              const maxOdo = filteredRepairs.reduce((max, r) => r.odometer > max ? r.odometer : max, 0)
+              return maxOdo ? maxOdo.toLocaleString('en-US') : '\u2014'
+            })()} {distUnit}
           </div>
         </div>
       </div>
 
-      {/* History list */}
-      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
-        {historyLabel}
-      </div>
-      {filteredRepairs.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
-          {noRecordsLabel}
-        </div>
-      ) : (
-        <div style={{ ...cardStyle, padding: 0, marginBottom: '16px' }}>
-          {filteredRepairs.map((r, i) => {
-            const cat = catMap[r.category] || catMap.repair
-            return (
-              <div key={r.id || i}
-                style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
-                <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--card2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
-                  {cat.icon}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {cat.label}{r.description ? ` \u2014 ${r.description}` : ''}
-                  </div>
-                  <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
-                    {r.date || ''}
-                    {r.odometer ? ` \u00b7 ${r.odometer.toLocaleString('en-US')} ${distUnit}` : ''}
-                    {r.service_station ? ` \u00b7 ${r.service_station}` : ''}
-                    {isCompany && r.vehicle_id ? ` \u00b7 ${getVehicleLabel(r.vehicle_id)}` : ''}
-                  </div>
-                  {r.receipt_url && (
-                    <div style={{ marginTop: '6px' }}>
-                      <img
-                        src={r.receipt_url}
-                        alt={t('service.receiptPhoto') || 'Receipt'}
-                        onClick={() => window.open(r.receipt_url, '_blank')}
-                        style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer' }}
-                      />
-                    </div>
-                  )}
-                </div>
-                <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
-                  {(r.cost || 0).toLocaleString('en-US')} {cs}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Add button */}
+      {/* Add button — moved above history */}
       <button
         onClick={() => setShowAddModal(true)}
         style={{
@@ -630,6 +586,72 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
       >
         {addLabel}
       </button>
+
+      {/* History list */}
+      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>
+        {historyLabel}
+      </div>
+      {filteredRepairs.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
+          {noRecordsLabel}
+        </div>
+      ) : (
+        <>
+          <div style={{ ...cardStyle, padding: 0, marginBottom: filteredRepairs.length > 3 ? '8px' : '16px' }}>
+            {(showAllRecords ? filteredRepairs : filteredRepairs.slice(0, 3)).map((r, i) => {
+              const cat = catMap[r.category] || catMap.repair
+              return (
+                <div key={r.id || i}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
+                  <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--card2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
+                    {cat.icon}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {cat.label}{r.description ? ` \u2014 ${r.description}` : ''}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--dim)', marginTop: '2px' }}>
+                      {r.date || ''}
+                      {r.odometer ? ` \u00b7 ${r.odometer.toLocaleString('en-US')} ${distUnit}` : ''}
+                      {r.service_station ? ` \u00b7 ${r.service_station}` : ''}
+                      {isCompany && r.vehicle_id ? ` \u00b7 ${getVehicleLabel(r.vehicle_id)}` : ''}
+                    </div>
+                    {r.receipt_url && (
+                      <div style={{ marginTop: '6px' }}>
+                        <img
+                          src={r.receipt_url}
+                          alt={t('service.receiptPhoto') || 'Receipt'}
+                          onClick={() => window.open(r.receipt_url, '_blank')}
+                          style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
+                    {(r.cost || 0).toLocaleString('en-US')} {cs}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          {filteredRepairs.length > 3 && (
+            <button
+              onClick={() => setShowAllRecords(!showAllRecords)}
+              style={{
+                width: '100%', padding: '10px', borderRadius: '10px',
+                border: '1px solid var(--border)', background: 'var(--card)',
+                color: 'var(--dim)', fontSize: '13px', fontWeight: 600,
+                cursor: 'pointer', marginBottom: '16px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              }}
+            >
+              {showAllRecords
+                ? `${t('service.collapseList') || '\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c'} \u25B2`
+                : `${t('service.showAll') || '\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0432\u0441\u0435'} (${filteredRepairs.length}) \u25BC`}
+            </button>
+          )}
+        </>
+      )}
 
       {/* Add modal */}
       {showAddModal && (

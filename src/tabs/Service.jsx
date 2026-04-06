@@ -714,7 +714,8 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
             const ext = file.name?.split('.').pop() || 'jpg'
             const veh = vehicleId ? (vehicles || []).find(v => v.id === vehicleId) : null
             const plate = (veh ? veh.plate_number : profilePlate || '').replace(/[\s\/\\<>:"|?*]/g, '') || (veh?.driver_name || '').replace(/[\s\/\\<>:"|?*]/g, '') || 'noplate'
-            const catLabel = ((catMap[category] || {}).label || category || 'other').replace(/[\/\\<>:"|?*]/g, '').trim()
+            if (!catMap[category]) console.error('catMap missing key:', category, 'available:', Object.keys(catMap))
+            const catLabel = (catMap[category]?.label || category || 'other').replace(/[\/\\<>:"|?*]/g, '').trim()
             const amountLabel = cost ? String(cost).replace(/[^0-9.,]/g, '') : '0'
             const path = `${user.id}/receipts/${date}-${plate}-${catLabel}-${amountLabel}.${ext}`
             const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })

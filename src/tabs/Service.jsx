@@ -646,8 +646,8 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
               }}
             >
               {showAllRecords
-                ? `${t('service.collapseList') || '\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c'} \u25B2`
-                : `${t('service.showAll') || '\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0432\u0441\u0435'} (${filteredRepairs.length}) \u25BC`}
+                ? `\u0421\u043a\u0440\u044b\u0442\u044c \u25B2`
+                : `\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0432\u0441\u0435 (${filteredRepairs.length}) \u25BC`}
             </button>
           )}
         </>

@@ -696,26 +696,29 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
       console.log('handleSave: photos.length =', photos.length, 'photos:', photos.map(p => ({ name: p.name, size: p.size, type: p.type })))
       // Upload first photo as receipt if present
       if (photos.length > 0) {
-        const { data: { user } } = await supabase.auth.getUser()
-        console.log('handleSave: user =', user?.id || 'NULL')
-        if (user) {
-          const file = photos[0]
-          const ext = file.name?.split('.').pop() || 'jpg'
-          const path = `${user.id}/service_${Date.now()}.${ext}`
-          console.log('handleSave: uploading to path:', path, 'file size:', file.size, 'type:', file.type)
-          const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
-          if (upErr) {
-            console.error('Service photo upload FULL error:', JSON.stringify(upErr, null, 2))
-            console.error('Service photo upload path:', path, 'file size:', file.size, 'file type:', file.type)
-            alert('Photo upload error: ' + (upErr.message || JSON.stringify(upErr)))
+        try {
+          alert('upload block: getting user...')
+          const { data: { user } } = await supabase.auth.getUser()
+          alert('upload block: user=' + (user?.id || 'NULL'))
+          if (user) {
+            const file = photos[0]
+            const ext = file.name?.split('.').pop() || 'jpg'
+            const path = `${user.id}/service_${Date.now()}.${ext}`
+            alert('upload start: path=' + path + ' size=' + file.size + ' type=' + file.type)
+            const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
+            if (upErr) {
+              alert('upload error: ' + JSON.stringify(upErr))
+            } else {
+              const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
+              receiptUrl = urlData?.publicUrl || null
+              alert('upload done: ' + receiptUrl)
+            }
           } else {
-            const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
-            receiptUrl = urlData?.publicUrl || null
-            console.log('Service photo uploaded OK:', receiptUrl)
+            alert('upload skipped: user is null')
           }
-        } else {
-          console.error('handleSave: no authenticated user, skipping photo upload')
-          alert('Photo upload skipped: user not authenticated')
+        } catch (uploadErr) {
+          alert('upload EXCEPTION: ' + (uploadErr.message || JSON.stringify(uploadErr)))
+          console.error('upload exception:', uploadErr)
         }
       }
 

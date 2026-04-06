@@ -248,7 +248,9 @@ export async function addServiceRecord(entry) {
     .insert(row)
     .select()
   if (error) {
-    console.error('addServiceRecord error:', error)
+    console.error('addServiceRecord FULL error:', JSON.stringify(error, null, 2))
+    console.error('addServiceRecord row sent:', JSON.stringify(row, null, 2))
+    alert('addServiceRecord error: ' + JSON.stringify(error))
     throw error
   }
   return data

@@ -597,6 +597,16 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
                     {r.service_station ? ` \u00b7 ${r.service_station}` : ''}
                     {isCompany && r.vehicle_id ? ` \u00b7 ${getVehicleLabel(r.vehicle_id)}` : ''}
                   </div>
+                  {r.receipt_url && (
+                    <div style={{ marginTop: '6px' }}>
+                      <img
+                        src={r.receipt_url}
+                        alt={t('service.receiptPhoto') || 'Receipt'}
+                        onClick={() => window.open(r.receipt_url, '_blank')}
+                        style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '6px', border: '1px solid var(--border)', cursor: 'pointer' }}
+                      />
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#ef4444', flexShrink: 0 }}>
                   {(r.cost || 0).toLocaleString('en-US')} {cs}
@@ -678,7 +688,6 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
         alert('Photo error: ' + (err.message || String(err)))
       }
     }
-    alert('handlePhotoChange: files selected=' + files.length + ', valid=' + validFiles.length + ', photos before=' + photos.length)
     setPhotos(prev => [...prev, ...validFiles].slice(0, 3))
   }
 
@@ -687,42 +696,35 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
   }
 
   const handleSave = async () => {
-    alert('handleSave: photos count=' + photos.length)
     if (!category || !date) return
     setSaving(true)
     setSaveError('')
     try {
       let receiptUrl = null
-      console.log('handleSave: photos.length =', photos.length, 'photos:', photos.map(p => ({ name: p.name, size: p.size, type: p.type })))
+
       // Upload first photo as receipt if present
       if (photos.length > 0) {
         try {
-          alert('upload block: getting user...')
           const { data: { user } } = await supabase.auth.getUser()
-          alert('upload block: user=' + (user?.id || 'NULL'))
           if (user) {
             const file = photos[0]
             const ext = file.name?.split('.').pop() || 'jpg'
             const path = `${user.id}/service_${Date.now()}.${ext}`
-            alert('upload start: path=' + path + ' size=' + file.size + ' type=' + file.type)
             const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
             if (upErr) {
-              alert('upload error: ' + JSON.stringify(upErr))
+              console.error('Service photo upload error:', JSON.stringify(upErr))
             } else {
               const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
               receiptUrl = urlData?.publicUrl || null
-              alert('upload done: ' + receiptUrl)
             }
-          } else {
-            alert('upload skipped: user is null')
           }
         } catch (uploadErr) {
-          alert('upload EXCEPTION: ' + (uploadErr.message || JSON.stringify(uploadErr)))
-          console.error('upload exception:', uploadErr)
+          console.error('Photo upload exception:', uploadErr)
         }
       }
 
-      await addServiceRecord({
+      // Insert record with receipt_url
+      const result = await addServiceRecord({
         vehicle_id: vehicleId || null,
         category,
         name: description,
@@ -732,6 +734,16 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
         sto,
         receipt_url: receiptUrl,
       })
+
+      // Safety: if photo was uploaded but receipt_url might not have saved, update explicitly
+      if (receiptUrl && result && result[0]?.id) {
+        const recordId = result[0].id
+        await supabase
+          .from('service_records')
+          .update({ receipt_url: receiptUrl })
+          .eq('id', recordId)
+      }
+
       if (onSaved) onSaved()
     } catch (err) {
       console.error('Save service record error:', err)

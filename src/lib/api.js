@@ -15,9 +15,7 @@ export async function uploadReceiptPhoto(userId, category, file) {
     .from('receipts')
     .upload(path, file, { contentType: file.type || 'image/jpeg' })
   if (upErr) {
-    console.error('uploadReceiptPhoto FULL error:', JSON.stringify(upErr, null, 2))
-    console.error('uploadReceiptPhoto path:', path, 'file size:', file.size, 'file type:', file.type)
-    alert('uploadReceiptPhoto error: ' + (upErr.message || JSON.stringify(upErr)))
+    console.error('uploadReceiptPhoto error:', JSON.stringify(upErr))
     throw upErr
   }
   const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
@@ -253,9 +251,7 @@ export async function addServiceRecord(entry) {
     .insert(row)
     .select()
   if (error) {
-    console.error('addServiceRecord FULL error:', JSON.stringify(error, null, 2))
-    console.error('addServiceRecord row sent:', JSON.stringify(row, null, 2))
-    alert('addServiceRecord error: ' + JSON.stringify(error))
+    console.error('addServiceRecord error:', JSON.stringify(error))
     throw error
   }
   return data

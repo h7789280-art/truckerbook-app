@@ -713,10 +713,10 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
             const file = photos[0]
             const ext = file.name?.split('.').pop() || 'jpg'
             const veh = vehicleId ? (vehicles || []).find(v => v.id === vehicleId) : null
-            const plate = (veh ? veh.plate_number : profilePlate || '').replace(/[\s\/\\<>:"|?*]/g, '_') || (veh?.driver_name || '').replace(/[\s\/\\<>:"|?*]/g, '_') || 'noplate'
-            const catLabel = (category || '').replace(/[\s\/\\<>:"|?*]/g, '_') || 'other'
-            const amountLabel = cost ? String(Math.round(Number(cost))) : '0'
-            const path = `${user.id}/receipts/${date}_${plate}_${catLabel}_${amountLabel}.${ext}`
+            const plate = (veh ? veh.plate_number : profilePlate || '').replace(/[\s\/\\<>:"|?*]/g, '') || (veh?.driver_name || '').replace(/[\s\/\\<>:"|?*]/g, '') || 'noplate'
+            const catLabel = (category || '').replace(/[\/\\<>:"|?*]/g, '').trim() || 'other'
+            const amountLabel = cost ? String(cost).replace(/[^0-9.,]/g, '') : '0'
+            const path = `${user.id}/receipts/${date}-${plate}-${catLabel}-${amountLabel}.${ext}`
             const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
             if (upErr) {
               console.error('Service photo upload error:', JSON.stringify(upErr))

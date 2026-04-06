@@ -639,6 +639,7 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
           vehicles={vehicles}
           userRole={userRole}
           selectedVehicleId={selectedVehicleId}
+          profilePlate={profilePlate}
           onClose={() => setShowAddModal(false)}
           onSaved={() => { setShowAddModal(false); if (onReload) onReload() }}
         />
@@ -648,7 +649,7 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
 }
 
 /* ===== ADD SERVICE MODAL ===== */
-function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleId, onClose, onSaved }) {
+function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleId, profilePlate, onClose, onSaved }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -711,7 +712,11 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
           if (user) {
             const file = photos[0]
             const ext = file.name?.split('.').pop() || 'jpg'
-            const path = `${user.id}/service_${Date.now()}.${ext}`
+            const veh = vehicleId ? (vehicles || []).find(v => v.id === vehicleId) : null
+            const plate = (veh ? veh.plate_number : profilePlate || '').replace(/[\s\/\\<>:"|?*]/g, '_') || (veh?.driver_name || '').replace(/[\s\/\\<>:"|?*]/g, '_') || 'noplate'
+            const catLabel = (category || '').replace(/[\s\/\\<>:"|?*]/g, '_') || 'other'
+            const amountLabel = cost ? String(Math.round(Number(cost))) : '0'
+            const path = `${user.id}/receipts/${date}_${plate}_${catLabel}_${amountLabel}.${ext}`
             const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
             if (upErr) {
               console.error('Service photo upload error:', JSON.stringify(upErr))

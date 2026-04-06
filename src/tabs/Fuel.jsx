@@ -327,9 +327,8 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
   }
 
   // Filter by vehicle if filterVehicleId is set (company role)
-  // Include entries with null vehicle_id (orphaned / main profile vehicle entries)
-  const filteredFuels = filterVehicleId ? fuelEntries.filter(e => e.vehicle_id === filterVehicleId || !e.vehicle_id) : fuelEntries
-  const filteredVehicleExps = filterVehicleId ? vehicleExpenses.filter(e => e.vehicle_id === filterVehicleId || !e.vehicle_id) : vehicleExpenses
+  const filteredFuels = filterVehicleId ? fuelEntries.filter(e => e.vehicle_id === filterVehicleId) : fuelEntries
+  const filteredVehicleExps = filterVehicleId ? vehicleExpenses.filter(e => e.vehicle_id === filterVehicleId) : vehicleExpenses
 
   // Normalize all entries into a unified list
   const allEntries = [

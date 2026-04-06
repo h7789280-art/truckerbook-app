@@ -547,6 +547,10 @@ export async function exportFleetReportExcel(opts) {
   // === Pre-compute aggregates for all sheets ===
   const driverIds = [...new Set(trips.map(t => t.user_id))]
 
+  // Maintenance categories — must match Service.jsx
+  const MAINT_CATS = ['oil_change', 'filters', 'belts_chains', 'coolant', 'diagnostics', 'brake_pads', 'spark_plugs', 'maintenance', 'maintenance_other']
+  const isMaintenance = (r) => MAINT_CATS.includes((r.category || '').toLowerCase())
+
   // Per-vehicle aggregates (used by Sheet 3 By Vehicle)
   const vehicleAgg = vehicles.map(v => {
     const vTrips = trips.filter(t => t.vehicle_id === v.id)
@@ -693,10 +697,10 @@ export async function exportFleetReportExcel(opts) {
   let vTotIncome = 0, vTotFuel = 0, vTotDef = 0, vTotRepair = 0, vTotService = 0, vTotOther = 0, vTotExp = 0, vTotProfit = 0, vTotMiles = 0
 
   vehicleAgg.forEach(va => {
-    // Split service_records into repair vs maintenance (ТО) by type field
+    // Split service_records into repair vs maintenance (ТО) by category field
     const vService = serviceRecs.filter(s => s.vehicle_id === va.vehicle.id)
-    const repairCost = vService.filter(s => (s.type || '').toLowerCase() !== 'maintenance' && (s.type || '').toLowerCase() !== '\u0442\u043e').reduce((s, r) => s + (r.cost || 0), 0)
-    const maintenanceCost = vService.filter(s => (s.type || '').toLowerCase() === 'maintenance' || (s.type || '').toLowerCase() === '\u0442\u043e').reduce((s, r) => s + (r.cost || 0), 0)
+    const repairCost = vService.filter(s => !isMaintenance(s)).reduce((s, r) => s + (r.cost || 0), 0)
+    const maintenanceCost = vService.filter(s => isMaintenance(s)).reduce((s, r) => s + (r.cost || 0), 0)
     const otherExp = va.oilCost + va.suppliesCost + va.hotelCost + va.tireCost + va.otherVehExp
     const totalExp = va.fuelCost + va.defCost + repairCost + maintenanceCost + otherExp
     const profit = va.income - totalExp
@@ -735,8 +739,7 @@ export async function exportFleetReportExcel(opts) {
     addCat(catLabels[cat] || cat, e.amount)
   })
   serviceRecs.forEach(r => {
-    const isTO = (r.type || '').toLowerCase() === 'maintenance' || (r.type || '').toLowerCase() === '\u0442\u043e'
-    addCat(isTO ? t('excel.maintenance') : t('excel.repair'), r.cost)
+    addCat(isMaintenance(r) ? t('excel.maintenance') : t('excel.repair'), r.cost)
   })
   tireRecs.forEach(r => addCat(t('excel.tires'), r.cost))
 

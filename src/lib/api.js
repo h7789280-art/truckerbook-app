@@ -14,7 +14,12 @@ export async function uploadReceiptPhoto(userId, category, file) {
   const { error: upErr } = await supabase.storage
     .from('receipts')
     .upload(path, file, { contentType: file.type || 'image/jpeg' })
-  if (upErr) { console.error('uploadReceiptPhoto storage error:', JSON.stringify(upErr)); throw upErr }
+  if (upErr) {
+    console.error('uploadReceiptPhoto FULL error:', JSON.stringify(upErr, null, 2))
+    console.error('uploadReceiptPhoto path:', path, 'file size:', file.size, 'file type:', file.type)
+    alert('uploadReceiptPhoto error: ' + (upErr.message || JSON.stringify(upErr)))
+    throw upErr
+  }
   const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
   return urlData?.publicUrl || ''
 }

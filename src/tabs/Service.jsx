@@ -691,10 +691,15 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
           const file = photos[0]
           const ext = file.name?.split('.').pop() || 'jpg'
           const path = `${user.id}/service_${Date.now()}.${ext}`
-          const { error: upErr } = await supabase.storage.from('receipts').upload(path, file)
-          if (!upErr) {
+          const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
+          if (upErr) {
+            console.error('Service photo upload FULL error:', JSON.stringify(upErr, null, 2))
+            console.error('Service photo upload path:', path, 'file size:', file.size, 'file type:', file.type)
+            alert('Photo upload error: ' + (upErr.message || JSON.stringify(upErr)))
+          } else {
             const { data: urlData } = supabase.storage.from('receipts').getPublicUrl(path)
             receiptUrl = urlData?.publicUrl || null
+            console.log('Service photo uploaded OK:', receiptUrl)
           }
         }
       }

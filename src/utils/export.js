@@ -453,15 +453,13 @@ export async function exportFleetReportExcel(opts) {
 
   // Defensive defaults — ensure all arrays are arrays and maps are objects
   const vehicles = Array.isArray(_vehicles) ? _vehicles : []
-  const drivers = Array.isArray(_drivers) ? _drivers : []
+  Array.isArray(_drivers) // drivers used via driverMap
   const fuels = Array.isArray(_fuels) ? _fuels : []
   const trips = Array.isArray(_trips) ? _trips : []
   const serviceRecs = Array.isArray(_serviceRecs) ? _serviceRecs : []
   const tireRecs = Array.isArray(_tireRecs) ? _tireRecs : []
   const vehicleExps = Array.isArray(_vehicleExps) ? _vehicleExps : []
-  const sessions = Array.isArray(_sessions) ? _sessions : []
-  const advances = Array.isArray(_advances) ? _advances : []
-  const bolDocs = Array.isArray(_bolDocs) ? _bolDocs : []
+  // sessions, advances, bolDocs — available via opts but not used in P&L sheets
   const driverMap = _driverMap && typeof _driverMap === 'object' ? _driverMap : {}
   const vehicleMap = _vehicleMap && typeof _vehicleMap === 'object' ? _vehicleMap : {}
 
@@ -538,16 +536,14 @@ export async function exportFleetReportExcel(opts) {
     return ''
   }
 
-  // ---- SHEET 1: P&L ----
-  const ws1 = wb.addWorksheet('P&L')
-  const plHeaders = ['\u041c\u0430\u0448\u0438\u043d\u0430', '\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440', '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u0414\u043e\u0445\u043e\u0434 (' + cs + ')', '\u0420\u0430\u0441\u0445\u043e\u0434 (' + cs + ')', '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u0430 (' + cs + ')', '\u041f\u0440\u0438\u0431\u044b\u043b\u044c (' + cs + ')', distLabel, cs + '/' + distLabel]
-  ws1.addRow(plHeaders)
-  styleHeaders(ws1, plHeaders.length)
+  // === Pre-compute aggregates for all sheets ===
+  const driverIds = [...new Set(trips.map(t => t.user_id))]
 
-  let plRowIdx = 2
-  let totIncome = 0, totExpense = 0, totSalary = 0, totMiles = 0
+  // Total fleet aggregates
+  let totIncome = 0, totExpense = 0, totSalary = 0, totMiles = 0, totTrips = trips.length
 
-  vehicles.forEach(v => {
+  // Per-vehicle aggregates (used by Sheet 1 P&L and Sheet 3 By Vehicle)
+  const vehicleAgg = vehicles.map(v => {
     const vTrips = trips.filter(t => t.vehicle_id === v.id)
     const vFuels = fuels.filter(f => f.vehicle_id === v.id)
     const vService = serviceRecs.filter(s => s.vehicle_id === v.id)
@@ -555,222 +551,207 @@ export async function exportFleetReportExcel(opts) {
     const vVehExp = vehicleExps.filter(e => e.vehicle_id === v.id)
 
     const income = vTrips.reduce((s, t) => s + (t.income || 0), 0)
-    const expense = vFuels.reduce((s, f) => s + (f.cost || 0), 0)
-      + vService.reduce((s, r) => s + (r.cost || 0), 0)
-      + vTires.reduce((s, r) => s + (r.cost || 0), 0)
-      + vVehExp.reduce((s, r) => s + (r.amount || 0), 0)
-    const salary = vTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
-    const profit = income - expense - salary
-    const miles = vTrips.reduce((s, t) => s + convDist(t.distance_km), 0)
-    const perMile = miles > 0 ? profit / miles : 0
-
-    totIncome += income; totExpense += expense; totSalary += salary; totMiles += miles
-
-    const label = (v.brand || '') + ' ' + (v.model || '')
-    const driver = v.driver_name || getVehicleDriver(v.id)
-    ws1.addRow([label.trim(), v.plate_number || '', driver, fmtNum(income), fmtNum(expense), fmtNum(salary), fmtNum(profit), miles, fmtNum(perMile)])
-    plRowIdx++
-  })
-
-  styleAltRows(ws1, 2, plRowIdx - 1, plHeaders.length)
-
-  const totProfit = totIncome - totExpense - totSalary
-  const totPerMile = totMiles > 0 ? totProfit / totMiles : 0
-  const plTotal = ws1.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', fmtNum(totIncome), fmtNum(totExpense), fmtNum(totSalary), fmtNum(totProfit), totMiles, fmtNum(totPerMile)])
-  plTotal.eachCell(c => { c.font = boldFont })
-  autoWidth(ws1)
-
-  // ---- SHEET 2: Vehicles ----
-  const ws2 = wb.addWorksheet('\u041c\u0430\u0448\u0438\u043d\u044b')
-  let vRowIdx = 0
-
-  vehicles.forEach((v, vi) => {
-    const label = (v.brand || '') + ' ' + (v.model || '')
-    const driver = v.driver_name || getVehicleDriver(v.id)
-
-    // Vehicle header block
-    const hdrRow = ws2.addRow([label.trim(), v.plate_number || '', driver, v.odometer ? (convDist(v.odometer) + ' ' + distLabel) : ''])
-    vRowIdx++
-    hdrRow.eachCell(c => { c.font = boldFont; c.fill = headerFill; c.font = headerFont })
-
-    const vFuels = fuels.filter(f => f.vehicle_id === v.id)
-    const vService = serviceRecs.filter(s => s.vehicle_id === v.id)
-    const vTires = tireRecs.filter(t => t.vehicle_id === v.id)
-    const vVehExp = vehicleExps.filter(e => e.vehicle_id === v.id)
-
-    const cats = []
     const fuelCost = vFuels.reduce((s, f) => s + (f.cost || 0), 0)
-    if (fuelCost > 0) cats.push(['\u0422\u043e\u043f\u043b\u0438\u0432\u043e', fmtNum(fuelCost)])
+    const serviceCost = vService.reduce((s, r) => s + (r.cost || 0), 0)
+    const tireCost = vTires.reduce((s, r) => s + (r.cost || 0), 0)
 
     const byCat = {}
     vVehExp.forEach(e => { byCat[e.category || 'other'] = (byCat[e.category || 'other'] || 0) + (e.amount || 0) })
-    if (byCat.def) cats.push(['DEF', fmtNum(byCat.def)])
-    if (byCat.oil) cats.push(['\u041c\u0430\u0441\u043b\u043e', fmtNum(byCat.oil)])
+    const defCost = byCat.def || 0
+    const oilCost = byCat.oil || 0
+    const suppliesCost = byCat.supplies || 0
+    const hotelCost = byCat.hotel || 0
+    const otherVehExp = Object.entries(byCat)
+      .filter(([k]) => !['def', 'oil', 'supplies', 'hotel'].includes(k))
+      .reduce((s, [, v2]) => s + v2, 0)
+    const totalVehExp = Object.values(byCat).reduce((s, v2) => s + v2, 0)
 
-    const serviceCost = vService.reduce((s, r) => s + (r.cost || 0), 0)
-    if (serviceCost > 0) cats.push(['\u0417\u0430\u043f\u0447\u0430\u0441\u0442\u0438/\u0420\u0435\u043c\u043e\u043d\u0442', fmtNum(serviceCost)])
+    const expense = fuelCost + serviceCost + tireCost + totalVehExp
+    const salary = vTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
+    const miles = vTrips.reduce((s, t) => s + convDist(t.distance_km), 0)
 
-    if (byCat.supplies) cats.push(['\u0420\u0430\u0441\u0445\u043e\u0434\u043d\u0438\u043a\u0438', fmtNum(byCat.supplies)])
-    if (byCat.hotel) cats.push(['\u041c\u043e\u0442\u0435\u043b\u044c', fmtNum(byCat.hotel)])
+    totIncome += income; totExpense += expense; totSalary += salary; totMiles += miles
 
-    const tireCost = vTires.reduce((s, r) => s + (r.cost || 0), 0)
-    if (tireCost > 0) cats.push(['\u0428\u0438\u043d\u044b', fmtNum(tireCost)])
-
-    // Other vehicle expense categories
-    const knownCats = ['def', 'oil', 'supplies', 'hotel']
-    Object.entries(byCat).filter(([k]) => !knownCats.includes(k)).forEach(([k, v2]) => {
-      if (v2 > 0) cats.push([k, fmtNum(v2)])
-    })
-
-    cats.forEach(([lbl, amt]) => {
-      ws2.addRow([lbl, amt])
-      vRowIdx++
-    })
-
-    const catTotal = fuelCost + serviceCost + tireCost + Object.values(byCat).reduce((s, v2) => s + v2, 0)
-    const tr = ws2.addRow(['\u0418\u0422\u041e\u0413\u041e', fmtNum(catTotal)])
-    tr.eachCell(c => { c.font = boldFont })
-    vRowIdx++
-
-    if (vi < vehicles.length - 1) { ws2.addRow([]); vRowIdx++ }
+    return {
+      vehicle: v,
+      label: ((v.brand || '') + ' ' + (v.model || '')).trim(),
+      plate: v.plate_number || '',
+      driver: v.driver_name || getVehicleDriver(v.id),
+      income, expense, salary, miles,
+      fuelCost, defCost, serviceCost, tireCost, oilCost, suppliesCost, hotelCost, otherVehExp, totalVehExp,
+      tripsCount: vTrips.length,
+    }
   })
-  autoWidth(ws2)
 
-  // ---- SHEET 3: Drivers ----
-  const ws3 = wb.addWorksheet('\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u0438')
-  const drvHeaders = ['\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u041c\u0430\u0448\u0438\u043d\u0430', '\u0420\u0435\u0439\u0441\u043e\u0432', distLabel, '\u0427\u0430\u0441\u043e\u0432', '\u0414\u043e\u0445\u043e\u0434 (' + cs + ')', cs + '/' + distLabel, '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u0430 (' + cs + ')']
-  ws3.addRow(drvHeaders)
-  styleHeaders(ws3, drvHeaders.length)
+  const totGrossProfit = totIncome - totExpense
+  const totNetProfit = totIncome - totExpense - totSalary
+  const totCostPerMile = totMiles > 0 ? totExpense / totMiles : 0
+  const totRevPerMile = totMiles > 0 ? totIncome / totMiles : 0
+
+  // ---- SHEET 1: P&L Summary ----
+  const ws1 = wb.addWorksheet('P&L \u0421\u0432\u043e\u0434\u043a\u0430')
+
+  // Title row
+  const titleRow = ws1.addRow(['\u041e\u0442\u0447\u0451\u0442 P&L \u2014 ' + (period || '')])
+  titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: 'FF' + ORANGE } }
+  ws1.mergeCells('A1:B1')
+  ws1.addRow([])
+
+  // Key metrics as label-value pairs
+  const summaryData = [
+    ['\u041f\u0435\u0440\u0438\u043e\u0434', period || ''],
+    ['\u041e\u0431\u0449\u0438\u0439 \u0434\u043e\u0445\u043e\u0434', cs + ' ' + fmtNum(totIncome)],
+    ['\u041e\u0431\u0449\u0438\u0439 \u0440\u0430\u0441\u0445\u043e\u0434', cs + ' ' + fmtNum(totExpense)],
+    ['\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u044b \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u0439', cs + ' ' + fmtNum(totSalary)],
+    [],
+    ['\u0412\u0430\u043b\u043e\u0432\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c (\u0434\u043e\u0445\u043e\u0434 \u2212 \u0440\u0430\u0441\u0445\u043e\u0434\u044b)', cs + ' ' + fmtNum(totGrossProfit)],
+    ['\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c (\u0434\u043e\u0445\u043e\u0434 \u2212 \u0440\u0430\u0441\u0445\u043e\u0434\u044b \u2212 \u0437\u0430\u0440\u043f\u043b\u0430\u0442\u044b)', cs + ' ' + fmtNum(totNetProfit)],
+    [],
+    ['\u0412\u0441\u0435\u0433\u043e ' + distLabel, totMiles],
+    ['\u0412\u0441\u0435\u0433\u043e \u0440\u0435\u0439\u0441\u043e\u0432', totTrips],
+    ['Cost per ' + distLabel, cs + ' ' + fmtNum(totCostPerMile)],
+    ['Revenue per ' + distLabel, cs + ' ' + fmtNum(totRevPerMile)],
+  ]
+
+  summaryData.forEach(row => {
+    if (row.length === 0) { ws1.addRow([]); return }
+    const r = ws1.addRow(row)
+    r.getCell(1).font = boldFont
+  })
+
+  // Highlight profit rows (row 8 = gross, row 9 = net)
+  ws1.getRow(8).eachCell(c => { c.font = { bold: true, size: 12, color: { argb: totGrossProfit >= 0 ? 'FF22C55E' : 'FFEF4444' } } })
+  ws1.getRow(9).eachCell(c => { c.font = { bold: true, size: 12, color: { argb: totNetProfit >= 0 ? 'FF22C55E' : 'FFEF4444' } } })
+
+  ws1.getColumn(1).width = 45
+  ws1.getColumn(2).width = 20
+
+  // ---- SHEET 2: By Drivers ----
+  const ws2 = wb.addWorksheet('\u041f\u043e \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u044f\u043c')
+  const drvHeaders = ['\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u041c\u0430\u0448\u0438\u043d\u0430', '\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440', '\u0420\u0435\u0439\u0441\u043e\u0432', distLabel, '\u0414\u043e\u0445\u043e\u0434 (' + cs + ')', '\u0420\u0430\u0441\u0445\u043e\u0434 (' + cs + ')', '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u0430 (' + cs + ')', '\u041f\u0440\u0438\u0431\u044b\u043b\u044c (' + cs + ')', cs + '/' + distLabel]
+  ws2.addRow(drvHeaders)
+  styleHeaders(ws2, drvHeaders.length)
 
   let drvRowIdx = 2
-  // Group by driver (user_id on trips)
-  const driverIds = [...new Set(trips.map(t => t.user_id))]
+  let drvTotIncome = 0, drvTotExpense = 0, drvTotSalary = 0, drvTotMiles = 0, drvTotTrips = 0
+
   driverIds.forEach(dId => {
     const dTrips = trips.filter(t => t.user_id === dId)
-    const dSessions = sessions.filter(s => s.user_id === dId)
+    const dFuels = fuels.filter(f => f.user_id === dId)
+    const dService = serviceRecs.filter(s => s.user_id === dId)
+    const dTires = tireRecs.filter(t => t.user_id === dId)
+    const dVehExp = vehicleExps.filter(e => e.user_id === dId)
+
     const name = getDriverName(dId)
     const vIds = [...new Set(dTrips.map(t => t.vehicle_id).filter(Boolean))]
     const vehicleLabel = vIds.map(vid => getVehicleLabel(vid)).filter(Boolean).join(', ') || ''
+    const plateLabel = vIds.map(vid => getVehiclePlate(vid)).filter(Boolean).join(', ') || ''
     const tripsCount = dTrips.length
     const miles = dTrips.reduce((s, t) => s + convDist(t.distance_km), 0)
-    const hours = dSessions.reduce((s, sh) => {
-      if (!sh.ended_at) return s
-      return s + (new Date(sh.ended_at).getTime() - new Date(sh.started_at).getTime()) / 3600000
-    }, 0)
     const income = dTrips.reduce((s, t) => s + (t.income || 0), 0)
-    const perMile = miles > 0 ? income / miles : 0
+    const expense = dFuels.reduce((s, f) => s + (f.cost || 0), 0)
+      + dService.reduce((s, r) => s + (r.cost || 0), 0)
+      + dTires.reduce((s, r) => s + (r.cost || 0), 0)
+      + dVehExp.reduce((s, e) => s + (e.amount || 0), 0)
     const salary = dTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
-    ws3.addRow([name, vehicleLabel, tripsCount, miles, fmtNum(Math.round(hours * 10) / 10), fmtNum(income), fmtNum(perMile), fmtNum(salary)])
+    const profit = income - expense - salary
+    const perMile = miles > 0 ? profit / miles : 0
+
+    drvTotIncome += income; drvTotExpense += expense; drvTotSalary += salary; drvTotMiles += miles; drvTotTrips += tripsCount
+
+    ws2.addRow([name, vehicleLabel, plateLabel, tripsCount, miles, fmtNum(income), fmtNum(expense), fmtNum(salary), fmtNum(profit), fmtNum(perMile)])
     drvRowIdx++
   })
-  styleAltRows(ws3, 2, drvRowIdx - 1, drvHeaders.length)
+  styleAltRows(ws2, 2, drvRowIdx - 1, drvHeaders.length)
+
+  const drvTotProfit = drvTotIncome - drvTotExpense - drvTotSalary
+  const drvTotPM = drvTotMiles > 0 ? drvTotProfit / drvTotMiles : 0
+  const drvTotal = ws2.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', drvTotTrips, drvTotMiles, fmtNum(drvTotIncome), fmtNum(drvTotExpense), fmtNum(drvTotSalary), fmtNum(drvTotProfit), fmtNum(drvTotPM)])
+  drvTotal.eachCell(c => { c.font = boldFont })
+  autoWidth(ws2)
+
+  // ---- SHEET 3: By Vehicles ----
+  const ws3 = wb.addWorksheet('\u041f\u043e \u043c\u0430\u0448\u0438\u043d\u0430\u043c')
+  const vehHeaders = ['\u041c\u0430\u0448\u0438\u043d\u0430', '\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440', '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u0414\u043e\u0445\u043e\u0434 (' + cs + ')', '\u0422\u043e\u043f\u043b\u0438\u0432\u043e (' + cs + ')', 'DEF (' + cs + ')', '\u0420\u0435\u043c\u043e\u043d\u0442 (' + cs + ')', '\u0422\u041e (' + cs + ')', '\u041f\u0440\u043e\u0447\u0438\u0435 (' + cs + ')', '\u0412\u0441\u0435\u0433\u043e \u0440\u0430\u0441\u0445. (' + cs + ')', '\u041f\u0440\u0438\u0431\u044b\u043b\u044c (' + cs + ')', distLabel, cs + '/' + distLabel]
+  ws3.addRow(vehHeaders)
+  styleHeaders(ws3, vehHeaders.length)
+
+  let vRowIdx = 2
+  let vTotIncome = 0, vTotFuel = 0, vTotDef = 0, vTotRepair = 0, vTotService = 0, vTotOther = 0, vTotExp = 0, vTotProfit = 0, vTotMiles = 0
+
+  vehicleAgg.forEach(va => {
+    // Split service_records into repair vs maintenance (ТО) by type field
+    const vService = serviceRecs.filter(s => s.vehicle_id === va.vehicle.id)
+    const repairCost = vService.filter(s => (s.type || '').toLowerCase() !== 'maintenance' && (s.type || '').toLowerCase() !== '\u0442\u043e').reduce((s, r) => s + (r.cost || 0), 0)
+    const maintenanceCost = vService.filter(s => (s.type || '').toLowerCase() === 'maintenance' || (s.type || '').toLowerCase() === '\u0442\u043e').reduce((s, r) => s + (r.cost || 0), 0)
+    const otherExp = va.oilCost + va.suppliesCost + va.hotelCost + va.tireCost + va.otherVehExp
+    const totalExp = va.fuelCost + va.defCost + repairCost + maintenanceCost + otherExp
+    const profit = va.income - totalExp
+    const perMile = va.miles > 0 ? profit / va.miles : 0
+
+    vTotIncome += va.income; vTotFuel += va.fuelCost; vTotDef += va.defCost; vTotRepair += repairCost; vTotService += maintenanceCost; vTotOther += otherExp; vTotExp += totalExp; vTotProfit += profit; vTotMiles += va.miles
+
+    ws3.addRow([va.label, va.plate, va.driver, fmtNum(va.income), fmtNum(va.fuelCost), fmtNum(va.defCost), fmtNum(repairCost), fmtNum(maintenanceCost), fmtNum(otherExp), fmtNum(totalExp), fmtNum(profit), va.miles, fmtNum(perMile)])
+    vRowIdx++
+  })
+  styleAltRows(ws3, 2, vRowIdx - 1, vehHeaders.length)
+
+  const vTotPM = vTotMiles > 0 ? vTotProfit / vTotMiles : 0
+  const vTotal = ws3.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', fmtNum(vTotIncome), fmtNum(vTotFuel), fmtNum(vTotDef), fmtNum(vTotRepair), fmtNum(vTotService), fmtNum(vTotOther), fmtNum(vTotExp), fmtNum(vTotProfit), vTotMiles, fmtNum(vTotPM)])
+  vTotal.eachCell(c => { c.font = boldFont })
   autoWidth(ws3)
 
-  // ---- SHEET 4: Fuel ----
-  const ws4 = wb.addWorksheet('\u0422\u043e\u043f\u043b\u0438\u0432\u043e')
-  const fuelHeaders = ['\u0414\u0430\u0442\u0430', '\u0410\u0417\u0421', '\u0428\u0442\u0430\u0442', isImperial ? '\u0413\u0430\u043b\u043b\u043e\u043d\u044b' : '\u041b\u0438\u0442\u0440\u044b', '\u0421\u0443\u043c\u043c\u0430 (' + cs + ')', cs + '/' + (isImperial ? 'gal' : 'l'), '\u041c\u0430\u0448\u0438\u043d\u0430', '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c']
-  ws4.addRow(fuelHeaders)
-  styleHeaders(ws4, fuelHeaders.length)
+  // ---- SHEET 4: Expenses by Category ----
+  const ws4 = wb.addWorksheet('\u0420\u0430\u0441\u0445\u043e\u0434\u044b \u043f\u043e \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f\u043c')
+  const catHeaders = ['\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f', '\u0421\u0443\u043c\u043c\u0430 (' + cs + ')', '\u0417\u0430\u043f\u0438\u0441\u0435\u0439', '% \u043e\u0442 \u043e\u0431\u0449\u0438\u0445']
+  ws4.addRow(catHeaders)
+  styleHeaders(ws4, catHeaders.length)
 
-  let fuelRowIdx = 2
-  let fuelTotalGal = 0, fuelTotalCost = 0
-  fuels.forEach(f => {
-    const gal = convGal(f.liters)
-    const ppg = gal > 0 ? (f.cost || 0) / gal : 0
-    fuelTotalGal += gal; fuelTotalCost += (f.cost || 0)
-    ws4.addRow([f.date || '', f.station || '', f.state || '', fmtNum(gal), fmtNum(f.cost), fmtNum(ppg), getVehicleLabel(f.vehicle_id), getDriverName(f.user_id)])
-    fuelRowIdx++
+  // Build category breakdown
+  const catMap = {}
+  const addCat = (key, amount) => {
+    if (!amount) return
+    if (!catMap[key]) catMap[key] = { sum: 0, count: 0 }
+    catMap[key].sum += amount
+    catMap[key].count += 1
+  }
+  fuels.forEach(f => addCat('\u0422\u043e\u043f\u043b\u0438\u0432\u043e', f.cost))
+  vehicleExps.forEach(e => {
+    const cat = e.category || 'other'
+    const labels = { def: 'DEF', oil: '\u041c\u0430\u0441\u043b\u043e', supplies: '\u0420\u0430\u0441\u0445\u043e\u0434\u043d\u0438\u043a\u0438', hotel: '\u041c\u043e\u0442\u0435\u043b\u044c', equipment: '\u041e\u0431\u043e\u0440\u0443\u0434\u043e\u0432\u0430\u043d\u0438\u0435' }
+    addCat(labels[cat] || cat, e.amount)
   })
-  styleAltRows(ws4, 2, fuelRowIdx - 1, fuelHeaders.length)
-  const fuelTotal = ws4.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', fmtNum(fuelTotalGal), fmtNum(fuelTotalCost), fuelTotalGal > 0 ? fmtNum(fuelTotalCost / fuelTotalGal) : '', '', ''])
-  fuelTotal.eachCell(c => { c.font = boldFont })
+  serviceRecs.forEach(r => {
+    const isTO = (r.type || '').toLowerCase() === 'maintenance' || (r.type || '').toLowerCase() === '\u0442\u043e'
+    addCat(isTO ? '\u0422\u041e' : '\u0420\u0435\u043c\u043e\u043d\u0442', r.cost)
+  })
+  tireRecs.forEach(r => addCat('\u0428\u0438\u043d\u044b', r.cost))
+
+  const catTotalSum = Object.values(catMap).reduce((s, v) => s + v.sum, 0)
+  let catRowIdx = 2
+  let catTotCount = 0
+
+  // Sort by sum descending
+  Object.entries(catMap).sort(([, a], [, b]) => b.sum - a.sum).forEach(([key, data]) => {
+    const pct = catTotalSum > 0 ? (data.sum / catTotalSum * 100) : 0
+    catTotCount += data.count
+    ws4.addRow([key, fmtNum(data.sum), data.count, fmtNum(pct) + '%'])
+    catRowIdx++
+  })
+  styleAltRows(ws4, 2, catRowIdx - 1, catHeaders.length)
+
+  const catTotal = ws4.addRow(['\u0418\u0422\u041e\u0413\u041e', fmtNum(catTotalSum), catTotCount, '100%'])
+  catTotal.eachCell(c => { c.font = boldFont })
   autoWidth(ws4)
 
-  // ---- SHEET 5: Expenses ----
-  const ws5 = wb.addWorksheet('\u0420\u0430\u0441\u0445\u043e\u0434\u044b')
-  const expHeaders = ['\u0414\u0430\u0442\u0430', '\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435', '\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f', '\u0421\u0443\u043c\u043c\u0430 (' + cs + ')', '\u041c\u0430\u0448\u0438\u043d\u0430', '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c']
-  ws5.addRow(expHeaders)
-  styleHeaders(ws5, expHeaders.length)
-
-  // Merge all expense types
-  const allExpenses = []
-  fuels.forEach(f => allExpenses.push({ date: f.date, description: f.station || 'Fuel', category: 'Fuel', amount: f.cost || 0, vehicle_id: f.vehicle_id, user_id: f.user_id }))
-  serviceRecs.forEach(r => allExpenses.push({ date: r.date, description: r.description || r.type || 'Service', category: 'Service', amount: r.cost || 0, vehicle_id: r.vehicle_id, user_id: r.user_id }))
-  tireRecs.forEach(r => allExpenses.push({ date: r.installed_at, description: (r.brand || '') + ' ' + (r.model || ''), category: 'Tires', amount: r.cost || 0, vehicle_id: r.vehicle_id, user_id: r.user_id }))
-  vehicleExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || '', category: e.category || 'Vehicle', amount: e.amount || 0, vehicle_id: e.vehicle_id, user_id: e.user_id }))
-  allExpenses.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
-
-  let expRowIdx = 2
-  let expTotal = 0
-  allExpenses.forEach(e => {
-    expTotal += e.amount
-    ws5.addRow([e.date || '', e.description, e.category, fmtNum(e.amount), getVehicleLabel(e.vehicle_id), getDriverName(e.user_id)])
-    expRowIdx++
-  })
-  styleAltRows(ws5, 2, expRowIdx - 1, expHeaders.length)
-  const expTotalRow = ws5.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', fmtNum(expTotal), '', ''])
-  expTotalRow.eachCell(c => { c.font = boldFont })
-  autoWidth(ws5)
-
-  // ---- SHEET 6: Trips ----
-  const ws6 = wb.addWorksheet('\u0420\u0435\u0439\u0441\u044b')
-  const tripHeaders = ['\u0414\u0430\u0442\u0430', '\u041e\u0442\u043a\u0443\u0434\u0430', '\u041a\u0443\u0434\u0430', distLabel, '\u0414\u043e\u0445\u043e\u0434 (' + cs + ')', '\u041c\u0430\u0448\u0438\u043d\u0430', '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c']
-  ws6.addRow(tripHeaders)
-  styleHeaders(ws6, tripHeaders.length)
-
-  let tripRowIdx = 2
-  let tripTotMiles = 0, tripTotIncome = 0
-  trips.forEach(t => {
-    const miles = convDist(t.distance_km)
-    tripTotMiles += miles; tripTotIncome += (t.income || 0)
-    ws6.addRow([(t.created_at || '').slice(0, 10), t.origin || '', t.destination || '', miles, fmtNum(t.income), getVehicleLabel(t.vehicle_id), getDriverName(t.user_id)])
-    tripRowIdx++
-  })
-  styleAltRows(ws6, 2, tripRowIdx - 1, tripHeaders.length)
-  const tripTotal = ws6.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', tripTotMiles, fmtNum(tripTotIncome), '', ''])
-  tripTotal.eachCell(c => { c.font = boldFont })
-  autoWidth(ws6)
-
-  // ---- SHEET 7: IFTA ----
-  const hasStateData = fuels.some(f => f.state)
-  if (hasStateData) {
-    const ws7 = wb.addWorksheet('IFTA')
-    const iftaHeaders = ['\u0428\u0442\u0430\u0442', distLabel, isImperial ? '\u0413\u0430\u043b\u043b\u043e\u043d\u044b \u043a\u0443\u043f\u043b\u0435\u043d\u043e' : '\u041b\u0438\u0442\u0440\u044b \u043a\u0443\u043f\u043b\u0435\u043d\u043e', isImperial ? '\u0413\u0430\u043b\u043b\u043e\u043d\u044b \u0438\u0437\u0440\u0430\u0441\u0445\u043e\u0434.' : '\u041b\u0438\u0442\u0440\u044b \u0438\u0437\u0440\u0430\u0441\u0445\u043e\u0434.', '\u0420\u0430\u0437\u043d\u0438\u0446\u0430']
-    ws7.addRow(iftaHeaders)
-    styleHeaders(ws7, iftaHeaders.length)
-
-    // Group fuels by state
-    const byState = {}
-    fuels.forEach(f => {
-      if (!f.state) return
-      if (!byState[f.state]) byState[f.state] = { bought: 0, miles: 0 }
-      byState[f.state].bought += convGal(f.liters)
-    })
-
-    // Estimate miles per state from trips (if trip has state info) — approximate: distribute by fuel bought
-    const totalFleetMiles = trips.reduce((s, t) => s + convDist(t.distance_km), 0)
-    const totalBought = Object.values(byState).reduce((s, v) => s + v.bought, 0)
-    const avgMpg = totalBought > 0 ? totalFleetMiles / totalBought : 0
-
-    let iftaRowIdx = 2
-    Object.entries(byState).sort(([a], [b]) => a.localeCompare(b)).forEach(([state, data]) => {
-      const used = avgMpg > 0 ? data.bought : 0 // approximate: gallons used ~ gallons bought if no better data
-      const diff = data.bought - used
-      ws7.addRow([state, '', fmtNum(data.bought), fmtNum(used), fmtNum(diff)])
-      iftaRowIdx++
-    })
-    styleAltRows(ws7, 2, iftaRowIdx - 1, iftaHeaders.length)
-    autoWidth(ws7)
-  }
-
-  // ---- SHEET 8: Payroll ----
-  const ws8 = wb.addWorksheet('\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u0430')
-  const payHeaders = ['\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', distLabel, '\u0420\u0435\u0439\u0441\u043e\u0432', '\u0421\u0442\u0430\u0432\u043a\u0430', '\u0422\u0438\u043f', '\u041d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u043e (' + cs + ')', '\u0410\u0432\u0430\u043d\u0441\u044b (' + cs + ')', '\u041a \u0432\u044b\u043f\u043b\u0430\u0442\u0435 (' + cs + ')']
-  ws8.addRow(payHeaders)
-  styleHeaders(ws8, payHeaders.length)
+  // ---- SHEET 5: Payroll (Salaries) ----
+  const ws5 = wb.addWorksheet('\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u044b')
+  const payHeaders = ['\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u0422\u0438\u043f \u043e\u043f\u043b\u0430\u0442\u044b', '\u0421\u0442\u0430\u0432\u043a\u0430', '\u0420\u0435\u0439\u0441\u043e\u0432', distLabel, '\u041d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u043e (' + cs + ')']
+  ws5.addRow(payHeaders)
+  styleHeaders(ws5, payHeaders.length)
 
   let payRowIdx = 2
-  let payTotEarned = 0, payTotAdv = 0, payTotDue = 0
+  let payTotEarned = 0
 
   driverIds.forEach(dId => {
     const dTrips = trips.filter(t => t.user_id === dId)
@@ -778,50 +759,50 @@ export async function exportFleetReportExcel(opts) {
     const miles = dTrips.reduce((s, t) => s + convDist(t.distance_km), 0)
     const tripsCount = dTrips.length
     const earned = dTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
-    const dAdvances = advances.filter(a => a.user_id === dId)
-    const advTotal = dAdvances.reduce((s, a) => s + (a.amount || 0), 0)
-    const due = earned - advTotal
 
-    // Determine pay info
     const dInfo = driverMap[dId]
     let rateStr = ''
     let typeStr = ''
     if (dInfo) {
-      if (dInfo.pay_type === 'per_mile') { rateStr = cs + (dInfo.pay_rate || 0) + '/' + distLabel; typeStr = 'Per ' + distLabel }
+      if (dInfo.pay_type === 'per_mile') { rateStr = cs + (dInfo.pay_rate || 0) + '/' + distLabel; typeStr = '\u0417\u0430 ' + distLabel }
       else if (dInfo.pay_type === 'percent') { rateStr = (dInfo.pay_rate || 0) + '%'; typeStr = '%' }
       else { rateStr = ''; typeStr = dInfo.pay_type || '' }
     }
 
-    payTotEarned += earned; payTotAdv += advTotal; payTotDue += due
-    ws8.addRow([name, miles, tripsCount, rateStr, typeStr, fmtNum(earned), fmtNum(advTotal), fmtNum(due)])
+    payTotEarned += earned
+    ws5.addRow([name, typeStr, rateStr, tripsCount, miles, fmtNum(earned)])
     payRowIdx++
   })
 
-  styleAltRows(ws8, 2, payRowIdx - 1, payHeaders.length)
-  const payTotal = ws8.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', '', '', fmtNum(payTotEarned), fmtNum(payTotAdv), fmtNum(payTotDue)])
+  styleAltRows(ws5, 2, payRowIdx - 1, payHeaders.length)
+  const payTotal = ws5.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', '', '', fmtNum(payTotEarned)])
   payTotal.eachCell(c => { c.font = boldFont })
-  autoWidth(ws8)
+  autoWidth(ws5)
 
-  // ---- SHEET 9: BOL ----
-  if (bolDocs.length > 0) {
-    const ws9 = wb.addWorksheet('BOL')
-    const bolHeaders = ['\u0414\u0430\u0442\u0430', 'BOL #', '\u041c\u0430\u0440\u0448\u0440\u0443\u0442', '\u041c\u0430\u0448\u0438\u043d\u0430', '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', '\u0424\u0430\u0439\u043b']
-    ws9.addRow(bolHeaders)
-    styleHeaders(ws9, bolHeaders.length)
+  // ---- SHEET 6: All Expenses (detailed) ----
+  const ws6 = wb.addWorksheet('\u0412\u0441\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b')
+  const expHeaders = ['\u0414\u0430\u0442\u0430', '\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435', '\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f', isImperial ? 'gal' : '\u043b\u0438\u0442\u0440\u044b', '\u0421\u0443\u043c\u043c\u0430 (' + cs + ')', '\u041f\u0440\u043e\u0431\u0435\u0433']
+  ws6.addRow(expHeaders)
+  styleHeaders(ws6, expHeaders.length)
 
-    let bolRowIdx = 2
-    bolDocs.forEach(doc => {
-      const date = doc.created_at ? doc.created_at.slice(0, 10) : ''
-      const bolNum = doc.title || doc.notes || ''
-      const vehicle = getVehicleLabel(doc.vehicle_id)
-      const driver = getDriverName(doc.user_id)
-      const hasFile = doc.file_url ? '\u0414\u0430' : '\u041d\u0435\u0442'
-      ws9.addRow([date, bolNum, '', vehicle, driver, hasFile])
-      bolRowIdx++
-    })
-    styleAltRows(ws9, 2, bolRowIdx - 1, bolHeaders.length)
-    autoWidth(ws9)
-  }
+  const allExpenses = []
+  fuels.forEach(f => allExpenses.push({ date: f.date, description: f.station || 'Fuel', category: '\u0422\u043e\u043f\u043b\u0438\u0432\u043e', gal: convGal(f.liters), amount: f.cost || 0, odometer: f.odometer ? convDist(f.odometer) : '' }))
+  serviceRecs.forEach(r => allExpenses.push({ date: r.date, description: r.description || r.type || 'Service', category: '\u0421\u0435\u0440\u0432\u0438\u0441', gal: '', amount: r.cost || 0, odometer: r.odometer ? convDist(r.odometer) : '' }))
+  tireRecs.forEach(r => allExpenses.push({ date: r.installed_at, description: (r.brand || '') + ' ' + (r.model || ''), category: '\u0428\u0438\u043d\u044b', gal: '', amount: r.cost || 0, odometer: '' }))
+  vehicleExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || '', category: e.category || 'Vehicle', gal: '', amount: e.amount || 0, odometer: '' }))
+  allExpenses.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+
+  let expRowIdx = 2
+  let expTotalAmt = 0
+  allExpenses.forEach(e => {
+    expTotalAmt += e.amount
+    ws6.addRow([e.date || '', e.description, e.category, e.gal !== '' ? fmtNum(e.gal) : '', fmtNum(e.amount), e.odometer])
+    expRowIdx++
+  })
+  styleAltRows(ws6, 2, expRowIdx - 1, expHeaders.length)
+  const expTotalRow = ws6.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', '', fmtNum(expTotalAmt), ''])
+  expTotalRow.eachCell(c => { c.font = boldFont })
+  autoWidth(ws6)
 
   // Write file
   const buffer = await wb.xlsx.writeBuffer()

@@ -3,8 +3,8 @@ import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto } from '../lib/api'
-import { exportToExcel, exportToPDF } from '../utils/export'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData } from '../lib/api'
+import { exportToExcel, exportToPDF, exportFleetReportExcel } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
 import DispatchBoard from '../components/DispatchBoard'
@@ -127,38 +127,92 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     return () => document.removeEventListener('mousedown', handler)
   }, [showFleetExportMenu])
 
-  const handleFleetExport = (format) => {
+  const handleFleetExport = async (format) => {
     setShowFleetExportMenu(false)
     if (!fleetData) return
-    const distLabel = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
-    const columns = [
-      { header: t('overview.fleetDriver'), key: 'vehicle' },
-      { header: t('overview.fleetDriver'), key: 'driver' },
-      { header: t('overview.fleetFuel') + ' (' + cs + ')', key: 'fuel' },
-      { header: t('overview.fleetTrips'), key: 'trips' },
-      { header: distLabel, key: 'km' },
-      { header: t('overview.fleetIncome') + ' (' + cs + ')', key: 'income' },
-      { header: t('overview.fleetExpense') + ' (' + cs + ')', key: 'expense' },
-      { header: t('overview.netProfit') + ' (' + cs + ')', key: 'profit' },
-    ]
-    // Fix first column header
-    columns[0].header = t('overview.fleetVehicles')
-    const rows = fleetData.vehicleStats.map(v => ({
-      vehicle: `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim(),
-      driver: v.driver_name || '',
-      fuel: Math.round(v.monthFuelCost || 0),
-      trips: v.monthTrips || 0,
-      km: Math.round(v.monthKm || 0),
-      income: Math.round(v.monthIncome || 0),
-      expense: Math.round(v.monthExpenses || 0),
-      profit: Math.round((v.monthIncome || 0) - (v.monthExpenses || 0)),
-    }))
+    const isImperial = unitSys === 'imperial'
+    const distLabel = isImperial ? 'mi' : '\u043a\u043c'
     const now2 = new Date()
-    const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
-    if (format === 'excel') {
-      exportToExcel(rows, columns, `fleet_report_${ym}.xlsx`)
-    } else {
+    const year = now2.getFullYear()
+    const month = now2.getMonth() + 1
+    const ym = `${year}_${String(month).padStart(2, '0')}`
+
+    if (format === 'pdf') {
+      const columns = [
+        { header: t('overview.fleetVehicles'), key: 'vehicle' },
+        { header: t('overview.fleetDriver'), key: 'driver' },
+        { header: t('overview.fleetFuel') + ' (' + cs + ')', key: 'fuel' },
+        { header: t('overview.fleetTrips'), key: 'trips' },
+        { header: distLabel, key: 'km' },
+        { header: t('overview.fleetIncome') + ' (' + cs + ')', key: 'income' },
+        { header: t('overview.fleetExpense') + ' (' + cs + ')', key: 'expense' },
+        { header: t('overview.netProfit') + ' (' + cs + ')', key: 'profit' },
+      ]
+      const rows = fleetData.vehicleStats.map(v => ({
+        vehicle: `${v.brand || ''} ${v.model || ''} ${v.plate_number || ''}`.trim(),
+        driver: v.driver_name || '',
+        fuel: Math.round(v.monthFuelCost || 0),
+        trips: v.monthTrips || 0,
+        km: Math.round(v.monthKm || 0),
+        income: Math.round(v.monthIncome || 0),
+        expense: Math.round(v.monthExpenses || 0),
+        profit: Math.round((v.monthIncome || 0) - (v.monthExpenses || 0)),
+      }))
       exportToPDF(rows, columns, t('overview.fleetPanel'), `fleet_report_${ym}.pdf`)
+      return
+    }
+
+    // Excel: full P&L multi-sheet report
+    try {
+      const data = await fetchFleetReportExportData(userId, year, month)
+      const vehicles = Array.isArray(data?.vehicles) ? data.vehicles : []
+      const drivers = Array.isArray(data?.drivers) ? data.drivers : []
+
+      const driverMap = {}
+      drivers.forEach(d => {
+        driverMap[d.id] = {
+          name: d.full_name || d.name || '',
+          pay_type: d.pay_type || '',
+          pay_rate: d.pay_rate ? parseFloat(d.pay_rate) : 0,
+        }
+      })
+      driverMap[userId] = {
+        name: profile?.full_name || profile?.name || 'Owner',
+        pay_type: '',
+        pay_rate: 0,
+      }
+      const vehicleMap = {}
+      vehicles.forEach(v => {
+        const label = ((v.brand || '') + ' ' + (v.model || '')).trim()
+        vehicleMap[v.id] = {
+          label,
+          plate: v.plate_number || '',
+          driver: v.driver_name || (v.driver_id && driverMap[v.driver_id] ? driverMap[v.driver_id].name : ''),
+        }
+      })
+      const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+
+      await exportFleetReportExcel({
+        vehicles,
+        drivers,
+        fuels: Array.isArray(data?.fuels) ? data.fuels : [],
+        trips: Array.isArray(data?.trips) ? data.trips : [],
+        serviceRecs: Array.isArray(data?.serviceRecs) ? data.serviceRecs : [],
+        tireRecs: Array.isArray(data?.tireRecs) ? data.tireRecs : [],
+        vehicleExps: Array.isArray(data?.vehicleExps) ? data.vehicleExps : [],
+        sessions: Array.isArray(data?.sessions) ? data.sessions : [],
+        advances: Array.isArray(data?.advances) ? data.advances : [],
+        period: monthNames[month - 1] + ' ' + year,
+        distLabel,
+        cs,
+        isImperial,
+        ownerProfile: profile,
+        driverMap,
+        vehicleMap,
+        filename: `fleet_PL_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
+      })
+    } catch (err) {
+      console.error('Fleet P&L export error:', err)
     }
   }
 

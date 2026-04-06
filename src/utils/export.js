@@ -454,7 +454,7 @@ export async function exportFleetReportExcel(opts) {
 
   // Translation helper with fallback to key
   const t = typeof _t === 'function' ? _t : (key) => {
-    const fallback = { 'excel.sheetPL': 'P&L Summary', 'excel.sheetDrivers': 'By Drivers', 'excel.sheetVehicles': 'By Vehicles', 'excel.sheetCategories': 'Expenses by Category', 'excel.sheetPayroll': 'Payroll', 'excel.sheetAllExpenses': 'All Expenses', 'excel.plReport': 'P&L Report', 'excel.period': 'Period', 'excel.totalIncome': 'Total Income', 'excel.totalExpense': 'Total Expense', 'excel.driverSalaries': 'Driver Salaries', 'excel.grossProfit': 'Gross Profit', 'excel.netProfit': 'Net Profit', 'excel.totalDist': 'Total', 'excel.totalTrips': 'Total Trips', 'excel.costPer': 'Cost per', 'excel.revPer': 'Revenue per', 'excel.driver': 'Driver', 'excel.vehicle': 'Vehicle', 'excel.plate': 'Plate', 'excel.trips': 'Trips', 'excel.income': 'Income', 'excel.expense': 'Expense', 'excel.salary': 'Salary', 'excel.profit': 'Profit', 'excel.total': 'TOTAL', 'excel.fuel': 'Fuel', 'excel.def': 'DEF', 'excel.repair': 'Repair', 'excel.maintenance': 'Maintenance', 'excel.other': 'Other', 'excel.totalExpShort': 'Total Exp.', 'excel.category': 'Category', 'excel.amount': 'Amount', 'excel.entries': 'Entries', 'excel.pctOfTotal': '% of Total', 'excel.payType': 'Pay Type', 'excel.rate': 'Rate', 'excel.earned': 'Earned', 'excel.perDist': 'Per', 'excel.date': 'Date', 'excel.description': 'Description', 'excel.liters': 'liters', 'excel.gallons': 'gal', 'excel.odometer': 'Odometer', 'excel.oil': 'Oil', 'excel.supplies': 'Supplies', 'excel.motel': 'Motel', 'excel.equipment': 'Equipment', 'excel.tires': 'Tires', 'excel.service': 'Service' }
+    const fallback = { 'excel.sheetPL': 'P&L Summary', 'excel.sheetDrivers': 'By Drivers', 'excel.sheetVehicles': 'By Vehicles', 'excel.sheetCategories': 'Expenses by Category', 'excel.sheetPayroll': 'Payroll', 'excel.sheetAllExpenses': 'All Expenses', 'excel.plReport': 'P&L Report', 'excel.period': 'Period', 'excel.totalIncome': 'Total Income', 'excel.totalExpense': 'Total Expense', 'excel.driverSalaries': 'Driver Salaries', 'excel.grossProfit': 'Gross Profit', 'excel.netProfit': 'Net Profit', 'excel.totalDist': 'Total', 'excel.totalTrips': 'Total Trips', 'excel.costPer': 'Cost per', 'excel.revPer': 'Revenue per', 'excel.driver': 'Driver', 'excel.vehicle': 'Vehicle', 'excel.plate': 'Plate', 'excel.trips': 'Trips', 'excel.income': 'Income', 'excel.expense': 'Expense', 'excel.salary': 'Salary', 'excel.profit': 'Profit', 'excel.total': 'TOTAL', 'excel.fuel': 'Fuel', 'excel.def': 'DEF', 'excel.repair': 'Repair', 'excel.maintenance': 'Maintenance', 'excel.other': 'Other', 'excel.totalExpShort': 'Total Exp.', 'excel.category': 'Category', 'excel.amount': 'Amount', 'excel.entries': 'Entries', 'excel.pctOfTotal': '% of Total', 'excel.payType': 'Pay Type', 'excel.rate': 'Rate', 'excel.earned': 'Earned', 'excel.perDist': 'Per', 'excel.date': 'Date', 'excel.description': 'Description', 'excel.liters': 'liters', 'excel.gallons': 'gal', 'excel.odometer': 'Odometer', 'excel.oil': 'Oil', 'excel.supplies': 'Supplies', 'excel.motel': 'Motel', 'excel.equipment': 'Equipment', 'excel.tires': 'Tires', 'excel.service': 'Service', 'excel.distMiles': 'miles', 'excel.distKm': 'km' }
     return fallback[key] || key
   }
 
@@ -521,6 +521,7 @@ export async function exportFleetReportExcel(opts) {
 
   const convDist = (km) => isImperial ? Math.round((km || 0) * 0.621371) : Math.round(km || 0)
   const convGal = (liters) => isImperial ? Math.round((liters || 0) * 0.264172 * 100) / 100 : (liters || 0)
+  const distLabelFull = isImperial ? t('excel.distMiles') : t('excel.distKm')
 
   const getDriverName = (userId) => {
     if (driverMap[userId]) return driverMap[userId].name
@@ -546,10 +547,7 @@ export async function exportFleetReportExcel(opts) {
   // === Pre-compute aggregates for all sheets ===
   const driverIds = [...new Set(trips.map(t => t.user_id))]
 
-  // Total fleet aggregates
-  let totIncome = 0, totExpense = 0, totSalary = 0, totMiles = 0, totTrips = trips.length
-
-  // Per-vehicle aggregates (used by Sheet 1 P&L and Sheet 3 By Vehicle)
+  // Per-vehicle aggregates (used by Sheet 3 By Vehicle)
   const vehicleAgg = vehicles.map(v => {
     const vTrips = trips.filter(t => t.vehicle_id === v.id)
     const vFuels = fuels.filter(f => f.vehicle_id === v.id)
@@ -577,8 +575,6 @@ export async function exportFleetReportExcel(opts) {
     const salary = vTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
     const miles = vTrips.reduce((s, t) => s + convDist(t.distance_km), 0)
 
-    totIncome += income; totExpense += expense; totSalary += salary; totMiles += miles
-
     return {
       vehicle: v,
       label: ((v.brand || '') + ' ' + (v.model || '')).trim(),
@@ -589,6 +585,16 @@ export async function exportFleetReportExcel(opts) {
       tripsCount: vTrips.length,
     }
   })
+
+  // Total fleet aggregates — compute directly from ALL data arrays (not just vehicleAgg)
+  const totTrips = trips.length
+  const totIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
+  const totMiles = trips.reduce((s, t) => s + convDist(t.distance_km), 0)
+  const totSalary = trips.reduce((s, t) => s + (t.driver_pay || 0), 0)
+  const totExpense = fuels.reduce((s, f) => s + (f.cost || 0), 0)
+    + serviceRecs.reduce((s, r) => s + (r.cost || 0), 0)
+    + tireRecs.reduce((s, r) => s + (r.cost || 0), 0)
+    + vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
 
   const totGrossProfit = totIncome - totExpense
   const totNetProfit = totIncome - totExpense - totSalary
@@ -614,10 +620,10 @@ export async function exportFleetReportExcel(opts) {
     [t('excel.grossProfit'), cs + ' ' + fmtNum(totGrossProfit)],
     [t('excel.netProfit'), cs + ' ' + fmtNum(totNetProfit)],
     [],
-    [t('excel.totalDist') + ' ' + distLabel, totMiles],
+    [t('excel.totalDist') + ' ' + distLabelFull, totMiles],
     [t('excel.totalTrips'), totTrips],
-    [t('excel.costPer') + ' ' + distLabel, cs + ' ' + fmtNum(totCostPerMile)],
-    [t('excel.revPer') + ' ' + distLabel, cs + ' ' + fmtNum(totRevPerMile)],
+    [t('excel.costPer') + ' ' + distLabelFull, cs + ' ' + fmtNum(totCostPerMile)],
+    [t('excel.revPer') + ' ' + distLabelFull, cs + ' ' + fmtNum(totRevPerMile)],
   ]
 
   summaryData.forEach(row => {
@@ -753,7 +759,7 @@ export async function exportFleetReportExcel(opts) {
 
   // ---- SHEET 5: Payroll (Salaries) ----
   const ws5 = wb.addWorksheet(t('excel.sheetPayroll'))
-  const payHeaders = [t('excel.driver'), t('excel.payType'), t('excel.rate'), t('excel.trips'), distLabel, t('excel.earned') + ' (' + cs + ')']
+  const payHeaders = [t('excel.driver'), t('excel.payType'), t('excel.rate'), t('excel.trips'), distLabelFull, t('excel.earned') + ' (' + cs + ')']
   ws5.addRow(payHeaders)
   styleHeaders(ws5, payHeaders.length)
 

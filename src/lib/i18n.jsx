@@ -1117,6 +1117,8 @@ const translations = {
       equipment: '\u041e\u0431\u043e\u0440\u0443\u0434\u043e\u0432\u0430\u043d\u0438\u0435',
       tires: '\u0428\u0438\u043d\u044b',
       service: '\u0421\u0435\u0440\u0432\u0438\u0441',
+      distMiles: '\u043c\u0438\u043b\u044c',
+      distKm: '\u043a\u043c',
     },
     fileUpload: {
       tooLarge: '\u041c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u044b\u0439 \u0440\u0430\u0437\u043c\u0435\u0440 \u0444\u0430\u0439\u043b\u0430 5 \u041c\u0411',
@@ -2241,6 +2243,8 @@ const translations = {
       equipment: 'Equipment',
       tires: 'Tires',
       service: 'Service',
+      distMiles: 'miles',
+      distKm: 'km',
     },
     fileUpload: {
       tooLarge: 'Maximum file size is 5 MB',
@@ -3364,6 +3368,8 @@ const translations = {
       equipment: '\u041e\u0431\u043b\u0430\u0434\u043d\u0430\u043d\u043d\u044f',
       tires: '\u0428\u0438\u043d\u0438',
       service: '\u0421\u0435\u0440\u0432\u0456\u0441',
+      distMiles: '\u043c\u0438\u043b\u044c',
+      distKm: '\u043a\u043c',
     },
     fileUpload: {
       tooLarge: '\u041c\u0430\u043a\u0441\u0438\u043c\u0430\u043b\u044c\u043d\u0438\u0439 \u0440\u043e\u0437\u043c\u0456\u0440 \u0444\u0430\u0439\u043b\u0443 5 \u041c\u0411',
@@ -4468,6 +4474,8 @@ const translations = {
       equipment: 'Equipamiento',
       tires: 'Neum\u00e1ticos',
       service: 'Servicio',
+      distMiles: 'millas',
+      distKm: 'km',
     },
     fileUpload: {
       tooLarge: 'El tama\u00f1o m\u00e1ximo del archivo es 5 MB',
@@ -5572,6 +5580,8 @@ const translations = {
       equipment: 'Ausstattung',
       tires: 'Reifen',
       service: 'Service',
+      distMiles: 'Meilen',
+      distKm: 'km',
     },
     fileUpload: {
       tooLarge: 'Maximale Dateigr\u00f6\u00dfe ist 5 MB',
@@ -6676,6 +6686,8 @@ const translations = {
       equipment: '\u00c9quipement',
       tires: 'Pneus',
       service: 'Service',
+      distMiles: 'miles',
+      distKm: 'km',
     },
     fileUpload: {
       tooLarge: 'La taille maximale du fichier est de 5 Mo',
@@ -7780,6 +7792,8 @@ const translations = {
       equipment: 'Ekipman',
       tires: 'Lastik',
       service: 'Servis',
+      distMiles: 'mil',
+      distKm: 'km',
     },
     fileUpload: {
       tooLarge: 'Maksimum dosya boyutu 5 MB',
@@ -8884,6 +8898,8 @@ const translations = {
       equipment: 'Wyposa\u017cenie',
       tires: 'Opony',
       service: 'Serwis',
+      distMiles: 'mil',
+      distKm: 'km',
     },
     fileUpload: {
       tooLarge: 'Maksymalny rozmiar pliku to 5 MB',

@@ -1874,32 +1874,64 @@ export async function fetchFleetReportExportData(userId, year, month) {
   const vehicleIds = vehicles.map(v => v.id)
 
   // Fetch all data for all users in the fleet for the month
-  // Query by user_id AND by vehicle_id to capture all entries (some may lack user_id match)
-  const [fuels, trips, serviceRecsByUser, serviceRecsByVehicle, tireRecs, vehicleExpsByUser, vehicleExpsByVehicle, sessions, advances] = await Promise.all([
-    safeQuery(supabase.from('fuel_entries').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
+  // Query by owner user_id (eq), by all user_ids (in), AND by vehicle_id to capture all entries
+  // Using separate eq(userId) queries to match dashboard fetch pattern exactly
+  const [
+    fuelsByOwner, fuelsByAllUsers, fuelsByVehicle,
+    trips,
+    serviceRecsByOwner, serviceRecsByAllUsers, serviceRecsByVehicle,
+    tireRecsByOwner, tireRecsByVehicle,
+    vehicleExpsByOwner, vehicleExpsByAllUsers, vehicleExpsByVehicle,
+    sessions, advances,
+  ] = await Promise.all([
+    // Fuel: by owner, by all users, by vehicle
+    safeQuery(supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    allUserIds.length > 1
+      ? safeQuery(supabase.from('fuel_entries').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'))
+      : Promise.resolve([]),
+    vehicleIds.length > 0
+      ? safeQuery(supabase.from('fuel_entries').select('*').in('vehicle_id', vehicleIds).gte('date', start).lt('date', end).order('date'))
+      : Promise.resolve([]),
+    // Trips: by all users (owner included)
     safeQuery(supabase.from('trips').select('*').in('user_id', allUserIds).gte('created_at', start + 'T00:00:00').lt('created_at', end + 'T00:00:00').order('created_at')),
-    safeQuery(supabase.from('service_records').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
+    // Service records: by owner, by all users, by vehicle
+    safeQuery(supabase.from('service_records').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    allUserIds.length > 1
+      ? safeQuery(supabase.from('service_records').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'))
+      : Promise.resolve([]),
     vehicleIds.length > 0
       ? safeQuery(supabase.from('service_records').select('*').in('vehicle_id', vehicleIds).gte('date', start).lt('date', end).order('date'))
       : Promise.resolve([]),
+    // Tire records: by owner, by vehicle
     safeQuery(supabase.from('tire_records').select('*').in('user_id', allUserIds).gte('installed_at', start).lt('installed_at', end).order('installed_at')),
-    safeQuery(supabase.from('vehicle_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
+    vehicleIds.length > 0
+      ? safeQuery(supabase.from('tire_records').select('*').in('vehicle_id', vehicleIds).gte('installed_at', start).lt('installed_at', end).order('installed_at'))
+      : Promise.resolve([]),
+    // Vehicle expenses: by owner (eq — matches dashboard), by all users (in), by vehicle
+    safeQuery(supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    allUserIds.length > 1
+      ? safeQuery(supabase.from('vehicle_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'))
+      : Promise.resolve([]),
     vehicleIds.length > 0
       ? safeQuery(supabase.from('vehicle_expenses').select('*').in('vehicle_id', vehicleIds).gte('date', start).lt('date', end).order('date'))
       : Promise.resolve([]),
+    // Sessions & advances
     safeQuery(supabase.from('driving_sessions').select('*').in('user_id', allUserIds).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at')),
     safeQuery(supabase.from('driver_advances').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
   ])
 
-  // Merge and deduplicate by id
-  const dedup = (arr1, arr2) => {
+  // Merge and deduplicate by id — combine all query sources
+  const dedup = (...arrays) => {
     const map = {}
-    arr1.forEach(e => { if (e.id) map[e.id] = e })
-    arr2.forEach(e => { if (e.id) map[e.id] = e })
+    arrays.forEach(arr => {
+      if (Array.isArray(arr)) arr.forEach(e => { if (e.id) map[e.id] = e })
+    })
     return Object.values(map)
   }
-  const serviceRecs = dedup(serviceRecsByUser, serviceRecsByVehicle)
-  const vehicleExps = dedup(vehicleExpsByUser, vehicleExpsByVehicle)
+  const fuels = dedup(fuelsByOwner, fuelsByAllUsers, fuelsByVehicle)
+  const serviceRecs = dedup(serviceRecsByOwner, serviceRecsByAllUsers, serviceRecsByVehicle)
+  const tireRecs = dedup(tireRecsByOwner, tireRecsByVehicle)
+  const vehicleExps = dedup(vehicleExpsByOwner, vehicleExpsByAllUsers, vehicleExpsByVehicle)
 
   const result = { vehicles, drivers, fuels, trips, serviceRecs, tireRecs, vehicleExps, sessions, advances }
   console.log('fetchFleetReportExportData result keys:', Object.keys(result).map(k => k + ':' + (Array.isArray(result[k]) ? result[k].length : typeof result[k])).join(', '))

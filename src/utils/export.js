@@ -609,6 +609,17 @@ export async function exportFleetReportExcel(opts) {
   const totCostPerMile = totMiles > 0 ? totExpense / totMiles : 0
   const totRevPerMile = totMiles > 0 ? totIncome / totMiles : 0
 
+  // DEBUG alert — remove after testing
+  alert('P&L DEBUG:\n' +
+    'fuels: ' + fuels.length + ' = $' + fuels.reduce((s, f) => s + (f.cost || 0), 0) + '\n' +
+    'serviceRecs: ' + serviceRecs.length + ' = $' + serviceRecs.reduce((s, r) => s + (r.cost || 0), 0) + '\n' +
+    'tireRecs: ' + tireRecs.length + ' = $' + tireRecs.reduce((s, r) => s + (r.cost || 0), 0) + '\n' +
+    'vehicleExps: ' + vehicleExps.length + ' = $' + vehicleExps.reduce((s, e) => s + (e.amount || 0), 0) + '\n' +
+    'bytExps: ' + bytExps.length + ' = $' + totBytExpense + '\n' +
+    'TOTAL: $' + totExpense + '\n' +
+    'salary: $' + totSalary + '\n' +
+    'income: $' + totIncome)
+
   // ---- SHEET 1: P&L Summary ----
   const ws1 = wb.addWorksheet(t('excel.sheetPL'))
 

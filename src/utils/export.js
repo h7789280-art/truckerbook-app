@@ -898,3 +898,299 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
 
   doc.save(filename || 'report.pdf')
 }
+
+/**
+ * Export fleet P&L report as multi-page PDF
+ * Page 1: P&L Summary
+ * Page 2: By Vehicles
+ * Page 3: Expenses by Category
+ * Page 4: Payroll
+ */
+export async function exportFleetReportPDF(opts) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
+
+  const {
+    vehicles: _vehicles,
+    drivers: _drivers,
+    fuels: _fuels,
+    trips: _trips,
+    serviceRecs: _serviceRecs,
+    tireRecs: _tireRecs,
+    vehicleExps: _vehicleExps,
+    bytExps: _bytExps,
+    period,
+    cs,
+    isImperial,
+    filename,
+    ownerProfile,
+    driverMap: _driverMap,
+    vehicleMap: _vehicleMap,
+    t: _t,
+  } = opts
+
+  const t = typeof _t === 'function' ? _t : (key) => {
+    const fallback = { 'excel.plReport': 'P&L Report', 'excel.period': 'Period', 'excel.totalIncome': 'Total Income', 'excel.totalExpense': 'Total Expense', 'excel.driverSalaries': 'Driver Salaries', 'excel.grossProfit': 'Gross Profit', 'excel.netProfit': 'Net Profit', 'excel.totalDist': 'Total', 'excel.totalTrips': 'Total Trips', 'excel.costPer': 'Cost per', 'excel.revPer': 'Revenue per', 'excel.vehicle': 'Vehicle', 'excel.plate': 'Plate', 'excel.driver': 'Driver', 'excel.fuel': 'Fuel', 'excel.def': 'DEF', 'excel.repair': 'Repair', 'excel.maintenance': 'Maintenance', 'excel.totalExpShort': 'Total Exp.', 'excel.profit': 'Profit', 'excel.total': 'TOTAL', 'excel.category': 'Category', 'excel.amount': 'Amount', 'excel.entries': 'Entries', 'excel.pctOfTotal': '% of Total', 'excel.trips': 'Trips', 'excel.earned': 'Earned', 'excel.sheetVehicles': 'By Vehicles', 'excel.sheetCategories': 'Expenses by Category', 'excel.sheetPayroll': 'Payroll', 'excel.oil': 'Oil', 'excel.parts': 'Parts', 'excel.supplies': 'Supplies', 'excel.motel': 'Motel', 'excel.equipment': 'Equipment', 'excel.toll': 'Toll', 'excel.tires': 'Tires', 'excel.personalExpenses': 'Personal Expenses (drivers)', 'excel.distMiles': 'miles', 'excel.distKm': 'km' }
+    return fallback[key] || key
+  }
+
+  const vehicles = Array.isArray(_vehicles) ? _vehicles : []
+  const fuels = Array.isArray(_fuels) ? _fuels : []
+  const trips = Array.isArray(_trips) ? _trips : []
+  const serviceRecs = Array.isArray(_serviceRecs) ? _serviceRecs : []
+  const tireRecs = Array.isArray(_tireRecs) ? _tireRecs : []
+  const vehicleExps = Array.isArray(_vehicleExps) ? _vehicleExps : []
+  const bytExps = Array.isArray(_bytExps) ? _bytExps : []
+  const driverMap = _driverMap && typeof _driverMap === 'object' ? _driverMap : {}
+
+  const convDist = (km) => isImperial ? Math.round((km || 0) * 0.621371) : Math.round(km || 0)
+  const distLabelFull = isImperial ? t('excel.distMiles') : t('excel.distKm')
+  const fmtNum = (n) => (n == null || isNaN(n)) ? '' : Number(Number(n).toFixed(2))
+
+  const getDriverName = (userId) => {
+    if (driverMap[userId]) return driverMap[userId].name
+    if (userId === ownerProfile?.id) return ownerProfile?.full_name || ownerProfile?.name || 'Owner'
+    return ''
+  }
+
+  const getVehicleDriver = (vehicleId) => {
+    if (_vehicleMap && _vehicleMap[vehicleId]) return _vehicleMap[vehicleId].driver
+    return ''
+  }
+
+  const MAINT_CATS = ['oil_change', 'filters', 'belts_chains', 'coolant', 'diagnostics', 'brake_pads', 'spark_plugs', 'maintenance', 'maintenance_other']
+  const isMaintenance = (r) => MAINT_CATS.includes((r.category || '').toLowerCase())
+
+  // --- Aggregates ---
+  const driverIds = [...new Set(trips.map(tr => tr.user_id))]
+  const totTrips = trips.length
+  const totIncome = trips.reduce((s, tr) => s + (tr.income || 0), 0)
+  const totMiles = trips.reduce((s, tr) => s + convDist(tr.distance_km), 0)
+  const totSalary = trips.reduce((s, tr) => s + (tr.driver_pay || 0), 0)
+  const totBytExpense = bytExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totExpense = fuels.reduce((s, f) => s + (f.cost || 0), 0)
+    + serviceRecs.reduce((s, r) => s + (r.cost || 0), 0)
+    + tireRecs.reduce((s, r) => s + (r.cost || 0), 0)
+    + vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+    + totBytExpense
+  const totGrossProfit = totIncome - totExpense
+  const totNetProfit = totIncome - totExpense - totSalary
+  const totCostPerMile = totMiles > 0 ? totExpense / totMiles : 0
+  const totRevPerMile = totMiles > 0 ? totIncome / totMiles : 0
+
+  // --- Create PDF ---
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  doc.addFileToVFS('Roboto-Regular.ttf', robotoRegularBase64)
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+  doc.addFileToVFS('Roboto-Bold.ttf', robotoBoldBase64)
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
+  doc.setFont('Roboto', 'normal')
+
+  const pageTitle = t('excel.plReport') + ' \u2014 ' + (period || '')
+  const tableOpts = {
+    styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', font: 'Roboto' },
+    headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold', font: 'Roboto' },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    margin: { left: 14, right: 14 },
+  }
+
+  const drawPageHeader = () => {
+    doc.setFont('Roboto', 'bold')
+    doc.setFontSize(14)
+    doc.setTextColor(245, 158, 11)
+    doc.text(pageTitle, 14, 15)
+    doc.setTextColor(0)
+    doc.setFont('Roboto', 'normal')
+  }
+
+  // ======= PAGE 1: P&L Summary =======
+  drawPageHeader()
+  doc.setFontSize(12)
+  doc.setFont('Roboto', 'bold')
+  doc.text('P&L', 14, 25)
+  doc.setFont('Roboto', 'normal')
+
+  const summaryRows = [
+    [t('excel.period'), period || ''],
+    [t('excel.totalIncome'), cs + ' ' + fmtNum(totIncome)],
+    [t('excel.totalExpense'), cs + ' ' + fmtNum(totExpense)],
+    [t('excel.driverSalaries'), cs + ' ' + fmtNum(totSalary)],
+    [t('excel.grossProfit'), cs + ' ' + fmtNum(totGrossProfit)],
+    [t('excel.netProfit'), cs + ' ' + fmtNum(totNetProfit)],
+    [t('excel.totalDist') + ' ' + distLabelFull, String(totMiles)],
+    [t('excel.totalTrips'), String(totTrips)],
+    [t('excel.costPer') + ' ' + distLabelFull, cs + ' ' + fmtNum(totCostPerMile)],
+    [t('excel.revPer') + ' ' + distLabelFull, cs + ' ' + fmtNum(totRevPerMile)],
+  ]
+
+  autoTable(doc, {
+    startY: 30,
+    body: summaryRows,
+    ...tableOpts,
+    headStyles: undefined,
+    showHead: false,
+    columnStyles: {
+      0: { fontStyle: 'bold', cellWidth: 80 },
+      1: { halign: 'right', cellWidth: 60 },
+    },
+    didParseCell: (data) => {
+      if (data.section === 'body') {
+        const label = data.row.raw[0]
+        if (label === t('excel.grossProfit') || label === t('excel.netProfit')) {
+          const val = label === t('excel.grossProfit') ? totGrossProfit : totNetProfit
+          data.cell.styles.textColor = val >= 0 ? [34, 197, 94] : [239, 68, 68]
+          data.cell.styles.fontStyle = 'bold'
+        }
+      }
+    },
+    margin: { left: 14, right: 14 },
+    tableWidth: 160,
+  })
+
+  // ======= PAGE 2: By Vehicles =======
+  doc.addPage()
+  drawPageHeader()
+  doc.setFontSize(12)
+  doc.setFont('Roboto', 'bold')
+  doc.text(t('excel.sheetVehicles'), 14, 25)
+  doc.setFont('Roboto', 'normal')
+
+  const vehHeaders = [
+    t('excel.vehicle'), t('excel.plate'), t('excel.driver'),
+    t('excel.fuel') + ' (' + cs + ')', t('excel.def') + ' (' + cs + ')',
+    t('excel.repair') + ' (' + cs + ')', t('excel.maintenance') + ' (' + cs + ')',
+    t('excel.totalExpShort') + ' (' + cs + ')', t('excel.profit') + ' (' + cs + ')',
+  ]
+
+  let vTotFuel = 0, vTotDef = 0, vTotRepair = 0, vTotMaint = 0, vTotExp = 0, vTotProfit = 0
+
+  const vehBody = vehicles.map(v => {
+    const vTrips = trips.filter(tr => tr.vehicle_id === v.id)
+    const vFuels = fuels.filter(f => f.vehicle_id === v.id)
+    const vService = serviceRecs.filter(s => s.vehicle_id === v.id)
+    const vTires = tireRecs.filter(tr => tr.vehicle_id === v.id)
+    const vVehExp = vehicleExps.filter(e => e.vehicle_id === v.id)
+
+    const income = vTrips.reduce((s, tr) => s + (tr.income || 0), 0)
+    const fuelCost = vFuels.reduce((s, f) => s + (f.cost || 0), 0)
+    const defCost = vVehExp.filter(e => e.category === 'def').reduce((s, e) => s + (e.amount || 0), 0)
+    const repairCost = vService.filter(s => !isMaintenance(s)).reduce((s, r) => s + (r.cost || 0), 0)
+    const maintenanceCost = vService.filter(s => isMaintenance(s)).reduce((s, r) => s + (r.cost || 0), 0)
+    const tireCost = vTires.reduce((s, r) => s + (r.cost || 0), 0)
+    const otherVehExp = vVehExp.filter(e => e.category !== 'def').reduce((s, e) => s + (e.amount || 0), 0)
+    const totalExp = fuelCost + defCost + repairCost + maintenanceCost + tireCost + otherVehExp
+    const profit = income - totalExp
+
+    vTotFuel += fuelCost; vTotDef += defCost; vTotRepair += repairCost
+    vTotMaint += maintenanceCost; vTotExp += totalExp; vTotProfit += profit
+
+    const label = ((v.brand || '') + ' ' + (v.model || '')).trim()
+    const driver = v.driver_name || getVehicleDriver(v.id)
+    return [label, v.plate_number || '', driver, fmtNum(fuelCost), fmtNum(defCost), fmtNum(repairCost), fmtNum(maintenanceCost), fmtNum(totalExp), fmtNum(profit)]
+  })
+
+  vehBody.push([
+    t('excel.total'), '', '', fmtNum(vTotFuel), fmtNum(vTotDef), fmtNum(vTotRepair), fmtNum(vTotMaint), fmtNum(vTotExp), fmtNum(vTotProfit),
+  ])
+
+  autoTable(doc, {
+    startY: 30,
+    head: [vehHeaders],
+    body: vehBody,
+    ...tableOpts,
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index === vehBody.length - 1) {
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+  })
+
+  // ======= PAGE 3: Expenses by Category =======
+  doc.addPage()
+  drawPageHeader()
+  doc.setFontSize(12)
+  doc.setFont('Roboto', 'bold')
+  doc.text(t('excel.sheetCategories'), 14, 25)
+  doc.setFont('Roboto', 'normal')
+
+  const catMap = {}
+  const addCat = (key, amount) => {
+    if (!amount) return
+    if (!catMap[key]) catMap[key] = { sum: 0, count: 0 }
+    catMap[key].sum += amount
+    catMap[key].count += 1
+  }
+  fuels.forEach(f => addCat(t('excel.fuel'), f.cost))
+  vehicleExps.forEach(e => {
+    const cat = e.category || 'other'
+    const catLabels = { def: t('excel.def'), oil: t('excel.oil'), parts: t('excel.parts'), supplies: t('excel.supplies'), hotel: t('excel.motel'), equipment: t('excel.equipment'), toll: t('excel.toll') }
+    addCat(catLabels[cat] || cat, e.amount)
+  })
+  serviceRecs.forEach(r => addCat(isMaintenance(r) ? t('excel.maintenance') : t('excel.repair'), r.cost))
+  tireRecs.forEach(r => addCat(t('excel.tires'), r.cost))
+  bytExps.forEach(e => addCat(t('excel.personalExpenses'), e.amount))
+
+  const catTotalSum = Object.values(catMap).reduce((s, v) => s + v.sum, 0)
+  let catTotCount = 0
+
+  const catHeaders = [t('excel.category'), t('excel.amount') + ' (' + cs + ')', t('excel.entries'), t('excel.pctOfTotal')]
+  const catBody = Object.entries(catMap)
+    .sort(([, a], [, b]) => b.sum - a.sum)
+    .map(([key, data]) => {
+      const pct = catTotalSum > 0 ? (data.sum / catTotalSum * 100) : 0
+      catTotCount += data.count
+      return [key, fmtNum(data.sum), data.count, fmtNum(pct) + '%']
+    })
+
+  catBody.push([t('excel.total'), fmtNum(catTotalSum), catTotCount, '100%'])
+
+  autoTable(doc, {
+    startY: 30,
+    head: [catHeaders],
+    body: catBody,
+    ...tableOpts,
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index === catBody.length - 1) {
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+  })
+
+  // ======= PAGE 4: Payroll =======
+  doc.addPage()
+  drawPageHeader()
+  doc.setFontSize(12)
+  doc.setFont('Roboto', 'bold')
+  doc.text(t('excel.sheetPayroll'), 14, 25)
+  doc.setFont('Roboto', 'normal')
+
+  const payHeaders = [t('excel.driver'), t('excel.trips'), distLabelFull, t('excel.earned') + ' (' + cs + ')']
+  let payTotEarned = 0
+
+  const payBody = driverIds.map(dId => {
+    const dTrips = trips.filter(tr => tr.user_id === dId)
+    const name = getDriverName(dId)
+    const miles = dTrips.reduce((s, tr) => s + convDist(tr.distance_km), 0)
+    const tripsCount = dTrips.length
+    const earned = dTrips.reduce((s, tr) => s + (tr.driver_pay || 0), 0)
+    payTotEarned += earned
+    return [name, tripsCount, miles, fmtNum(earned)]
+  })
+
+  payBody.push([t('excel.total'), '', '', fmtNum(payTotEarned)])
+
+  autoTable(doc, {
+    startY: 30,
+    head: [payHeaders],
+    body: payBody,
+    ...tableOpts,
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index === payBody.length - 1) {
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+  })
+
+  doc.save(filename || 'fleet_pl_report.pdf')
+}

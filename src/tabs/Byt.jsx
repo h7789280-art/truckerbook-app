@@ -46,7 +46,7 @@ function getDateRange(period, customFrom, customTo) {
 }
 
 export default function Byt({ userId, refreshKey }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
 
   const CATEGORIES = useMemo(() => [
@@ -146,7 +146,7 @@ export default function Byt({ userId, refreshKey }) {
     if (format === 'excel') {
       exportToExcel(rows, columns, `personal_expenses_${ym}.xlsx`)
     } else {
-      exportToPDF(rows, columns, t('byt.personalExpenses'), `personal_expenses_${ym}.pdf`)
+      exportToPDF(rows, columns, t('byt.personalExpenses'), `personal_expenses_${ym}.pdf`, lang)
     }
   }
 

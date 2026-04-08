@@ -55,7 +55,7 @@ function getDateRange(period, customFrom, customTo) {
 }
 
 export default function Fuel({ userId, refreshKey, profile, filterVehicleId, userRole, vehicles, isAllVehicles }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
   const CATEGORIES = useMemo(() => [
@@ -165,8 +165,8 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
 
   const handleExport = (format) => {
     setShowExportMenu(false)
-    const volLabel = unitSys === 'imperial' ? 'gal' : t('fuel.exportVolume')
-    const distLabel = unitSys === 'imperial' ? 'mi' : t('trips.km')
+    const volLabel = unitSys === 'imperial' ? t('excel.gallons') : t('fuel.exportVolume')
+    const distLabel = unitSys === 'imperial' ? t('excel.distMiles') : t('trips.km')
     const columns = [
       { header: t('fuel.exportDate'), key: 'date' },
       { header: t('fuel.exportDescription'), key: 'description' },
@@ -328,7 +328,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         filename: exportFilename,
       })
     } else {
-      exportToPDF(rows, columns, t('fuel.exportTitle'), `fuel_report_${ym}.pdf`)
+      exportToPDF(rows, columns, t('fuel.exportTitle'), `fuel_report_${ym}.pdf`, lang)
     }
   }
 

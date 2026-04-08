@@ -507,7 +507,7 @@ function TrailerBlock({ userId, theme }) {
 }
 
 function TripsTab({ userId, refreshKey, theme, profile }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
   const isCompanyRole = profile?.role === 'company'
@@ -801,7 +801,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         distance: e.distance_km || 0,
         income: e.income || 0,
       }))
-      exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`)
+      exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`, lang)
     }
   }
 
@@ -1310,7 +1310,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
 }
 
 function IFTATab({ userId, theme }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [quarter, setQuarter] = useState(Math.ceil((now.getMonth() + 1) / 3))
@@ -1663,7 +1663,7 @@ function IFTATab({ userId, theme }) {
                 if (fmt === 'excel') {
                   exportToExcel(rows, columns, fn + '.xlsx')
                 } else {
-                  exportToPDF(rows, columns, title, fn + '.pdf')
+                  exportToPDF(rows, columns, title, fn + '.pdf', lang)
                 }
               }}
               style={{

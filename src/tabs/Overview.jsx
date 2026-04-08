@@ -43,7 +43,7 @@ function getMonthName(date) {
 
 export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey, onExtraNav, userRole }) {
   const { theme, mode, setMode } = useTheme()
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
   const THEME_OPTIONS = [
@@ -158,7 +158,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         expense: Math.round(v.monthExpenses || 0),
         profit: Math.round((v.monthIncome || 0) - (v.monthExpenses || 0)),
       }))
-      exportToPDF(rows, columns, t('overview.fleetPanel'), `fleet_report_${ym}.pdf`)
+      exportToPDF(rows, columns, t('overview.fleetPanel'), `fleet_report_${ym}.pdf`, lang)
       return
     }
 

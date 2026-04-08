@@ -856,31 +856,35 @@ export async function exportFleetReportExcel(opts) {
  * @param {string} title
  * @param {string} filename
  */
-export function exportToPDF(data, columns, title, _filename) {
+export async function exportToPDF(data, columns, title, filename, locale) {
+  const { default: jsPDF } = await import('jspdf')
+
   const head = columns.map(c => c.header)
   const body = data.map(row => columns.map(c => String(row[c.key] ?? '')))
+  const dateStr = locale
+    ? new Date().toLocaleDateString(locale)
+    : new Date().toLocaleDateString()
 
-  const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>${title}</title>
-<style>
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:32px;color:#1a1a1a}
-  h1{font-size:18px;margin:0 0 4px}
-  .date{font-size:12px;color:#666;margin-bottom:16px}
-  table{width:100%;border-collapse:collapse;font-size:11px}
-  th{background:#f59e0b;color:#fff;padding:6px 8px;text-align:left;white-space:nowrap}
-  td{padding:5px 8px;border-bottom:1px solid #e5e7eb}
-  tr:nth-child(even){background:#f9fafb}
-  @media print{body{margin:12px}@page{size:landscape;margin:10mm}}
-</style></head><body>
-<h1>${title}</h1>
-<div class="date">${new Date().toLocaleDateString()}</div>
-<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead>
-<tbody>${body.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>
-</body></html>`
+  const container = document.createElement('div')
+  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:1100px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a1a1a;padding:24px'
+  container.innerHTML = `
+<h1 style="font-size:18px;margin:0 0 4px">${title}</h1>
+<div style="font-size:12px;color:#666;margin-bottom:16px">${dateStr}</div>
+<table style="width:100%;border-collapse:collapse;font-size:11px">
+<thead><tr>${head.map(h => `<th style="background:#f59e0b;color:#fff;padding:6px 8px;text-align:left;white-space:nowrap">${h}</th>`).join('')}</tr></thead>
+<tbody>${body.map((r, i) => `<tr style="${i % 2 === 1 ? 'background:#f9fafb' : ''}">${r.map(c => `<td style="padding:5px 8px;border-bottom:1px solid #e5e7eb">${c}</td>`).join('')}</tr>`).join('')}</tbody>
+</table>`
+  document.body.appendChild(container)
 
-  const w = window.open('', '_blank')
-  if (!w) return
-  w.document.write(html)
-  w.document.close()
-  w.onload = () => { w.print() }
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  await doc.html(container, {
+    callback: (d) => {
+      document.body.removeChild(container)
+      d.save(filename || 'report.pdf')
+    },
+    x: 10,
+    y: 5,
+    width: 277,
+    windowWidth: 1100,
+  })
 }

@@ -328,7 +328,33 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         filename: exportFilename,
       })
     } else {
-      exportToPDF(rows, columns, t('fuel.exportTitle'), `fuel_report_${ym}.pdf`, lang)
+      // Build period-aware title
+      const monthNames = t('expenses.monthNames')
+      let periodStr = ''
+      const fmtD = (ds) => { const p = ds.split('-'); return `${p[2]}.${p[1]}.${p[0]}` }
+      if (period === 'month') {
+        periodStr = `${monthNames[now2.getMonth()]} ${now2.getFullYear()}`
+      } else if (period === 'day') {
+        periodStr = fmtD(getDateRange('day').from)
+      } else if (period === 'week') {
+        const r = getDateRange('week')
+        periodStr = `${fmtD(r.from)}\u2013${fmtD(now2.toISOString().slice(0, 10))}`
+      } else if (period === 'custom' && customFrom) {
+        const r = getDateRange('custom', customFrom, customTo)
+        periodStr = `${fmtD(r.from)}\u2013${fmtD(r.to)}`
+      }
+      const pdfTitle = periodStr
+        ? `${t('expenses.expensesReport')} \u2014 ${periodStr}`
+        : t('expenses.expensesReport')
+      // Build vehicle subtitle
+      let pdfSubtitle = ''
+      if (filterVehicleId && vehicles && vehicles.length > 0) {
+        const v = vehicles.find(vh => vh.id === filterVehicleId)
+        if (v) pdfSubtitle = `${v.brand || ''} ${v.model || ''} \u00b7 ${v.plate_number || ''}`.trim()
+      } else if (isAllVehicles) {
+        pdfSubtitle = t('expenses.allVehicles')
+      }
+      exportToPDF(rows, columns, pdfTitle, `fuel_report_${ym}.pdf`, lang, pdfSubtitle)
     }
   }
 

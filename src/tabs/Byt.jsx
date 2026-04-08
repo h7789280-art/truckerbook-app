@@ -146,7 +146,25 @@ export default function Byt({ userId, refreshKey }) {
     if (format === 'excel') {
       exportToExcel(rows, columns, `personal_expenses_${ym}.xlsx`)
     } else {
-      exportToPDF(rows, columns, t('byt.personalExpenses'), `personal_expenses_${ym}.pdf`, lang)
+      // Build period-aware title
+      const monthNames = t('expenses.monthNames')
+      let periodStr = ''
+      const fmtD = (ds) => { const p = ds.split('-'); return `${p[2]}.${p[1]}.${p[0]}` }
+      if (period === 'month') {
+        periodStr = `${monthNames[now2.getMonth()]} ${now2.getFullYear()}`
+      } else if (period === 'day') {
+        periodStr = fmtD(getDateRange('day').from)
+      } else if (period === 'week') {
+        const r = getDateRange('week')
+        periodStr = `${fmtD(r.from)}\u2013${fmtD(now2.toISOString().slice(0, 10))}`
+      } else if (period === 'custom' && customFrom) {
+        const r = getDateRange('custom', customFrom, customTo)
+        periodStr = `${fmtD(r.from)}\u2013${fmtD(r.to)}`
+      }
+      const pdfTitle = periodStr
+        ? `${t('expenses.personalReport')} \u2014 ${periodStr}`
+        : t('expenses.personalReport')
+      exportToPDF(rows, columns, pdfTitle, `personal_expenses_${ym}.pdf`, lang)
     }
   }
 

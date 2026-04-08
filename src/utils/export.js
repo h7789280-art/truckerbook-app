@@ -856,16 +856,13 @@ export async function exportFleetReportExcel(opts) {
  * @param {string} title
  * @param {string} filename
  */
-export async function exportToPDF(data, columns, title, filename, locale) {
+export async function exportToPDF(data, columns, title, filename, locale, subtitle) {
   const { default: jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
 
   const head = [columns.map(c => c.header)]
   const body = data.map(row => columns.map(c => String(row[c.key] ?? '')))
-  const dateStr = locale
-    ? new Date().toLocaleDateString(locale)
-    : new Date().toLocaleDateString()
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
@@ -879,14 +876,18 @@ export async function exportToPDF(data, columns, title, filename, locale) {
   // Title
   doc.setFontSize(16)
   doc.text(title, 14, 15)
-  // Date
-  doc.setFontSize(10)
-  doc.setTextColor(100)
-  doc.text(dateStr, 14, 22)
-  doc.setTextColor(0)
+  // Subtitle (vehicle name or period details)
+  let nextY = 22
+  if (subtitle) {
+    doc.setFontSize(11)
+    doc.setTextColor(80)
+    doc.text(subtitle, 14, 22)
+    doc.setTextColor(0)
+    nextY = 28
+  }
 
   autoTable(doc, {
-    startY: 28,
+    startY: nextY + 2,
     head,
     body,
     styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', font: 'Roboto' },

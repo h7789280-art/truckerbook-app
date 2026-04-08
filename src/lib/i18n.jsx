@@ -179,6 +179,9 @@ const translations = {
       allExpenses: '\u0412\u0441\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b',
       collapse: '\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c',
       allVehicles: '\u0412\u0441\u0435 \u043c\u0430\u0448\u0438\u043d\u044b',
+      expensesReport: '\u041e\u0442\u0447\u0451\u0442 \u043f\u043e \u0440\u0430\u0441\u0445\u043e\u0434\u0430\u043c',
+      personalReport: '\u041e\u0442\u0447\u0451\u0442 \u043f\u043e \u043b\u0438\u0447\u043d\u044b\u043c \u0440\u0430\u0441\u0445\u043e\u0434\u0430\u043c',
+      monthNames: ['\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442', '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c', '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c', '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c'],
     },
     trips: {
       addTrip: '\u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0440\u0435\u0439\u0441',
@@ -1308,6 +1311,9 @@ const translations = {
       allExpenses: 'All expenses',
       collapse: 'Collapse',
       allVehicles: 'All vehicles',
+      expensesReport: 'Expenses Report',
+      personalReport: 'Personal Expenses Report',
+      monthNames: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     },
     trips: {
       addTrip: 'Add trip',
@@ -2437,6 +2443,9 @@ const translations = {
       allExpenses: '\u0412\u0441\u0456 \u0432\u0438\u0442\u0440\u0430\u0442\u0438',
       collapse: '\u0417\u0433\u043e\u0440\u043d\u0443\u0442\u0438',
       allVehicles: '\u0412\u0441\u0456 \u043c\u0430\u0448\u0438\u043d\u0438',
+      expensesReport: '\u0417\u0432\u0456\u0442 \u043f\u043e \u0432\u0438\u0442\u0440\u0430\u0442\u0430\u0445',
+      personalReport: '\u0417\u0432\u0456\u0442 \u043f\u043e \u043e\u0441\u043e\u0431\u0438\u0441\u0442\u0438\u0445 \u0432\u0438\u0442\u0440\u0430\u0442\u0430\u0445',
+      monthNames: ['\u0421\u0456\u0447\u0435\u043d\u044c', '\u041b\u044e\u0442\u0438\u0439', '\u0411\u0435\u0440\u0435\u0437\u0435\u043d\u044c', '\u041a\u0432\u0456\u0442\u0435\u043d\u044c', '\u0422\u0440\u0430\u0432\u0435\u043d\u044c', '\u0427\u0435\u0440\u0432\u0435\u043d\u044c', '\u041b\u0438\u043f\u0435\u043d\u044c', '\u0421\u0435\u0440\u043f\u0435\u043d\u044c', '\u0412\u0435\u0440\u0435\u0441\u0435\u043d\u044c', '\u0416\u043e\u0432\u0442\u0435\u043d\u044c', '\u041b\u0438\u0441\u0442\u043e\u043f\u0430\u0434', '\u0413\u0440\u0443\u0434\u0435\u043d\u044c'],
     },
     trips: {
       addTrip: '\u0414\u043e\u0434\u0430\u0442\u0438 \u0440\u0435\u0439\u0441',
@@ -3565,6 +3574,9 @@ const translations = {
       allExpenses: 'Todos los gastos',
       collapse: 'Colapsar',
       allVehicles: 'Todos los veh\u00edculos',
+      expensesReport: 'Informe de gastos',
+      personalReport: 'Informe de gastos personales',
+      monthNames: ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'],
     },
     trips: {
       addTrip: 'A\u00f1adir viaje',
@@ -4674,6 +4686,9 @@ const translations = {
       allExpenses: 'Alle Ausgaben',
       collapse: 'Einklappen',
       allVehicles: 'Alle Fahrzeuge',
+      expensesReport: 'Ausgabenbericht',
+      personalReport: 'Bericht pers\u00f6nliche Ausgaben',
+      monthNames: ['Januar', 'Februar', 'M\u00e4rz', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
     },
     trips: {
       addTrip: 'Fahrt hinzuf\u00fcgen',
@@ -5783,6 +5798,9 @@ const translations = {
       allExpenses: 'Toutes les d\u00e9penses',
       collapse: 'R\u00e9duire',
       allVehicles: 'Tous les v\u00e9hicules',
+      expensesReport: 'Rapport des d\u00e9penses',
+      personalReport: 'Rapport des d\u00e9penses personnelles',
+      monthNames: ['Janvier', 'F\u00e9vrier', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Ao\u00fbt', 'Septembre', 'Octobre', 'Novembre', 'D\u00e9cembre'],
     },
     trips: {
       addTrip: 'Ajouter un trajet',
@@ -6892,6 +6910,9 @@ const translations = {
       allExpenses: 'T\u00fcm giderler',
       collapse: 'Daralt',
       allVehicles: 'T\u00fcm ara\u00e7lar',
+      expensesReport: 'Gider Raporu',
+      personalReport: 'Ki\u015fisel Gider Raporu',
+      monthNames: ['Ocak', '\u015eubat', 'Mart', 'Nisan', 'May\u0131s', 'Haziran', 'Temmuz', 'A\u011fustos', 'Eyl\u00fcl', 'Ekim', 'Kas\u0131m', 'Aral\u0131k'],
     },
     trips: {
       addTrip: 'Sefer ekle',
@@ -8001,6 +8022,9 @@ const translations = {
       allExpenses: 'Wszystkie wydatki',
       collapse: 'Zwi\u0144',
       allVehicles: 'Wszystkie pojazdy',
+      expensesReport: 'Raport wydatk\u00f3w',
+      personalReport: 'Raport wydatk\u00f3w osobistych',
+      monthNames: ['Stycze\u0144', 'Luty', 'Marzec', 'Kwiecie\u0144', 'Maj', 'Czerwiec', 'Lipiec', 'Sierpie\u0144', 'Wrzesie\u0144', 'Pa\u017adziernik', 'Listopad', 'Grudzie\u0144'],
     },
     trips: {
       addTrip: 'Dodaj tras\u0119',

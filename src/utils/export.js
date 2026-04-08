@@ -811,7 +811,7 @@ export async function exportFleetReportExcel(opts) {
 
   const allExpenses = []
   fuels.forEach(f => allExpenses.push({ date: f.date, description: f.station || t('excel.fuel'), category: t('excel.fuel'), gal: convGal(f.liters), amount: f.cost || 0, odometer: f.odometer ? convDist(f.odometer) : '' }))
-  serviceRecs.forEach(r => allExpenses.push({ date: r.date, description: r.description || r.type || t('excel.service'), category: t('excel.service'), gal: '', amount: r.cost || 0, odometer: r.odometer ? convDist(r.odometer) : '' }))
+  serviceRecs.forEach(r => allExpenses.push({ date: r.date, description: r.description || r.type || t('excel.service'), category: isMaintenance(r) ? t('excel.maintenance') : t('excel.repair'), gal: '', amount: r.cost || 0, odometer: r.odometer ? convDist(r.odometer) : '' }))
   tireRecs.forEach(r => allExpenses.push({ date: r.installed_at, description: (r.brand || '') + ' ' + (r.model || ''), category: t('excel.tires'), gal: '', amount: r.cost || 0, odometer: '' }))
   vehicleExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || '', category: e.category || 'Vehicle', gal: '', amount: e.amount || 0, odometer: '' }))
   bytExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || e.category || '', category: t('excel.personalExpenses'), gal: '', amount: e.amount || 0, odometer: '' }))

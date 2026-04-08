@@ -1908,13 +1908,14 @@ export async function fetchFleetReportExportData(userId, year, month) {
     vehicleIds.length > 0
       ? safeQuery(supabase.from('tire_records').select('*').in('vehicle_id', vehicleIds).gte('installed_at', start).lt('installed_at', end).order('installed_at'))
       : Promise.resolve([]),
-    // Vehicle expenses: by owner (eq — matches dashboard), by all users (in), by vehicle
-    safeQuery(supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    // Vehicle expenses: fetch ALL (no date filter) — matches dashboard fetchVehicleExpenses pattern
+    // Date filtering applied in JS after dedup to avoid Supabase query/date-type mismatches
+    safeQuery(supabase.from('vehicle_expenses').select('*').eq('user_id', userId).order('date')),
     allUserIds.length > 1
-      ? safeQuery(supabase.from('vehicle_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'))
+      ? safeQuery(supabase.from('vehicle_expenses').select('*').in('user_id', allUserIds).order('date'))
       : Promise.resolve([]),
     vehicleIds.length > 0
-      ? safeQuery(supabase.from('vehicle_expenses').select('*').in('vehicle_id', vehicleIds).gte('date', start).lt('date', end).order('date'))
+      ? safeQuery(supabase.from('vehicle_expenses').select('*').in('vehicle_id', vehicleIds).order('date'))
       : Promise.resolve([]),
     // Byt (personal) expenses: by owner, by all users
     safeQuery(supabase.from('byt_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
@@ -1937,7 +1938,12 @@ export async function fetchFleetReportExportData(userId, year, month) {
   const fuels = dedup(fuelsByOwner, fuelsByAllUsers, fuelsByVehicle)
   const serviceRecs = dedup(serviceRecsByOwner, serviceRecsByAllUsers, serviceRecsByVehicle)
   const tireRecs = dedup(tireRecsByOwner, tireRecsByVehicle)
-  const vehicleExps = dedup(vehicleExpsByOwner, vehicleExpsByAllUsers, vehicleExpsByVehicle)
+  const vehicleExpsAll = dedup(vehicleExpsByOwner, vehicleExpsByAllUsers, vehicleExpsByVehicle)
+  // Apply date filter in JS (matches dashboard pattern: fetch all, filter client-side)
+  const vehicleExps = vehicleExpsAll.filter(e => {
+    const d = (e.date || '').slice(0, 10)
+    return d >= start && d < end
+  })
   const bytExps = dedup(bytExpsByOwner, bytExpsByAllUsers)
 
   const result = { vehicles, drivers, fuels, trips, serviceRecs, tireRecs, vehicleExps, bytExps, sessions, advances }

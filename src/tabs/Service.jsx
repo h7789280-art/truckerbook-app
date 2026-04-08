@@ -483,7 +483,7 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
     const columns = [
       { header: t('fuel.exportDate'), key: 'date' },
       { header: t('service.categoryLabel'), key: 'category' },
-      { header: t('fuel.exportDescription'), key: 'description' },
+      { header: t('service.descriptionWork'), key: 'description' },
       { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
       { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
       { header: t('service.stoLabel'), key: 'sto' },

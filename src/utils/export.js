@@ -472,6 +472,9 @@ export async function exportFleetReportExcel(opts) {
   const driverMap = _driverMap && typeof _driverMap === 'object' ? _driverMap : {}
   const vehicleMap = _vehicleMap && typeof _vehicleMap === 'object' ? _vehicleMap : {}
 
+  // DEBUG: alert vehicle_expenses data before generating Excel
+  alert('vehicleExps: ' + vehicleExps.length + ' sum: ' + vehicleExps.reduce((s, e) => s + (e.amount || e.cost || 0), 0))
+
   const wb = new ExcelJS.Workbook()
 
   const ORANGE = 'F59E0B'

@@ -1,6 +1,4 @@
 import * as XLSX from 'xlsx'
-import { jsPDF } from 'jspdf'
-import 'jspdf-autotable'
 
 /**
  * @param {Array<Object>} data
@@ -858,25 +856,31 @@ export async function exportFleetReportExcel(opts) {
  * @param {string} title
  * @param {string} filename
  */
-export function exportToPDF(data, columns, title, filename) {
-  const doc = new jsPDF()
+export function exportToPDF(data, columns, title, _filename) {
+  const head = columns.map(c => c.header)
+  const body = data.map(row => columns.map(c => String(row[c.key] ?? '')))
 
-  doc.setFontSize(16)
-  doc.text(title, 14, 20)
+  const html = `<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>${title}</title>
+<style>
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;margin:32px;color:#1a1a1a}
+  h1{font-size:18px;margin:0 0 4px}
+  .date{font-size:12px;color:#666;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:11px}
+  th{background:#f59e0b;color:#fff;padding:6px 8px;text-align:left;white-space:nowrap}
+  td{padding:5px 8px;border-bottom:1px solid #e5e7eb}
+  tr:nth-child(even){background:#f9fafb}
+  @media print{body{margin:12px}@page{size:landscape;margin:10mm}}
+</style></head><body>
+<h1>${title}</h1>
+<div class="date">${new Date().toLocaleDateString()}</div>
+<table><thead><tr>${head.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+<tbody>${body.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>
+</body></html>`
 
-  doc.setFontSize(10)
-  doc.text(new Date().toLocaleDateString(), 14, 28)
-
-  const head = [columns.map(c => c.header)]
-  const body = data.map(row => columns.map(c => row[c.key] ?? ''))
-
-  doc.autoTable({
-    startY: 34,
-    head,
-    body,
-    styles: { fontSize: 9 },
-    headStyles: { fillColor: [245, 158, 11] },
-  })
-
-  doc.save(filename)
+  const w = window.open('', '_blank')
+  if (!w) return
+  w.document.write(html)
+  w.document.close()
+  w.onload = () => { w.print() }
 }

@@ -438,6 +438,7 @@ export async function exportFleetReportExcel(opts) {
     serviceRecs: _serviceRecs,
     tireRecs: _tireRecs,
     vehicleExps: _vehicleExps,
+    bytExps: _bytExps,
     sessions: _sessions,
     advances: _advances,
     bolDocs: _bolDocs,
@@ -454,7 +455,7 @@ export async function exportFleetReportExcel(opts) {
 
   // Translation helper with fallback to key
   const t = typeof _t === 'function' ? _t : (key) => {
-    const fallback = { 'excel.sheetPL': 'P&L Summary', 'excel.sheetDrivers': 'By Drivers', 'excel.sheetVehicles': 'By Vehicles', 'excel.sheetCategories': 'Expenses by Category', 'excel.sheetPayroll': 'Payroll', 'excel.sheetAllExpenses': 'All Expenses', 'excel.plReport': 'P&L Report', 'excel.period': 'Period', 'excel.totalIncome': 'Total Income', 'excel.totalExpense': 'Total Expense', 'excel.driverSalaries': 'Driver Salaries', 'excel.grossProfit': 'Gross Profit', 'excel.netProfit': 'Net Profit', 'excel.totalDist': 'Total', 'excel.totalTrips': 'Total Trips', 'excel.costPer': 'Cost per', 'excel.revPer': 'Revenue per', 'excel.driver': 'Driver', 'excel.vehicle': 'Vehicle', 'excel.plate': 'Plate', 'excel.trips': 'Trips', 'excel.income': 'Income', 'excel.expense': 'Expense', 'excel.salary': 'Salary', 'excel.profit': 'Profit', 'excel.total': 'TOTAL', 'excel.fuel': 'Fuel', 'excel.def': 'DEF', 'excel.repair': 'Repair', 'excel.maintenance': 'Maintenance', 'excel.other': 'Other', 'excel.totalExpShort': 'Total Exp.', 'excel.category': 'Category', 'excel.amount': 'Amount', 'excel.entries': 'Entries', 'excel.pctOfTotal': '% of Total', 'excel.payType': 'Pay Type', 'excel.rate': 'Rate', 'excel.earned': 'Earned', 'excel.perDist': 'Per', 'excel.date': 'Date', 'excel.description': 'Description', 'excel.liters': 'liters', 'excel.gallons': 'gal', 'excel.odometer': 'Odometer', 'excel.oil': 'Oil', 'excel.parts': 'Parts', 'excel.supplies': 'Supplies', 'excel.motel': 'Motel', 'excel.equipment': 'Equipment', 'excel.toll': 'Toll', 'excel.tires': 'Tires', 'excel.service': 'Service', 'excel.distMiles': 'miles', 'excel.distKm': 'km' }
+    const fallback = { 'excel.sheetPL': 'P&L Summary', 'excel.sheetDrivers': 'By Drivers', 'excel.sheetVehicles': 'By Vehicles', 'excel.sheetCategories': 'Expenses by Category', 'excel.sheetPayroll': 'Payroll', 'excel.sheetAllExpenses': 'All Expenses', 'excel.plReport': 'P&L Report', 'excel.period': 'Period', 'excel.totalIncome': 'Total Income', 'excel.totalExpense': 'Total Expense', 'excel.driverSalaries': 'Driver Salaries', 'excel.personalExpenses': 'Personal Expenses (drivers)', 'excel.grossProfit': 'Gross Profit', 'excel.netProfit': 'Net Profit', 'excel.totalDist': 'Total', 'excel.totalTrips': 'Total Trips', 'excel.costPer': 'Cost per', 'excel.revPer': 'Revenue per', 'excel.driver': 'Driver', 'excel.vehicle': 'Vehicle', 'excel.plate': 'Plate', 'excel.trips': 'Trips', 'excel.income': 'Income', 'excel.expense': 'Expense', 'excel.salary': 'Salary', 'excel.profit': 'Profit', 'excel.total': 'TOTAL', 'excel.fuel': 'Fuel', 'excel.def': 'DEF', 'excel.repair': 'Repair', 'excel.maintenance': 'Maintenance', 'excel.other': 'Other', 'excel.totalExpShort': 'Total Exp.', 'excel.category': 'Category', 'excel.amount': 'Amount', 'excel.entries': 'Entries', 'excel.pctOfTotal': '% of Total', 'excel.payType': 'Pay Type', 'excel.rate': 'Rate', 'excel.earned': 'Earned', 'excel.perDist': 'Per', 'excel.date': 'Date', 'excel.description': 'Description', 'excel.liters': 'liters', 'excel.gallons': 'gal', 'excel.odometer': 'Odometer', 'excel.oil': 'Oil', 'excel.parts': 'Parts', 'excel.supplies': 'Supplies', 'excel.motel': 'Motel', 'excel.equipment': 'Equipment', 'excel.toll': 'Toll', 'excel.tires': 'Tires', 'excel.service': 'Service', 'excel.distMiles': 'miles', 'excel.distKm': 'km' }
     return fallback[key] || key
   }
 
@@ -466,6 +467,7 @@ export async function exportFleetReportExcel(opts) {
   const serviceRecs = Array.isArray(_serviceRecs) ? _serviceRecs : []
   const tireRecs = Array.isArray(_tireRecs) ? _tireRecs : []
   const vehicleExps = Array.isArray(_vehicleExps) ? _vehicleExps : []
+  const bytExps = Array.isArray(_bytExps) ? _bytExps : []
   // sessions, advances, bolDocs — available via opts but not used in P&L sheets
   const driverMap = _driverMap && typeof _driverMap === 'object' ? _driverMap : {}
   const vehicleMap = _vehicleMap && typeof _vehicleMap === 'object' ? _vehicleMap : {}
@@ -595,10 +597,12 @@ export async function exportFleetReportExcel(opts) {
   const totIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
   const totMiles = trips.reduce((s, t) => s + convDist(t.distance_km), 0)
   const totSalary = trips.reduce((s, t) => s + (t.driver_pay || 0), 0)
+  const totBytExpense = bytExps.reduce((s, e) => s + (e.amount || 0), 0)
   const totExpense = fuels.reduce((s, f) => s + (f.cost || 0), 0)
     + serviceRecs.reduce((s, r) => s + (r.cost || 0), 0)
     + tireRecs.reduce((s, r) => s + (r.cost || 0), 0)
     + vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+    + totBytExpense
 
   const totGrossProfit = totIncome - totExpense
   const totNetProfit = totIncome - totExpense - totSalary
@@ -619,6 +623,7 @@ export async function exportFleetReportExcel(opts) {
     [t('excel.period'), period || ''],
     [t('excel.totalIncome'), cs + ' ' + fmtNum(totIncome)],
     [t('excel.totalExpense'), cs + ' ' + fmtNum(totExpense)],
+    ...(totBytExpense > 0 ? [[t('excel.personalExpenses'), cs + ' ' + fmtNum(totBytExpense)]] : []),
     [t('excel.driverSalaries'), cs + ' ' + fmtNum(totSalary)],
     [],
     [t('excel.grossProfit'), cs + ' ' + fmtNum(totGrossProfit)],
@@ -636,9 +641,10 @@ export async function exportFleetReportExcel(opts) {
     r.getCell(1).font = boldFont
   })
 
-  // Highlight profit rows (row 8 = gross, row 9 = net)
-  ws1.getRow(8).eachCell(c => { c.font = { bold: true, size: 12, color: { argb: totGrossProfit >= 0 ? 'FF22C55E' : 'FFEF4444' } } })
-  ws1.getRow(9).eachCell(c => { c.font = { bold: true, size: 12, color: { argb: totNetProfit >= 0 ? 'FF22C55E' : 'FFEF4444' } } })
+  // Highlight profit rows — offset depends on whether personal expenses row was added
+  const profitRowOffset = totBytExpense > 0 ? 9 : 8
+  ws1.getRow(profitRowOffset).eachCell(c => { c.font = { bold: true, size: 12, color: { argb: totGrossProfit >= 0 ? 'FF22C55E' : 'FFEF4444' } } })
+  ws1.getRow(profitRowOffset + 1).eachCell(c => { c.font = { bold: true, size: 12, color: { argb: totNetProfit >= 0 ? 'FF22C55E' : 'FFEF4444' } } })
 
   ws1.getColumn(1).width = 45
   ws1.getColumn(2).width = 20
@@ -742,6 +748,7 @@ export async function exportFleetReportExcel(opts) {
     addCat(isMaintenance(r) ? t('excel.maintenance') : t('excel.repair'), r.cost)
   })
   tireRecs.forEach(r => addCat(t('excel.tires'), r.cost))
+  bytExps.forEach(e => addCat(t('excel.personalExpenses'), e.amount))
 
   const catTotalSum = Object.values(catMap).reduce((s, v) => s + v.sum, 0)
   let catRowIdx = 2
@@ -806,6 +813,7 @@ export async function exportFleetReportExcel(opts) {
   serviceRecs.forEach(r => allExpenses.push({ date: r.date, description: r.description || r.type || t('excel.service'), category: t('excel.service'), gal: '', amount: r.cost || 0, odometer: r.odometer ? convDist(r.odometer) : '' }))
   tireRecs.forEach(r => allExpenses.push({ date: r.installed_at, description: (r.brand || '') + ' ' + (r.model || ''), category: t('excel.tires'), gal: '', amount: r.cost || 0, odometer: '' }))
   vehicleExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || '', category: e.category || 'Vehicle', gal: '', amount: e.amount || 0, odometer: '' }))
+  bytExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || e.category || '', category: t('excel.personalExpenses'), gal: '', amount: e.amount || 0, odometer: '' }))
   allExpenses.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
 
   let expRowIdx = 2

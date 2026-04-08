@@ -1882,6 +1882,7 @@ export async function fetchFleetReportExportData(userId, year, month) {
     serviceRecsByOwner, serviceRecsByAllUsers, serviceRecsByVehicle,
     tireRecsByOwner, tireRecsByVehicle,
     vehicleExpsByOwner, vehicleExpsByAllUsers, vehicleExpsByVehicle,
+    bytExpsByOwner, bytExpsByAllUsers,
     sessions, advances,
   ] = await Promise.all([
     // Fuel: by owner, by all users, by vehicle
@@ -1915,6 +1916,11 @@ export async function fetchFleetReportExportData(userId, year, month) {
     vehicleIds.length > 0
       ? safeQuery(supabase.from('vehicle_expenses').select('*').in('vehicle_id', vehicleIds).gte('date', start).lt('date', end).order('date'))
       : Promise.resolve([]),
+    // Byt (personal) expenses: by owner, by all users
+    safeQuery(supabase.from('byt_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    allUserIds.length > 1
+      ? safeQuery(supabase.from('byt_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'))
+      : Promise.resolve([]),
     // Sessions & advances
     safeQuery(supabase.from('driving_sessions').select('*').in('user_id', allUserIds).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at')),
     safeQuery(supabase.from('driver_advances').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date')),
@@ -1932,8 +1938,9 @@ export async function fetchFleetReportExportData(userId, year, month) {
   const serviceRecs = dedup(serviceRecsByOwner, serviceRecsByAllUsers, serviceRecsByVehicle)
   const tireRecs = dedup(tireRecsByOwner, tireRecsByVehicle)
   const vehicleExps = dedup(vehicleExpsByOwner, vehicleExpsByAllUsers, vehicleExpsByVehicle)
+  const bytExps = dedup(bytExpsByOwner, bytExpsByAllUsers)
 
-  const result = { vehicles, drivers, fuels, trips, serviceRecs, tireRecs, vehicleExps, sessions, advances }
+  const result = { vehicles, drivers, fuels, trips, serviceRecs, tireRecs, vehicleExps, bytExps, sessions, advances }
   console.log('fetchFleetReportExportData result keys:', Object.keys(result).map(k => k + ':' + (Array.isArray(result[k]) ? result[k].length : typeof result[k])).join(', '))
   return result
 }

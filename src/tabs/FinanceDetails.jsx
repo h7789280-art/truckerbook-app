@@ -725,6 +725,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       const serviceRecs = Array.isArray(data?.serviceRecs) ? data.serviceRecs : []
       const tireRecs = Array.isArray(data?.tireRecs) ? data.tireRecs : []
       const vehicleExps = Array.isArray(data?.vehicleExps) ? data.vehicleExps : []
+      const bytExps = Array.isArray(data?.bytExps) ? data.bytExps : []
       const sessions = Array.isArray(data?.sessions) ? data.sessions : []
       const advances = Array.isArray(data?.advances) ? data.advances : []
 
@@ -764,6 +765,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         serviceRecs,
         tireRecs,
         vehicleExps,
+        bytExps,
         sessions,
         advances,
         bolDocs,

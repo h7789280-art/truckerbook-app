@@ -637,6 +637,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
           const serviceRecsArr = Array.isArray(data?.serviceRecs) ? data.serviceRecs : []
           const tireRecsArr = Array.isArray(data?.tireRecs) ? data.tireRecs : []
           const vehicleExpsArr = Array.isArray(data?.vehicleExps) ? data.vehicleExps : []
+          const bytExpsArr = Array.isArray(data?.bytExps) ? data.bytExps : []
           const sessionsArr = Array.isArray(data?.sessions) ? data.sessions : []
           const advancesArr = Array.isArray(data?.advances) ? data.advances : []
 
@@ -671,6 +672,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             serviceRecs: serviceRecsArr,
             tireRecs: tireRecsArr,
             vehicleExps: vehicleExpsArr,
+            bytExps: bytExpsArr,
             sessions: sessionsArr,
             advances: advancesArr,
             period: monthNames[month - 1] + ' ' + year,

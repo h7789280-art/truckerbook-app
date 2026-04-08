@@ -200,6 +200,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         serviceRecs: Array.isArray(data?.serviceRecs) ? data.serviceRecs : [],
         tireRecs: Array.isArray(data?.tireRecs) ? data.tireRecs : [],
         vehicleExps: Array.isArray(data?.vehicleExps) ? data.vehicleExps : [],
+        bytExps: Array.isArray(data?.bytExps) ? data.bytExps : [],
         sessions: Array.isArray(data?.sessions) ? data.sessions : [],
         advances: Array.isArray(data?.advances) ? data.advances : [],
         period: monthNames[month - 1] + ' ' + year,

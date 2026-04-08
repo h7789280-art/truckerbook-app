@@ -86,7 +86,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         fetchTrips(userId),
         fetchBytExpenses(userId),
         fetchServiceRecords(userId).catch(() => []),
-        fetchVehicleExpenses(userId).then(r => { alert('FINANCE fetchVehicleExpenses userId=' + userId + ' total=' + r.length + ' first2=' + JSON.stringify((r || []).slice(0,2))); return r; }).catch(() => []),
+        fetchVehicleExpenses(userId).catch(() => []),
       ])
 
       const { start, end } = getDateRange()

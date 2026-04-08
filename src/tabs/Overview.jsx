@@ -3,7 +3,7 @@ import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpenses, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData } from '../lib/api'
 import { exportToExcel, exportToPDF, exportFleetReportExcel } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
@@ -258,7 +258,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         fetchBytExpenses(userId),
         fetchServiceRecords(userId).catch(() => []),
         fetchInsurance(userId).catch(() => []),
-        fetchVehicleExpenses(userId).then(r => { alert('DASHBOARD fetchVehicleExpenses userId=' + userId + ' total=' + r.length + ' first2=' + JSON.stringify((r || []).slice(0,2))); return r; }).catch(() => []),
+        fetchVehicleExpensesByMonth(userId, now.getFullYear(), now.getMonth() + 1).catch(() => []),
       ])
 
       // Filter to current month

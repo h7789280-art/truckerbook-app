@@ -1231,15 +1231,18 @@ export async function updateApplicationStatus(id, status) {
 
 export async function fetchFleetSummary(userId) {
   const now = new Date()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+  const msStart = new Date(now.getFullYear(), now.getMonth(), 1)
+  const msEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  const monthStart = `${msStart.getFullYear()}-${String(msStart.getMonth() + 1).padStart(2, '0')}-01`
+  const monthEnd = `${msEnd.getFullYear()}-${String(msEnd.getMonth() + 1).padStart(2, '0')}-01`
 
   const [vehiclesRes, fuelsRes, tripsRes, vehicleExpRes, serviceRes, shiftsRes] = await Promise.all([
     supabase.from('vehicles').select('*').eq('user_id', userId).order('created_at', { ascending: true }),
-    supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', monthStart),
-    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', monthStart + 'T00:00:00'),
-    supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', monthStart),
-    supabase.from('service_records').select('*').eq('user_id', userId).gte('date', monthStart),
-    supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', monthStart + 'T00:00:00'),
+    supabase.from('fuel_entries').select('*').eq('user_id', userId).gte('date', monthStart).lt('date', monthEnd),
+    supabase.from('trips').select('*').eq('user_id', userId).gte('created_at', monthStart + 'T00:00:00').lt('created_at', monthEnd + 'T00:00:00'),
+    supabase.from('vehicle_expenses').select('*').eq('user_id', userId).gte('date', monthStart).lt('date', monthEnd),
+    supabase.from('service_records').select('*').eq('user_id', userId).gte('date', monthStart).lt('date', monthEnd),
+    supabase.from('driving_sessions').select('*').eq('user_id', userId).gte('started_at', monthStart + 'T00:00:00').lt('started_at', monthEnd + 'T00:00:00'),
   ])
 
   const vehicles = vehiclesRes.data || []
@@ -1910,7 +1913,7 @@ export async function fetchFleetReportExportData(userId, year, month) {
       : Promise.resolve([]),
     // Vehicle expenses: use EXACT same function as dashboard (fetchVehicleExpenses)
     // This is a direct copy of the working dashboard query — no safeQuery wrapper
-    fetchVehicleExpenses(userId).then(r => { alert('EXPORT fetchVehicleExpenses userId=' + userId + ' total=' + r.length + ' first2=' + JSON.stringify((r || []).slice(0,2))); return r; }).catch(() => []),
+    fetchVehicleExpenses(userId).catch(() => []),
     Promise.resolve([]),  // placeholder — dashboard only queries by user_id
     Promise.resolve([]),  // placeholder — dashboard only queries by user_id
     // Byt (personal) expenses: by owner, by all users
@@ -1936,12 +1939,10 @@ export async function fetchFleetReportExportData(userId, year, month) {
   const tireRecs = dedup(tireRecsByOwner, tireRecsByVehicle)
   // vehicleExpsByOwner = result of fetchVehicleExpenses(userId) — exact dashboard function
   // No dedup needed — single source, same as dashboard
-  alert('EXPORT FILTER: vehicleExpsByOwner.length=' + vehicleExpsByOwner.length + ' start=' + start + ' end=' + end + ' dates=' + JSON.stringify(vehicleExpsByOwner.slice(0,3).map(e => e.date)))
   const vehicleExps = vehicleExpsByOwner.filter(e => {
     const d = (e.date || '').slice(0, 10)
     return d >= start && d < end
   })
-  alert('EXPORT AFTER FILTER: vehicleExps.length=' + vehicleExps.length)
   const bytExps = dedup(bytExpsByOwner, bytExpsByAllUsers)
 
   const result = { vehicles, drivers, fuels, trips, serviceRecs, tireRecs, vehicleExps, bytExps, sessions, advances }

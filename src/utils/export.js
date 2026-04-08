@@ -931,7 +931,7 @@ export async function exportFleetReportPDF(opts) {
   } = opts
 
   const t = typeof _t === 'function' ? _t : (key) => {
-    const fallback = { 'excel.plReport': 'P&L Report', 'excel.period': 'Period', 'excel.totalIncome': 'Total Income', 'excel.totalExpense': 'Total Expense', 'excel.driverSalaries': 'Driver Salaries', 'excel.grossProfit': 'Gross Profit', 'excel.netProfit': 'Net Profit', 'excel.totalDist': 'Total', 'excel.totalTrips': 'Total Trips', 'excel.costPer': 'Cost per', 'excel.revPer': 'Revenue per', 'excel.vehicle': 'Vehicle', 'excel.plate': 'Plate', 'excel.driver': 'Driver', 'excel.fuel': 'Fuel', 'excel.def': 'DEF', 'excel.repair': 'Repair', 'excel.maintenance': 'Maintenance', 'excel.totalExpShort': 'Total Exp.', 'excel.profit': 'Profit', 'excel.total': 'TOTAL', 'excel.category': 'Category', 'excel.amount': 'Amount', 'excel.entries': 'Entries', 'excel.pctOfTotal': '% of Total', 'excel.trips': 'Trips', 'excel.earned': 'Earned', 'excel.sheetVehicles': 'By Vehicles', 'excel.sheetCategories': 'Expenses by Category', 'excel.sheetPayroll': 'Payroll', 'excel.oil': 'Oil', 'excel.parts': 'Parts', 'excel.supplies': 'Supplies', 'excel.motel': 'Motel', 'excel.equipment': 'Equipment', 'excel.toll': 'Toll', 'excel.tires': 'Tires', 'excel.personalExpenses': 'Personal Expenses (drivers)', 'excel.distMiles': 'miles', 'excel.distKm': 'km' }
+    const fallback = { 'excel.plReport': 'P&L Report', 'excel.period': 'Period', 'excel.totalIncome': 'Total Income', 'excel.totalExpense': 'Total Expense', 'excel.driverSalaries': 'Driver Salaries', 'excel.grossProfit': 'Gross Profit', 'excel.netProfit': 'Net Profit', 'excel.totalDist': 'Total', 'excel.totalTrips': 'Total Trips', 'excel.costPer': 'Cost per', 'excel.revPer': 'Revenue per', 'excel.vehicle': 'Vehicle', 'excel.plate': 'Plate', 'excel.driver': 'Driver', 'excel.fuel': 'Fuel', 'excel.def': 'DEF', 'excel.repair': 'Repair', 'excel.maintenance': 'Maintenance', 'excel.totalExpShort': 'Total Exp.', 'excel.profit': 'Profit', 'excel.total': 'TOTAL', 'excel.category': 'Category', 'excel.amount': 'Amount', 'excel.entries': 'Entries', 'excel.pctOfTotal': '% of Total', 'excel.trips': 'Trips', 'excel.earned': 'Earned', 'excel.sheetDrivers': 'By Drivers', 'excel.sheetVehicles': 'By Vehicles', 'excel.sheetCategories': 'Expenses by Category', 'excel.sheetPayroll': 'Payroll', 'excel.sheetAllExpenses': 'All Expenses', 'excel.oil': 'Oil', 'excel.parts': 'Parts', 'excel.supplies': 'Supplies', 'excel.motel': 'Motel', 'excel.equipment': 'Equipment', 'excel.toll': 'Toll', 'excel.tires': 'Tires', 'excel.personalExpenses': 'Personal Expenses (drivers)', 'excel.income': 'Income', 'excel.expense': 'Expense', 'excel.salary': 'Salary', 'excel.date': 'Date', 'excel.description': 'Description', 'excel.gallons': 'gal', 'excel.liters': 'liters', 'excel.odometer': 'Odometer', 'excel.service': 'Service', 'excel.distMiles': 'miles', 'excel.distKm': 'km' }
     return fallback[key] || key
   }
 
@@ -1048,7 +1048,77 @@ export async function exportFleetReportPDF(opts) {
     tableWidth: 160,
   })
 
-  // ======= PAGE 2: By Vehicles =======
+  // ======= PAGE 2: By Drivers =======
+  doc.addPage()
+  drawPageHeader()
+  doc.setFontSize(12)
+  doc.setFont('Roboto', 'bold')
+  doc.text(t('excel.sheetDrivers'), 14, 25)
+  doc.setFont('Roboto', 'normal')
+
+  const drvHeaders = [
+    t('excel.driver'), t('excel.vehicle'), t('excel.plate'),
+    t('excel.trips'), distLabelFull,
+    t('excel.income') + ' (' + cs + ')', t('excel.expense') + ' (' + cs + ')',
+    t('excel.salary') + ' (' + cs + ')', t('excel.profit') + ' (' + cs + ')',
+    cs + '/' + distLabelFull,
+  ]
+
+  let drvTotIncome = 0, drvTotExpense = 0, drvTotSalary = 0, drvTotMiles = 0, drvTotTrips = 0
+
+  const getVehicleLabel = (vehicleId) => {
+    if (_vehicleMap && _vehicleMap[vehicleId]) return _vehicleMap[vehicleId].label
+    return ''
+  }
+  const getVehiclePlate = (vehicleId) => {
+    if (_vehicleMap && _vehicleMap[vehicleId]) return _vehicleMap[vehicleId].plate
+    return ''
+  }
+
+  const drvBody = driverIds.map(dId => {
+    const dTrips = trips.filter(tr => tr.user_id === dId)
+    const dFuels = fuels.filter(f => f.user_id === dId)
+    const dService = serviceRecs.filter(s => s.user_id === dId)
+    const dTires = tireRecs.filter(tr => tr.user_id === dId)
+    const dVehExp = vehicleExps.filter(e => e.user_id === dId)
+
+    const name = getDriverName(dId)
+    const vIds = [...new Set(dTrips.map(tr => tr.vehicle_id).filter(Boolean))]
+    const vehicleLabel = vIds.map(vid => getVehicleLabel(vid)).filter(Boolean).join(', ')
+    const plateLabel = vIds.map(vid => getVehiclePlate(vid)).filter(Boolean).join(', ')
+    const tripsCount = dTrips.length
+    const miles = dTrips.reduce((s, tr) => s + convDist(tr.distance_km), 0)
+    const income = dTrips.reduce((s, tr) => s + (tr.income || 0), 0)
+    const expense = dFuels.reduce((s, f) => s + (f.cost || 0), 0)
+      + dService.reduce((s, r) => s + (r.cost || 0), 0)
+      + dTires.reduce((s, r) => s + (r.cost || 0), 0)
+      + dVehExp.reduce((s, e) => s + (e.amount || 0), 0)
+    const salary = dTrips.reduce((s, tr) => s + (tr.driver_pay || 0), 0)
+    const profit = income - expense - salary
+    const perMile = miles > 0 ? profit / miles : 0
+
+    drvTotIncome += income; drvTotExpense += expense; drvTotSalary += salary; drvTotMiles += miles; drvTotTrips += tripsCount
+
+    return [name, vehicleLabel, plateLabel, tripsCount, miles, fmtNum(income), fmtNum(expense), fmtNum(salary), fmtNum(profit), fmtNum(perMile)]
+  })
+
+  const drvTotProfit = drvTotIncome - drvTotExpense - drvTotSalary
+  const drvTotPM = drvTotMiles > 0 ? drvTotProfit / drvTotMiles : 0
+  drvBody.push([t('excel.total'), '', '', drvTotTrips, drvTotMiles, fmtNum(drvTotIncome), fmtNum(drvTotExpense), fmtNum(drvTotSalary), fmtNum(drvTotProfit), fmtNum(drvTotPM)])
+
+  autoTable(doc, {
+    startY: 30,
+    head: [drvHeaders],
+    body: drvBody,
+    ...tableOpts,
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index === drvBody.length - 1) {
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+  })
+
+  // ======= PAGE 3: By Vehicles =======
   doc.addPage()
   drawPageHeader()
   doc.setFontSize(12)
@@ -1106,7 +1176,7 @@ export async function exportFleetReportPDF(opts) {
     },
   })
 
-  // ======= PAGE 3: Expenses by Category =======
+  // ======= PAGE 4: Expenses by Category =======
   doc.addPage()
   drawPageHeader()
   doc.setFontSize(12)
@@ -1157,7 +1227,7 @@ export async function exportFleetReportPDF(opts) {
     },
   })
 
-  // ======= PAGE 4: Payroll =======
+  // ======= PAGE 5: Payroll =======
   doc.addPage()
   drawPageHeader()
   doc.setFontSize(12)
@@ -1187,6 +1257,49 @@ export async function exportFleetReportPDF(opts) {
     ...tableOpts,
     didParseCell: (data) => {
       if (data.section === 'body' && data.row.index === payBody.length - 1) {
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+  })
+
+  // ======= PAGE 6: All Expenses =======
+  doc.addPage()
+  drawPageHeader()
+  doc.setFontSize(12)
+  doc.setFont('Roboto', 'bold')
+  doc.text(t('excel.sheetAllExpenses'), 14, 25)
+  doc.setFont('Roboto', 'normal')
+
+  const convGal = (liters) => isImperial ? Math.round((liters || 0) * 0.264172 * 100) / 100 : (liters || 0)
+
+  const expHeaders = [
+    t('excel.date'), t('excel.description'), t('excel.category'),
+    isImperial ? t('excel.gallons') : t('excel.liters'),
+    t('excel.amount') + ' (' + cs + ')', t('excel.odometer'),
+  ]
+
+  const allExpenses = []
+  fuels.forEach(f => allExpenses.push({ date: f.date, description: f.station || t('excel.fuel'), category: t('excel.fuel'), gal: convGal(f.liters), amount: f.cost || 0, odometer: f.odometer ? convDist(f.odometer) : '' }))
+  serviceRecs.forEach(r => allExpenses.push({ date: r.date, description: r.description || r.type || t('excel.service'), category: isMaintenance(r) ? t('excel.maintenance') : t('excel.repair'), gal: '', amount: r.cost || 0, odometer: r.odometer ? convDist(r.odometer) : '' }))
+  tireRecs.forEach(r => allExpenses.push({ date: r.installed_at, description: ((r.brand || '') + ' ' + (r.model || '')).trim(), category: t('excel.tires'), gal: '', amount: r.cost || 0, odometer: '' }))
+  vehicleExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || '', category: e.category || 'Vehicle', gal: '', amount: e.amount || 0, odometer: '' }))
+  bytExps.forEach(e => allExpenses.push({ date: e.date, description: e.description || e.category || '', category: t('excel.personalExpenses'), gal: '', amount: e.amount || 0, odometer: '' }))
+  allExpenses.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+
+  let expTotalAmt = 0
+  const expBody = allExpenses.map(e => {
+    expTotalAmt += e.amount
+    return [e.date || '', e.description, e.category, e.gal !== '' ? fmtNum(e.gal) : '', fmtNum(e.amount), e.odometer]
+  })
+  expBody.push([t('excel.total'), '', '', '', fmtNum(expTotalAmt), ''])
+
+  autoTable(doc, {
+    startY: 30,
+    head: [expHeaders],
+    body: expBody,
+    ...tableOpts,
+    didParseCell: (data) => {
+      if (data.section === 'body' && data.row.index === expBody.length - 1) {
         data.cell.styles.fontStyle = 'bold'
       }
     },

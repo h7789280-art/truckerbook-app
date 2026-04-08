@@ -858,33 +858,34 @@ export async function exportFleetReportExcel(opts) {
  */
 export async function exportToPDF(data, columns, title, filename, locale) {
   const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
 
-  const head = columns.map(c => c.header)
+  const head = [columns.map(c => c.header)]
   const body = data.map(row => columns.map(c => String(row[c.key] ?? '')))
   const dateStr = locale
     ? new Date().toLocaleDateString(locale)
     : new Date().toLocaleDateString()
 
-  const container = document.createElement('div')
-  container.style.cssText = 'position:absolute;left:-9999px;top:0;width:1100px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#1a1a1a;padding:24px'
-  container.innerHTML = `
-<h1 style="font-size:18px;margin:0 0 4px">${title}</h1>
-<div style="font-size:12px;color:#666;margin-bottom:16px">${dateStr}</div>
-<table style="width:100%;border-collapse:collapse;font-size:11px">
-<thead><tr>${head.map(h => `<th style="background:#f59e0b;color:#fff;padding:6px 8px;text-align:left;white-space:nowrap">${h}</th>`).join('')}</tr></thead>
-<tbody>${body.map((r, i) => `<tr style="${i % 2 === 1 ? 'background:#f9fafb' : ''}">${r.map(c => `<td style="padding:5px 8px;border-bottom:1px solid #e5e7eb">${c}</td>`).join('')}</tr>`).join('')}</tbody>
-</table>`
-  document.body.appendChild(container)
-
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  await doc.html(container, {
-    callback: (d) => {
-      document.body.removeChild(container)
-      d.save(filename || 'report.pdf')
-    },
-    x: 10,
-    y: 5,
-    width: 277,
-    windowWidth: 1100,
+
+  // Title
+  doc.setFontSize(16)
+  doc.text(title, 14, 15)
+  // Date
+  doc.setFontSize(10)
+  doc.setTextColor(100)
+  doc.text(dateStr, 14, 22)
+  doc.setTextColor(0)
+
+  autoTable(doc, {
+    startY: 28,
+    head,
+    body,
+    styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+    headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    margin: { left: 14, right: 14 },
   })
+
+  doc.save(filename || 'report.pdf')
 }

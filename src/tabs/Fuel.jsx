@@ -32,16 +32,21 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 
 function getDateRange(period, customFrom, customTo) {
   const now = new Date()
-  const today = now.toISOString().slice(0, 10)
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  const today = `${y}-${m}-${d}`
   if (period === 'day') return { from: today, to: null }
   if (period === 'week') {
-    const d = new Date(now)
-    d.setDate(d.getDate() - 6)
-    return { from: d.toISOString().slice(0, 10), to: null }
+    const wd = new Date(now)
+    wd.setDate(wd.getDate() - 6)
+    const wy = wd.getFullYear()
+    const wm = String(wd.getMonth() + 1).padStart(2, '0')
+    const wdd = String(wd.getDate()).padStart(2, '0')
+    return { from: `${wy}-${wm}-${wdd}`, to: null }
   }
   if (period === 'month') {
-    const ms = new Date(now.getFullYear(), now.getMonth(), 1)
-    return { from: ms.toISOString().slice(0, 10), to: null }
+    return { from: `${y}-${m}-01`, to: null }
   }
   if (period === 'custom') {
     return { from: customFrom || today, to: customTo || today }

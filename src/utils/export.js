@@ -555,12 +555,25 @@ export async function exportFleetReportExcel(opts) {
   const isMaintenance = (r) => MAINT_CATS.includes((r.category || '').toLowerCase())
 
   // Per-vehicle aggregates (used by Sheet 3 By Vehicle)
-  const vehicleAgg = vehicles.map(v => {
+  // Track assigned entry IDs to avoid double-counting orphaned entries (vehicle_id = null)
+  const assignedFuelIds = new Set()
+  const assignedServiceIds = new Set()
+  const assignedTireIds = new Set()
+  const assignedVehExpIds = new Set()
+
+  const vehicleAgg = vehicles.map((v, vIdx) => {
+    // Include entries matching vehicle_id OR orphaned (null vehicle_id) assigned to first vehicle
+    const matchOrOrphan = (e, field) => e[field || 'vehicle_id'] === v.id || (vIdx === 0 && !e[field || 'vehicle_id'])
     const vTrips = trips.filter(t => t.vehicle_id === v.id)
-    const vFuels = fuels.filter(f => f.vehicle_id === v.id)
-    const vService = serviceRecs.filter(s => s.vehicle_id === v.id)
-    const vTires = tireRecs.filter(t => t.vehicle_id === v.id)
-    const vVehExp = vehicleExps.filter(e => e.vehicle_id === v.id)
+    const vFuels = fuels.filter(f => matchOrOrphan(f, 'vehicle_id'))
+    const vService = serviceRecs.filter(s => matchOrOrphan(s, 'vehicle_id'))
+    const vTires = tireRecs.filter(t => matchOrOrphan(t, 'vehicle_id'))
+    const vVehExp = vehicleExps.filter(e => matchOrOrphan(e, 'vehicle_id'))
+
+    vFuels.forEach(f => assignedFuelIds.add(f.id))
+    vService.forEach(s => assignedServiceIds.add(s.id))
+    vTires.forEach(t => assignedTireIds.add(t.id))
+    vVehExp.forEach(e => assignedVehExpIds.add(e.id))
 
     const income = vTrips.reduce((s, t) => s + (t.income || 0), 0)
     const fuelCost = vFuels.reduce((s, f) => s + (f.cost || 0), 0)

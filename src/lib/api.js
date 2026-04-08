@@ -1910,7 +1910,7 @@ export async function fetchFleetReportExportData(userId, year, month) {
       : Promise.resolve([]),
     // Vehicle expenses: use EXACT same function as dashboard (fetchVehicleExpenses)
     // This is a direct copy of the working dashboard query — no safeQuery wrapper
-    fetchVehicleExpenses(userId).catch(() => []),
+    fetchVehicleExpenses(userId).then(r => { alert('EXPORT fetchVehicleExpenses userId=' + userId + ' total=' + r.length + ' first2=' + JSON.stringify((r || []).slice(0,2))); return r; }).catch(() => []),
     Promise.resolve([]),  // placeholder — dashboard only queries by user_id
     Promise.resolve([]),  // placeholder — dashboard only queries by user_id
     // Byt (personal) expenses: by owner, by all users
@@ -1936,10 +1936,12 @@ export async function fetchFleetReportExportData(userId, year, month) {
   const tireRecs = dedup(tireRecsByOwner, tireRecsByVehicle)
   // vehicleExpsByOwner = result of fetchVehicleExpenses(userId) — exact dashboard function
   // No dedup needed — single source, same as dashboard
+  alert('EXPORT FILTER: vehicleExpsByOwner.length=' + vehicleExpsByOwner.length + ' start=' + start + ' end=' + end + ' dates=' + JSON.stringify(vehicleExpsByOwner.slice(0,3).map(e => e.date)))
   const vehicleExps = vehicleExpsByOwner.filter(e => {
     const d = (e.date || '').slice(0, 10)
     return d >= start && d < end
   })
+  alert('EXPORT AFTER FILTER: vehicleExps.length=' + vehicleExps.length)
   const bytExps = dedup(bytExpsByOwner, bytExpsByAllUsers)
 
   const result = { vehicles, drivers, fuels, trips, serviceRecs, tireRecs, vehicleExps, bytExps, sessions, advances }

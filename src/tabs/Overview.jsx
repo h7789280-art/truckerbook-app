@@ -258,7 +258,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         fetchBytExpenses(userId),
         fetchServiceRecords(userId).catch(() => []),
         fetchInsurance(userId).catch(() => []),
-        fetchVehicleExpenses(userId).catch(() => []),
+        fetchVehicleExpenses(userId).then(r => { alert('DASHBOARD fetchVehicleExpenses userId=' + userId + ' total=' + r.length + ' first2=' + JSON.stringify((r || []).slice(0,2))); return r; }).catch(() => []),
       ])
 
       // Filter to current month

@@ -185,20 +185,21 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
       const vehicleIds = new Set((vehicles || []).map(v => v.id))
       const allVehicleList = [...(vehicles || [])]
 
-      // Collect entries with vehicle_id not matching any known vehicle (e.g. null or profile vehicle)
-      const orphanFuels = fuelEntries.filter(e => !vehicleIds.has(e.vehicle_id))
-      const orphanExps = vehicleExpenses.filter(e => !vehicleIds.has(e.vehicle_id))
-      if (orphanFuels.length > 0 || orphanExps.length > 0) {
-        const p = profile || {}
-        allVehicleList.push({
-          id: '__main__',
-          brand: p.brand || '',
-          model: p.model || '',
-          plate_number: p.plate_number || '',
-          driver_name: p.name || p.full_name || '',
-          _fuels: orphanFuels,
-          _exps: orphanExps,
-        })
+      // Assign entries with null/unknown vehicle_id to the first vehicle (same pattern as FinanceDetails.jsx)
+      const firstVehicle = allVehicleList[0]
+      if (firstVehicle) {
+        const orphanFuels = fuelEntries.filter(e => !vehicleIds.has(e.vehicle_id))
+        const orphanExps = vehicleExpenses.filter(e => !vehicleIds.has(e.vehicle_id))
+        if (orphanFuels.length > 0 || orphanExps.length > 0) {
+          firstVehicle._fuels = [
+            ...(firstVehicle._fuels || fuelEntries.filter(e => e.vehicle_id === firstVehicle.id)),
+            ...orphanFuels,
+          ]
+          firstVehicle._exps = [
+            ...(firstVehicle._exps || vehicleExpenses.filter(e => e.vehicle_id === firstVehicle.id)),
+            ...orphanExps,
+          ]
+        }
       }
 
       // Build per-vehicle entries for vehicle summary + combined "by date" rows

@@ -859,6 +859,7 @@ export async function exportFleetReportExcel(opts) {
 export async function exportToPDF(data, columns, title, filename, locale) {
   const { default: jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
+  const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
 
   const head = [columns.map(c => c.header)]
   const body = data.map(row => columns.map(c => String(row[c.key] ?? '')))
@@ -867,6 +868,13 @@ export async function exportToPDF(data, columns, title, filename, locale) {
     : new Date().toLocaleDateString()
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+
+  // Embed Roboto font for Cyrillic support
+  doc.addFileToVFS('Roboto-Regular.ttf', robotoRegularBase64)
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+  doc.addFileToVFS('Roboto-Bold.ttf', robotoBoldBase64)
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
+  doc.setFont('Roboto', 'normal')
 
   // Title
   doc.setFontSize(16)
@@ -881,7 +889,7 @@ export async function exportToPDF(data, columns, title, filename, locale) {
     startY: 28,
     head,
     body,
-    styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak' },
+    styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', font: 'Roboto' },
     headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     margin: { left: 14, right: 14 },

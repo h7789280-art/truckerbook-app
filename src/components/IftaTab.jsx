@@ -71,12 +71,10 @@ export default function IftaTab({ userId, role, userVehicles }) {
       }}>
         <div style={{ fontSize: '32px', marginBottom: '12px' }}>{'\uD83D\uDCCB'}</div>
         <div style={{ color: theme.text, fontWeight: 600, marginBottom: '8px' }}>
-          IFTA Reporting
+          {t('ifta.reporting')}
         </div>
         <div>
-          IFTA \u043e\u0442\u0447\u0451\u0442\u043d\u043e\u0441\u0442\u044c \u0432\u0435\u0434\u0451\u0442 \u0432\u0430\u0448 \u0440\u0430\u0431\u043e\u0442\u043e\u0434\u0430\u0442\u0435\u043b\u044c.
-          {' '}\u0412\u0441\u0435 \u0432\u0430\u0448\u0438 \u0437\u0430\u043f\u0440\u0430\u0432\u043a\u0438 \u0438 \u0440\u0435\u0439\u0441\u044b \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u043f\u043e\u043f\u0430\u0434\u0430\u044e\u0442 \u0432 \u0435\u0433\u043e \u043a\u0432\u0430\u0440\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0442\u0447\u0451\u0442.
-          {' '}\u0415\u0441\u043b\u0438 \u0443 \u0432\u0430\u0441 \u0432\u043e\u043f\u0440\u043e\u0441\u044b \u2014 \u043e\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044c \u043a \u0434\u0438\u0441\u043f\u0435\u0442\u0447\u0435\u0440\u0443.
+          {t('ifta.driverNotice')}
         </div>
       </div>
     )
@@ -88,6 +86,7 @@ export default function IftaTab({ userId, role, userVehicles }) {
 
 function IftaFullReport({ userId, role, userVehicles }) {
   const { theme } = useTheme()
+  const { t } = useLanguage()
 
   const now = new Date()
   const [quarter, setQuarter] = useState(getCurrentQuarter())
@@ -120,7 +119,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
         if (!cancelled) setReport(data)
       })
       .catch(err => {
-        if (!cancelled) setError(err.message || 'Failed to load IFTA data')
+        if (!cancelled) setError(err.message || t('ifta.errorLoad'))
       })
       .finally(() => {
         if (!cancelled) setLoading(false)
@@ -180,7 +179,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
             color: isPreliminary ? '#f59e0b' : '#22c55e',
             border: '1px solid ' + (isPreliminary ? '#f59e0b44' : '#22c55e44'),
           }}>
-            {isPreliminary ? '\u26A0 Preliminary rates' : '\u2713 Final rates'}
+            {isPreliminary ? '\u26A0 ' + t('ifta.preliminaryRates') : '\u2713 ' + t('ifta.finalRates')}
           </span>
 
           {/* Vehicle selector for company */}
@@ -190,7 +189,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
               onChange={e => setVehicleId(e.target.value)}
               style={selectStyle}
             >
-              <option value="all">All vehicles</option>
+              <option value="all">{t('ifta.allVehicles')}</option>
               {userVehicles.map(v => (
                 <option key={v.id} value={v.id}>
                   {v.brand ? `${v.brand} ${v.model || ''}` : v.plate_number || v.id.slice(0, 8)}
@@ -203,7 +202,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
         {/* Filing deadline hint */}
         {showDeadline && (
           <div style={{ marginTop: '8px', color: theme.dim, fontSize: '12px' }}>
-            Filing deadline: {filingDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            {t('ifta.filingDeadline')}: {filingDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
           </div>
         )}
       </div>
@@ -211,7 +210,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
       {/* Loading */}
       {loading && (
         <div style={{ ...card, textAlign: 'center', padding: '40px 16px' }}>
-          <div style={{ color: theme.dim, fontSize: '14px' }}>Loading IFTA data...</div>
+          <div style={{ color: theme.dim, fontSize: '14px' }}>{t('ifta.loading')}</div>
         </div>
       )}
 
@@ -234,8 +233,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
         <div style={{ ...card, textAlign: 'center', padding: '32px 16px' }}>
           <div style={{ fontSize: '32px', marginBottom: '8px' }}>{'\uD83D\uDCC1'}</div>
           <div style={{ color: theme.dim, fontSize: '13px', lineHeight: '1.6' }}>
-            {'\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u044d\u0442\u043e\u0442 \u043a\u0432\u0430\u0440\u0442\u0430\u043b.'}
-            {' '}{'\u0417\u0430\u0432\u0435\u0440\u0448\u0438\u0442\u0435 \u0445\u043e\u0442\u044f \u0431\u044b \u043e\u0434\u0438\u043d \u0440\u0435\u0439\u0441 \u0441 GPS-\u0442\u0440\u0435\u043a\u0438\u043d\u0433\u043e\u043c, \u0447\u0442\u043e\u0431\u044b \u0441\u0438\u0441\u0442\u0435\u043c\u0430 \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u043b\u0430 \u043c\u0438\u043b\u0438 \u043f\u043e \u0448\u0442\u0430\u0442\u0430\u043c.'}
+            {t('ifta.emptyState')}
           </div>
         </div>
       )}
@@ -247,7 +245,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ borderBottom: '2px solid ' + theme.border }}>
-                  {['State', 'Miles', 'Gal Purch', 'Gal Cons', 'Tax Rate', 'Tax Due', 'Surcharge', 'Net Due'].map((h, i) => (
+                  {[t('ifta.colState'), t('ifta.colMiles'), t('ifta.colGalPurch'), t('ifta.colGalCons'), t('ifta.colTaxRate'), t('ifta.colTaxDue'), t('ifta.colSurcharge'), t('ifta.colNetDue')].map((h, i) => (
                     <th key={i} style={{
                       padding: '8px 4px',
                       textAlign: i === 0 ? 'left' : 'right',
@@ -275,7 +273,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
                     <td style={cellMono(theme)}>{row.gallons_consumed.toFixed(1)}</td>
                     <td style={cellMono(theme)}>
                       {row.tax_rate !== null ? '$' + row.tax_rate.toFixed(4) : (
-                        <span title="No IFTA rate for this jurisdiction">{'\u2014'}</span>
+                        <span title={t('ifta.noRateTooltip')}>{'\u2014'}</span>
                       )}
                     </td>
                     <td style={cellMono(theme)}>
@@ -305,11 +303,11 @@ function IftaFullReport({ userId, role, userVehicles }) {
           {/* Totals cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
             {[
-              { label: 'Total Miles', value: report.totals.total_miles.toFixed(1), color: theme.text },
-              { label: 'Total Gallons', value: report.totals.total_gallons.toFixed(1), color: theme.text },
-              { label: 'Average MPG', value: report.totals.average_mpg !== null ? report.totals.average_mpg.toFixed(1) : '\u2014', color: '#3b82f6' },
+              { label: t('ifta.totalMiles'), value: report.totals.total_miles.toFixed(1), color: theme.text },
+              { label: t('ifta.totalGallons'), value: report.totals.total_gallons.toFixed(1), color: theme.text },
+              { label: t('ifta.averageMpg'), value: report.totals.average_mpg !== null ? report.totals.average_mpg.toFixed(1) : '\u2014', color: '#3b82f6' },
               {
-                label: 'Net Balance',
+                label: t('ifta.netBalance'),
                 value: (report.totals.net_balance <= 0 ? '-' : '') + '$' + Math.abs(report.totals.net_balance).toFixed(2),
                 color: report.totals.net_balance <= 0 ? '#22c55e' : '#ef4444',
                 large: true,
@@ -350,7 +348,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
                 cursor: 'default', opacity: 0.5,
               }}
             >
-              {'\uD83D\uDCBE Save Report'}
+              {'\uD83D\uDCBE ' + t('ifta.saveReport')}
             </button>
             <button
               disabled
@@ -361,11 +359,11 @@ function IftaFullReport({ userId, role, userVehicles }) {
                 cursor: 'default', opacity: 0.5,
               }}
             >
-              {'\uD83D\uDCC4 Export PDF'}
+              {'\uD83D\uDCC4 ' + t('ifta.exportPdf')}
             </button>
           </div>
           <div style={{ textAlign: 'center', color: theme.dim, fontSize: '11px' }}>
-            Save and export coming in next update
+            {t('ifta.comingSoon')}
           </div>
         </>
       )}

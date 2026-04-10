@@ -7,6 +7,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { buildQuarterlyReport } from '../utils/iftaReport'
+import { generateIftaPdf } from '../utils/iftaPdfExport'
 
 function getCurrentQuarter() {
   return Math.ceil((new Date().getMonth() + 1) / 3)
@@ -91,7 +92,7 @@ export default function IftaTab({ userId, role, userVehicles }) {
 
 function IftaFullReport({ userId, role, userVehicles }) {
   const { theme } = useTheme()
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   const now = new Date()
   const [quarter, setQuarter] = useState(getCurrentQuarter())
@@ -105,8 +106,23 @@ function IftaFullReport({ userId, role, userVehicles }) {
 
   // Save state
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const [toast, setToast] = useState(null) // { text, type: 'success' | 'error' }
   const [existingReport, setExistingReport] = useState(null) // saved report for current q/y/vehicle
+  const [profileName, setProfileName] = useState('')
+
+  // Fetch profile name for PDF header (once)
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('profiles')
+      .select('full_name, name, company_name')
+      .eq('id', userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data) setProfileName(data.company_name || data.full_name || data.name || '')
+      })
+  }, [userId])
 
   // Saved reports list
   const [showSavedReports, setShowSavedReports] = useState(false)
@@ -247,6 +263,28 @@ function IftaFullReport({ userId, role, userVehicles }) {
       setExistingReport(data || null)
       // Refresh saved reports list if open
       if (showSavedReports) loadAllSavedReports()
+    }
+  }
+
+  // PDF export handler
+  const handleExportPdf = async () => {
+    if (!report || exporting) return
+    setExporting(true)
+    try {
+      const vLabel = vehicleId === 'all' ? null : getVehicleLabel(vehicleId)
+      await generateIftaPdf({
+        report,
+        quarter,
+        year,
+        vehicleName: vLabel,
+        companyName: profileName,
+        language,
+      })
+      setToast({ text: 'PDF \u2713', type: 'success' })
+    } catch (err) {
+      setToast({ text: err.message || 'PDF export failed', type: 'error' })
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -537,15 +575,22 @@ function IftaFullReport({ userId, role, userVehicles }) {
               }
             </button>
             <button
-              disabled
+              disabled={exporting}
+              onClick={handleExportPdf}
               style={{
                 flex: 1, padding: '12px', borderRadius: '10px',
-                border: '1px solid ' + theme.border, background: theme.card,
-                color: theme.dim, fontSize: '13px', fontWeight: 600,
-                cursor: 'default', opacity: 0.5,
+                border: 'none',
+                background: exporting ? theme.border : 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                color: exporting ? theme.dim : '#fff',
+                fontSize: '13px', fontWeight: 600,
+                cursor: exporting ? 'default' : 'pointer',
+                opacity: exporting ? 0.7 : 1,
               }}
             >
-              {'\uD83D\uDCC4 ' + t('ifta.exportPdfSoon')}
+              {exporting
+                ? '\u23F3 ' + t('common.loading')
+                : '\uD83D\uDCC4 ' + t('ifta.exportPdf')
+              }
             </button>
           </div>
         </>

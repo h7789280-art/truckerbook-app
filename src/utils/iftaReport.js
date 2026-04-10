@@ -77,8 +77,8 @@ export async function buildQuarterlyReport({ supabase, userId, role, vehicleId, 
     .from('trips')
     .select('id')
     .in('user_id', userIds)
-    .gte('created_at', startDate + 'T00:00:00')
-    .lte('created_at', endDate + 'T23:59:59')
+    .gte('date_start', startDate)
+    .lte('date_start', endDate)
 
   if (vehicleId) {
     tripsQuery = tripsQuery.eq('vehicle_id', vehicleId)

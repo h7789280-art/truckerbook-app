@@ -425,9 +425,9 @@ function AppInner() {
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':
-        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} />
+        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} />
       case 'documents':
-        return <DocsTab userId={userId} vehicleId={vehicleId} userRole={userRole} />
+        return <DocsTab userId={userId} vehicleId={vehicleId} userRole={userRole} profile={profile} />
       case 'jobs':
         return <Jobs refreshKey={0} profile={profile} />
       case 'news':

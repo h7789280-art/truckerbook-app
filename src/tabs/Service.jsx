@@ -3,6 +3,7 @@ import { fetchServiceRecords, fetchInsurance, fetchVehicles, addServiceRecord, u
 import DVIRInspection from '../components/DVIRInspection'
 import TrailerInspectionContent from '../components/TrailerInspection'
 import IncidentsContent from '../components/IncidentsSection'
+import BookkeepingHome from '../components/BookkeepingHome'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToExcel } from '../utils/export'
@@ -144,7 +145,7 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service({ userId, activeVehicleId, userRole }) {
+export default function Service({ userId, activeVehicleId, userRole, profile }) {
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState('service')
   const [checkedItems, setCheckedItems] = useState({})
@@ -264,7 +265,7 @@ export default function Service({ userId, activeVehicleId, userRole }) {
           getCheckedCount={getCheckedCount}
         />
       )}
-      {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} userRole={userRole} vehicles={vehicles} />}
+      {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} userRole={userRole} vehicles={vehicles} profile={profile} />}
       {activeTab === 'dvir' && <DVIRInspection userId={userId} vehicleId={activeVehicleId} />}
     </div>
   )
@@ -1986,7 +1987,7 @@ function BolSection({ userId, vehicleId, userRole }) {
 }
 
 /* ===== DOCS TAB ===== */
-export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp }) {
+export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, profile }) {
   const { t } = useLanguage()
   const [activeTile, setActiveTile] = useState(null)
   const isCompany = userRole === 'company'
@@ -2004,8 +2005,11 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp })
 
   const effectiveVehicleId = isCompany ? selectedVehicleId : vehicleId
 
+  const showBookkeeping = (userRole === 'owner_operator' || userRole === 'company') && (profile?.hos_mode === 'usa' || profile?.units === 'imperial')
+
   const TILES = [
     { key: 'documents', icon: '\uD83D\uDCC4', label: t('service.tileDocuments') },
+    ...(showBookkeeping ? [{ key: 'bookkeeping', icon: '\uD83D\uDCBC', label: t('service.tileBookkeeping') }] : []),
     { key: 'bol', icon: '\uD83D\uDCCB', label: t('service.tileBol') },
     { key: 'vehicle_inspection', icon: '\uD83D\uDCF8', label: t('service.tileVehicleInspection') },
     { key: 'trailer_inspection', icon: '\uD83D\uDE9B', label: t('service.tileTrailerInspection') },
@@ -2046,6 +2050,18 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp })
   }
 
   const tileInfo = TILES.find(t2 => t2.key === activeTile)
+
+  // Bookkeeping: skip vehicle selection, BookkeepingHome handles its own navigation
+  if (activeTile === 'bookkeeping') {
+    return (
+      <BookkeepingHome
+        userId={userId}
+        role={userRole}
+        userVehicles={vehicles}
+        onBack={() => setActiveTile(null)}
+      />
+    )
+  }
 
   // Company: vehicle card list (before showing content)
   if (isCompany && !selectedVehicleId) {

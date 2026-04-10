@@ -453,6 +453,7 @@ const translations = {
       tileVehicleInspection: '\u041f\u0440\u0438\u0451\u043c\u043a\u0430 \u043c\u0430\u0448\u0438\u043d\u044b',
       tileTrailerInspection: '\u041f\u0440\u0438\u0451\u043c\u043a\u0430 \u0442\u0440\u0435\u0439\u043b\u0435\u0440\u0430',
       tileFines: '\u0428\u0442\u0440\u0430\u0444\u044b, \u0438\u043d\u0441\u043f\u0435\u043a\u0446\u0438\u0438, \u0430\u0432\u0430\u0440\u0438\u0438',
+      tileBookkeeping: '\u0411\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0438\u044f',
       comingSoon: '\u0421\u043a\u043e\u0440\u043e',
       backToTiles: '\u2190 \u041d\u0430\u0437\u0430\u0434',
       backToVehicles: '\u2190 \u041d\u0430\u0437\u0430\u0434',
@@ -1159,6 +1160,14 @@ const translations = {
       comingSoon: '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435 \u0438 \u044d\u043a\u0441\u043f\u043e\u0440\u0442 \u0431\u0443\u0434\u0443\u0442 \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b \u0432 \u0441\u043b\u0435\u0434\u0443\u044e\u0449\u0435\u043c \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0438',
       noRateTooltip: '\u041d\u0435\u0442 \u0441\u0442\u0430\u0432\u043a\u0438 IFTA \u0434\u043b\u044f \u044d\u0442\u043e\u0439 \u044e\u0440\u0438\u0441\u0434\u0438\u043a\u0446\u0438\u0438',
     },
+    bookkeeping: {
+      title: '\u0411\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0438\u044f',
+      iftaCard: 'IFTA Quarterly',
+      iftaDescription: '\u041a\u0432\u0430\u0440\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u043e\u0442\u0447\u0451\u0442 \u043f\u043e \u0442\u043e\u043f\u043b\u0438\u0432\u043d\u043e\u043c\u0443 \u043d\u0430\u043b\u043e\u0433\u0443',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook \u043f\u0440\u0435\u0434\u043e\u0441\u0442\u0430\u0432\u043b\u044f\u0435\u0442 \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440\u044b, \u043e\u0440\u0433\u0430\u043d\u0430\u0439\u0437\u0435\u0440\u044b \u0438 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u043e\u043d\u043d\u044b\u0435 \u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b \u0438\u0441\u043a\u043b\u044e\u0447\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u0434\u043b\u044f \u043f\u043b\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u043d\u0430\u043b\u043e\u0433\u043e\u0432. \u042d\u0442\u043e \u041d\u0415 \u043d\u0430\u043b\u043e\u0433\u043e\u0432\u0430\u044f \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0438\u044f \u0438 \u041d\u0415 \u0437\u0430\u043c\u0435\u043d\u044f\u0435\u0442 \u043e\u0431\u0440\u0430\u0449\u0435\u043d\u0438\u0435 \u043a \u043b\u0438\u0446\u0435\u043d\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u043e\u043c\u0443 CPA, EA \u0438\u043b\u0438 \u043d\u0430\u043b\u043e\u0433\u043e\u0432\u043e\u043c\u0443 \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442\u0443. \u041f\u0435\u0440\u0435\u0434 \u043f\u043e\u0434\u0430\u0447\u0435\u0439 \u043d\u0430\u043b\u043e\u0433\u043e\u0432\u043e\u0439 \u0434\u0435\u043a\u043b\u0430\u0440\u0430\u0446\u0438\u0438 \u043f\u0440\u043e\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0438\u0440\u0443\u0439\u0442\u0435\u0441\u044c \u0441 \u043a\u0432\u0430\u043b\u0438\u0444\u0438\u0446\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u043c \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0441\u0442\u043e\u043c.',
+    },
   },
   en: {
     tabs: {
@@ -1612,6 +1621,7 @@ const translations = {
       tileVehicleInspection: 'Vehicle inspection',
       tileTrailerInspection: 'Trailer inspection',
       tileFines: 'Fines, inspections, accidents',
+      tileBookkeeping: 'Bookkeeping',
       comingSoon: 'Coming soon',
       backToTiles: '\u2190 Back',
       backToVehicles: '\u2190 Back',
@@ -2318,6 +2328,14 @@ const translations = {
       comingSoon: 'Save and export coming in next update',
       noRateTooltip: 'No IFTA rate for this jurisdiction',
     },
+    bookkeeping: {
+      title: 'Bookkeeping',
+      iftaCard: 'IFTA Quarterly',
+      iftaDescription: 'Quarterly fuel tax report',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook provides calculators, organizers, and informational tools for tax planning purposes only. This is NOT tax advice and does NOT replace consultation with a licensed CPA, Enrolled Agent, or tax preparer. Before filing any tax return, consult a qualified tax professional. TruckerBook is not affiliated with the IRS, IFTA, Inc., or any government agency.',
+    },
   },
   uk: {
     tabs: {
@@ -2771,6 +2789,7 @@ const translations = {
       tileVehicleInspection: '\u041f\u0440\u0438\u0439\u043c\u0430\u043d\u043d\u044f \u043c\u0430\u0448\u0438\u043d\u0438',
       tileTrailerInspection: '\u041f\u0440\u0438\u0439\u043c\u0430\u043d\u043d\u044f \u0442\u0440\u0435\u0439\u043b\u0435\u0440\u0430',
       tileFines: '\u0428\u0442\u0440\u0430\u0444\u0438, \u0456\u043d\u0441\u043f\u0435\u043a\u0446\u0456\u0457, \u0430\u0432\u0430\u0440\u0456\u0457',
+      tileBookkeeping: '\u0411\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0456\u044f',
       comingSoon: '\u0421\u043a\u043e\u0440\u043e',
       backToTiles: '\u2190 \u041d\u0430\u0437\u0430\u0434',
       backToVehicles: '\u2190 \u041d\u0430\u0437\u0430\u0434',
@@ -3476,6 +3495,14 @@ const translations = {
       comingSoon: '\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043d\u043d\u044f \u0442\u0430 \u0435\u043a\u0441\u043f\u043e\u0440\u0442 \u0431\u0443\u0434\u0443\u0442\u044c \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u0456 \u0432 \u043d\u0430\u0441\u0442\u0443\u043f\u043d\u043e\u043c\u0443 \u043e\u043d\u043e\u0432\u043b\u0435\u043d\u043d\u0456',
       noRateTooltip: '\u041d\u0435\u043c\u0430\u0454 \u0441\u0442\u0430\u0432\u043a\u0438 IFTA \u0434\u043b\u044f \u0446\u0456\u0454\u0457 \u044e\u0440\u0438\u0441\u0434\u0438\u043a\u0446\u0456\u0457',
     },
+    bookkeeping: {
+      title: '\u0411\u0443\u0445\u0433\u0430\u043b\u0442\u0435\u0440\u0456\u044f',
+      iftaCard: 'IFTA Quarterly',
+      iftaDescription: '\u041a\u0432\u0430\u0440\u0442\u0430\u043b\u044c\u043d\u0438\u0439 \u0437\u0432\u0456\u0442 \u0437 \u043f\u0430\u043b\u0438\u0432\u043d\u043e\u0433\u043e \u043f\u043e\u0434\u0430\u0442\u043a\u0443',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook \u043d\u0430\u0434\u0430\u0454 \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440\u0438, \u043e\u0440\u0433\u0430\u043d\u0430\u0439\u0437\u0435\u0440\u0438 \u0442\u0430 \u0456\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u0439\u043d\u0456 \u0456\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u0438 \u0432\u0438\u043a\u043b\u044e\u0447\u043d\u043e \u0434\u043b\u044f \u043f\u043b\u0430\u043d\u0443\u0432\u0430\u043d\u043d\u044f \u043f\u043e\u0434\u0430\u0442\u043a\u0456\u0432. \u0426\u0435 \u041d\u0415 \u043f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0430 \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0456\u044f. \u041f\u0435\u0440\u0435\u0434 \u043f\u043e\u0434\u0430\u0447\u0435\u044e \u0434\u0435\u043a\u043b\u0430\u0440\u0430\u0446\u0456\u0457 \u043f\u0440\u043e\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0443\u0439\u0442\u0435\u0441\u044f \u0437 \u043a\u0432\u0430\u043b\u0456\u0444\u0456\u043a\u043e\u0432\u0430\u043d\u0438\u043c \u0441\u043f\u0435\u0446\u0456\u0430\u043b\u0456\u0441\u0442\u043e\u043c.',
+    },
   },
   es: {
     tabs: {
@@ -3928,6 +3955,7 @@ const translations = {
       tileVehicleInspection: 'Inspecci\u00f3n del veh\u00edculo',
       tileTrailerInspection: 'Inspecci\u00f3n del remolque',
       tileFines: 'Multas, inspecciones, accidentes',
+      tileBookkeeping: 'Contabilidad',
       comingSoon: 'Pr\u00f3ximamente',
       backToTiles: '\u2190 Atr\u00e1s',
       backToVehicles: '\u2190 Atr\u00e1s',
@@ -4615,6 +4643,14 @@ const translations = {
       comingSoon: 'Guardado y exportaci\u00f3n disponibles en la pr\u00f3xima actualizaci\u00f3n',
       noRateTooltip: 'No hay tarifa IFTA para esta jurisdicci\u00f3n',
     },
+    bookkeeping: {
+      title: 'Contabilidad',
+      iftaCard: 'IFTA Trimestral',
+      iftaDescription: 'Informe trimestral de impuesto sobre combustible',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook proporciona calculadoras, organizadores y herramientas informativas \u00fanicamente con fines de planificaci\u00f3n fiscal. Esto NO es asesoramiento fiscal y NO sustituye la consulta con un CPA, agente fiscal o preparador de impuestos con licencia. Antes de presentar cualquier declaraci\u00f3n de impuestos, consulte a un profesional fiscal calificado.',
+    },
   },
   de: {
     tabs: {
@@ -5067,6 +5103,7 @@ const translations = {
       tileVehicleInspection: 'Fahrzeug\u00fcbernahme',
       tileTrailerInspection: 'Anh\u00e4nger\u00fcbernahme',
       tileFines: 'Bu\u00dfgelder, Inspektionen, Unf\u00e4lle',
+      tileBookkeeping: 'Buchhaltung',
       comingSoon: 'Bald verf\u00fcgbar',
       backToTiles: '\u2190 Zur\u00fcck',
       backToVehicles: '\u2190 Zur\u00fcck',
@@ -5754,6 +5791,14 @@ const translations = {
       comingSoon: 'Speichern und Export im n\u00e4chsten Update verf\u00fcgbar',
       noRateTooltip: 'Kein IFTA-Steuersatz f\u00fcr diese Jurisdiktion',
     },
+    bookkeeping: {
+      title: 'Buchhaltung',
+      iftaCard: 'IFTA Quartalsbericht',
+      iftaDescription: 'Quartalsbericht zur Kraftstoffsteuer',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook bietet Rechner, Organizer und Informationstools ausschlie\u00dflich f\u00fcr Steuerplanungszwecke. Dies ist KEINE Steuerberatung und ersetzt NICHT die Beratung durch einen lizenzierten Steuerberater. Vor der Abgabe einer Steuererkl\u00e4rung konsultieren Sie einen qualifizierten Steuerexperten.',
+    },
   },
   fr: {
     tabs: {
@@ -6206,6 +6251,7 @@ const translations = {
       tileVehicleInspection: 'R\u00e9ception du v\u00e9hicule',
       tileTrailerInspection: 'R\u00e9ception de la remorque',
       tileFines: 'Amendes, inspections, accidents',
+      tileBookkeeping: 'Comptabilit\u00e9',
       comingSoon: 'Bient\u00f4t',
       backToTiles: '\u2190 Retour',
       backToVehicles: '\u2190 Retour',
@@ -6893,6 +6939,14 @@ const translations = {
       comingSoon: 'Sauvegarde et export disponibles dans la prochaine mise \u00e0 jour',
       noRateTooltip: 'Pas de taux IFTA pour cette juridiction',
     },
+    bookkeeping: {
+      title: 'Comptabilit\u00e9',
+      iftaCard: 'IFTA Trimestriel',
+      iftaDescription: 'Rapport trimestriel de taxe sur le carburant',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook fournit des calculateurs, des organisateurs et des outils informatifs uniquement \u00e0 des fins de planification fiscale. Ceci n\'est PAS un conseil fiscal et ne remplace PAS la consultation d\'un CPA, agent fiscal ou pr\u00e9parateur d\'imp\u00f4ts agr\u00e9\u00e9. Avant de d\u00e9poser une d\u00e9claration fiscale, consultez un professionnel qualifi\u00e9.',
+    },
   },
   tr: {
     tabs: {
@@ -7345,6 +7399,7 @@ const translations = {
       tileVehicleInspection: 'Ara\u00e7 teslim alma',
       tileTrailerInspection: 'R\u00f6mork teslim alma',
       tileFines: 'Cezalar, denetimler, kazalar',
+      tileBookkeeping: 'Muhasebe',
       comingSoon: 'Yak\u0131nda',
       backToTiles: '\u2190 Geri',
       backToVehicles: '\u2190 Geri',
@@ -8032,6 +8087,14 @@ const translations = {
       comingSoon: 'Kaydetme ve d\u0131\u015fa aktarma bir sonraki g\u00fcncellemede kullan\u0131labilir olacak',
       noRateTooltip: 'Bu yetki alan\u0131 i\u00e7in IFTA oran\u0131 yok',
     },
+    bookkeeping: {
+      title: 'Muhasebe',
+      iftaCard: 'IFTA \u00c7eyreklik',
+      iftaDescription: '\u00c7eyreklik yak\u0131t vergisi raporu',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook yaln\u0131zca vergi planlama ama\u00e7l\u0131 hesap makineleri, organiz\u00f6rler ve bilgilendirme ara\u00e7lar\u0131 sunar. Bu vergi dan\u0131\u015fmanl\u0131\u011f\u0131 DE\u011e\u0130LD\u0130R ve lisansl\u0131 bir mali m\u00fc\u015favir ile g\u00f6r\u00fc\u015fmenin yerini ALMAZ. Vergi beyannamesi vermeden \u00f6nce nitelikli bir vergi uzman\u0131na dan\u0131\u015f\u0131n.',
+    },
   },
   pl: {
     tabs: {
@@ -8484,6 +8547,7 @@ const translations = {
       tileVehicleInspection: 'Odbi\u00f3r pojazdu',
       tileTrailerInspection: 'Odbi\u00f3r naczepy',
       tileFines: 'Mandaty, inspekcje, wypadki',
+      tileBookkeeping: 'Ksi\u0119gowo\u015b\u0107',
       comingSoon: 'Wkr\u00f3tce',
       backToTiles: '\u2190 Wstecz',
       backToVehicles: '\u2190 Wstecz',
@@ -9170,6 +9234,14 @@ const translations = {
       exportPdf: 'Eksportuj PDF',
       comingSoon: 'Zapisywanie i eksport dost\u0119pne w nast\u0119pnej aktualizacji',
       noRateTooltip: 'Brak stawki IFTA dla tej jurysdykcji',
+    },
+    bookkeeping: {
+      title: 'Ksi\u0119gowo\u015b\u0107',
+      iftaCard: 'IFTA Kwartalny',
+      iftaDescription: 'Kwartalny raport podatku paliwowego',
+    },
+    legal: {
+      taxDisclaimer: 'TruckerBook udost\u0119pnia kalkulatory, organizery i narz\u0119dzia informacyjne wy\u0142\u0105cznie do cel\u00f3w planowania podatkowego. To NIE jest doradztwo podatkowe i NIE zast\u0119puje konsultacji z licencjonowanym doradc\u0105 podatkowym. Przed z\u0142o\u017ceniem zeznania podatkowego skonsultuj si\u0119 z wykwalifikowanym specjalist\u0105.',
     },
   },
 }

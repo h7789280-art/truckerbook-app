@@ -7,7 +7,6 @@ import { exportToExcel, exportToPDF, exportDriverReportExcel, exportFleetReportE
 import { fetchDriverReportExportData, fetchFleetReportExportData } from '../lib/api'
 import { startTracking, stopTracking, isTracking as isGpsTracking } from '../lib/gpsTracker'
 import TripMap from '../components/TripMap'
-import IftaTab from '../components/IftaTab'
 import { calculateTripStateMiles } from '../utils/iftaCalculator'
 
 function fmt(n) {
@@ -1317,46 +1316,10 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
 
 export default function Trips({ userId, refreshKey, profile }) {
   const { theme } = useTheme()
-  const { t } = useLanguage()
-  const showIfta = profile?.role !== 'job_seeker' && (profile?.hos_mode === 'usa' || profile?.units === 'imperial')
-  const [subTab, setSubTab] = useState('trips')
-  const [iftaVehicles, setIftaVehicles] = useState([])
-
-  useEffect(() => {
-    if (!userId || !showIfta) return
-    fetchVehicles(userId).then(v => setIftaVehicles(v || [])).catch(() => {})
-  }, [userId, showIfta])
-
-  const tabBtn = (key) => ({
-    flex: 1,
-    padding: '10px 4px',
-    borderRadius: '10px',
-    border: subTab === key ? '2px solid #f59e0b' : '1px solid ' + theme.border,
-    background: subTab === key ? '#f59e0b22' : 'transparent',
-    color: subTab === key ? '#f59e0b' : theme.dim,
-    fontSize: '13px',
-    fontWeight: 700,
-    cursor: 'pointer',
-    textAlign: 'center',
-  })
 
   return (
     <div style={{ padding: '16px', paddingBottom: '80px' }}>
-      {showIfta && (
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
-          <button onClick={() => setSubTab('trips')} style={tabBtn('trips', null)}>
-            {'\ud83d\ude9a ' + t('trips.tripsSubTab')}
-          </button>
-          <button onClick={() => setSubTab('ifta')} style={tabBtn('ifta', null)}>
-            {'\ud83d\udcca ' + t('trips.iftaSubTab')}
-          </button>
-        </div>
-      )}
-      {subTab === 'trips' || !showIfta ? (
-        <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} profile={profile} />
-      ) : (
-        <IftaTab userId={userId} role={profile?.role} userVehicles={iftaVehicles} />
-      )}
+      <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} profile={profile} />
     </div>
   )
 }

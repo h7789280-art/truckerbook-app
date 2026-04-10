@@ -2038,7 +2038,6 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, p
               padding: '24px 12px',
               minHeight: '110px',
               textAlign: 'center',
-              ...(idx === TILES.length - 1 ? { gridColumn: '1 / -1', maxWidth: 'calc(50% - 6px)', justifySelf: 'center' } : {}),
             }}
           >
             <div style={{ fontSize: '32px', marginBottom: '10px' }}>{tile.icon}</div>

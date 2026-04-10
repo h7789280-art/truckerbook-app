@@ -2,7 +2,7 @@
 // Roles: owner_operator (own data), company (all drivers), driver (notice only), job_seeker (hidden)
 // Test role switching: UPDATE profiles SET role='company' WHERE id='<your-id>';
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
@@ -39,7 +39,6 @@ function isCurrentOrFutureQuarter(quarter, year) {
 function buildQuarterOptions() {
   const now = new Date()
   const curYear = now.getFullYear()
-  const curQ = getCurrentQuarter()
   const options = []
   // Current year quarters
   for (let q = 1; q <= 4; q++) {
@@ -48,6 +47,12 @@ function buildQuarterOptions() {
   // Previous year Q4
   options.push({ quarter: 4, year: curYear - 1, label: `Q4 ${curYear - 1}` })
   return options
+}
+
+function formatShortDate(dateStr) {
+  if (!dateStr) return ''
+  const d = new Date(dateStr)
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export default function IftaTab({ userId, role, userVehicles }) {
@@ -98,7 +103,24 @@ function IftaFullReport({ userId, role, userVehicles }) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
+  // Save state
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(null) // { text, type: 'success' | 'error' }
+  const [existingReport, setExistingReport] = useState(null) // saved report for current q/y/vehicle
+
+  // Saved reports list
+  const [showSavedReports, setShowSavedReports] = useState(false)
+  const [allSavedReports, setAllSavedReports] = useState([])
+  const [loadingSaved, setLoadingSaved] = useState(false)
+
   const quarterOptions = useMemo(() => buildQuarterOptions(), [])
+
+  // Auto-hide toast after 3 seconds
+  useEffect(() => {
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
 
   // Load report when quarter/year/vehicleId changes
   useEffect(() => {
@@ -128,9 +150,125 @@ function IftaFullReport({ userId, role, userVehicles }) {
     return () => { cancelled = true }
   }, [userId, role, vehicleId, quarter, year])
 
+  // Check for existing saved report when quarter/year/vehicleId changes
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+
+    const vId = vehicleId === 'all' ? null : vehicleId
+    let query = supabase
+      .from('ifta_reports')
+      .select('id, status, created_at, submitted_at')
+      .eq('user_id', userId)
+      .eq('quarter', quarter)
+      .eq('year', year)
+
+    if (vId) {
+      query = query.eq('vehicle_id', vId)
+    } else {
+      query = query.is('vehicle_id', null)
+    }
+
+    query.maybeSingle().then(({ data }) => {
+      if (!cancelled) setExistingReport(data || null)
+    })
+
+    return () => { cancelled = true }
+  }, [userId, quarter, year, vehicleId])
+
+  // Load all saved reports (when expanded)
+  const loadAllSavedReports = useCallback(async () => {
+    setLoadingSaved(true)
+    const { data } = await supabase
+      .from('ifta_reports')
+      .select('id, vehicle_id, quarter, year, status, total_miles, total_tax_due, created_at, submitted_at')
+      .eq('user_id', userId)
+      .order('year', { ascending: false })
+      .order('quarter', { ascending: false })
+    setAllSavedReports(data || [])
+    setLoadingSaved(false)
+  }, [userId])
+
+  useEffect(() => {
+    if (showSavedReports) loadAllSavedReports()
+  }, [showSavedReports, loadAllSavedReports])
+
   const isPreliminary = isCurrentOrFutureQuarter(quarter, year)
   const filingDeadline = getFilingDeadline(quarter, year)
   const showDeadline = !isPreliminary && filingDeadline > now && now.getDate() <= 30
+
+  // Save handler
+  const handleSave = async () => {
+    if (!report || saving) return
+
+    // If existing report, confirm overwrite
+    if (existingReport) {
+      const ok = window.confirm(t('ifta.overwriteConfirm'))
+      if (!ok) return
+    }
+
+    setSaving(true)
+    const isDraft = isPreliminary
+    const status = isDraft ? 'draft' : 'filed'
+    const vId = vehicleId === 'all' ? null : vehicleId
+
+    const row = {
+      user_id: userId,
+      vehicle_id: vId,
+      quarter,
+      year,
+      status,
+      total_miles: report.totals.total_miles,
+      total_gallons: report.totals.total_gallons,
+      total_tax_due: report.totals.net_balance,
+      report_data: report,
+      submitted_at: isDraft ? null : new Date().toISOString(),
+    }
+
+    const { error: saveErr } = await supabase
+      .from('ifta_reports')
+      .upsert(row, { onConflict: 'user_id,vehicle_id,quarter,year' })
+
+    setSaving(false)
+
+    if (saveErr) {
+      setToast({ text: saveErr.message, type: 'error' })
+    } else {
+      setToast({ text: isDraft ? t('ifta.draftSaved') : t('ifta.filingSaved'), type: 'success' })
+      // Refresh existing report badge
+      const rq = supabase
+        .from('ifta_reports')
+        .select('id, status, created_at, submitted_at')
+        .eq('user_id', userId)
+        .eq('quarter', quarter)
+        .eq('year', year)
+      const query = vId ? rq.eq('vehicle_id', vId) : rq.is('vehicle_id', null)
+      const { data } = await query.maybeSingle()
+      setExistingReport(data || null)
+      // Refresh saved reports list if open
+      if (showSavedReports) loadAllSavedReports()
+    }
+  }
+
+  // Navigate to a saved report
+  const navigateToSaved = (r) => {
+    setQuarter(r.quarter)
+    setYear(r.year)
+    if (r.vehicle_id) {
+      setVehicleId(r.vehicle_id)
+    } else {
+      setVehicleId('all')
+    }
+    setShowSavedReports(false)
+  }
+
+  // Find vehicle label
+  const getVehicleLabel = (vId) => {
+    if (!vId) return t('ifta.allVehicles')
+    const v = userVehicles?.find(x => x.id === vId)
+    if (!v) return vId.slice(0, 8)
+    return v.brand ? `${v.brand} ${v.model || ''}`.trim() : (v.plate_number || vId.slice(0, 8))
+  }
 
   const card = {
     background: theme.card,
@@ -150,7 +288,28 @@ function IftaFullReport({ userId, role, userVehicles }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
+
+      {/* Toast notification */}
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          padding: '12px 24px',
+          borderRadius: '10px',
+          fontSize: '14px',
+          fontWeight: 600,
+          color: '#fff',
+          background: toast.type === 'success' ? '#22c55e' : '#ef4444',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          zIndex: 9999,
+          animation: 'fadeIn 0.2s ease',
+        }}>
+          {toast.type === 'success' ? '\u2713 ' : '\u2717 '}{toast.text}
+        </div>
+      )}
 
       {/* Controls */}
       <div style={card}>
@@ -181,6 +340,24 @@ function IftaFullReport({ userId, role, userVehicles }) {
           }}>
             {isPreliminary ? '\u26A0 ' + t('ifta.preliminaryRates') : '\u2713 ' + t('ifta.finalRates')}
           </span>
+
+          {/* Saved report status badge */}
+          {existingReport && (
+            <span style={{
+              padding: '4px 10px',
+              borderRadius: '6px',
+              fontSize: '11px',
+              fontWeight: 600,
+              background: existingReport.status === 'filed' ? '#22c55e18' : theme.card2 || theme.bg,
+              color: existingReport.status === 'filed' ? '#22c55e' : theme.dim,
+              border: '1px solid ' + (existingReport.status === 'filed' ? '#22c55e33' : theme.border),
+            }}>
+              {existingReport.status === 'filed'
+                ? '\u2713 ' + t('ifta.statusFiled') + ' ' + formatShortDate(existingReport.submitted_at)
+                : t('ifta.statusDraft') + ' ' + formatShortDate(existingReport.created_at)
+              }
+            </span>
+          )}
 
           {/* Vehicle selector for company */}
           {role === 'company' && userVehicles && userVehicles.length > 0 && (
@@ -337,18 +514,27 @@ function IftaFullReport({ userId, role, userVehicles }) {
             ))}
           </div>
 
-          {/* Action buttons (disabled placeholders) */}
+          {/* Action buttons */}
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
-              disabled
+              disabled={saving}
+              onClick={handleSave}
               style={{
                 flex: 1, padding: '12px', borderRadius: '10px',
-                border: '1px solid ' + theme.border, background: theme.card,
-                color: theme.dim, fontSize: '13px', fontWeight: 600,
-                cursor: 'default', opacity: 0.5,
+                border: 'none',
+                background: saving ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: saving ? theme.dim : '#fff',
+                fontSize: '13px', fontWeight: 600,
+                cursor: saving ? 'default' : 'pointer',
+                opacity: saving ? 0.7 : 1,
               }}
             >
-              {'\uD83D\uDCBE ' + t('ifta.saveReport')}
+              {saving
+                ? t('common.saving')
+                : isPreliminary
+                  ? '\uD83D\uDCBE ' + t('ifta.saveDraft')
+                  : '\uD83D\uDCBE ' + t('ifta.saveFiling')
+              }
             </button>
             <button
               disabled
@@ -359,13 +545,98 @@ function IftaFullReport({ userId, role, userVehicles }) {
                 cursor: 'default', opacity: 0.5,
               }}
             >
-              {'\uD83D\uDCC4 ' + t('ifta.exportPdf')}
+              {'\uD83D\uDCC4 ' + t('ifta.exportPdfSoon')}
             </button>
           </div>
-          <div style={{ textAlign: 'center', color: theme.dim, fontSize: '11px' }}>
-            {t('ifta.comingSoon')}
-          </div>
         </>
+      )}
+
+      {/* Saved reports toggle */}
+      <div
+        onClick={() => setShowSavedReports(!showSavedReports)}
+        style={{
+          textAlign: 'center',
+          color: '#f59e0b',
+          fontSize: '13px',
+          fontWeight: 600,
+          cursor: 'pointer',
+          padding: '8px',
+          userSelect: 'none',
+        }}
+      >
+        {showSavedReports ? '\u25B2' : '\u25BC'} {t('ifta.savedReports')}
+      </div>
+
+      {/* Saved reports list */}
+      {showSavedReports && (
+        <div style={card}>
+          {loadingSaved ? (
+            <div style={{ textAlign: 'center', color: theme.dim, fontSize: '13px', padding: '16px' }}>
+              {t('common.loading')}
+            </div>
+          ) : allSavedReports.length === 0 ? (
+            <div style={{ textAlign: 'center', color: theme.dim, fontSize: '13px', padding: '16px' }}>
+              {t('ifta.noSavedReports')}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {allSavedReports.map(r => (
+                <div
+                  key={r.id}
+                  onClick={() => navigateToSaved(r)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    padding: '10px 12px',
+                    borderRadius: '8px',
+                    background: theme.bg,
+                    border: '1px solid ' + theme.border,
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    flexWrap: 'wrap',
+                  }}
+                >
+                  <span style={{ fontWeight: 700, color: theme.text, minWidth: '60px' }}>
+                    Q{r.quarter} {r.year}
+                  </span>
+                  <span style={{ color: theme.dim, flex: 1, minWidth: '80px' }}>
+                    {getVehicleLabel(r.vehicle_id)}
+                  </span>
+                  <span style={{
+                    padding: '2px 8px',
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                    background: r.status === 'filed' ? '#22c55e22' : theme.card,
+                    color: r.status === 'filed' ? '#22c55e' : theme.dim,
+                    border: '1px solid ' + (r.status === 'filed' ? '#22c55e44' : theme.border),
+                  }}>
+                    {r.status === 'filed' ? t('ifta.statusFiled') : t('ifta.statusDraft')}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', color: theme.text, minWidth: '60px', textAlign: 'right' }}>
+                    {r.total_miles != null ? r.total_miles.toFixed(0) + ' mi' : '\u2014'}
+                  </span>
+                  <span style={{
+                    fontFamily: 'monospace',
+                    fontWeight: 700,
+                    minWidth: '70px',
+                    textAlign: 'right',
+                    color: r.total_tax_due != null && r.total_tax_due <= 0 ? '#22c55e' : '#ef4444',
+                  }}>
+                    {r.total_tax_due != null
+                      ? (r.total_tax_due <= 0 ? '-' : '') + '$' + Math.abs(r.total_tax_due).toFixed(2)
+                      : '\u2014'
+                    }
+                  </span>
+                  <span style={{ color: theme.dim, fontSize: '11px' }}>
+                    {formatShortDate(r.submitted_at || r.created_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )

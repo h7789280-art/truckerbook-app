@@ -4,6 +4,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { recordAudio, parseExpenseFromVoice } from '../lib/voiceInput'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
+import { stateToCode } from '../utils/usStates'
 
 function getMenuItems(activeTab, t, expensesSubTab) {
   const OVERVIEW_MENU = [
@@ -396,6 +397,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
   const [geoLat, setGeoLat] = useState(null)
   const [geoLon, setGeoLon] = useState(null)
   const [geoState, setGeoState] = useState(null)
+  const [geoStateCode, setGeoStateCode] = useState(null)
   const [receiptFile, setReceiptFile] = useState(null)
   const [receiptPreview, setReceiptPreview] = useState(null)
 
@@ -406,6 +408,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     setGeoLat(null)
     setGeoLon(null)
     setGeoState(null)
+    setGeoStateCode(null)
     if (receiptPreview) URL.revokeObjectURL(receiptPreview)
     setReceiptFile(null)
     setReceiptPreview(null)
@@ -437,6 +440,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
           .then((data) => {
             if (data && data.address && data.address.state) {
               setGeoState(data.address.state)
+              setGeoStateCode(stateToCode(data.address.state))
             }
           })
           .catch(() => {})
@@ -504,6 +508,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
           entry.longitude = geoLon
         }
         if (geoState) entry.state = geoState
+        if (geoStateCode) entry.state_code = geoStateCode
         await addFuel(userId, entry)
         if (onFuelSaved) onFuelSaved()
       } else if (formType === 'trip') {

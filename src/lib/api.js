@@ -26,6 +26,8 @@ export async function uploadReceiptPhoto(userId, category, file, { date, plate, 
   return urlData?.publicUrl || ''
 }
 
+import { stateToCode } from '../utils/usStates.js'
+
 // --- Fuel ---
 
 export async function fetchFuels(userId) {
@@ -57,6 +59,7 @@ export async function addFuel(_userId, entry) {
     latitude: entry.latitude != null ? parseFloat(entry.latitude) : null,
     longitude: entry.longitude != null ? parseFloat(entry.longitude) : null,
     state: entry.state || null,
+    state_code: entry.state_code || stateToCode(entry.state) || null,
     receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('fuel_entries', row)

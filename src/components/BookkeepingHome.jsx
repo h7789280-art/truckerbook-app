@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import IftaTab from './IftaTab'
+import PerDiemTab from './PerDiemTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, onBack }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [activeSection, setActiveSection] = useState(null)
 
-  if (activeSection === 'ifta') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem') {
     return (
       <div>
         <button
@@ -21,7 +22,8 @@ export default function BookkeepingHome({ userId, role, userVehicles, onBack }) 
         >
           {'\u2190 ' + t('bookkeeping.title')}
         </button>
-        <IftaTab userId={userId} role={role} userVehicles={userVehicles} />
+        {activeSection === 'ifta' && <IftaTab userId={userId} role={role} userVehicles={userVehicles} />}
+        {activeSection === 'perDiem' && <PerDiemTab userId={userId} role={role} userVehicles={userVehicles} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -38,6 +40,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, onBack }) 
       icon: '\u26FD',
       title: t('bookkeeping.iftaCard'),
       desc: t('bookkeeping.iftaDescription'),
+    },
+    {
+      key: 'perDiem',
+      icon: '\uD83D\uDCC5',
+      title: t('bookkeeping.perDiemCard'),
+      desc: t('bookkeeping.perDiemDescription'),
     },
   ]
 

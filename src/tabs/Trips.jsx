@@ -7,6 +7,7 @@ import { exportToExcel, exportToPDF, exportDriverReportExcel, exportFleetReportE
 import { fetchDriverReportExportData, fetchFleetReportExportData } from '../lib/api'
 import { startTracking, stopTracking, isTracking as isGpsTracking } from '../lib/gpsTracker'
 import TripMap from '../components/TripMap'
+import { calculateTripStateMiles } from '../utils/iftaCalculator'
 
 function fmt(n) {
   if (n >= 1000) {
@@ -590,6 +591,10 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
     fetchWaypoints(tripId).then(wp => {
       setWaypointCounts(prev => ({ ...prev, [tripId]: wp.length }))
     }).catch(() => {})
+    // IFTA: calculate state miles asynchronously (non-blocking)
+    calculateTripStateMiles(tripId).catch(err => {
+      console.error('IFTA calculateTripStateMiles error:', err)
+    })
   }
 
   const handleDelete = async (id) => {

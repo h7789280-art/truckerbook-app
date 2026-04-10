@@ -310,4 +310,32 @@ CREATE TABLE filing_deadlines (
 
 ---
 
+## 8. КРИТИЧЕСКИЕ ТЕХНИЧЕСКИЕ ЗАМЕТКИ
+
+### Nominatim → Local Polygons (обязательно перед 20+ машин)
+
+Текущая реализация: iftaCalculator.js использует Nominatim reverse geocoding API для определения штата каждой GPS-точки. Лимит Nominatim: 1 запрос/секунду.
+
+Проблема: 50 траков × 500 waypoints = 25,000 запросов = ~7 часов очередь. Неприемлемо для fleet клиентов.
+
+Решение: заменить Nominatim на локальный point-in-polygon по GeoJSON границам штатов (Census Bureau TIGER/Line, публичные данные, ~2MB файл). Функция getStateFromCoords(lat, lng) определяет штат мгновенно без API. Работает офлайн.
+
+Приоритет: ПЕРЕД onboarding любого клиента с 20+ машинами.
+Сложность: 1 промпт Claude Code, ~2 часа работы.
+Файлы: src/utils/statePolygons.js (GeoJSON data + point-in-polygon), замена вызова в iftaCalculator.js.
+
+### GPS-трекинг: многодневные рейсы
+
+Текущее поведение: Pause/Resume НЕ реализовано, только Start/Stop. Waypoints пишутся каждые 60 сек или 500м. Работает в фоне. Offline-очередь через localStorage.
+
+Рекомендация для водителей: один рейс = один дневной отрезок (Start утром, Stop вечером). Многодневный маршрут = несколько рейсов. IFTA суммирует все за квартал.
+
+Будущее улучшение: добавить Pause/Resume для многодневных рейсов без разбивки. Не блокер для MVP.
+
+### Поле даты в trips
+
+Правильное поле для фильтрации рейсов по кварталу: date_start (тип date). НЕ created_at. Исправлено в iftaReport.js (коммит fix(ifta): filter trips by date_start).
+
+---
+
 **END OF ROADMAP**

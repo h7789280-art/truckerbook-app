@@ -51,7 +51,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, onBack }) 
           padding: '0', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '4px',
         }}
       >
-        {'\u2190 ' + t('service.backToTiles')}
+        {t('service.backToTiles')}
       </button>
       <div style={{ fontSize: '18px', fontWeight: 700, color: theme.text, marginBottom: '16px' }}>
         {'\uD83D\uDCBC ' + t('bookkeeping.title')}

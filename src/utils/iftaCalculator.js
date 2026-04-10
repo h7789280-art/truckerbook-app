@@ -141,13 +141,13 @@ export async function calculateTripStateMiles(tripId) {
   // 4. Get trip date for quarter/year
   const { data: trip, error: tripError } = await supabase
     .from('trips')
-    .select('start_date, created_at, vehicle_id, user_id')
+    .select('created_at, vehicle_id, user_id')
     .eq('id', tripId)
     .single()
 
   if (tripError) throw tripError
 
-  const tripDate = new Date(trip.start_date || trip.created_at)
+  const tripDate = new Date(trip.created_at)
   const quarter = getQuarter(tripDate)
   const year = tripDate.getFullYear()
 

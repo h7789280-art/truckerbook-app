@@ -2109,3 +2109,45 @@ export async function deleteIncidentRecord(docId) {
   const { error } = await supabase.from('documents').delete().eq('id', docId)
   if (error) throw error
 }
+
+// --- Driver management (company role) ---
+
+export async function getCompanyDrivers(companyId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, name, phone, role, pay_type, pay_rate, employment_type, company_id, is_active, deactivated_at, created_at')
+    .eq('company_id', companyId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
+export async function deactivateDriver(driverId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ is_active: false, deactivated_at: new Date().toISOString() })
+    .eq('id', driverId)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function reactivateDriver(driverId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ is_active: true, deactivated_at: null })
+    .eq('id', driverId)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}
+
+export async function removeDriverFromCompany(driverId) {
+  const { data, error } = await supabase
+    .from('profiles')
+    .update({ company_id: null, is_active: false })
+    .eq('id', driverId)
+    .select()
+  if (error) throw error
+  return data?.[0]
+}

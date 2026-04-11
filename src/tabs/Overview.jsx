@@ -3,7 +3,7 @@ import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData, getCompanyDrivers, deactivateDriver, reactivateDriver, removeDriverFromCompany } from '../lib/api'
 import { exportToExcel, exportFleetReportExcel, exportFleetReportPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
@@ -114,6 +114,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const fleetExportRef = useRef(null)
   const [achievementStats, setAchievementStats] = useState(null)
   const [showAchievements, setShowAchievements] = useState(false)
+  // Driver management state
+  const [companyDrivers, setCompanyDrivers] = useState([])
+  const [driverFilter, setDriverFilter] = useState('active') // 'all' | 'active' | 'inactive'
+  const [driverConfirmModal, setDriverConfirmModal] = useState(null) // { type: 'deactivate'|'remove', driver }
+  const [driverActionLoading, setDriverActionLoading] = useState(false)
 
   // Close fleet export menu on outside click
   useEffect(() => {
@@ -458,6 +463,61 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       loadDriversComparison()
     }
   }, [fleetTab, fleetData, profile?.role, loadDriversComparison])
+
+  // Load company drivers list for management tab
+  const loadCompanyDrivers = useCallback(async () => {
+    if (!userId) return
+    try {
+      const data = await getCompanyDrivers(userId)
+      setCompanyDrivers(data)
+    } catch (err) {
+      console.error('getCompanyDrivers error:', err)
+    }
+  }, [userId])
+
+  useEffect(() => {
+    if (fleetTab === 'drivers' && profile?.role === 'company') {
+      loadCompanyDrivers()
+    }
+  }, [fleetTab, profile?.role, loadCompanyDrivers])
+
+  const handleDeactivateDriver = async (driverId) => {
+    setDriverActionLoading(true)
+    try {
+      await deactivateDriver(driverId)
+      await loadCompanyDrivers()
+    } catch (err) {
+      console.error('deactivateDriver error:', err)
+    } finally {
+      setDriverActionLoading(false)
+      setDriverConfirmModal(null)
+    }
+  }
+
+  const handleReactivateDriver = async (driverId) => {
+    setDriverActionLoading(true)
+    try {
+      await reactivateDriver(driverId)
+      await loadCompanyDrivers()
+    } catch (err) {
+      console.error('reactivateDriver error:', err)
+    } finally {
+      setDriverActionLoading(false)
+    }
+  }
+
+  const handleRemoveDriver = async (driverId) => {
+    setDriverActionLoading(true)
+    try {
+      await removeDriverFromCompany(driverId)
+      await loadCompanyDrivers()
+    } catch (err) {
+      console.error('removeDriverFromCompany error:', err)
+    } finally {
+      setDriverActionLoading(false)
+      setDriverConfirmModal(null)
+    }
+  }
 
   // Load analytics data
   const loadAnalytics = useCallback(async () => {
@@ -1139,8 +1199,42 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </>
             )
           })()}
-          {/* Vehicle cards — driver-first */}
-          {fleetData.vehicleStats.map((v) => (
+          {/* Fleet tab switcher: Vehicles | Drivers */}
+          <div style={{
+            display: 'flex',
+            gap: '4px',
+            marginBottom: '12px',
+            background: theme.card,
+            borderRadius: '12px',
+            padding: '4px',
+            border: '1px solid ' + theme.border,
+          }}>
+            {[
+              { key: 'vehicles', label: t('overview.vehiclesTab') },
+              { key: 'drivers', label: t('overview.myDrivers') },
+            ].map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setFleetTab(tab.key)}
+                style={{
+                  flex: 1,
+                  padding: '8px 4px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  background: fleetTab === tab.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                  color: fleetTab === tab.key ? '#fff' : theme.dim,
+                  transition: 'all 0.2s',
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {/* Vehicle cards — shown when fleetTab === 'vehicles' */}
+          {fleetTab === 'vehicles' && fleetData.vehicleStats.map((v) => (
             <div
               key={v.id}
               onClick={() => {
@@ -1180,6 +1274,228 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
             </div>
           ))}
+          {/* Drivers management — shown when fleetTab === 'drivers' */}
+          {fleetTab === 'drivers' && (
+            <div>
+              {/* Filter buttons */}
+              <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+                {[
+                  { key: 'active', label: t('overview.filterActive') },
+                  { key: 'inactive', label: t('overview.filterInactive') },
+                  { key: 'all', label: t('overview.filterAll') },
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    onClick={() => setDriverFilter(f.key)}
+                    style={{
+                      padding: '6px 14px',
+                      borderRadius: '10px',
+                      border: '1px solid ' + (driverFilter === f.key ? '#f59e0b' : theme.border),
+                      background: driverFilter === f.key ? 'rgba(245,158,11,0.15)' : theme.card,
+                      color: driverFilter === f.key ? '#f59e0b' : theme.dim,
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+              {/* Driver cards */}
+              {(() => {
+                const filtered = companyDrivers.filter(d => {
+                  if (driverFilter === 'active') return d.is_active !== false
+                  if (driverFilter === 'inactive') return d.is_active === false
+                  return true
+                })
+                if (filtered.length === 0) {
+                  return (
+                    <div style={{ ...cardStyle, textAlign: 'center', padding: '24px', color: theme.dim }}>
+                      {t('overview.noDrivers')}
+                    </div>
+                  )
+                }
+                return filtered.map(driver => (
+                  <div key={driver.id} style={{
+                    ...cardStyle,
+                    marginBottom: '8px',
+                    borderLeft: driver.is_active !== false ? '3px solid #22c55e' : '3px solid #ef4444',
+                    opacity: driver.is_active !== false ? 1 : 0.7,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '6px' }}>
+                      <div>
+                        <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text }}>
+                          {driver.name || driver.phone || driver.id.slice(0, 8)}
+                        </div>
+                        {driver.phone && (
+                          <div style={{ fontSize: '12px', color: theme.dim, marginTop: '2px' }}>
+                            {t('overview.driverPhone')}: {driver.phone}
+                          </div>
+                        )}
+                      </div>
+                      <span style={{
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '3px 10px',
+                        borderRadius: '12px',
+                        background: driver.is_active !== false ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+                        color: driver.is_active !== false ? '#22c55e' : '#ef4444',
+                      }}>
+                        {driver.is_active !== false ? t('overview.driverActive') : t('overview.driverDeactivated')}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', fontSize: '12px', color: theme.dim, marginBottom: '8px' }}>
+                      {driver.role && <span>{t('roles.' + (driver.role === 'driver' ? 'hiredDriver' : driver.role))}</span>}
+                      {driver.pay_type && driver.pay_type !== 'none' && (
+                        <span>{t('overview.driverPayType')}: {driver.pay_type === 'per_mile' ? t('overview.salaryPerKm') : driver.pay_type === 'percent' ? t('overview.salaryPercent') : t('overview.salaryFixed')}</span>
+                      )}
+                      {driver.employment_type && (
+                        <span>{t('overview.driverEmploymentType')}: {driver.employment_type}</span>
+                      )}
+                      {driver.created_at && (
+                        <span>{t('overview.driverJoined')}: {new Date(driver.created_at).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {driver.is_active !== false ? (
+                        <button
+                          onClick={() => setDriverConfirmModal({ type: 'deactivate', driver })}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(239,68,68,0.3)',
+                            background: 'rgba(239,68,68,0.1)',
+                            color: '#ef4444',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {t('overview.deactivateDriver')}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleReactivateDriver(driver.id)}
+                          disabled={driverActionLoading}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(34,197,94,0.3)',
+                            background: 'rgba(34,197,94,0.1)',
+                            color: '#22c55e',
+                            fontSize: '12px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            opacity: driverActionLoading ? 0.5 : 1,
+                          }}
+                        >
+                          {t('overview.reactivateDriver')}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setDriverConfirmModal({ type: 'remove', driver })}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid rgba(239,68,68,0.3)',
+                          background: 'transparent',
+                          color: '#ef4444',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {t('overview.removeDriver')}
+                      </button>
+                    </div>
+                  </div>
+                ))
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Driver management confirmation modal */}
+      {driverConfirmModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          zIndex: 1001,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{
+            background: theme.bg,
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '360px',
+            width: '90%',
+            border: '1px solid ' + theme.border,
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>
+              {driverConfirmModal.type === 'deactivate' ? '\u26a0\ufe0f' : '\ud83d\udea8'}
+            </div>
+            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px', color: theme.text }}>
+              {driverConfirmModal.type === 'deactivate'
+                ? t('overview.confirmDeactivate')
+                : t('overview.confirmRemove')}
+            </div>
+            <div style={{ fontSize: '14px', color: theme.dim, marginBottom: '6px' }}>
+              {driverConfirmModal.driver.name || driverConfirmModal.driver.phone || driverConfirmModal.driver.id.slice(0, 8)}
+            </div>
+            <div style={{ fontSize: '13px', color: theme.dim, marginBottom: '20px' }}>
+              {driverConfirmModal.type === 'deactivate'
+                ? t('overview.confirmDeactivateText')
+                : t('overview.confirmRemoveText')}
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => setDriverConfirmModal(null)}
+                disabled={driverActionLoading}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={() => {
+                  if (driverConfirmModal.type === 'deactivate') {
+                    handleDeactivateDriver(driverConfirmModal.driver.id)
+                  } else {
+                    handleRemoveDriver(driverConfirmModal.driver.id)
+                  }
+                }}
+                disabled={driverActionLoading}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#ef4444',
+                  color: '#fff',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: driverActionLoading ? 0.5 : 1,
+                }}
+              >
+                {driverActionLoading ? t('common.loading') : (driverConfirmModal.type === 'deactivate' ? t('overview.deactivateDriver') : t('overview.removeDriver'))}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

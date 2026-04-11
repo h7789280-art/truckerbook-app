@@ -393,7 +393,7 @@ export async function generateTaxSummaryPdf({
 
   const taxRows = [
     [`${L.seTax} (${seTaxRate}%)`, fmtMoney(seTax)],
-    [`${L.incomeTax} (${incomeTaxRate}%)`, fmtMoney(incomeTax)],
+    [`${L.incomeTax} (${Number(incomeTaxRate).toFixed(1)}%)`, fmtMoney(incomeTax)],
     ['', ''],
     [L.totalTax, fmtMoney(totalTax)],
   ]
@@ -490,7 +490,7 @@ export function exportTaxSummaryExcel({
   rows.push([L.taxEstimates])
   rows.push([`${L.seTax} (${seTaxRate}%)`, { t: 'n', v: seTax, f: `MAX(B${npRow + 1},0)*${seTaxRate / 100}` }])
   const seRow = rows.length
-  rows.push([`${L.incomeTax} (${incomeTaxRate}%)`, { t: 'n', v: incomeTax, f: `MAX(B${npRow + 1},0)*${incomeTaxRate / 100}` }])
+  rows.push([`${L.incomeTax} (${Number(incomeTaxRate).toFixed(1)}%)`, { t: 'n', v: incomeTax, f: `MAX(B${npRow + 1},0)*${incomeTaxRate / 100}` }])
   const itRow = rows.length
   rows.push([])
   rows.push([L.totalTax, { t: 'n', v: totalTax, f: `B${seRow}+B${itRow}` }])

@@ -385,7 +385,7 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
                 color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
               }}>${fmt(seTax)}</div>
               <div style={{ color: theme.dim, fontSize: '9px', marginTop: '2px' }}>
-                92.35% \u00D7 15.3%
+                92.35% × 15.3%
               </div>
             </div>
             <div style={{ ...card, textAlign: 'center' }}>

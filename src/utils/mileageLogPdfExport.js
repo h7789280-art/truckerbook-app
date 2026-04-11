@@ -53,18 +53,27 @@ function fmtDate(d) {
 export async function generateMileageLogPdf(entries, summary, periodLabel, lang) {
   const { default: jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
+  const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
   const L = getLabels(lang)
 
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' })
+
+  // Embed Roboto for Cyrillic support
+  doc.addFileToVFS('Roboto-Regular.ttf', robotoRegularBase64)
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+  doc.addFileToVFS('Roboto-Bold.ttf', robotoBoldBase64)
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
+  doc.setFont('Roboto', 'normal')
+
   const pageW = doc.internal.pageSize.getWidth()
   const margin = 14
 
   // Header
   doc.setFontSize(16)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont('Roboto', 'bold')
   doc.text(L.title, margin, 20)
   doc.setFontSize(11)
-  doc.setFont('helvetica', 'normal')
+  doc.setFont('Roboto', 'normal')
   doc.text(L.subtitle, margin, 27)
 
   doc.setFontSize(9)
@@ -84,7 +93,7 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
     startY: 40,
     head,
     body,
-    styles: { fontSize: 8, cellPadding: 2 },
+    styles: { fontSize: 8, cellPadding: 2, font: 'Roboto' },
     headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
     columnStyles: {
       0: { cellWidth: 25 },
@@ -107,7 +116,7 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
   }
 
   doc.setFontSize(10)
-  doc.setFont('helvetica', 'bold')
+  doc.setFont('Roboto', 'bold')
   doc.setTextColor(0)
   doc.text(`${L.totalBusiness}: ${summary.businessMiles.toLocaleString('en-US', { minimumFractionDigits: 1 })}`, margin, y)
   y += 6
@@ -118,7 +127,7 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
 
   // Disclaimer
   doc.setFontSize(7)
-  doc.setFont('helvetica', 'italic')
+  doc.setFont('Roboto', 'normal')
   doc.setTextColor(130)
   const disclaimerLines = doc.splitTextToSize(L.disclaimer, pageW - margin * 2)
   doc.text(disclaimerLines, margin, y)

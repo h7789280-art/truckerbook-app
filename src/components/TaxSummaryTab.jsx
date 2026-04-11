@@ -4,9 +4,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { calculatePerDiem } from '../utils/perDiemCalculator'
-
-const SE_TAX_RATE = 15.3
-const DEFAULT_INCOME_TAX_RATE = 22
+import { calculateTotalTax } from '../utils/taxCalculator'
 
 function fmt(n) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -44,7 +42,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
   const [depreciation, setDepreciation] = useState(0)
 
   // Tax settings
-  const [taxRate, setTaxRate] = useState(DEFAULT_INCOME_TAX_RATE)
+  const [filingStatus, setFilingStatus] = useState('single')
 
   const yearOptions = useMemo(() => buildYearOptions(), [])
 
@@ -54,16 +52,16 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     return () => clearTimeout(timer)
   }, [toast])
 
-  // Load tax rate from settings
+  // Load filing status from settings
   useEffect(() => {
     if (!userId) return
     supabase
       .from('estimated_tax_settings')
-      .select('income_tax_rate')
+      .select('filing_status')
       .eq('user_id', userId)
       .maybeSingle()
       .then(({ data: s }) => {
-        if (s && s.income_tax_rate != null) setTaxRate(s.income_tax_rate)
+        if (s && s.filing_status) setFilingStatus(s.filing_status)
       })
       .catch(() => {})
   }, [userId])
@@ -201,15 +199,14 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     return () => { cancelled = true }
   }, [userId, role, year])
 
-  // Calculations
+  // Calculations — IRS-accurate
   const depreciationNum = Number(depreciation) || 0
   const totalExpenses = fuelExpenses + repairsExpenses + insuranceExpenses + leaseExpenses + tollExpenses + parkingExpenses + otherExpenses
   const totalDeductions = totalExpenses + perDiemTotal + depreciationNum
   const netProfit = income - totalDeductions
   const positiveNet = Math.max(netProfit, 0)
-  const seTax = positiveNet * (SE_TAX_RATE / 100)
-  const incomeTax = positiveNet * (taxRate / 100)
-  const totalTax = seTax + incomeTax
+  const taxResult = calculateTotalTax(positiveNet, filingStatus)
+  const { totalSETax: seTax, incomeTax, totalTax, effectiveRate } = taxResult
 
   const expenseLines = [
     { key: 'fuel', label: t('taxSummary.fuel'), value: fuelExpenses },
@@ -237,10 +234,11 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
         totalDeductions,
         netProfit,
         seTax,
-        seTaxRate: SE_TAX_RATE,
+        seTaxRate: 15.3,
         incomeTax,
-        incomeTaxRate: taxRate,
+        incomeTaxRate: effectiveRate,
         totalTax,
+        filingStatus,
         language: lang,
         companyName: null,
       })
@@ -268,10 +266,11 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
         totalDeductions,
         netProfit,
         seTax,
-        seTaxRate: SE_TAX_RATE,
+        seTaxRate: 15.3,
         incomeTax,
-        incomeTaxRate: taxRate,
+        incomeTaxRate: effectiveRate,
         totalTax,
+        filingStatus,
         language: lang,
       })
       setToast({ text: 'Excel \u2713', type: 'success' })
@@ -467,7 +466,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
               <div style={{
                 color: theme.dim, fontSize: '9px', textTransform: 'uppercase',
                 letterSpacing: '0.5px', marginBottom: '4px',
-              }}>{t('taxSummary.seTax')} (15.3%)</div>
+              }}>{t('taxSummary.seTax')}</div>
               <div style={{
                 color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
               }}>${fmt(seTax)}</div>
@@ -476,7 +475,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
               <div style={{
                 color: theme.dim, fontSize: '9px', textTransform: 'uppercase',
                 letterSpacing: '0.5px', marginBottom: '4px',
-              }}>{t('taxSummary.incomeTax')} ({taxRate}%)</div>
+              }}>{t('taxSummary.incomeTax')} ({effectiveRate.toFixed(1)}%)</div>
               <div style={{
                 color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
               }}>${fmt(incomeTax)}</div>

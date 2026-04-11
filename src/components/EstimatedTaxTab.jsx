@@ -6,19 +6,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { calculatePerDiem } from '../utils/perDiemCalculator'
-
-const TAX_BRACKETS = [
-  { rate: 10, label: '10%' },
-  { rate: 12, label: '12%' },
-  { rate: 22, label: '22%' },
-  { rate: 24, label: '24%' },
-  { rate: 32, label: '32%' },
-  { rate: 35, label: '35%' },
-  { rate: 37, label: '37%' },
-]
-
-const SE_TAX_RATE = 15.3
-const DEFAULT_INCOME_TAX_RATE = 22
+import { calculateTotalTax, FILING_STATUS_OPTIONS } from '../utils/taxCalculator'
 
 const QUARTERLY_DEADLINES = [
   { quarter: 1, month: 4, day: 15 },  // April 15
@@ -93,8 +81,8 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
   const [expenses, setExpenses] = useState(0)
   const [perDiemAmount, setPerDiemAmount] = useState(0)
 
-  // Tax rate setting
-  const [taxRate, setTaxRate] = useState(DEFAULT_INCOME_TAX_RATE)
+  // Tax settings
+  const [filingStatus, setFilingStatus] = useState('single')
   const [showSettings, setShowSettings] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [toast, setToast] = useState(null)
@@ -109,16 +97,16 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
     return () => clearTimeout(timer)
   }, [toast])
 
-  // Load tax rate setting
+  // Load filing status setting
   useEffect(() => {
     if (!userId) return
     supabase
       .from('estimated_tax_settings')
-      .select('income_tax_rate')
+      .select('filing_status')
       .eq('user_id', userId)
       .maybeSingle()
       .then(({ data: s }) => {
-        if (s && s.income_tax_rate != null) setTaxRate(s.income_tax_rate)
+        if (s && s.filing_status) setFilingStatus(s.filing_status)
       })
       .catch(() => {})  // table may not exist yet — use default
   }, [userId])
@@ -195,7 +183,7 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
     return () => { cancelled = true }
   }, [userId, role, quarter, year])
 
-  // Save tax rate
+  // Save filing status
   const handleSaveSettings = async () => {
     if (savingSettings) return
     setSavingSettings(true)
@@ -204,26 +192,23 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
       .from('estimated_tax_settings')
       .upsert({
         user_id: userId,
-        income_tax_rate: Number(taxRate) || DEFAULT_INCOME_TAX_RATE,
+        filing_status: filingStatus,
       }, { onConflict: 'user_id' })
 
     setSavingSettings(false)
 
     if (saveErr) {
-      // Table might not exist — just use local state
       setToast({ text: t('estimatedTax.settingsSaved'), type: 'success' })
     } else {
       setToast({ text: t('estimatedTax.settingsSaved'), type: 'success' })
     }
   }
 
-  // Calculations
+  // Calculations — IRS-accurate
   const netIncome = income - expenses - perDiemAmount
   const positiveNet = Math.max(netIncome, 0)
-  const seTax = positiveNet * (SE_TAX_RATE / 100)
-  const incomeTax = positiveNet * (taxRate / 100)
-  const totalTax = seTax + incomeTax
-  const quarterlyPayment = totalTax / 4
+  const taxResult = calculateTotalTax(positiveNet, filingStatus)
+  const { totalSETax: seTax, incomeTax, totalTax, quarterlyPayment, effectiveRate, taxableSEIncome, deductibleHalfSE, standardDeduction, taxableIncome } = taxResult
 
   const card = {
     background: theme.card,
@@ -321,7 +306,7 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
             ))}
           </select>
           <div style={{ fontSize: '12px', color: theme.dim, marginLeft: '4px' }}>
-            {t('estimatedTax.taxBracket')}: {taxRate}%
+            {t('estimatedTax.' + FILING_STATUS_OPTIONS.find(o => o.value === filingStatus)?.labelKey)}
           </div>
         </div>
       </div>
@@ -395,16 +380,19 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
               <div style={{
                 color: theme.dim, fontSize: '9px', textTransform: 'uppercase',
                 letterSpacing: '0.5px', marginBottom: '4px',
-              }}>{t('estimatedTax.seTax')} (15.3%)</div>
+              }}>{t('estimatedTax.seTax')}</div>
               <div style={{
                 color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
               }}>${fmt(seTax)}</div>
+              <div style={{ color: theme.dim, fontSize: '9px', marginTop: '2px' }}>
+                92.35% \u00D7 15.3%
+              </div>
             </div>
             <div style={{ ...card, textAlign: 'center' }}>
               <div style={{
                 color: theme.dim, fontSize: '9px', textTransform: 'uppercase',
                 letterSpacing: '0.5px', marginBottom: '4px',
-              }}>{t('estimatedTax.incomeTax')} ({taxRate}%)</div>
+              }}>{t('estimatedTax.incomeTax')} ({effectiveRate.toFixed(1)}%)</div>
               <div style={{
                 color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
               }}>${fmt(incomeTax)}</div>
@@ -496,21 +484,33 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
               <label style={{ fontSize: '12px', color: theme.dim, display: 'block', marginBottom: '4px' }}>
-                {t('estimatedTax.taxBracket')}
+                {t('estimatedTax.filingStatus')}
               </label>
               <select
-                value={taxRate}
-                onChange={e => setTaxRate(Number(e.target.value))}
+                value={filingStatus}
+                onChange={e => setFilingStatus(e.target.value)}
                 style={{ ...selectStyle, width: '100%', boxSizing: 'border-box' }}
               >
-                {TAX_BRACKETS.map(b => (
-                  <option key={b.rate} value={b.rate}>{b.label}</option>
+                {FILING_STATUS_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{t('estimatedTax.' + o.labelKey)}</option>
                 ))}
               </select>
             </div>
 
-            <div style={{ fontSize: '11px', color: theme.dim, lineHeight: '1.5' }}>
-              {t('estimatedTax.taxNote')}
+            <div style={{
+              fontSize: '11px', color: theme.dim, lineHeight: '1.5',
+              background: theme.card2 || theme.bg, borderRadius: '8px', padding: '10px',
+            }}>
+              <div style={{ marginBottom: '4px' }}>{t('estimatedTax.taxNote')}</div>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+                {t('estimatedTax.stdDeduction')}: ${fmt(standardDeduction)}
+              </div>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+                {t('estimatedTax.deductibleHalfSE')}: ${fmt(deductibleHalfSE)}
+              </div>
+              <div style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+                {t('estimatedTax.taxableIncome')}: ${fmt(taxableIncome)}
+              </div>
             </div>
 
             <button

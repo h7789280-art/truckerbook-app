@@ -488,13 +488,13 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
       { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
       { header: `${t('service.odometer')} (${distUnit})`, key: 'odometer' },
       { header: t('service.stoLabel'), key: 'sto' },
-      { header: t('service.receiptPhoto') || '\u0424\u043e\u0442\u043e \u0447\u0435\u043a\u0430', key: 'receipt' },
+      { header: t('service.receiptPhoto'), key: 'receipt' },
     ]
     const rows = filteredRepairs.map(r => ({
       date: r.date || '', category: (catMap[r.category] || catMap.repair).label,
       description: r.description || '', amount: Math.round(r.cost || 0),
       odometer: r.odometer || '', sto: r.service_station || '',
-      receipt: r.receipt_url ? { text: t('service.downloadReceipt') || '\u0421\u043a\u0430\u0447\u0430\u0442\u044c \u0447\u0435\u043a', hyperlink: r.receipt_url } : '',
+      receipt: r.receipt_url ? { text: t('service.downloadReceipt'), hyperlink: r.receipt_url } : '',
     }))
     rows.push({ date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '', receipt: '' })
     const fn = plate ? `${prefix}_${plate}_${ym}.xlsx` : `${prefix}_report_${ym}.xlsx`
@@ -644,8 +644,8 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
               }}
             >
               {showAllRecords
-                ? `\u0421\u043a\u0440\u044b\u0442\u044c \u25B2`
-                : `\u041f\u043e\u043a\u0430\u0437\u0430\u0442\u044c \u0432\u0441\u0435 (${filteredRepairs.length}) \u25BC`}
+                ? `${t('service.hideRecords')} \u25B2`
+                : `${t('service.showAll')} (${filteredRepairs.length}) \u25BC`}
             </button>
           )}
         </>
@@ -777,11 +777,11 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
       console.error('Save service record error:', err)
       const msg = err?.message || ''
       if (msg.includes('relation') && msg.includes('does not exist')) {
-        setSaveError('\u0422\u0430\u0431\u043b\u0438\u0446\u0430 service_records \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d\u0430 \u0432 Supabase. \u0421\u043c. SQL \u0432 \u043a\u043e\u043d\u0441\u043e\u043b\u0438.')
+        setSaveError('Table service_records not found in Supabase. See SQL in console.')
       } else if (msg.includes('violates row-level security') || msg.includes('RLS')) {
-        setSaveError('\u041e\u0448\u0438\u0431\u043a\u0430 \u0434\u043e\u0441\u0442\u0443\u043f\u0430 (RLS). \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u043f\u043e\u043b\u0438\u0442\u0438\u043a\u0438 \u0442\u0430\u0431\u043b\u0438\u0446\u044b.')
+        setSaveError('Access error (RLS). Check table policies.')
       } else {
-        setSaveError(t('service.saveError') || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451.')
+        setSaveError(t('service.saveError'))
       }
     } finally {
       setSaving(false)
@@ -1608,12 +1608,7 @@ function BolSection({ userId, vehicleId, userRole }) {
   const [bolDateTo, setBolDateTo] = useState('')
   const bolInputRef = useRef(null)
 
-  const MONTH_NAMES = [
-    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
-    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
-    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
-    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
-  ]
+  const MONTH_NAMES = t('expenses.monthNames')
 
   const years = []
   for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y)
@@ -1750,7 +1745,7 @@ function BolSection({ userId, vehicleId, userRole }) {
       }
 
       const getFolderName = (vid) => {
-        if (!vid) return '\u0411\u0435\u0437 \u043c\u0430\u0448\u0438\u043d\u044b'
+        if (!vid) return t('vehicle.noVehicle') || 'No vehicle'
         const v = vehicleMap[vid]
         if (!v) return vid.slice(0, 8)
         const namePart = [v.brand, v.model].filter(Boolean).join(' ') || 'Vehicle'
@@ -1830,7 +1825,7 @@ function BolSection({ userId, vehicleId, userRole }) {
               boxShadow: bolFilterMode === mode ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
             }}
           >
-            {mode === 'month' ? (t('common.month') || '\u041c\u0435\u0441\u044f\u0446') : (t('common.period') || '\u041f\u0435\u0440\u0438\u043e\u0434')}
+            {mode === 'month' ? t('common.month') : t('common.period')}
           </button>
         ))}
       </div>
@@ -2498,12 +2493,7 @@ function VehicleInspectionContent({ userId, vehicleId, userRole }) {
   const [photoDateTo, setPhotoDateTo] = useState('')
   const [downloadingPhotos, setDownloadingPhotos] = useState(false)
 
-  const PHOTO_MONTH_NAMES = [
-    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
-    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
-    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
-    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
-  ]
+  const PHOTO_MONTH_NAMES = t('expenses.monthNames')
   const photoYears = []
   for (let y = now2.getFullYear(); y >= now2.getFullYear() - 3; y--) photoYears.push(y)
 
@@ -2586,7 +2576,7 @@ function VehicleInspectionContent({ userId, vehicleId, userRole }) {
       }
 
       const getFolderName = (vid) => {
-        if (!vid) return '\u0411\u0435\u0437 \u043c\u0430\u0448\u0438\u043d\u044b'
+        if (!vid) return t('vehicle.noVehicle') || 'No vehicle'
         const v = vehicleMap[vid]
         if (!v) return vid.slice(0, 8)
         const namePart = [v.brand, v.model].filter(Boolean).join(' ') || 'Vehicle'
@@ -2667,7 +2657,7 @@ function VehicleInspectionContent({ userId, vehicleId, userRole }) {
               boxShadow: photoFilterMode === mode ? '0 1px 3px rgba(0,0,0,0.2)' : 'none',
             }}
           >
-            {mode === 'month' ? (t('common.month') || '\u041c\u0435\u0441\u044f\u0446') : (t('common.period') || '\u041f\u0435\u0440\u0438\u043e\u0434')}
+            {mode === 'month' ? t('common.month') : t('common.period')}
           </button>
         ))}
       </div>

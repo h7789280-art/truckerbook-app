@@ -5,22 +5,8 @@ import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVeh
 import { exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
 
 function formatNumber(n) {
-  return n.toLocaleString('ru-RU')
+  return n.toLocaleString('en-US')
 }
-
-const MONTH_NAMES_RU = [
-  '\u042f\u043d\u0432', '\u0424\u0435\u0432', '\u041c\u0430\u0440',
-  '\u0410\u043f\u0440', '\u041c\u0430\u0439', '\u0418\u044e\u043d',
-  '\u0418\u044e\u043b', '\u0410\u0432\u0433', '\u0421\u0435\u043d',
-  '\u041e\u043a\u0442', '\u041d\u043e\u044f', '\u0414\u0435\u043a',
-]
-
-const MONTH_NAMES_FULL_RU = [
-  '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
-  '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
-  '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
-  '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
-]
 
 export default function FinanceDetails({ userId, profile, onBack }) {
   const { theme } = useTheme()
@@ -248,25 +234,29 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         } else if (groupMode === 'week') {
           const d = new Date(key)
           const day = d.getDate()
-          const mo = MONTH_NAMES_RU[d.getMonth()]
+          const shortNames = t('expenses.monthNamesShort')
+          const mo = shortNames[d.getMonth()]
           return `${day} ${mo}`
         }
         const mo = Number(key.split('-')[1])
-        return MONTH_NAMES_RU[mo - 1]
+        const shortNames = t('expenses.monthNamesShort')
+        return shortNames[mo - 1]
       }
 
       const getFullLabel = (key) => {
+        const fullNames = t('expenses.monthNames')
+        const shortNames = t('expenses.monthNamesShort')
         if (groupMode === 'day') {
           const d = new Date(key)
-          return `${d.getDate()} ${MONTH_NAMES_FULL_RU[d.getMonth()]} ${d.getFullYear()}`
+          return `${d.getDate()} ${fullNames[d.getMonth()]} ${d.getFullYear()}`
         } else if (groupMode === 'week') {
           const d = new Date(key)
           const endW = new Date(d)
           endW.setDate(d.getDate() + 6)
-          return `${d.getDate()} ${MONTH_NAMES_RU[d.getMonth()]} \u2013 ${endW.getDate()} ${MONTH_NAMES_RU[endW.getMonth()]}`
+          return `${d.getDate()} ${shortNames[d.getMonth()]} \u2013 ${endW.getDate()} ${shortNames[endW.getMonth()]}`
         }
         const [yr, mo] = key.split('-').map(Number)
-        return MONTH_NAMES_FULL_RU[mo - 1] + ' ' + yr
+        return fullNames[mo - 1] + ' ' + yr
       }
 
       // Compute per-period salary for fleet mode: use actual driver_pay from trips
@@ -330,8 +320,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         const breakdown = []
         if (bytByCategory.food) breakdown.push({ label: t('overview.foodShort'), value: bytByCategory.food, color: '#22c55e' })
         if (bytByCategory.hotel) breakdown.push({ label: t('overview.housingShort'), value: bytByCategory.hotel, color: '#3b82f6' })
-        if (bytByCategory.shower) breakdown.push({ label: t('byt.shower') || '\u0414\u0443\u0448', value: bytByCategory.shower, color: '#8b5cf6' })
-        if (bytByCategory.laundry) breakdown.push({ label: t('byt.laundry') || '\u0421\u0442\u0438\u0440\u043a\u0430', value: bytByCategory.laundry, color: '#f59e0b' })
+        if (bytByCategory.shower) breakdown.push({ label: t('byt.shower'), value: bytByCategory.shower, color: '#8b5cf6' })
+        if (bytByCategory.laundry) breakdown.push({ label: t('byt.laundry'), value: bytByCategory.laundry, color: '#f59e0b' })
         const otherByt = Object.entries(bytByCategory)
           .filter(([k]) => !['food', 'hotel', 'shower', 'laundry'].includes(k))
           .reduce((s, [, v]) => s + v, 0)
@@ -459,18 +449,18 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   }
 
   const periods = [
-    { key: 'month', label: t('overview.month') || '\u041c\u0435\u0441' },
-    { key: '3m', label: '3 ' + (t('overview.financeMonths') || '\u043c\u0435\u0441') },
-    { key: '6m', label: '6 ' + (t('overview.financeMonths') || '\u043c\u0435\u0441') },
-    { key: 'year', label: t('overview.financeYear') || '\u0413\u043e\u0434' },
-    { key: 'custom', label: t('overview.customPeriod') || '\u041f\u0435\u0440\u0438\u043e\u0434' },
+    { key: 'month', label: t('overview.month') },
+    { key: '3m', label: '3 ' + t('overview.financeMonths') },
+    { key: '6m', label: '6 ' + t('overview.financeMonths') },
+    { key: 'year', label: t('overview.financeYear') },
+    { key: 'custom', label: t('overview.customPeriod') },
   ]
 
   // Mode-specific labels
-  const incomeLabel = isHiredDriver ? (t('pay.earnedMonth') || '\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e') : t('overview.income')
-  const expenseLabel = isHiredDriver ? (t('byt.personalExpenses') || '\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b') : t('overview.expense')
-  const profitLabel = isHiredDriver ? (t('pay.netClean') || '\u0427\u0438\u0441\u0442\u044b\u043c\u0438') : isCompanyRole ? (t('overview.grossProfit') || '\u0412\u0430\u043b\u043e\u0432\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c') : t('overview.netProfit')
-  const headerTitle = isHiredDriver ? (t('pay.myEarnings') || '\u041c\u043e\u0439 \u0437\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a') : (t('overview.analytics') || 'Analytics')
+  const incomeLabel = isHiredDriver ? t('pay.earnedMonth') : t('overview.income')
+  const expenseLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expense')
+  const profitLabel = isHiredDriver ? t('pay.netClean') : isCompanyRole ? t('overview.grossProfit') : t('overview.netProfit')
+  const headerTitle = isHiredDriver ? t('pay.myEarnings') : t('overview.analytics')
 
   // Donut chart
   const renderDonut = () => {
@@ -488,7 +478,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       return { ...e, pct, dashLen, offset }
     })
 
-    const donutLabel = isHiredDriver ? (t('byt.personalExpenses') || '\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b') : t('overview.expenses')
+    const donutLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expenses')
 
     return (
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
@@ -660,7 +650,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       const advancesTotal = data.advances.reduce((s, a) => s + (a.amount || 0), 0)
 
       const vehicleInfo = profile?.brand ? (profile.brand + ' ' + (profile.model || '') + (profile.plate_number ? ' (' + profile.plate_number + ')' : '')) : ''
-      const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+      const monthNames = t('expenses.monthNames')
 
       await exportDriverReportExcel({
         driverName: profile?.full_name || profile?.name || '',
@@ -688,6 +678,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         payDue: payTotal - advancesTotal,
         distLabel,
         cs,
+        t,
         filename: `driver_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
       })
     } catch (err) {
@@ -755,7 +746,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         }
       })
 
-      const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+      const monthNames = t('expenses.monthNames')
 
       await exportFleetReportExcel({
         vehicles,
@@ -837,7 +828,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       {period === 'custom' && (
         <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', alignItems: 'flex-start' }}>
           <div style={{ width: '48%' }}>
-            <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom') || '\u041e\u0442'}</div>
+            <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom')}</div>
             <input
               type="date"
               value={customFrom}
@@ -855,7 +846,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
             />
           </div>
           <div style={{ width: '48%' }}>
-            <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo') || '\u0414\u043e'}</div>
+            <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo')}</div>
             <input
               type="date"
               value={customTo}
@@ -941,7 +932,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
             return (
               <div style={{ ...cardStyle, padding: '10px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ fontSize: '12px', color: theme.dim }}>
-                  {t('overview.salariesLabel') || '\u0417\u0430\u0440\u043f\u043b\u0430\u0442\u044b \u0432\u043e\u0434\u0438\u0442\u0435\u043b\u0435\u0439'}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(totalSalary))} {cs}</span>
+                  {t('overview.salariesLabel')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(totalSalary))} {cs}</span>
                 </div>
                 <div style={{ fontSize: '12px', color: theme.dim }}>
                   {t('overview.netProfit')}: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: netAfterSalary >= 0 ? '#22c55e' : '#ef4444' }}>{formatNumber(Math.round(netAfterSalary))} {cs}</span>
@@ -1112,24 +1103,24 @@ export default function FinanceDetails({ userId, profile, onBack }) {
             const nonEmptyRows = monthlyData.filter(m => m.income !== 0 || m.expense !== 0)
             return (
             <div style={{ ...cardStyle, marginBottom: '12px', padding: '12px' }}>
-              <div style={{ ...dimText, marginBottom: '10px' }}>{t('overview.financeByPeriod') || t('overview.financeByMonth') || '\u0414\u0435\u0442\u0430\u043b\u0438\u0437\u0430\u0446\u0438\u044f'}</div>
+              <div style={{ ...dimText, marginBottom: '10px' }}>{t('overview.financeByPeriod')}</div>
               {nonEmptyRows.length === 0 ? (
                 <div style={{ textAlign: 'center', padding: '20px 0', color: theme.dim, fontSize: '13px' }}>
-                  {t('overview.noDataForPeriod') || '\u041d\u0435\u0442 \u0434\u0430\u043d\u043d\u044b\u0445 \u0437\u0430 \u043f\u0435\u0440\u0438\u043e\u0434'}
+                  {t('overview.noDataForPeriod')}
                 </div>
               ) : (
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${theme.border}` }}>
-                      <th style={{ textAlign: 'left', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>{t('overview.financePeriodCol') || t('overview.financeMonthCol') || '\u041f\u0435\u0440\u0438\u043e\u0434'}</th>
+                      <th style={{ textAlign: 'left', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>{t('overview.financePeriodCol')}</th>
                       <th style={{ textAlign: 'right', padding: '6px 4px', color: '#22c55e', fontWeight: 600, fontSize: '11px' }}>{incomeLabel}</th>
                       <th style={{ textAlign: 'right', padding: '6px 4px', color: '#ef4444', fontWeight: 600, fontSize: '11px' }}>{expenseLabel}</th>
                       {isCompanyRole && (
-                        <th style={{ textAlign: 'right', padding: '6px 4px', color: '#f59e0b', fontWeight: 600, fontSize: '11px' }}>{t('overview.salariesLabel') || '\u0417\u041f'}</th>
+                        <th style={{ textAlign: 'right', padding: '6px 4px', color: '#f59e0b', fontWeight: 600, fontSize: '11px' }}>{t('overview.salariesLabel')}</th>
                       )}
                       <th style={{ textAlign: 'right', padding: '6px 4px', color: theme.dim, fontWeight: 600, fontSize: '11px' }}>
-                        {isCompanyRole ? (t('overview.netProfit') || '\u0427\u0438\u0441\u0442\u0430\u044f') : profitLabel}
+                        {isCompanyRole ? t('overview.netProfit') : profitLabel}
                       </th>
                     </tr>
                   </thead>
@@ -1159,7 +1150,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
                     {/* Totals row */}
                     <tr style={{ borderTop: `2px solid ${theme.border}`, background: `${theme.border}33` }}>
                       <td style={{ padding: '8px 4px', color: theme.text, fontSize: '12px', fontWeight: 700 }}>
-                        {t('overview.total') || '\u0418\u0442\u043e\u0433\u043e'}
+                        {t('overview.total')}
                       </td>
                       <td style={{ padding: '8px 4px', textAlign: 'right', fontFamily: 'monospace', color: '#22c55e', fontSize: '12px', fontWeight: 700 }}>
                         {formatNumber(Math.round(totalIncome))}
@@ -1287,7 +1278,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
               transition: 'opacity 0.2s',
             }}
           >
-            {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.exportExcel') || '\u042d\u043a\u0441\u043f\u043e\u0440\u0442 \u0432 Excel'}
+            {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.exportExcel')}
           </button>
         </>
       )}
@@ -1315,12 +1306,7 @@ function ExportPeriodModal({ theme, t, exporting, onClose, onExport }) {
   const [selYear, setSelYear] = useState(now.getFullYear())
   const [selMonth, setSelMonth] = useState(now.getMonth() + 1)
 
-  const MONTH_NAMES = [
-    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
-    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
-    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
-    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
-  ]
+  const MONTH_NAMES = t('expenses.monthNames')
 
   const years = []
   for (let y = now.getFullYear(); y >= now.getFullYear() - 3; y--) years.push(y)
@@ -1360,16 +1346,16 @@ function ExportPeriodModal({ theme, t, exporting, onClose, onExport }) {
     <div style={overlayStyle} onClick={onClose}>
       <div style={modalStyle} onClick={e => e.stopPropagation()}>
         <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: theme.text }}>
-          {t('finance.exportPeriod') || '\u041f\u0435\u0440\u0438\u043e\u0434 \u044d\u043a\u0441\u043f\u043e\u0440\u0442\u0430'}
+          {t('finance.exportPeriod')}
         </div>
 
         {/* Quick buttons */}
         <div style={{ display: 'flex', gap: '8px', marginBottom: '14px' }}>
           <button style={btnStyle(false)} onClick={() => quickSelect('this')}>
-            {t('finance.thisMonth') || '\u042d\u0442\u043e\u0442 \u043c\u0435\u0441\u044f\u0446'}
+            {t('finance.thisMonth')}
           </button>
           <button style={btnStyle(false)} onClick={() => quickSelect('prev')}>
-            {t('finance.prevMonth') || '\u041f\u0440\u043e\u0448\u043b\u044b\u0439'}
+            {t('finance.prevMonth')}
           </button>
         </div>
 
@@ -1396,7 +1382,7 @@ function ExportPeriodModal({ theme, t, exporting, onClose, onExport }) {
               background: 'transparent', color: theme.dim, fontSize: '14px', fontWeight: 600, cursor: 'pointer',
             }}
           >
-            {t('common.cancel') || '\u041e\u0442\u043c\u0435\u043d\u0430'}
+            {t('common.cancel')}
           </button>
           <button
             onClick={() => onExport(selYear, selMonth)}
@@ -1407,7 +1393,7 @@ function ExportPeriodModal({ theme, t, exporting, onClose, onExport }) {
               color: '#fff', fontSize: '14px', fontWeight: 700, cursor: exporting ? 'default' : 'pointer',
             }}
           >
-            {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.download') || '\u0421\u043a\u0430\u0447\u0430\u0442\u044c'}
+            {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.download')}
           </button>
         </div>
       </div>

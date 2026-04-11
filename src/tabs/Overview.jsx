@@ -29,17 +29,7 @@ function formatTimer(seconds) {
 }
 
 function formatNumber(n) {
-  return n.toLocaleString('ru-RU')
-}
-
-function getMonthName(date) {
-  const months = [
-    '\u042f\u043d\u0432\u0430\u0440\u044c', '\u0424\u0435\u0432\u0440\u0430\u043b\u044c', '\u041c\u0430\u0440\u0442',
-    '\u0410\u043f\u0440\u0435\u043b\u044c', '\u041c\u0430\u0439', '\u0418\u044e\u043d\u044c',
-    '\u0418\u044e\u043b\u044c', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c',
-    '\u041e\u043a\u0442\u044f\u0431\u0440\u044c', '\u041d\u043e\u044f\u0431\u0440\u044c', '\u0414\u0435\u043a\u0430\u0431\u0440\u044c',
-  ]
-  return months[date.getMonth()] + ' ' + date.getFullYear()
+  return n.toLocaleString('en-US')
 }
 
 export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey, onExtraNav, userRole }) {
@@ -139,7 +129,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     setShowFleetExportMenu(false)
     if (!fleetData) return
     const isImperial = unitSys === 'imperial'
-    const distLabel = isImperial ? 'mi' : '\u043a\u043c'
+    const distLabel = isImperial ? 'mi' : (t('overview.kmLabel') || 'km')
     const now2 = new Date()
     const year = now2.getFullYear()
     const month = now2.getMonth() + 1
@@ -171,7 +161,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             driver: v.driver_name || (v.driver_id && driverMap[v.driver_id] ? driverMap[v.driver_id].name : ''),
           }
         })
-        const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+        const monthNames = t('expenses.monthNames')
 
         await exportFleetReportPDF({
           vehicles,
@@ -225,7 +215,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           driver: v.driver_name || (v.driver_id && driverMap[v.driver_id] ? driverMap[v.driver_id].name : ''),
         }
       })
-      const monthNames = ['\u042f\u043d\u0432\u0430\u0440\u044c','\u0424\u0435\u0432\u0440\u0430\u043b\u044c','\u041c\u0430\u0440\u0442','\u0410\u043f\u0440\u0435\u043b\u044c','\u041c\u0430\u0439','\u0418\u044e\u043d\u044c','\u0418\u044e\u043b\u044c','\u0410\u0432\u0433\u0443\u0441\u0442','\u0421\u0435\u043d\u0442\u044f\u0431\u0440\u044c','\u041e\u043a\u0442\u044f\u0431\u0440\u044c','\u041d\u043e\u044f\u0431\u0440\u044c','\u0414\u0435\u043a\u0430\u0431\u0440\u044c']
+      const monthNames = t('expenses.monthNames')
 
       await exportFleetReportExcel({
         vehicles,
@@ -361,8 +351,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           if (daysLeft > 0 && daysLeft < 365) {
             reminderList.push({
               icon: '\ud83d\udcc4',
-              text: ins.type || '\u0421\u0442\u0440\u0430\u0445\u043e\u0432\u043a\u0430',
-              sub: `${daysLeft} \u0434\u043d`,
+              text: ins.type || t('service.insurance'),
+              sub: `${daysLeft} ${t('service.days')}`,
             })
           }
         }
@@ -710,21 +700,21 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           // HOS warnings
           if (hosMode === 'cis') {
             if (next === 30600) { // 8h30m
-              setHosWarning('\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C 30 \u043C\u0438\u043D\u0443\u0442 \u0434\u043E \u043B\u0438\u043C\u0438\u0442\u0430! \u041F\u043B\u0430\u043D\u0438\u0440\u0443\u0439\u0442\u0435 \u043E\u0441\u0442\u0430\u043D\u043E\u0432\u043A\u0443.')
+              setHosWarning('\u26A0\uFE0F ' + t('driving.warningCIS'))
               scheduleHOSWarning(30, t)
             }
           } else {
             if (next === 27000) { // 7h30m
-              setHosWarning('\u26A0\uFE0F \u0427\u0435\u0440\u0435\u0437 30 \u043C\u0438\u043D \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0439 \u043F\u0435\u0440\u0435\u0440\u044B\u0432 30 \u043C\u0438\u043D\u0443\u0442 (DOT)')
+              setHosWarning('\u26A0\uFE0F ' + t('driving.warningUSA'))
               scheduleHOSWarning(30, t)
             }
             if (next === 37800) { // 10h30m
-              setHosWarning('\u26A0\uFE0F \u041E\u0441\u0442\u0430\u043B\u043E\u0441\u044C 30 \u043C\u0438\u043D\u0443\u0442 \u0434\u043E \u0441\u0443\u0442\u043E\u0447\u043D\u043E\u0433\u043E \u043B\u0438\u043C\u0438\u0442\u0430!')
+              setHosWarning('\u26A0\uFE0F ' + t('driving.warningUSA'))
               scheduleHOSWarning(30, t)
             }
           }
           if (next >= hosMaxSeconds) {
-            setHosWarning('\uD83D\uDED1 \u041B\u0418\u041C\u0418\u0422 \u041F\u0420\u0415\u0412\u042B\u0428\u0415\u041D')
+            setHosWarning('\uD83D\uDED1 ' + (t('driving.limitExceeded') || 'LIMIT EXCEEDED'))
           }
           return next
         })
@@ -785,8 +775,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   if (vehicleReportView) {
     const rv = vehicleReportView
     const rd = vehicleReportData
-    const distUnit = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
-    const volUnit = unitSys === 'imperial' ? 'gal' : '\u043b'
+    const distUnit = unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')
+    const volUnit = unitSys === 'imperial' ? 'gal' : t('fuel.litersShort')
     const reportCardStyle = { ...cardStyle, marginBottom: '10px', textAlign: 'center' }
     return (
       <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
@@ -889,8 +879,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   // Driver report view
   if (driverReportView) {
     const dd = driverReportData
-    const distUnit = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
-    const volUnit = unitSys === 'imperial' ? 'gal' : '\u043b'
+    const distUnit = unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')
+    const volUnit = unitSys === 'imperial' ? 'gal' : t('fuel.litersShort')
     return (
       <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
         <button
@@ -1264,7 +1254,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   <div style={{ fontSize: '16px', fontWeight: 700 }}>
                     {[v.brand, v.model].filter(Boolean).join(' ') || v.id.slice(0, 8)}{v.plate_number ? ` \u00b7 ${v.plate_number}` : ''}
                   </div>
-                  {v.driver_name && <div style={{ fontSize: '12px', color: theme.dim, marginTop: '2px' }}>{t('overview.fleetDriver') || '\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c'}: {v.driver_name}</div>}
+                  {v.driver_name && <div style={{ fontSize: '12px', color: theme.dim, marginTop: '2px' }}>{t('overview.fleetDriver')}: {v.driver_name}</div>}
                 </div>
                 <span style={{
                   fontSize: '11px',
@@ -1277,7 +1267,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
                 <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: theme.text }}>
-                  <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                  <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}</span>
                   <span>{'\u26fd'} {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
                   <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
                 </div>
@@ -1639,7 +1629,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               </span>
             </div>
             <div style={{ fontSize: '13px', color: theme.dim, marginBottom: '12px' }}>
-              {t('overview.odometerStart')}{formatNumber(activeShift.odometer_start || 0)}{' '}{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
+              {t('overview.odometerStart')}{formatNumber(activeShift.odometer_start || 0)}{' '}{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
             </div>
             <button
               onClick={() => { setShiftModal('end'); setShiftOdometer('') }}
@@ -1786,9 +1776,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         }}>
           <span>{'\ud83d\ude9b'}</span>
           <span>
-            {t('overview.today') + ' '}{todaySummary.count}{' '}{todaySummary.count === 1 ? '\u0441\u043c\u0435\u043d\u0430' : todaySummary.count < 5 ? '\u0441\u043c\u0435\u043d\u044b' : '\u0441\u043c\u0435\u043d'}
-            {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' '}{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
-            {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{'\u0447 '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{'\u043c\u0438\u043d'}
+            {t('overview.today') + ' '}{todaySummary.count}{' '}{t('shifts.shiftsLabel')}
+            {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' '}{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
+            {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{t('driving.hourShort') + ' '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{t('driving.minShort')}
           </span>
         </div>
       )}
@@ -1891,7 +1881,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 background: 'rgba(34,197,94,0.1)', color: '#22c55e',
                 fontSize: '14px', fontWeight: 600, textAlign: 'center',
               }}>
-                AI: {aiOdometerValue.toLocaleString('ru-RU')} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'} {'\u2705'}
+                AI: {aiOdometerValue.toLocaleString('en-US')} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')} {'\u2705'}
               </div>
             )}
             {aiOdometerStatus === 'error' && (
@@ -1913,7 +1903,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               }}>
                 <span style={{ fontSize: '13px', color: theme.dim }}>{t('overview.forShift')}</span>
                 <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#22c55e' }}>
-                  {Math.max(0, parseInt(shiftOdometer, 10) - (activeShift.odometer_start || 0))}{' '}{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
+                  {Math.max(0, parseInt(shiftOdometer, 10) - (activeShift.odometer_start || 0))}{' '}{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
                 </span>
               </div>
             )}
@@ -1968,7 +1958,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {[
             { key: 'week', label: t('overview.week') },
             { key: 'month', label: t('overview.month') },
-            { key: 'custom', label: t('overview.customPeriod') || '\u041f\u0435\u0440\u0438\u043e\u0434' },
+            { key: 'custom', label: t('overview.customPeriod') },
           ].map(p => (
             <button
               key={p.key}
@@ -1993,7 +1983,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         {shiftPeriod === 'custom' && (
           <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom') || '\u041e\u0442'}</div>
+              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom')}</div>
               <input
                 type="date"
                 value={shiftCustomFrom}
@@ -2011,7 +2001,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               />
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo') || '\u0414\u043e'}</div>
+              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo')}</div>
               <input
                 type="date"
                 value={shiftCustomTo}
@@ -2081,11 +2071,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               const durationH = Math.floor(durationMin / 60)
               const durationM = durationMin % 60
               const durationStr = durationH > 0
-                ? `${durationH}\u0447 ${durationM}\u043c\u0438\u043d`
-                : `${durationM}\u043c\u0438\u043d`
-              const dateStr = start.toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' })
-              const timeStart = start.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
-              const timeEnd = end ? end.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : '\u2014'
+                ? `${durationH}${t('driving.hourShort')} ${durationM}${t('driving.minShort')}`
+                : `${durationM}${t('driving.minShort')}`
+              const dateStr = start.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' })
+              const timeStart = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+              const timeEnd = end ? end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '\u2014'
               const kmDriven = sh.km_driven || 0
               const driverName = sh.driver_name || ''
               const driverColor = driverColorMap[driverName] || theme.dim
@@ -2101,7 +2091,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   {driverName ? (
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                       <span style={{ fontSize: '13px', fontWeight: 600, color: isTeamDriving ? driverColor : theme.text }}>
-                        {driverName} {'\u2014'} {formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}, {durationStr}
+                        {driverName} {'\u2014'} {formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}, {durationStr}
                       </span>
                       <span style={{ fontSize: '12px', color: theme.dim }}>{dateStr}</span>
                     </div>
@@ -2119,7 +2109,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       {!driverName && ` (${durationStr})`}
                     </span>
                     <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>
-                      +{formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}
+                      +{formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
                     </span>
                   </div>
                 </div>
@@ -2139,8 +2129,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 }}
               >
                 {shiftHistoryExpanded
-                  ? `${t('overview.collapse') || '\u0421\u0432\u0435\u0440\u043d\u0443\u0442\u044c'} \u25b2`
-                  : `${t('overview.allShifts') || '\u0412\u0441\u0435 \u0441\u043c\u0435\u043d\u044b'} \u25bc`}
+                  ? `${t('overview.collapse')} \u25b2`
+                  : `${t('overview.allShifts')} \u25bc`}
               </div>
             )}
             </>
@@ -2174,7 +2164,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             {driverStats.map((d, i) => {
               const hours = Math.floor(d.totalMinutes / 60)
               const mins = Math.round(d.totalMinutes % 60)
-              const timeStr = hours > 0 ? `${hours}\u0447 ${mins}\u043c\u0438\u043d` : `${mins}\u043c\u0438\u043d`
+              const timeStr = hours > 0 ? `${hours}${t('driving.hourShort')} ${mins}${t('driving.minShort')}` : `${mins}${t('driving.minShort')}`
               const color = driverColorMap[d.name]
               return (
                 <div key={d.name} style={{
@@ -2190,11 +2180,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <div style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{formatNumber(Math.round(d.totalKm))}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}</div>
                     </div>
                     <div style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{d.count}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{'\u0441\u043c\u0435\u043d'}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('shifts.shiftsLabel')}</div>
                     </div>
                     <div style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{timeStr}</div>
@@ -2418,18 +2408,18 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {role !== 'job_seeker' && role !== 'driver' && !isCompanyRole && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
             {(isCompanyRole ? [
-              { label: t('overview.fleetVehicles') || '\u041c\u0430\u0448\u0438\u043d', value: String(fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : (profile?.brand ? 1 : 0)), unit: '', icon: '\ud83d\ude9b', action: () => {} },
-              { label: t('overview.mileage'), value: formatNumber(Math.round(fleetData ? fleetData.totalKm : monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => {} },
+              { label: t('overview.fleetVehicles'), value: String(fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : (profile?.brand ? 1 : 0)), unit: '', icon: '\ud83d\ude9b', action: () => {} },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(fleetData ? fleetData.totalKm : monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel'), icon: '\ud83d\udee3\ufe0f', action: () => {} },
               { label: t('overview.tripsLabel'), value: String(fleetData ? fleetData.tripCount : monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
-              { label: t('overview.costPerKm'), value: (() => { const km = fleetData ? fleetData.totalKm : monthData.totalKm; const exp = fleetData ? fleetData.totalExpenses : totalExpenses; return km > 0 ? (exp / km).toFixed(1) : '\u2014' })(), unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
+              { label: t('overview.costPerKm'), value: (() => { const km = fleetData ? fleetData.totalKm : monthData.totalKm; const exp = fleetData ? fleetData.totalExpenses : totalExpenses; return km > 0 ? (exp / km).toFixed(1) : '\u2014' })(), unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
             ] : isHiredDriver ? [
-              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel'), icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
               { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
             ] : [
-              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : '\u043a\u043c', icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
-              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : '\u043b/100\u043a\u043c', icon: '\u26fd', action: () => onExtraNav?.('expenses') },
+              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel'), icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
+              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : t('fuel.consumptionUnit') || 'l/100km', icon: '\u26fd', action: () => onExtraNav?.('expenses') },
               { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
-              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : '\u043a\u043c'), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
+              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
             ]).map((item, i) => (
               <div key={i} onClick={item.action} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
                 <div style={{ position: 'absolute', top: '6px', right: '8px', fontSize: '10px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>

@@ -215,7 +215,14 @@ export async function exportDriverReportExcel(opts) {
     payDue,
     distLabel, cs,
     filename,
+    t: _t,
   } = opts
+
+  // Translation helper with fallback
+  const t = typeof _t === 'function' ? _t : (key) => {
+    const fb = { 'excel.sheetSummary': 'Summary', 'excel.sheetTrips': 'Trips', 'excel.sheetExpenses': 'Expenses', 'excel.sheetPaySheet': 'Pay Sheet', 'excel.driver': 'Driver', 'excel.phone': 'Phone', 'excel.vehicle': 'Vehicle', 'excel.period': 'Period', 'excel.trips': 'Trips', 'excel.odometer': 'Odometer', 'excel.hoursOnRoad': 'Hours on road', 'excel.earned': 'Earned', 'excel.personalExpenses': 'Personal Expenses (drivers)', 'excel.netClean': 'Net clean', 'excel.vehicleExpLabel': 'Vehicle expenses', 'excel.amount': 'Amount', 'excel.total': 'TOTAL', 'excel.costPer': 'Cost per', 'excel.tripIncomeLabel': 'Trip income', 'excel.netProfit': 'Net Profit', 'excel.date': 'Date', 'excel.origin': 'From', 'excel.destination': 'To', 'excel.distMiles': 'miles', 'excel.income': 'Income', 'excel.myEarnings': 'My earnings', 'excel.description': 'Description', 'excel.category': 'Category', 'excel.gallons': 'gal', 'excel.route': 'Route', 'excel.rate': 'Rate', 'excel.totalEarned': 'TOTAL earned', 'excel.advancesLabel': 'Advances', 'excel.totalAdvances': 'Total advances', 'excel.toPay': 'TO PAY' }
+    return fb[key] || key
+  }
 
   const wb = new ExcelJS.Workbook()
 
@@ -266,7 +273,7 @@ export async function exportDriverReportExcel(opts) {
   }
 
   // ---- SHEET 1: Summary ----
-  const ws1 = wb.addWorksheet('\u0421\u0432\u043e\u0434\u043a\u0430')
+  const ws1 = wb.addWorksheet(t('excel.sheetSummary'))
 
   const addInfoRow = (label, value) => {
     const r = ws1.addRow([label, value])
@@ -274,26 +281,26 @@ export async function exportDriverReportExcel(opts) {
     r.getCell(2).font = { size: 11 }
   }
 
-  addInfoRow('\u0412\u043e\u0434\u0438\u0442\u0435\u043b\u044c', driverName || '')
-  addInfoRow('\u0422\u0435\u043b\u0435\u0444\u043e\u043d', driverPhone || '')
-  addInfoRow('\u041c\u0430\u0448\u0438\u043d\u0430', vehicleInfo || '')
-  addInfoRow('\u041f\u0435\u0440\u0438\u043e\u0434', period || '')
+  addInfoRow(t('excel.driver'), driverName || '')
+  addInfoRow(t('excel.phone'), driverPhone || '')
+  addInfoRow(t('excel.vehicle'), vehicleInfo || '')
+  addInfoRow(t('excel.period'), period || '')
   ws1.addRow([])
 
-  addInfoRow('\u0420\u0435\u0439\u0441\u043e\u0432', tripsCount ?? 0)
-  addInfoRow('\u041f\u0440\u043e\u0431\u0435\u0433 (' + (distLabel || 'mi') + ')', fmtNum(totalMileage))
-  addInfoRow('\u0427\u0430\u0441\u043e\u0432 \u0437\u0430 \u0440\u0443\u043b\u0451\u043c', fmtNum(totalHours))
+  addInfoRow(t('excel.trips'), tripsCount ?? 0)
+  addInfoRow(t('excel.odometer') + ' (' + (distLabel || 'mi') + ')', fmtNum(totalMileage))
+  addInfoRow(t('excel.hoursOnRoad'), fmtNum(totalHours))
   ws1.addRow([])
 
   if (payType && payType !== 'none') {
-    addInfoRow('\u0417\u0430\u0440\u0430\u0431\u043e\u0442\u0430\u043d\u043e (' + cs + ')', fmtNum(earned))
-    addInfoRow('\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b (' + cs + ')', fmtNum(personalExpenses))
-    addInfoRow('\u0427\u0438\u0441\u0442\u044b\u043c\u0438 (' + cs + ')', fmtNum(netClean))
+    addInfoRow(t('excel.earned') + ' (' + cs + ')', fmtNum(earned))
+    addInfoRow(t('excel.personalExpenses') + ' (' + cs + ')', fmtNum(personalExpenses))
+    addInfoRow(t('excel.netClean') + ' (' + cs + ')', fmtNum(netClean))
     ws1.addRow([])
   }
 
   // Vehicle expenses breakdown
-  const catHeaderRow = ws1.addRow(['\u0420\u0430\u0441\u0445\u043e\u0434\u044b \u043d\u0430 \u043c\u0430\u0448\u0438\u043d\u0443', '\u0421\u0443\u043c\u043c\u0430 (' + cs + ')'])
+  const catHeaderRow = ws1.addRow([t('excel.vehicleExpLabel'), t('excel.amount') + ' (' + cs + ')'])
   catHeaderRow.getCell(1).fill = headerFill
   catHeaderRow.getCell(1).font = headerFont
   catHeaderRow.getCell(2).fill = headerFill
@@ -304,29 +311,29 @@ export async function exportDriverReportExcel(opts) {
       ws1.addRow([cat.label, fmtNum(cat.amount)])
     })
   }
-  const totalRow1 = ws1.addRow(['\u0418\u0422\u041e\u0413\u041e', fmtNum(vehicleExpenseTotal ?? 0)])
+  const totalRow1 = ws1.addRow([t('excel.total'), fmtNum(vehicleExpenseTotal ?? 0)])
   totalRow1.getCell(1).font = { bold: true, size: 11 }
   totalRow1.getCell(2).font = { bold: true, size: 11 }
 
   ws1.addRow([])
-  addInfoRow('\u041f\u0440\u043e\u0431\u0435\u0433 (' + (distLabel || 'mi') + ')', fmtNum(totalMileage))
+  addInfoRow(t('excel.odometer') + ' (' + (distLabel || 'mi') + ')', fmtNum(totalMileage))
   if (totalMileage > 0) {
-    addInfoRow('\u0421\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c/' + (distLabel || 'mi') + ' (' + cs + ')', fmtNum((vehicleExpenseTotal || 0) / totalMileage))
+    addInfoRow(t('excel.costPer') + ' ' + (distLabel || 'mi') + ' (' + cs + ')', fmtNum((vehicleExpenseTotal || 0) / totalMileage))
   }
 
   if (payType === 'none') {
     ws1.addRow([])
-    addInfoRow('\u0414\u043e\u0445\u043e\u0434 \u0440\u0435\u0439\u0441\u043e\u0432 (' + cs + ')', fmtNum(tripIncome))
-    addInfoRow('\u0427\u0438\u0441\u0442\u0430\u044f \u043f\u0440\u0438\u0431\u044b\u043b\u044c (' + cs + ')', fmtNum(netProfit))
+    addInfoRow(t('excel.tripIncomeLabel') + ' (' + cs + ')', fmtNum(tripIncome))
+    addInfoRow(t('excel.netProfit') + ' (' + cs + ')', fmtNum(netProfit))
   }
 
   ws1.getColumn(1).width = 30
   ws1.getColumn(2).width = 20
 
   // ---- SHEET 2: Trips ----
-  const ws2 = wb.addWorksheet('\u0420\u0435\u0439\u0441\u044b')
-  const tripHeaders = ['\u0414\u0430\u0442\u0430', '\u041e\u0442\u043a\u0443\u0434\u0430', '\u041a\u0443\u0434\u0430', '\u041c\u0438\u043b\u0438', '\u0414\u043e\u0445\u043e\u0434 (' + cs + ')']
-  if (payType && payType !== 'none') tripHeaders.push('\u041c\u043e\u0439 \u0437\u0430\u0440\u0430\u0431\u043e\u0442\u043e\u043a (' + cs + ')')
+  const ws2 = wb.addWorksheet(t('excel.sheetTrips'))
+  const tripHeaders = [t('excel.date'), t('excel.origin'), t('excel.destination'), t('excel.distMiles'), t('excel.income') + ' (' + cs + ')']
+  if (payType && payType !== 'none') tripHeaders.push(t('excel.myEarnings') + ' (' + cs + ')')
   ws2.addRow(tripHeaders)
   styleHeaders(ws2, tripHeaders.length)
 
@@ -339,8 +346,8 @@ export async function exportDriverReportExcel(opts) {
   })
 
   // TOTAL row
-  const tripTotalRow = ['\u0418\u0422\u041e\u0413\u041e', '', '', fmtNum((trips || []).reduce((s, t) => s + (t.miles || 0), 0)), fmtNum((trips || []).reduce((s, t) => s + (t.income || 0), 0))]
-  if (payType && payType !== 'none') tripTotalRow.push(fmtNum((trips || []).reduce((s, t) => s + (t.driverPay || 0), 0)))
+  const tripTotalRow = [t('excel.total'), '', '', fmtNum((trips || []).reduce((s, tr2) => s + (tr2.miles || 0), 0)), fmtNum((trips || []).reduce((s, tr2) => s + (tr2.income || 0), 0))]
+  if (payType && payType !== 'none') tripTotalRow.push(fmtNum((trips || []).reduce((s, tr2) => s + (tr2.driverPay || 0), 0)))
   const ttr = ws2.addRow(tripTotalRow)
   ttr.eachCell(c => { c.font = { bold: true, size: 11 } })
 
@@ -348,8 +355,8 @@ export async function exportDriverReportExcel(opts) {
   autoWidth(ws2)
 
   // ---- SHEET 3: Expenses ----
-  const ws3 = wb.addWorksheet('\u0420\u0430\u0441\u0445\u043e\u0434\u044b')
-  const expHeaders = ['\u0414\u0430\u0442\u0430', '\u041e\u043f\u0438\u0441\u0430\u043d\u0438\u0435', '\u041a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f', '\u0413\u0430\u043b\u043b\u043e\u043d\u044b', '\u0421\u0443\u043c\u043c\u0430 (' + cs + ')', '\u041f\u0440\u043e\u0431\u0435\u0433 (' + (distLabel || 'mi') + ')']
+  const ws3 = wb.addWorksheet(t('excel.sheetExpenses'))
+  const expHeaders = [t('excel.date'), t('excel.description'), t('excel.category'), t('excel.gallons'), t('excel.amount') + ' (' + cs + ')', t('excel.odometer') + ' (' + (distLabel || 'mi') + ')']
   ws3.addRow(expHeaders)
   styleHeaders(ws3, expHeaders.length)
 
@@ -359,7 +366,7 @@ export async function exportDriverReportExcel(opts) {
     expRowIdx++
   })
 
-  const expTotalRow = ws3.addRow(['\u0418\u0422\u041e\u0413\u041e', '', '', '', fmtNum((expenses || []).reduce((s, e) => s + (e.amount || 0), 0)), ''])
+  const expTotalRow = ws3.addRow([t('excel.total'), '', '', '', fmtNum((expenses || []).reduce((s, e) => s + (e.amount || 0), 0)), ''])
   expTotalRow.eachCell(c => { c.font = { bold: true, size: 11 } })
 
   styleAltRows(ws3, 2, expRowIdx - 1, expHeaders.length)
@@ -367,8 +374,8 @@ export async function exportDriverReportExcel(opts) {
 
   // ---- SHEET 4: Pay Sheet (only if payType != 'none') ----
   if (payType && payType !== 'none') {
-    const ws4 = wb.addWorksheet('\u0420\u0430\u0441\u0447\u0451\u0442\u043d\u044b\u0439 \u043b\u0438\u0441\u0442')
-    const payHeaders = ['\u0414\u0430\u0442\u0430', '\u041c\u0430\u0440\u0448\u0440\u0443\u0442', '\u041c\u0438\u043b\u0438', '\u0421\u0442\u0430\u0432\u043a\u0430', '\u041d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u043e (' + cs + ')']
+    const ws4 = wb.addWorksheet(t('excel.sheetPaySheet'))
+    const payHeaders = [t('excel.date'), t('excel.route'), t('excel.distMiles'), t('excel.rate'), t('excel.earned') + ' (' + cs + ')']
     ws4.addRow(payHeaders)
     styleHeaders(ws4, payHeaders.length)
 
@@ -382,23 +389,23 @@ export async function exportDriverReportExcel(opts) {
 
     // TOTAL
     ws4.addRow([])
-    const payTotalR = ws4.addRow(['\u0418\u0422\u041e\u0413\u041e \u043d\u0430\u0447\u0438\u0441\u043b\u0435\u043d\u043e', '', '', '', fmtNum(payTotal ?? 0)])
+    const payTotalR = ws4.addRow([t('excel.totalEarned'), '', '', '', fmtNum(payTotal ?? 0)])
     payTotalR.eachCell(c => { c.font = { bold: true, size: 11 } })
 
     // Advances
     if (advances && advances.length > 0) {
       ws4.addRow([])
-      const advHeader = ws4.addRow(['\u0410\u0432\u0430\u043d\u0441\u044b', '', '', '', ''])
+      const advHeader = ws4.addRow([t('excel.advancesLabel'), '', '', '', ''])
       advHeader.getCell(1).font = { bold: true, size: 11 }
       advances.forEach(a => {
         ws4.addRow([a.date, a.note || '', '', '', fmtNum(a.amount)])
       })
-      const advTotalR = ws4.addRow(['\u0418\u0442\u043e\u0433\u043e \u0430\u0432\u0430\u043d\u0441\u044b', '', '', '', fmtNum(advancesTotal ?? 0)])
+      const advTotalR = ws4.addRow([t('excel.totalAdvances'), '', '', '', fmtNum(advancesTotal ?? 0)])
       advTotalR.eachCell(c => { c.font = { bold: true, size: 11 } })
     }
 
     ws4.addRow([])
-    const dueR = ws4.addRow(['\u041a \u0412\u042b\u041f\u041b\u0410\u0422\u0415', '', '', '', fmtNum(payDue ?? 0)])
+    const dueR = ws4.addRow([t('excel.toPay'), '', '', '', fmtNum(payDue ?? 0)])
     dueR.getCell(1).font = { bold: true, size: 12, color: { argb: 'FF' + ORANGE } }
     dueR.getCell(5).font = { bold: true, size: 12, color: { argb: 'FF' + ORANGE } }
 

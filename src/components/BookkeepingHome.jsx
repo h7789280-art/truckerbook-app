@@ -4,6 +4,7 @@ import { useLanguage } from '../lib/i18n'
 import IftaTab from './IftaTab'
 import PerDiemTab from './PerDiemTab'
 import DeadlinesTab from './DeadlinesTab'
+import EstimatedTaxTab from './EstimatedTaxTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
@@ -13,8 +14,9 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   // Drivers only see Per Diem (IFTA and Deadlines are for owner_operator/company only)
   const showIfta = role === 'owner_operator' || role === 'company'
   const showDeadlines = role === 'owner_operator' || role === 'company'
+  const showEstimatedTax = role === 'owner_operator' || role === 'company'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax') {
     return (
       <div>
         <button
@@ -30,6 +32,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'ifta' && showIfta && <IftaTab userId={userId} role={role} userVehicles={userVehicles} />}
         {activeSection === 'perDiem' && <PerDiemTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'deadlines' && showDeadlines && <DeadlinesTab userId={userId} />}
+        {activeSection === 'estimatedTax' && showEstimatedTax && <EstimatedTaxTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -58,6 +61,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83D\uDCC5',
       title: t('bookkeeping.deadlinesCard'),
       desc: t('bookkeeping.deadlinesDescription'),
+    }] : []),
+    ...(showEstimatedTax ? [{
+      key: 'estimatedTax',
+      icon: '\uD83D\uDCB0',
+      title: t('bookkeeping.estimatedTaxCard'),
+      desc: t('bookkeeping.estimatedTaxDescription'),
     }] : []),
   ]
 

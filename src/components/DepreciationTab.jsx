@@ -399,13 +399,6 @@ export default function DepreciationTab({ userId, role, userVehicles, employment
         {t('depreciation.save')}
       </button>
 
-      {/* Info note */}
-      <div style={{
-        fontSize: '11px', color: theme.dim, lineHeight: '1.5',
-        padding: '8px 4px', textAlign: 'center',
-      }}>
-        {t('legal.taxDisclaimer')}
-      </div>
     </div>
   )
 }

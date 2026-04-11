@@ -7,6 +7,7 @@ import DeadlinesTab from './DeadlinesTab'
 import EstimatedTaxTab from './EstimatedTaxTab'
 import TaxSummaryTab from './TaxSummaryTab'
 import DepreciationTab from './DepreciationTab'
+import MileageLogTab from './MileageLogTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
@@ -19,8 +20,9 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const showEstimatedTax = role === 'owner_operator' || role === 'company'
   const showTaxSummary = role === 'owner_operator' || role === 'company'
   const showDepreciation = role === 'owner_operator' || role === 'company'
+  const showMileageLog = role === 'owner_operator' || role === 'company'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog') {
     return (
       <div>
         <button
@@ -39,6 +41,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'estimatedTax' && showEstimatedTax && <EstimatedTaxTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'taxSummary' && showTaxSummary && <TaxSummaryTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'depreciation' && showDepreciation && <DepreciationTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
+        {activeSection === 'mileageLog' && showMileageLog && <MileageLogTab userId={userId} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -85,6 +88,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83D\uDE9B',
       title: t('bookkeeping.depreciationCard'),
       desc: t('bookkeeping.depreciationDescription'),
+    }] : []),
+    ...(showMileageLog ? [{
+      key: 'mileageLog',
+      icon: '\uD83D\uDCCB',
+      title: t('bookkeeping.mileageLogCard'),
+      desc: t('bookkeeping.mileageLogDescription'),
     }] : []),
   ]
 

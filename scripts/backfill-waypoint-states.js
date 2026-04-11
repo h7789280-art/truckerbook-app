@@ -1,11 +1,11 @@
 /**
- * Backfill script: reverse-geocode trip_waypoints to populate state_code.
+ * Backfill script: detect US states for trip_waypoints using local GeoJSON.
  *
  * Usage:
  *   SUPABASE_SERVICE_ROLE_KEY=... node scripts/backfill-waypoint-states.js
  *
  * Reads VITE_SUPABASE_URL from .env (or set SUPABASE_URL directly).
- * Rate-limited to 1 request per 1.1 seconds (Nominatim usage policy).
+ * Uses local point-in-polygon — no API calls, no rate limits.
  */
 
 import { createClient } from '@supabase/supabase-js'
@@ -41,7 +41,7 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   process.exit(1)
 }
 
-// State name -> 2-letter code (inline to avoid ESM import issues with src/)
+// State name -> 2-letter code
 const STATE_NAME_TO_CODE = {
   'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR',
   'California': 'CA', 'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE',
@@ -77,41 +77,70 @@ function stateToCode(state) {
   return null
 }
 
-const NOMINATIM_DELAY_MS = 1100
-const LOG_INTERVAL = 50
+// --- Local GeoJSON point-in-polygon ---
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
+const geojsonPath = resolve(__dirname, '..', 'public', 'data', 'us-states.geojson')
+const geojson = JSON.parse(readFileSync(geojsonPath, 'utf-8'))
+const features = geojson.features
 
-async function reverseGeocode(lat, lng) {
-  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=5&addressdetails=1`
-
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'TruckerBook/1.0 (IFTA backfill script)' },
-  })
-
-  if (!res.ok) {
-    console.warn(`  Nominatim HTTP ${res.status} for ${lat},${lng}`)
-    return null
+function pointInRing(lat, lng, ring) {
+  let inside = false
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const yi = ring[i][1], xi = ring[i][0]
+    const yj = ring[j][1], xj = ring[j][0]
+    if ((yi > lat) !== (yj > lat) &&
+        lng < (xj - xi) * (lat - yi) / (yj - yi) + xi) {
+      inside = !inside
+    }
   }
-
-  const data = await res.json()
-  if (!data.address) return null
-
-  const countryCode = (data.address.country_code || '').toLowerCase()
-  if (countryCode !== 'us' && countryCode !== 'ca') return null
-
-  const stateName = data.address.state
-  return stateToCode(stateName)
+  return inside
 }
 
+function pointInGeometry(lat, lng, geometry) {
+  const { type, coordinates } = geometry
+  if (type === 'Polygon') {
+    if (!pointInRing(lat, lng, coordinates[0])) return false
+    for (let h = 1; h < coordinates.length; h++) {
+      if (pointInRing(lat, lng, coordinates[h])) return false
+    }
+    return true
+  }
+  if (type === 'MultiPolygon') {
+    for (const polygon of coordinates) {
+      if (!pointInRing(lat, lng, polygon[0])) continue
+      let inHole = false
+      for (let h = 1; h < polygon.length; h++) {
+        if (pointInRing(lat, lng, polygon[h])) { inHole = true; break }
+      }
+      if (!inHole) return true
+    }
+    return false
+  }
+  return false
+}
+
+function getStateFromCoords(lat, lng) {
+  const inCONUS = lat >= 24.5 && lat <= 49.5 && lng >= -125 && lng <= -66.5
+  const inAlaska = lat >= 51 && lat <= 71.5 && lng >= -180 && lng <= -129.5
+  const inHawaii = lat >= 18.5 && lat <= 22.5 && lng >= -161 && lng <= -154.5
+  if (!inCONUS && !inAlaska && !inHawaii) return null
+
+  for (const feature of features) {
+    if (pointInGeometry(lat, lng, feature.geometry)) {
+      return stateToCode(feature.properties.name)
+    }
+  }
+  return null
+}
+
+// ---
+
+const LOG_INTERVAL = 500
 const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY)
 
 async function run() {
-  console.log('Backfill trip_waypoints.state_code via Nominatim reverse geocoding...\n')
+  console.log('Backfill trip_waypoints.state_code via local GeoJSON point-in-polygon...\n')
 
-  // Fetch all waypoints where state_code IS NULL
   const { data: rows, error } = await supabase
     .from('trip_waypoints')
     .select('id, latitude, longitude')
@@ -131,9 +160,6 @@ async function run() {
     return
   }
 
-  const estimated = Math.ceil(rows.length * NOMINATIM_DELAY_MS / 1000 / 60)
-  console.log(`Estimated time: ~${estimated} minutes (rate limited to 1 req/1.1s)\n`)
-
   let updated = 0
   let skipped = 0
   let errors = 0
@@ -142,7 +168,7 @@ async function run() {
     const row = rows[i]
 
     try {
-      const stateCode = await reverseGeocode(row.latitude, row.longitude)
+      const stateCode = getStateFromCoords(row.latitude, row.longitude)
 
       if (stateCode) {
         const { error: updErr } = await supabase
@@ -157,27 +183,21 @@ async function run() {
           updated++
         }
       } else {
-        skipped++ // Outside US/CA or geocoding failed
+        skipped++
       }
     } catch (err) {
       console.error(`  Error processing ${row.id}:`, err.message)
       errors++
     }
 
-    // Log progress every LOG_INTERVAL records
     if ((i + 1) % LOG_INTERVAL === 0 || i === rows.length - 1) {
       console.log(`  Progress: ${i + 1} / ${rows.length} (updated: ${updated}, skipped: ${skipped}, errors: ${errors})`)
-    }
-
-    // Rate limit
-    if (i < rows.length - 1) {
-      await sleep(NOMINATIM_DELAY_MS)
     }
   }
 
   console.log(`\nDone!`)
   console.log(`  Updated: ${updated}`)
-  console.log(`  Skipped (non-US/CA or failed geocode): ${skipped}`)
+  console.log(`  Skipped (non-US or failed): ${skipped}`)
   console.log(`  Errors: ${errors}`)
 }
 

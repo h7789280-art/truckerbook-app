@@ -1,53 +1,11 @@
 /**
  * IFTA State Miles Calculator
- * Reverse-geocodes trip waypoints via Nominatim and calculates
- * miles driven per US/CA state/province for IFTA reporting.
+ * Detects US states via local GeoJSON point-in-polygon and calculates
+ * miles driven per state for IFTA reporting. No external API calls.
  */
 
 import { supabase } from '../lib/supabase'
-import { stateToCode } from './usStates'
-
-const NOMINATIM_DELAY_MS = 1100 // Nominatim usage policy: max 1 req/sec
-
-/**
- * Sleep helper for rate limiting
- */
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-/**
- * Reverse-geocode a lat/lng via Nominatim.
- * Returns { state_code, country_code } or null if not in US/CA.
- */
-export async function reverseGeocodeWaypoint(lat, lng) {
-  const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&zoom=5&addressdetails=1`
-
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'TruckerBook/1.0 (IFTA mileage calculator)' },
-  })
-
-  if (!res.ok) {
-    console.warn(`Nominatim HTTP ${res.status} for ${lat},${lng}`)
-    return null
-  }
-
-  const data = await res.json()
-  if (!data.address) return null
-
-  const countryCode = (data.address.country_code || '').toLowerCase()
-
-  // Only US and CA are IFTA jurisdictions
-  if (countryCode !== 'us' && countryCode !== 'ca') return null
-
-  const stateName = data.address.state
-  if (!stateName) return null
-
-  const stateCode = stateToCode(stateName)
-  if (!stateCode) return null
-
-  return { state_code: stateCode, country_code: countryCode }
-}
+import { getStateFromCoords } from './geoUtils'
 
 /**
  * Haversine distance between two points in miles.
@@ -93,22 +51,19 @@ export async function calculateTripStateMiles(tripId) {
   if (wpError) throw wpError
   if (!waypoints || waypoints.length < 2) return {}
 
-  // 2. Reverse-geocode waypoints missing state_code
+  // 2. Detect states for waypoints missing state_code (local GeoJSON, no API)
   for (const wp of waypoints) {
     if (wp.state_code) continue
 
-    const geo = await reverseGeocodeWaypoint(wp.latitude, wp.longitude)
-    if (geo) {
-      wp.state_code = geo.state_code
+    const stateCode = await getStateFromCoords(wp.latitude, wp.longitude)
+    if (stateCode) {
+      wp.state_code = stateCode
       // Persist to DB
       await supabase
         .from('trip_waypoints')
-        .update({ state_code: geo.state_code })
+        .update({ state_code: stateCode })
         .eq('id', wp.id)
     }
-
-    // Rate limit — always wait even if geo failed
-    await sleep(NOMINATIM_DELAY_MS)
   }
 
   // 3. Calculate miles per state from consecutive pairs

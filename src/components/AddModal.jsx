@@ -4,7 +4,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { recordAudio, parseExpenseFromVoice } from '../lib/voiceInput'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
-import { stateToCode } from '../utils/usStates'
+import { getStateFromCoords } from '../utils/geoUtils'
 
 function getMenuItems(activeTab, t, expensesSubTab) {
   const OVERVIEW_MENU = [
@@ -435,12 +435,11 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
         const lon = pos.coords.longitude
         setGeoLat(lat)
         setGeoLon(lon)
-        fetch('https://nominatim.openstreetmap.org/reverse?lat=' + lat + '&lon=' + lon + '&format=json&accept-language=en')
-          .then((r) => r.json())
-          .then((data) => {
-            if (data && data.address && data.address.state) {
-              setGeoState(data.address.state)
-              setGeoStateCode(stateToCode(data.address.state))
+        getStateFromCoords(lat, lon)
+          .then((code) => {
+            if (code) {
+              setGeoState(code)
+              setGeoStateCode(code)
             }
           })
           .catch(() => {})

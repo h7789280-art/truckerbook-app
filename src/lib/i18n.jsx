@@ -276,6 +276,9 @@ const translations = {
       enterCode: '\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043a\u043e\u0434 \u0438\u0437 SMS',
       inviteTitle: '\u041f\u0440\u0438\u0433\u043b\u0430\u0448\u0435\u043d\u0438\u0435',
       inviteSubtitle: '\u0412\u0430\u0441 \u043f\u0440\u0438\u0433\u043b\u0430\u0441\u0438\u043b\u0438 \u0432 TruckerBook',
+      employmentType: '\u0422\u0438\u043f \u0442\u0440\u0443\u0434\u043e\u0443\u0441\u0442\u0440\u043e\u0439\u0441\u0442\u0432\u0430',
+      w2Employee: 'W-2 \u0421\u043e\u0442\u0440\u0443\u0434\u043d\u0438\u043a',
+      contractor1099: '1099 \u041d\u0435\u0437\u0430\u0432\u0438\u0441\u0438\u043c\u044b\u0439 \u043f\u043e\u0434\u0440\u044f\u0434\u0447\u0438\u043a',
     },
     gps: {
       startTracking: '\u041d\u0430\u0447\u0430\u0442\u044c \u0442\u0440\u0435\u043a\u0438\u043d\u0433',
@@ -1193,6 +1196,9 @@ const translations = {
       emptyState: '\u041d\u0435\u0442 \u0437\u0430\u0432\u0435\u0440\u0448\u0451\u043d\u043d\u044b\u0445 \u0440\u0435\u0439\u0441\u043e\u0432 \u0437\u0430 \u044d\u0442\u043e\u0442 \u043a\u0432\u0430\u0440\u0442\u0430\u043b. Per Diem \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u044b\u0432\u0430\u0435\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u0438\u0437 \u0432\u0430\u0448\u0438\u0445 \u0440\u0435\u0439\u0441\u043e\u0432.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: '\u041f\u0440\u043e\u0446\u0435\u043d\u0442 \u043d\u0435\u043f\u043e\u043b\u043d\u043e\u0433\u043e \u0434\u043d\u044f',
+      w2Notice: 'Per Diem \u0432\u044b\u043f\u043b\u0430\u0447\u0438\u0432\u0430\u0435\u0442\u0441\u044f \u0432\u0430\u0448\u0438\u043c \u0440\u0430\u0431\u043e\u0442\u043e\u0434\u0430\u0442\u0435\u043b\u0435\u043c. \u0417\u0430 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u0435\u0439 \u043e\u0431\u0440\u0430\u0442\u0438\u0442\u0435\u0441\u044c \u043a \u0434\u0438\u0441\u043f\u0435\u0442\u0447\u0435\u0440\u0443.',
+      unknownStatus: '\u0423\u0442\u043e\u0447\u043d\u0438\u0442\u0435 \u0443 \u0440\u0430\u0431\u043e\u0442\u043e\u0434\u0430\u0442\u0435\u043b\u044f \u0432\u0430\u0448 \u0441\u0442\u0430\u0442\u0443\u0441 (W-2 \u0438\u043b\u0438 1099). \u0415\u0441\u043b\u0438 \u0432\u044b 1099 \u2014 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u044d\u0442\u0438 \u0434\u0430\u043d\u043d\u044b\u0435 \u043f\u0440\u0438 \u043f\u043e\u0434\u0430\u0447\u0435 Schedule C.',
+      contractor1099Notice: '1099 Independent Contractor \u2014 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0439\u0442\u0435 \u0434\u043b\u044f Schedule C',
     },
     legal: {
       taxDisclaimer: 'TruckerBook \u043f\u0440\u0435\u0434\u043e\u0441\u0442\u0430\u0432\u043b\u044f\u0435\u0442 \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440\u044b, \u043e\u0440\u0433\u0430\u043d\u0430\u0439\u0437\u0435\u0440\u044b \u0438 \u0438\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0438\u043e\u043d\u043d\u044b\u0435 \u0438\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b \u0438\u0441\u043a\u043b\u044e\u0447\u0438\u0442\u0435\u043b\u044c\u043d\u043e \u0434\u043b\u044f \u043f\u043b\u0430\u043d\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u044f \u043d\u0430\u043b\u043e\u0433\u043e\u0432. \u042d\u0442\u043e \u041d\u0415 \u043d\u0430\u043b\u043e\u0433\u043e\u0432\u0430\u044f \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0438\u044f \u0438 \u041d\u0415 \u0437\u0430\u043c\u0435\u043d\u044f\u0435\u0442 \u043e\u0431\u0440\u0430\u0449\u0435\u043d\u0438\u0435 \u043a \u043b\u0438\u0446\u0435\u043d\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u043e\u043c\u0443 CPA, EA \u0438\u043b\u0438 \u043d\u0430\u043b\u043e\u0433\u043e\u0432\u043e\u043c\u0443 \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u043d\u0442\u0443. \u041f\u0435\u0440\u0435\u0434 \u043f\u043e\u0434\u0430\u0447\u0435\u0439 \u043d\u0430\u043b\u043e\u0433\u043e\u0432\u043e\u0439 \u0434\u0435\u043a\u043b\u0430\u0440\u0430\u0446\u0438\u0438 \u043f\u0440\u043e\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0438\u0440\u0443\u0439\u0442\u0435\u0441\u044c \u0441 \u043a\u0432\u0430\u043b\u0438\u0444\u0438\u0446\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u043c \u0441\u043f\u0435\u0446\u0438\u0430\u043b\u0438\u0441\u0442\u043e\u043c.',
@@ -1473,6 +1479,9 @@ const translations = {
       enterCode: 'Enter SMS code',
       inviteTitle: 'Invitation',
       inviteSubtitle: 'You have been invited to TruckerBook',
+      employmentType: 'Employment Type',
+      w2Employee: 'W-2 Employee',
+      contractor1099: '1099 Independent Contractor',
     },
     gps: {
       startTracking: 'Start tracking',
@@ -2390,6 +2399,9 @@ const translations = {
       emptyState: 'No completed trips this quarter. Per Diem is calculated automatically from your trips.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: 'Partial Day Percent',
+      w2Notice: 'Per Diem is paid by your employer. Contact your dispatcher for details.',
+      unknownStatus: 'Check with your employer about your status (W-2 or 1099). If you are 1099 \u2014 use this data when filing Schedule C.',
+      contractor1099Notice: '1099 Independent Contractor \u2014 use for Schedule C',
     },
     legal: {
       taxDisclaimer: 'TruckerBook provides calculators, organizers, and informational tools for tax planning purposes only. This is NOT tax advice and does NOT replace consultation with a licensed CPA, Enrolled Agent, or tax preparer. Before filing any tax return, consult a qualified tax professional. TruckerBook is not affiliated with the IRS, IFTA, Inc., or any government agency.',
@@ -2670,6 +2682,9 @@ const translations = {
       enterCode: '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u043a\u043e\u0434 \u0437 SMS',
       inviteTitle: '\u0417\u0430\u043f\u0440\u043e\u0448\u0435\u043d\u043d\u044f',
       inviteSubtitle: '\u0412\u0430\u0441 \u0437\u0430\u043f\u0440\u043e\u0441\u0438\u043b\u0438 \u0434\u043e TruckerBook',
+      employmentType: '\u0422\u0438\u043f \u043f\u0440\u0430\u0446\u0435\u0432\u043b\u0430\u0448\u0442\u0443\u0432\u0430\u043d\u043d\u044f',
+      w2Employee: 'W-2 \u0421\u043f\u0456\u0432\u0440\u043e\u0431\u0456\u0442\u043d\u0438\u043a',
+      contractor1099: '1099 \u041d\u0435\u0437\u0430\u043b\u0435\u0436\u043d\u0438\u0439 \u043f\u0456\u0434\u0440\u044f\u0434\u043d\u0438\u043a',
     },
     gps: {
       startTracking: '\u041f\u043e\u0447\u0430\u0442\u0438 \u0442\u0440\u0435\u043a\u0456\u043d\u0433',
@@ -3586,6 +3601,9 @@ const translations = {
       emptyState: '\u041d\u0435\u043c\u0430\u0454 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043d\u0438\u0445 \u0440\u0435\u0439\u0441\u0456\u0432 \u0437\u0430 \u0446\u0435\u0439 \u043a\u0432\u0430\u0440\u0442\u0430\u043b. Per Diem \u0440\u043e\u0437\u0440\u0430\u0445\u043e\u0432\u0443\u0454\u0442\u044c\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u043d\u043e \u0437 \u0432\u0430\u0448\u0438\u0445 \u0440\u0435\u0439\u0441\u0456\u0432.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: '\u0412\u0456\u0434\u0441\u043e\u0442\u043e\u043a \u043d\u0435\u043f\u043e\u0432\u043d\u043e\u0433\u043e \u0434\u043d\u044f',
+      w2Notice: 'Per Diem \u0432\u0438\u043f\u043b\u0430\u0447\u0443\u0454\u0442\u044c\u0441\u044f \u0432\u0430\u0448\u0438\u043c \u0440\u043e\u0431\u043e\u0442\u043e\u0434\u0430\u0432\u0446\u0435\u043c. \u0417\u0432\u0435\u0440\u043d\u0456\u0442\u044c\u0441\u044f \u0434\u043e \u0434\u0438\u0441\u043f\u0435\u0442\u0447\u0435\u0440\u0430 \u0437\u0430 \u0456\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u0454\u044e.',
+      unknownStatus: '\u0423\u0442\u043e\u0447\u043d\u0456\u0442\u044c \u0443 \u0440\u043e\u0431\u043e\u0442\u043e\u0434\u0430\u0432\u0446\u044f \u0432\u0430\u0448 \u0441\u0442\u0430\u0442\u0443\u0441 (W-2 \u0430\u0431\u043e 1099). \u042f\u043a\u0449\u043e \u0432\u0438 1099 \u2014 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u0446\u0456 \u0434\u0430\u043d\u0456 \u043f\u0440\u0438 \u043f\u043e\u0434\u0430\u0447\u0456 Schedule C.',
+      contractor1099Notice: '1099 Independent Contractor \u2014 \u0432\u0438\u043a\u043e\u0440\u0438\u0441\u0442\u043e\u0432\u0443\u0439\u0442\u0435 \u0434\u043b\u044f Schedule C',
     },
     legal: {
       taxDisclaimer: 'TruckerBook \u043d\u0430\u0434\u0430\u0454 \u043a\u0430\u043b\u044c\u043a\u0443\u043b\u044f\u0442\u043e\u0440\u0438, \u043e\u0440\u0433\u0430\u043d\u0430\u0439\u0437\u0435\u0440\u0438 \u0442\u0430 \u0456\u043d\u0444\u043e\u0440\u043c\u0430\u0446\u0456\u0439\u043d\u0456 \u0456\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u0438 \u0432\u0438\u043a\u043b\u044e\u0447\u043d\u043e \u0434\u043b\u044f \u043f\u043b\u0430\u043d\u0443\u0432\u0430\u043d\u043d\u044f \u043f\u043e\u0434\u0430\u0442\u043a\u0456\u0432. \u0426\u0435 \u041d\u0415 \u043f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0430 \u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0430\u0446\u0456\u044f. \u041f\u0435\u0440\u0435\u0434 \u043f\u043e\u0434\u0430\u0447\u0435\u044e \u0434\u0435\u043a\u043b\u0430\u0440\u0430\u0446\u0456\u0457 \u043f\u0440\u043e\u043a\u043e\u043d\u0441\u0443\u043b\u044c\u0442\u0443\u0439\u0442\u0435\u0441\u044f \u0437 \u043a\u0432\u0430\u043b\u0456\u0444\u0456\u043a\u043e\u0432\u0430\u043d\u0438\u043c \u0441\u043f\u0435\u0446\u0456\u0430\u043b\u0456\u0441\u0442\u043e\u043c.',
@@ -3866,6 +3884,9 @@ const translations = {
       enterCode: 'Introduce el c\u00f3digo SMS',
       inviteTitle: 'Invitaci\u00f3n',
       inviteSubtitle: 'Has sido invitado a TruckerBook',
+      employmentType: 'Tipo de empleo',
+      w2Employee: 'W-2 Empleado',
+      contractor1099: '1099 Contratista independiente',
     },
     gps: {
       startTracking: 'Iniciar seguimiento',
@@ -4763,6 +4784,9 @@ const translations = {
       emptyState: 'No hay viajes completados este trimestre. Per Diem se calcula autom\u00e1ticamente desde sus viajes.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: 'Porcentaje d\u00eda parcial',
+      w2Notice: 'Per Diem es pagado por su empleador. Contacte a su despachador para m\u00e1s informaci\u00f3n.',
+      unknownStatus: 'Consulte con su empleador su estatus (W-2 o 1099). Si es 1099 \u2014 use estos datos al presentar Schedule C.',
+      contractor1099Notice: '1099 Contratista independiente \u2014 use para Schedule C',
     },
     legal: {
       taxDisclaimer: 'TruckerBook proporciona calculadoras, organizadores y herramientas informativas \u00fanicamente con fines de planificaci\u00f3n fiscal. Esto NO es asesoramiento fiscal y NO sustituye la consulta con un CPA, agente fiscal o preparador de impuestos con licencia. Antes de presentar cualquier declaraci\u00f3n de impuestos, consulte a un profesional fiscal calificado.',
@@ -5043,6 +5067,9 @@ const translations = {
       enterCode: 'SMS-Code eingeben',
       inviteTitle: 'Einladung',
       inviteSubtitle: 'Sie wurden zu TruckerBook eingeladen',
+      employmentType: 'Besch\u00e4ftigungsart',
+      w2Employee: 'W-2 Angestellter',
+      contractor1099: '1099 Selbstst\u00e4ndiger Auftragnehmer',
     },
     gps: {
       startTracking: 'Tracking starten',
@@ -5940,6 +5967,9 @@ const translations = {
       emptyState: 'Keine abgeschlossenen Fahrten in diesem Quartal. Per Diem wird automatisch aus Ihren Fahrten berechnet.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: 'Teiltag-Prozent',
+      w2Notice: 'Per Diem wird von Ihrem Arbeitgeber gezahlt. Wenden Sie sich an Ihren Disponenten.',
+      unknownStatus: 'Kl\u00e4ren Sie mit Ihrem Arbeitgeber Ihren Status (W-2 oder 1099). Wenn Sie 1099 sind \u2014 verwenden Sie diese Daten f\u00fcr Schedule C.',
+      contractor1099Notice: '1099 Selbstst\u00e4ndiger Auftragnehmer \u2014 f\u00fcr Schedule C verwenden',
     },
     legal: {
       taxDisclaimer: 'TruckerBook bietet Rechner, Organizer und Informationstools ausschlie\u00dflich f\u00fcr Steuerplanungszwecke. Dies ist KEINE Steuerberatung und ersetzt NICHT die Beratung durch einen lizenzierten Steuerberater. Vor der Abgabe einer Steuererkl\u00e4rung konsultieren Sie einen qualifizierten Steuerexperten.',
@@ -6220,6 +6250,9 @@ const translations = {
       enterCode: 'Entrez le code SMS',
       inviteTitle: 'Invitation',
       inviteSubtitle: 'Vous avez \u00e9t\u00e9 invit\u00e9 sur TruckerBook',
+      employmentType: 'Type d\u2019emploi',
+      w2Employee: 'W-2 Employ\u00e9',
+      contractor1099: '1099 Contractant ind\u00e9pendant',
     },
     gps: {
       startTracking: 'D\u00e9marrer le suivi',
@@ -7117,6 +7150,9 @@ const translations = {
       emptyState: 'Aucun trajet termin\u00e9 ce trimestre. Le Per Diem est calcul\u00e9 automatiquement \u00e0 partir de vos trajets.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: 'Pourcentage jour partiel',
+      w2Notice: 'Le Per Diem est pay\u00e9 par votre employeur. Contactez votre r\u00e9partiteur pour plus d\u2019informations.',
+      unknownStatus: 'V\u00e9rifiez aupr\u00e8s de votre employeur votre statut (W-2 ou 1099). Si vous \u00eates 1099 \u2014 utilisez ces donn\u00e9es pour le Schedule C.',
+      contractor1099Notice: '1099 Contractant ind\u00e9pendant \u2014 utilisez pour Schedule C',
     },
     legal: {
       taxDisclaimer: 'TruckerBook fournit des calculateurs, des organisateurs et des outils informatifs uniquement \u00e0 des fins de planification fiscale. Ceci n\'est PAS un conseil fiscal et ne remplace PAS la consultation d\'un CPA, agent fiscal ou pr\u00e9parateur d\'imp\u00f4ts agr\u00e9\u00e9. Avant de d\u00e9poser une d\u00e9claration fiscale, consultez un professionnel qualifi\u00e9.',
@@ -7397,6 +7433,9 @@ const translations = {
       enterCode: 'SMS kodunu girin',
       inviteTitle: 'Davet',
       inviteSubtitle: 'TruckerBook\'a davet edildiniz',
+      employmentType: '\u0130stihdam t\u00fcr\u00fc',
+      w2Employee: 'W-2 \u00c7al\u0131\u015fan',
+      contractor1099: '1099 Ba\u011f\u0131ms\u0131z y\u00fcklenici',
     },
     gps: {
       startTracking: 'Takibi ba\u015flat',
@@ -8294,6 +8333,9 @@ const translations = {
       emptyState: 'Bu \u00e7eyrekte tamamlanm\u0131\u015f sefer yok. Per Diem seferlerinizden otomatik hesaplan\u0131r.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: 'K\u0131smi g\u00fcn y\u00fczdesi',
+      w2Notice: 'Per Diem i\u015fvereniniz taraf\u0131ndan \u00f6denir. Ayr\u0131nt\u0131lar i\u00e7in dispe\u00e7erinize ba\u015fvurun.',
+      unknownStatus: '\u0130\u015fvereninizle stat\u00fcn\u00fcz\u00fc (W-2 veya 1099) kontrol edin. 1099 iseniz \u2014 Schedule C i\u00e7in bu verileri kullan\u0131n.',
+      contractor1099Notice: '1099 Ba\u011f\u0131ms\u0131z y\u00fcklenici \u2014 Schedule C i\u00e7in kullan\u0131n',
     },
     legal: {
       taxDisclaimer: 'TruckerBook yaln\u0131zca vergi planlama ama\u00e7l\u0131 hesap makineleri, organiz\u00f6rler ve bilgilendirme ara\u00e7lar\u0131 sunar. Bu vergi dan\u0131\u015fmanl\u0131\u011f\u0131 DE\u011e\u0130LD\u0130R ve lisansl\u0131 bir mali m\u00fc\u015favir ile g\u00f6r\u00fc\u015fmenin yerini ALMAZ. Vergi beyannamesi vermeden \u00f6nce nitelikli bir vergi uzman\u0131na dan\u0131\u015f\u0131n.',
@@ -8574,6 +8616,9 @@ const translations = {
       enterCode: 'Wpisz kod SMS',
       inviteTitle: 'Zaproszenie',
       inviteSubtitle: 'Zaproszono Ci\u0119 do TruckerBook',
+      employmentType: 'Typ zatrudnienia',
+      w2Employee: 'W-2 Pracownik',
+      contractor1099: '1099 Niezale\u017cny wykonawca',
     },
     gps: {
       startTracking: 'Rozpocznij \u015bledzenie',
@@ -9471,6 +9516,9 @@ const translations = {
       emptyState: 'Brak uko\u0144czonych tras w tym kwartale. Per Diem jest obliczane automatycznie z Twoich tras.',
       irsNote: 'IRS standard rate for transportation workers: $69/day (2026). Partial day rate applies to departure and arrival days.',
       partialDayPercent: 'Procent niepe\u0142nego dnia',
+      w2Notice: 'Per Diem jest wyp\u0142acane przez Twojego pracodawc\u0119. Skontaktuj si\u0119 z dyspozytorem.',
+      unknownStatus: 'Sprawd\u017a u pracodawcy sw\u00f3j status (W-2 lub 1099). Je\u015bli jeste\u015b 1099 \u2014 u\u017cyj tych danych do z\u0142o\u017cenia Schedule C.',
+      contractor1099Notice: '1099 Niezale\u017cny wykonawca \u2014 u\u017cyj dla Schedule C',
     },
     legal: {
       taxDisclaimer: 'TruckerBook udost\u0119pnia kalkulatory, organizery i narz\u0119dzia informacyjne wy\u0142\u0105cznie do cel\u00f3w planowania podatkowego. To NIE jest doradztwo podatkowe i NIE zast\u0119puje konsultacji z licencjonowanym doradc\u0105 podatkowym. Przed z\u0142o\u017ceniem zeznania podatkowego skonsultuj si\u0119 z wykwalifikowanym specjalist\u0105.',

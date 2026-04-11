@@ -31,7 +31,7 @@ function formatShortDate(dateStr) {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-export default function PerDiemTab({ userId, role, userVehicles }) {
+export default function PerDiemTab({ userId, role, userVehicles, employmentType }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
 
@@ -159,8 +159,45 @@ export default function PerDiemTab({ userId, role, userVehicles }) {
     whiteSpace: 'nowrap',
   }
 
+  // W-2 driver: show stub instead of data
+  if (role === 'driver' && employmentType === 'w2') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{
+          background: theme.card, border: '1px solid ' + theme.border,
+          borderRadius: '12px', padding: '24px', textAlign: 'center',
+        }}>
+          <div style={{ fontSize: '40px', marginBottom: '12px' }}>{'\uD83D\uDCBC'}</div>
+          <div style={{ fontSize: '15px', fontWeight: 600, color: theme.text, marginBottom: '8px' }}>
+            {t('perDiem.w2Notice')}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
+
+      {/* Employment type badge for drivers */}
+      {role === 'driver' && employmentType === '1099' && (
+        <div style={{
+          background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)',
+          borderRadius: '10px', padding: '10px 14px',
+          fontSize: '13px', color: '#22c55e', fontWeight: 600,
+        }}>
+          {'\u2705 ' + t('perDiem.contractor1099Notice')}
+        </div>
+      )}
+      {role === 'driver' && !employmentType && (
+        <div style={{
+          background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.3)',
+          borderRadius: '10px', padding: '10px 14px',
+          fontSize: '13px', color: '#f59e0b', fontWeight: 600,
+        }}>
+          {'\u26A0\uFE0F ' + t('perDiem.unknownStatus')}
+        </div>
+      )}
 
       {/* Toast */}
       {toast && (

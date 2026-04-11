@@ -2005,7 +2005,12 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, p
 
   const effectiveVehicleId = isCompany ? selectedVehicleId : vehicleId
 
-  const showBookkeeping = (userRole === 'owner_operator' || userRole === 'company') && (profile?.hos_mode === 'usa' || profile?.units === 'imperial')
+  const isUsaMode = profile?.hos_mode === 'usa' || profile?.units === 'imperial'
+  const showBookkeeping = isUsaMode && (
+    userRole === 'owner_operator' ||
+    userRole === 'company' ||
+    (userRole === 'driver' && profile?.employment_type !== 'w2')
+  )
 
   const TILES = [
     { key: 'documents', icon: '\uD83D\uDCC4', label: t('service.tileDocuments') },
@@ -2057,6 +2062,7 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, p
         userId={userId}
         role={userRole}
         userVehicles={vehicles}
+        profile={profile}
         onBack={() => setActiveTile(null)}
       />
     )

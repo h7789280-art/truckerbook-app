@@ -203,6 +203,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     driver_phone: '',
     driver_pay_type: '',
     driver_pay_rate: '',
+    driver_employment_type: '',
   })
   const [inviteStatus, setInviteStatus] = useState(null) // null | 'sending' | 'sent' | 'error'
 
@@ -342,6 +343,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
             invite_code: inviteCode,
             pay_type: formData.driver_pay_type || 'none',
             pay_rate: formData.driver_pay_rate ? parseFloat(formData.driver_pay_rate) : null,
+            employment_type: formData.driver_employment_type || null,
             plan: 'pro',
           })
           .select('id')
@@ -416,6 +418,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         driver_phone: '',
         driver_pay_type: '',
         driver_pay_rate: '',
+        driver_employment_type: '',
       })
       await fetchVehicles(userId)
     } finally {
@@ -1607,6 +1610,38 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                       />
                     </div>
                   )}
+                  <div>
+                    <label style={labelStyle}>
+                      {t('invite.employmentType')} *
+                    </label>
+                    <div style={{ display: 'flex', gap: '4px', background: theme.bg, borderRadius: '10px', padding: '3px' }}>
+                      {[
+                        { key: 'w2', label: t('invite.w2Employee') },
+                        { key: '1099', label: t('invite.contractor1099') },
+                      ].map(opt => (
+                        <button
+                          key={opt.key}
+                          type="button"
+                          onClick={() => setFormData({ ...formData, driver_employment_type: opt.key })}
+                          style={{
+                            flex: 1,
+                            padding: '8px 6px',
+                            border: 'none',
+                            borderRadius: '8px',
+                            fontSize: '13px',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            background: formData.driver_employment_type === opt.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : 'transparent',
+                            color: formData.driver_employment_type === opt.key ? '#fff' : theme.dim,
+                            transition: 'all 0.2s',
+                            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                          }}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
 

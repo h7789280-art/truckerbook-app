@@ -4,10 +4,13 @@ import { useLanguage } from '../lib/i18n'
 import IftaTab from './IftaTab'
 import PerDiemTab from './PerDiemTab'
 
-export default function BookkeepingHome({ userId, role, userVehicles, onBack }) {
+export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [activeSection, setActiveSection] = useState(null)
+
+  // Drivers only see Per Diem (IFTA is for owner_operator/company only)
+  const showIfta = role === 'owner_operator' || role === 'company'
 
   if (activeSection === 'ifta' || activeSection === 'perDiem') {
     return (
@@ -22,8 +25,8 @@ export default function BookkeepingHome({ userId, role, userVehicles, onBack }) 
         >
           {'\u2190 ' + t('bookkeeping.title')}
         </button>
-        {activeSection === 'ifta' && <IftaTab userId={userId} role={role} userVehicles={userVehicles} />}
-        {activeSection === 'perDiem' && <PerDiemTab userId={userId} role={role} userVehicles={userVehicles} />}
+        {activeSection === 'ifta' && showIfta && <IftaTab userId={userId} role={role} userVehicles={userVehicles} />}
+        {activeSection === 'perDiem' && <PerDiemTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -35,12 +38,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, onBack }) 
   }
 
   const cards = [
-    {
+    ...(showIfta ? [{
       key: 'ifta',
       icon: '\u26FD',
       title: t('bookkeeping.iftaCard'),
       desc: t('bookkeeping.iftaDescription'),
-    },
+    }] : []),
     {
       key: 'perDiem',
       icon: '\uD83D\uDCC5',

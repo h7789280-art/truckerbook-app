@@ -243,7 +243,7 @@ export async function generateTaxSummaryPdf({
   language, companyName,
 }) {
   const { default: jsPDF } = await import('jspdf')
-  await import('jspdf-autotable')
+  const { default: autoTable } = await import('jspdf-autotable')
   const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
 
   const lang = language || 'en'
@@ -319,7 +319,7 @@ export async function generateTaxSummaryPdf({
   expenseRows.push(['', ''])
   expenseRows.push([L.totalExpenses, fmtMoney(totalExpenses)])
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [],
     body: expenseRows,
@@ -349,7 +349,7 @@ export async function generateTaxSummaryPdf({
     [L.totalDeductions, fmtMoney(totalDeductions)],
   ]
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [],
     body: deductionRows,
@@ -398,7 +398,7 @@ export async function generateTaxSummaryPdf({
     [L.totalTax, fmtMoney(totalTax)],
   ]
 
-  doc.autoTable({
+  autoTable(doc, {
     startY: y,
     head: [],
     body: taxRows,

@@ -8,6 +8,7 @@ import { exportToExcel, exportFleetReportExcel, exportFleetReportPDF } from '../
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
 import DispatchBoard from '../components/DispatchBoard'
+import FleetMap from '../components/FleetMap'
 import AIForecast from '../components/AIForecast'
 import { scheduleHOSWarning, scheduleMaintenanceReminder, scheduleTrialExpiry } from '../lib/notifications'
 
@@ -1048,6 +1049,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         ))}
       </div>
       )}
+
+      {/* Fleet map — only for company role */}
+      {isCompanyRole && <FleetMap companyId={userId} />}
 
       {/* Fleet panel — only for company role with 2+ vehicles */}
       {fleetData && profile?.role === 'company' && (

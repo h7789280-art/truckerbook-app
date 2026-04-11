@@ -2151,3 +2151,84 @@ export async function removeDriverFromCompany(driverId) {
   if (error) throw error
   return data?.[0]
 }
+
+// --- Fleet map positions ---
+
+export async function getFleetPositions(companyId) {
+  // Get all drivers belonging to this company
+  const { data: drivers, error: dErr } = await supabase
+    .from('profiles')
+    .select('id, name')
+    .eq('company_id', companyId)
+    .eq('is_active', true)
+  if (dErr) throw dErr
+  if (!drivers || drivers.length === 0) return []
+
+  const driverIds = drivers.map(d => d.id)
+
+  // Get active trips for these drivers
+  const { data: trips, error: tErr } = await supabase
+    .from('trips')
+    .select('id, user_id, vehicle_id, origin, destination')
+    .in('user_id', driverIds)
+    .eq('status', 'in_progress')
+  if (tErr) throw tErr
+  if (!trips || trips.length === 0) return []
+
+  const tripIds = trips.map(tr => tr.id)
+  const vehicleIds = [...new Set(trips.map(tr => tr.vehicle_id).filter(Boolean))]
+
+  // Get vehicles info
+  let vehiclesMap = {}
+  if (vehicleIds.length > 0) {
+    const { data: vehicles } = await supabase
+      .from('vehicles')
+      .select('id, brand, model, plate_number')
+      .in('id', vehicleIds)
+    if (vehicles) {
+      vehicles.forEach(v => { vehiclesMap[v.id] = v })
+    }
+  }
+
+  // Get latest waypoint per trip
+  const { data: waypoints, error: wErr } = await supabase
+    .from('trip_waypoints')
+    .select('trip_id, latitude, longitude, recorded_at')
+    .in('trip_id', tripIds)
+    .order('recorded_at', { ascending: false })
+  if (wErr) throw wErr
+  if (!waypoints || waypoints.length === 0) return []
+
+  // Pick first (latest) waypoint per trip
+  const latestByTrip = {}
+  waypoints.forEach(wp => {
+    if (!latestByTrip[wp.trip_id]) {
+      latestByTrip[wp.trip_id] = wp
+    }
+  })
+
+  // Build positions array
+  const driversMap = {}
+  drivers.forEach(d => { driversMap[d.id] = d })
+
+  return trips
+    .filter(tr => latestByTrip[tr.id])
+    .map(tr => {
+      const wp = latestByTrip[tr.id]
+      const driver = driversMap[tr.user_id] || {}
+      const vehicle = vehiclesMap[tr.vehicle_id] || {}
+      return {
+        user_id: tr.user_id,
+        trip_id: tr.id,
+        driver_name: driver.name || '?',
+        brand: vehicle.brand || '',
+        model: vehicle.model || '',
+        plate_number: vehicle.plate_number || '',
+        origin: tr.origin,
+        destination: tr.destination,
+        latitude: wp.latitude,
+        longitude: wp.longitude,
+        recorded_at: wp.recorded_at,
+      }
+    })
+}

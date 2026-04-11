@@ -73,7 +73,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     if (!userId) return
     supabase
       .from('vehicle_depreciation')
-      .select('purchase_price, purchase_date, method, salvage_value, prior_depreciation')
+      .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -86,11 +86,11 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
         const basis = Math.max(price - salvage, 0)
         const purchaseYear = data.purchase_date ? new Date(data.purchase_date).getFullYear() : year
 
-        if (data.method === 'section179') {
+        if (data.depreciation_type === 'section179') {
           const ded = Math.max(Math.min(basis, 1160000) - prior, 0)
           setDepreciation(purchaseYear === year ? ded : 0)
         } else {
-          const rates = data.method === 'macrs7'
+          const rates = data.depreciation_type === 'macrs7'
             ? [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
             : [20, 32, 19.2, 11.52, 11.52, 5.76]
           const idx = year - purchaseYear

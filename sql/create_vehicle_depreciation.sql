@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS vehicle_depreciation (
   purchase_date date NOT NULL,
   salvage_value numeric NOT NULL DEFAULT 0,
   prior_depreciation numeric NOT NULL DEFAULT 0,
-  method text NOT NULL DEFAULT 'macrs5',  -- 'section179', 'macrs5', 'macrs7'
+  depreciation_type text NOT NULL DEFAULT 'macrs5',  -- 'section179', 'macrs5', 'macrs7'
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );

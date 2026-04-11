@@ -80,7 +80,7 @@ export default function DepreciationTab({ userId, role, userVehicles, employment
         if (data) {
           setPurchasePrice(String(data.purchase_price || ''))
           setPurchaseDate(data.purchase_date || '')
-          setMethod(data.method || 'macrs5')
+          setMethod(data.depreciation_type || 'macrs5')
           setSalvageValue(String(data.salvage_value || ''))
           setPriorDepreciation(String(data.prior_depreciation || ''))
           setLoadedId(data.id)
@@ -111,7 +111,7 @@ export default function DepreciationTab({ userId, role, userVehicles, employment
         user_id: userId,
         purchase_price: priceNum,
         purchase_date: purchaseDate,
-        method,
+        depreciation_type: method,
         salvage_value: salvageNum,
         prior_depreciation: priorNum,
       }

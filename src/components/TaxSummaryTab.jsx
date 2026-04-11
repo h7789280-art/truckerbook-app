@@ -41,7 +41,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
   const [parkingExpenses, setParkingExpenses] = useState(0)
   const [otherExpenses, setOtherExpenses] = useState(0)
   const [perDiemTotal, setPerDiemTotal] = useState(0)
-  const [depreciation, setDepreciation] = useState('')
+  const [depreciation, setDepreciation] = useState(0)
 
   // Tax settings
   const [taxRate, setTaxRate] = useState(DEFAULT_INCOME_TAX_RATE)
@@ -67,6 +67,42 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
       })
       .catch(() => {})
   }, [userId])
+
+  // Load depreciation from vehicle_depreciation table
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('vehicle_depreciation')
+      .select('purchase_price, purchase_date, method, salvage_value, prior_depreciation')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!data) return
+        const price = Number(data.purchase_price) || 0
+        const salvage = Number(data.salvage_value) || 0
+        const prior = Number(data.prior_depreciation) || 0
+        const basis = Math.max(price - salvage, 0)
+        const purchaseYear = data.purchase_date ? new Date(data.purchase_date).getFullYear() : year
+
+        if (data.method === 'section179') {
+          const ded = Math.max(Math.min(basis, 1160000) - prior, 0)
+          setDepreciation(purchaseYear === year ? ded : 0)
+        } else {
+          const rates = data.method === 'macrs7'
+            ? [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
+            : [20, 32, 19.2, 11.52, 11.52, 5.76]
+          const idx = year - purchaseYear
+          if (idx >= 0 && idx < rates.length) {
+            setDepreciation(basis * (rates[idx] / 100))
+          } else {
+            setDepreciation(0)
+          }
+        }
+      })
+      .catch(() => {})
+  }, [userId, year])
 
   // Load annual data
   useEffect(() => {
@@ -396,23 +432,11 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
             <div style={{ ...card, textAlign: 'center' }}>
               <div style={{
                 color: theme.dim, fontSize: '9px', textTransform: 'uppercase',
-                letterSpacing: '0.5px', marginBottom: '6px',
+                letterSpacing: '0.5px', marginBottom: '4px',
               }}>{t('taxSummary.depreciation')}</div>
-              <input
-                type="number"
-                inputMode="decimal"
-                value={depreciation}
-                onChange={e => setDepreciation(e.target.value)}
-                placeholder="0.00"
-                style={{
-                  width: '100%', boxSizing: 'border-box',
-                  padding: '6px 8px', borderRadius: '8px',
-                  border: '1px solid ' + theme.border,
-                  background: theme.bg, color: '#f59e0b',
-                  fontSize: '15px', fontWeight: 700, fontFamily: 'monospace',
-                  textAlign: 'center', outline: 'none',
-                }}
-              />
+              <div style={{
+                color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
+              }}>${fmt(depreciationNum)}</div>
             </div>
           </div>
 

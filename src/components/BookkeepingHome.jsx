@@ -6,6 +6,7 @@ import PerDiemTab from './PerDiemTab'
 import DeadlinesTab from './DeadlinesTab'
 import EstimatedTaxTab from './EstimatedTaxTab'
 import TaxSummaryTab from './TaxSummaryTab'
+import DepreciationTab from './DepreciationTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
@@ -17,8 +18,9 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const showDeadlines = role === 'owner_operator' || role === 'company'
   const showEstimatedTax = role === 'owner_operator' || role === 'company'
   const showTaxSummary = role === 'owner_operator' || role === 'company'
+  const showDepreciation = role === 'owner_operator' || role === 'company'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation') {
     return (
       <div>
         <button
@@ -36,6 +38,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'deadlines' && showDeadlines && <DeadlinesTab userId={userId} />}
         {activeSection === 'estimatedTax' && showEstimatedTax && <EstimatedTaxTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'taxSummary' && showTaxSummary && <TaxSummaryTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
+        {activeSection === 'depreciation' && showDepreciation && <DepreciationTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -76,6 +79,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83D\uDCCA',
       title: t('bookkeeping.taxSummaryCard'),
       desc: t('bookkeeping.taxSummaryDescription'),
+    }] : []),
+    ...(showDepreciation ? [{
+      key: 'depreciation',
+      icon: '\uD83D\uDE9B',
+      title: t('bookkeeping.depreciationCard'),
+      desc: t('bookkeeping.depreciationDescription'),
     }] : []),
   ]
 

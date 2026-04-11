@@ -193,7 +193,7 @@ function AppInner() {
   const userId = session?.user?.id
   const { profile, loading: profileLoading, refetch: refetchProfile } = useProfile(userId)
   const { theme } = useTheme()
-  const { setLang } = useLanguage()
+  const { t, setLang } = useLanguage()
   const { isOnline, syncStatus, syncedCount } = useOffline()
   const [setupDone, setSetupDone] = useState(() => {
     try { return !!localStorage.getItem('truckerbook_country') } catch { return false }
@@ -305,6 +305,33 @@ function AppInner() {
         phone={session?.user?.phone || profile.phone || ''}
         onUnlock={() => setPinUnlocked(true)}
       />
+    )
+  }
+
+  // Deactivated driver block
+  if (profile.is_active === false && profile.company_id) {
+    return (
+      <div style={{
+        minHeight: '100vh', background: theme.bg, display: 'flex',
+        alignItems: 'center', justifyContent: 'center',
+        fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+        padding: '24px',
+      }}>
+        <div style={{
+          background: theme.card,
+          borderRadius: '16px',
+          padding: '32px 24px',
+          maxWidth: '360px',
+          width: '100%',
+          textAlign: 'center',
+          border: '1px solid ' + theme.border,
+        }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>{'\ud83d\udeab'}</div>
+          <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text, marginBottom: '12px' }}>
+            {t('overview.accountDeactivated')}
+          </div>
+        </div>
+      </div>
     )
   }
 

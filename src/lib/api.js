@@ -2142,11 +2142,11 @@ export async function reactivateDriver(driverId) {
   return data?.[0]
 }
 
-export async function removeDriverFromCompany(driverId) {
+export async function reassignVehicle(vehicleId, newDriverId) {
   const { data, error } = await supabase
-    .from('profiles')
-    .update({ company_id: null, is_active: false })
-    .eq('id', driverId)
+    .from('vehicles')
+    .update({ user_id: newDriverId })
+    .eq('id', vehicleId)
     .select()
   if (error) throw error
   return data?.[0]

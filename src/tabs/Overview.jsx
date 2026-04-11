@@ -3,7 +3,7 @@ import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData, getCompanyDrivers, deactivateDriver, reactivateDriver, removeDriverFromCompany } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData, getCompanyDrivers, deactivateDriver, reactivateDriver, reassignVehicle } from '../lib/api'
 import { exportToExcel, exportFleetReportExcel, exportFleetReportPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
@@ -118,7 +118,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   // Driver management state
   const [companyDrivers, setCompanyDrivers] = useState([])
   const [driverFilter, setDriverFilter] = useState('active') // 'all' | 'active' | 'inactive'
-  const [driverConfirmModal, setDriverConfirmModal] = useState(null) // { type: 'deactivate'|'remove', driver }
+  const [driverConfirmModal, setDriverConfirmModal] = useState(null) // { type: 'deactivate', driver }
+  const [reassignModal, setReassignModal] = useState(null) // { vehicleId, vehicleName }
+  const [reassignDriverId, setReassignDriverId] = useState('')
   const [driverActionLoading, setDriverActionLoading] = useState(false)
 
   // Close fleet export menu on outside click
@@ -477,7 +479,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   }, [userId])
 
   useEffect(() => {
-    if (fleetTab === 'drivers' && profile?.role === 'company') {
+    if ((fleetTab === 'drivers' || fleetTab === 'vehicles') && profile?.role === 'company') {
       loadCompanyDrivers()
     }
   }, [fleetTab, profile?.role, loadCompanyDrivers])
@@ -507,16 +509,18 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     }
   }
 
-  const handleRemoveDriver = async (driverId) => {
+  const handleReassignVehicle = async () => {
+    if (!reassignModal || !reassignDriverId) return
     setDriverActionLoading(true)
     try {
-      await removeDriverFromCompany(driverId)
-      await loadCompanyDrivers()
+      await reassignVehicle(reassignModal.vehicleId, reassignDriverId)
+      setReassignModal(null)
+      setReassignDriverId('')
+      loadData()
     } catch (err) {
-      console.error('removeDriverFromCompany error:', err)
+      console.error('reassignVehicle error:', err)
     } finally {
       setDriverActionLoading(false)
-      setDriverConfirmModal(null)
     }
   }
 
@@ -1271,10 +1275,28 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   color: v.isOnTrip ? '#22c55e' : '#64748b',
                 }}>{v.isOnTrip ? t('overview.fleetBadgeOnTrip') : t('overview.fleetBadgeFree')}</span>
               </div>
-              <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: theme.text }}>
-                <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
-                <span>{'\u26fd'} {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
-                <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: theme.text }}>
+                  <span>{'\ud83d\udee3\ufe0f'} {formatNumber(Math.round(v.monthKm))} {unitSys === 'imperial' ? 'mi' : '\u043a\u043c'}</span>
+                  <span>{'\u26fd'} {formatNumber(Math.round(v.monthFuelCost))} {cs}</span>
+                  <span>{'\ud83d\ude9a'} {v.monthTrips} {t('overview.fleetTrips').toLowerCase()}</span>
+                </div>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setReassignModal({ vehicleId: v.id, vehicleName: [v.brand, v.model].filter(Boolean).join(' ') || v.id.slice(0, 8) }); setReassignDriverId(''); }}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    border: '1px solid rgba(59,130,246,0.3)',
+                    background: 'rgba(59,130,246,0.1)',
+                    color: '#3b82f6',
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {t('overview.assignDriver')}
+                </button>
               </div>
             </div>
           ))}
@@ -1397,21 +1419,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                           {t('overview.reactivateDriver')}
                         </button>
                       )}
-                      <button
-                        onClick={() => setDriverConfirmModal({ type: 'remove', driver })}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: '8px',
-                          border: '1px solid rgba(239,68,68,0.3)',
-                          background: 'transparent',
-                          color: '#ef4444',
-                          fontSize: '12px',
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
-                      >
-                        {t('overview.removeDriver')}
-                      </button>
                     </div>
                   </div>
                 ))
@@ -1441,20 +1448,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             textAlign: 'center',
           }}>
             <div style={{ fontSize: '40px', marginBottom: '12px' }}>
-              {driverConfirmModal.type === 'deactivate' ? '\u26a0\ufe0f' : '\ud83d\udea8'}
+              {'\u26a0\ufe0f'}
             </div>
             <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px', color: theme.text }}>
-              {driverConfirmModal.type === 'deactivate'
-                ? t('overview.confirmDeactivate')
-                : t('overview.confirmRemove')}
+              {t('overview.confirmDeactivate')}
             </div>
             <div style={{ fontSize: '14px', color: theme.dim, marginBottom: '6px' }}>
               {driverConfirmModal.driver.name || driverConfirmModal.driver.phone || driverConfirmModal.driver.id.slice(0, 8)}
             </div>
             <div style={{ fontSize: '13px', color: theme.dim, marginBottom: '20px' }}>
-              {driverConfirmModal.type === 'deactivate'
-                ? t('overview.confirmDeactivateText')
-                : t('overview.confirmRemoveText')}
+              {t('overview.confirmDeactivateText')}
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               <button
@@ -1475,13 +1478,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 {t('common.cancel')}
               </button>
               <button
-                onClick={() => {
-                  if (driverConfirmModal.type === 'deactivate') {
-                    handleDeactivateDriver(driverConfirmModal.driver.id)
-                  } else {
-                    handleRemoveDriver(driverConfirmModal.driver.id)
-                  }
-                }}
+                onClick={() => handleDeactivateDriver(driverConfirmModal.driver.id)}
                 disabled={driverActionLoading}
                 style={{
                   flex: 1,
@@ -1496,7 +1493,96 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                   opacity: driverActionLoading ? 0.5 : 1,
                 }}
               >
-                {driverActionLoading ? t('common.loading') : (driverConfirmModal.type === 'deactivate' ? t('overview.deactivateDriver') : t('overview.removeDriver'))}
+                {driverActionLoading ? t('common.loading') : t('overview.deactivateDriver')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Vehicle reassignment modal */}
+      {reassignModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          zIndex: 1001,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{
+            background: theme.bg,
+            borderRadius: '16px',
+            padding: '24px',
+            maxWidth: '360px',
+            width: '90%',
+            border: '1px solid ' + theme.border,
+            textAlign: 'center',
+          }}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>{'\ud83d\ude9a'}</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px', color: theme.text }}>
+              {t('overview.reassignVehicle')}
+            </div>
+            <div style={{ fontSize: '14px', color: theme.dim, marginBottom: '16px' }}>
+              {reassignModal.vehicleName}
+            </div>
+            <select
+              value={reassignDriverId}
+              onChange={(e) => setReassignDriverId(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: '1px solid ' + theme.border,
+                background: theme.card,
+                color: theme.text,
+                fontSize: '14px',
+                marginBottom: '16px',
+                appearance: 'auto',
+              }}
+            >
+              <option value="">{t('overview.selectDriver')}</option>
+              {companyDrivers.filter(d => d.is_active !== false).map(d => (
+                <option key={d.id} value={d.id}>
+                  {d.name || d.phone || d.id.slice(0, 8)}
+                </option>
+              ))}
+            </select>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => { setReassignModal(null); setReassignDriverId(''); }}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleReassignVehicle}
+                disabled={!reassignDriverId || driverActionLoading}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#3b82f6',
+                  color: '#fff',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  opacity: (!reassignDriverId || driverActionLoading) ? 0.5 : 1,
+                }}
+              >
+                {driverActionLoading ? t('common.loading') : t('overview.assignDriver')}
               </button>
             </div>
           </div>

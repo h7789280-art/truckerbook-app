@@ -3,16 +3,18 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import IftaTab from './IftaTab'
 import PerDiemTab from './PerDiemTab'
+import DeadlinesTab from './DeadlinesTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [activeSection, setActiveSection] = useState(null)
 
-  // Drivers only see Per Diem (IFTA is for owner_operator/company only)
+  // Drivers only see Per Diem (IFTA and Deadlines are for owner_operator/company only)
   const showIfta = role === 'owner_operator' || role === 'company'
+  const showDeadlines = role === 'owner_operator' || role === 'company'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines') {
     return (
       <div>
         <button
@@ -27,6 +29,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         </button>
         {activeSection === 'ifta' && showIfta && <IftaTab userId={userId} role={role} userVehicles={userVehicles} />}
         {activeSection === 'perDiem' && <PerDiemTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
+        {activeSection === 'deadlines' && showDeadlines && <DeadlinesTab userId={userId} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -50,6 +53,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       title: t('bookkeeping.perDiemCard'),
       desc: t('bookkeeping.perDiemDescription'),
     },
+    ...(showDeadlines ? [{
+      key: 'deadlines',
+      icon: '\uD83D\uDCC5',
+      title: t('bookkeeping.deadlinesCard'),
+      desc: t('bookkeeping.deadlinesDescription'),
+    }] : []),
   ]
 
   return (

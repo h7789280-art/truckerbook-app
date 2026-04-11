@@ -5,6 +5,7 @@ import IftaTab from './IftaTab'
 import PerDiemTab from './PerDiemTab'
 import DeadlinesTab from './DeadlinesTab'
 import EstimatedTaxTab from './EstimatedTaxTab'
+import TaxSummaryTab from './TaxSummaryTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
@@ -15,8 +16,9 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const showIfta = role === 'owner_operator' || role === 'company'
   const showDeadlines = role === 'owner_operator' || role === 'company'
   const showEstimatedTax = role === 'owner_operator' || role === 'company'
+  const showTaxSummary = role === 'owner_operator' || role === 'company'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary') {
     return (
       <div>
         <button
@@ -33,6 +35,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'perDiem' && <PerDiemTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'deadlines' && showDeadlines && <DeadlinesTab userId={userId} />}
         {activeSection === 'estimatedTax' && showEstimatedTax && <EstimatedTaxTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
+        {activeSection === 'taxSummary' && showTaxSummary && <TaxSummaryTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -67,6 +70,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83D\uDCB0',
       title: t('bookkeeping.estimatedTaxCard'),
       desc: t('bookkeeping.estimatedTaxDescription'),
+    }] : []),
+    ...(showTaxSummary ? [{
+      key: 'taxSummary',
+      icon: '\uD83D\uDCCA',
+      title: t('bookkeeping.taxSummaryCard'),
+      desc: t('bookkeeping.taxSummaryDescription'),
     }] : []),
   ]
 

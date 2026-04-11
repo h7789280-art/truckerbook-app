@@ -87,6 +87,126 @@ const PDF_LABELS = {
     footer: '\u0421\u0444\u043e\u0440\u043c\u043e\u0432\u0430\u043d\u043e TruckerBook | truckerbook-app.vercel.app',
     page: '\u0421\u0442\u043e\u0440.',
   },
+  es: {
+    title: 'TruckerBook \u2014 Informe Trimestral IFTA',
+    period: 'Per\u00edodo',
+    vehicle: 'Veh\u00edculo',
+    allVehicles: 'Todos los veh\u00edculos (informe de flota)',
+    generated: 'Generado',
+    status: 'Estado',
+    draft: 'BORRADOR',
+    final: 'FINAL',
+    totalMiles: 'Total millas',
+    totalGallons: 'Total galones comprados',
+    fleetMpg: 'MPG promedio de flota',
+    totalTax: 'Obligaci\u00f3n tributaria total',
+    totalSurcharge: 'Total recargos',
+    totalCredits: 'Total cr\u00e9ditos (impuesto pagado en surtidor)',
+    netBalance: 'SALDO NETO',
+    oweNote: 'Monto adeudado a IFTA',
+    creditNote: 'Cr\u00e9dito / reembolso',
+    credit: '(cr\u00e9dito)',
+    total: 'TOTAL',
+    disclaimer: 'Este informe ha sido generado por TruckerBook \u00fanicamente con fines informativos. NO sustituye la preparaci\u00f3n fiscal profesional. Verifique todas las cifras con un CPA o EA autorizado antes de presentar. Tasas obtenidas de IFTA Inc. Tax Rate Matrix.',
+    footer: 'Generado por TruckerBook | truckerbook-app.vercel.app',
+    page: 'P\u00e1g.',
+  },
+  de: {
+    title: 'TruckerBook \u2014 IFTA Quartalsbericht',
+    period: 'Zeitraum',
+    vehicle: 'Fahrzeug',
+    allVehicles: 'Alle Fahrzeuge (Flottenbericht)',
+    generated: 'Erstellt',
+    status: 'Status',
+    draft: 'ENTWURF',
+    final: 'FINAL',
+    totalMiles: 'Gesamtmeilen',
+    totalGallons: 'Gesamtgallonen gekauft',
+    fleetMpg: 'Flotten-MPG Durchschnitt',
+    totalTax: 'Steuerpflicht gesamt',
+    totalSurcharge: 'Zuschl\u00e4ge gesamt',
+    totalCredits: 'Gutschriften gesamt (an Tankstelle bezahlte Steuer)',
+    netBalance: 'NETTOSALDO',
+    oweNote: 'An IFTA zu zahlender Betrag',
+    creditNote: 'Gutschrift / Erstattung',
+    credit: '(Gutschrift)',
+    total: 'GESAMT',
+    disclaimer: 'Dieser Bericht wurde von TruckerBook ausschlie\u00dflich zu Informationszwecken erstellt. Er ist KEIN Ersatz f\u00fcr professionelle Steuerberatung. \u00dcberpr\u00fcfen Sie alle Zahlen mit einem lizenzierten Steuerberater vor der Einreichung. Steuers\u00e4tze aus der IFTA Inc. Tax Rate Matrix.',
+    footer: 'Erstellt von TruckerBook | truckerbook-app.vercel.app',
+    page: 'Seite',
+  },
+  fr: {
+    title: 'TruckerBook \u2014 Rapport Trimestriel IFTA',
+    period: 'P\u00e9riode',
+    vehicle: 'V\u00e9hicule',
+    allVehicles: 'Tous les v\u00e9hicules (rapport de flotte)',
+    generated: 'G\u00e9n\u00e9r\u00e9',
+    status: 'Statut',
+    draft: 'BROUILLON',
+    final: 'FINAL',
+    totalMiles: 'Total miles',
+    totalGallons: 'Total gallons achet\u00e9s',
+    fleetMpg: 'MPG moyen de la flotte',
+    totalTax: 'Obligation fiscale totale',
+    totalSurcharge: 'Total surtaxes',
+    totalCredits: 'Total cr\u00e9dits (taxe pay\u00e9e \u00e0 la pompe)',
+    netBalance: 'SOLDE NET',
+    oweNote: 'Montant d\u00fb \u00e0 l\'IFTA',
+    creditNote: 'Cr\u00e9dit / remboursement',
+    credit: '(cr\u00e9dit)',
+    total: 'TOTAL',
+    disclaimer: 'Ce rapport a \u00e9t\u00e9 g\u00e9n\u00e9r\u00e9 par TruckerBook \u00e0 titre informatif uniquement. Il NE remplace PAS la pr\u00e9paration fiscale professionnelle. V\u00e9rifiez tous les chiffres avec un CPA ou EA agr\u00e9\u00e9 avant de d\u00e9poser. Taux provenant de IFTA Inc. Tax Rate Matrix.',
+    footer: 'G\u00e9n\u00e9r\u00e9 par TruckerBook | truckerbook-app.vercel.app',
+    page: 'Page',
+  },
+  tr: {
+    title: 'TruckerBook \u2014 IFTA \u00c7eyreklik Rapor',
+    period: 'D\u00f6nem',
+    vehicle: 'Ara\u00e7',
+    allVehicles: 'T\u00fcm ara\u00e7lar (filo raporu)',
+    generated: 'Olu\u015fturuldu',
+    status: 'Durum',
+    draft: 'TASLAK',
+    final: 'F\u0130NAL',
+    totalMiles: 'Toplam mil',
+    totalGallons: 'Toplam al\u0131nan galon',
+    fleetMpg: 'Filo ortalama MPG',
+    totalTax: 'Toplam vergi y\u00fck\u00fcml\u00fcl\u00fc\u011f\u00fc',
+    totalSurcharge: 'Toplam ek \u00fccretler',
+    totalCredits: 'Toplam krediler (istasyonda \u00f6denen vergi)',
+    netBalance: 'NET BAK\u0130YE',
+    oweNote: 'IFTA\'ya bor\u00e7lu olunan tutar',
+    creditNote: 'Kredi / iade',
+    credit: '(kredi)',
+    total: 'TOPLAM',
+    disclaimer: 'Bu rapor TruckerBook taraf\u0131ndan yaln\u0131zca bilgi ama\u00e7l\u0131 olu\u015fturulmu\u015ftur. Profesyonel vergi haz\u0131rl\u0131\u011f\u0131n\u0131n yerine GE\u00c7MEZ. Beyanname vermeden \u00f6nce t\u00fcm rakamlar\u0131 lisansl\u0131 bir CPA veya EA ile do\u011frulay\u0131n. Oranlar IFTA Inc. Tax Rate Matrix\'ten al\u0131nm\u0131\u015ft\u0131r.',
+    footer: 'TruckerBook taraf\u0131ndan olu\u015fturuldu | truckerbook-app.vercel.app',
+    page: 'Sayfa',
+  },
+  pl: {
+    title: 'TruckerBook \u2014 Kwartalny Raport IFTA',
+    period: 'Okres',
+    vehicle: 'Pojazd',
+    allVehicles: 'Wszystkie pojazdy (raport flotowy)',
+    generated: 'Wygenerowano',
+    status: 'Status',
+    draft: 'SZKIC',
+    final: 'FINALNY',
+    totalMiles: 'Razem mil',
+    totalGallons: 'Razem zakupionych galon\u00f3w',
+    fleetMpg: '\u015arednie MPG floty',
+    totalTax: 'Ca\u0142kowite zobowi\u0105zanie podatkowe',
+    totalSurcharge: 'Ca\u0142kowite dop\u0142aty',
+    totalCredits: 'Ca\u0142kowite kredyty (podatek zap\u0142acony na stacji)',
+    netBalance: 'SALDO NETTO',
+    oweNote: 'Kwota nale\u017cna IFTA',
+    creditNote: 'Kredyt / zwrot',
+    credit: '(kredyt)',
+    total: 'RAZEM',
+    disclaimer: 'Ten raport zosta\u0142 wygenerowany przez TruckerBook wy\u0142\u0105cznie w celach informacyjnych. NIE zast\u0119puje profesjonalnego przygotowania podatkowego. Przed z\u0142o\u017ceniem zweryfikuj wszystkie dane z licencjonowanym CPA lub EA. Stawki pochodz\u0105 z IFTA Inc. Tax Rate Matrix.',
+    footer: 'Wygenerowano przez TruckerBook | truckerbook-app.vercel.app',
+    page: 'Str.',
+  },
 }
 
 // Fallback: any unrecognized language uses English labels
@@ -94,10 +214,16 @@ function getLabels(lang) {
   return PDF_LABELS[lang] || PDF_LABELS.en
 }
 
+const QUARTER_PREFIX = {
+  en: 'Q', ru: '\u043a\u0432.', uk: '\u043a\u0432.', es: 'T', de: 'Q', fr: 'T', tr: '\u00c7', pl: 'K',
+}
+
 function getPeriodLabel(quarter, year, lang) {
   const months = QUARTER_MONTHS[quarter]
   const range = (months && months[lang]) || months.en
-  return `Q${quarter} ${year} (${range}, ${year})`
+  const prefix = QUARTER_PREFIX[lang] || 'Q'
+  const qLabel = lang === 'ru' || lang === 'uk' ? `${quarter} ${prefix}` : `${prefix}${quarter}`
+  return `${qLabel} ${year} (${range})`
 }
 
 function fmtMoney(n) {
@@ -199,7 +325,8 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
   doc.setTextColor(100, 100, 100)
   const periodStr = getPeriodLabel(quarter, year, lang)
   const vehicleStr = vehicleName || L.allVehicles
-  const generatedStr = new Date().toLocaleString(lang === 'ru' ? 'ru-RU' : lang === 'uk' ? 'uk-UA' : 'en-US', {
+  const localeMap = { ru: 'ru-RU', en: 'en-US', uk: 'uk-UA', es: 'es-ES', de: 'de-DE', fr: 'fr-FR', tr: 'tr-TR', pl: 'pl-PL' }
+  const generatedStr = new Date().toLocaleString(localeMap[lang] || 'en-US', {
     year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit',
   })
 

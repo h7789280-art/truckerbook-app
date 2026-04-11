@@ -37,23 +37,36 @@ function isCurrentOrFutureQuarter(quarter, year) {
   return year > curYear || (year === curYear && quarter >= curQ)
 }
 
-function buildQuarterOptions() {
+const LOCALE_MAP = {
+  ru: 'ru-RU', en: 'en-US', uk: 'uk-UA',
+  es: 'es-ES', de: 'de-DE', fr: 'fr-FR',
+  tr: 'tr-TR', pl: 'pl-PL',
+}
+
+function getLocale(lang) {
+  return LOCALE_MAP[lang] || 'en-US'
+}
+
+function buildQuarterOptions(t) {
   const now = new Date()
   const curYear = now.getFullYear()
   const options = []
-  // Current year quarters
   for (let q = 1; q <= 4; q++) {
-    options.push({ quarter: q, year: curYear, label: `Q${q} ${curYear}` })
+    options.push({ quarter: q, year: curYear, label: `${t('ifta.q' + q)} ${curYear}` })
   }
-  // Previous year Q4
-  options.push({ quarter: 4, year: curYear - 1, label: `Q4 ${curYear - 1}` })
+  options.push({ quarter: 4, year: curYear - 1, label: `${t('ifta.q4')} ${curYear - 1}` })
   return options
 }
 
-function formatShortDate(dateStr) {
+function formatShortDate(dateStr, lang) {
   if (!dateStr) return ''
   const d = new Date(dateStr)
-  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return d.toLocaleDateString(getLocale(lang), { month: 'short', day: 'numeric' })
+}
+
+function fmtNum(n, lang) {
+  if (n == null) return '\u2014'
+  return n.toLocaleString(getLocale(lang), { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 export default function IftaTab({ userId, role, userVehicles }) {
@@ -129,7 +142,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
   const [allSavedReports, setAllSavedReports] = useState([])
   const [loadingSaved, setLoadingSaved] = useState(false)
 
-  const quarterOptions = useMemo(() => buildQuarterOptions(), [])
+  const quarterOptions = useMemo(() => buildQuarterOptions(t), [t])
 
   // Auto-hide toast after 3 seconds
   useEffect(() => {
@@ -391,8 +404,8 @@ function IftaFullReport({ userId, role, userVehicles }) {
               border: '1px solid ' + (existingReport.status === 'filed' ? '#22c55e33' : theme.border),
             }}>
               {existingReport.status === 'filed'
-                ? '\u2713 ' + t('ifta.statusFiled') + ' ' + formatShortDate(existingReport.submitted_at)
-                : t('ifta.statusDraft') + ' ' + formatShortDate(existingReport.created_at)
+                ? '\u2713 ' + t('ifta.statusFiled') + ' ' + formatShortDate(existingReport.submitted_at, language)
+                : t('ifta.statusDraft') + ' ' + formatShortDate(existingReport.created_at, language)
               }
             </span>
           )}
@@ -417,7 +430,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
         {/* Filing deadline hint */}
         {showDeadline && (
           <div style={{ marginTop: '8px', color: theme.dim, fontSize: '12px' }}>
-            {t('ifta.filingDeadline')}: {filingDeadline.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+            {t('ifta.filingDeadline')}: {filingDeadline.toLocaleDateString(getLocale(language), { month: 'long', day: 'numeric', year: 'numeric' })}
           </div>
         )}
       </div>
@@ -483,9 +496,9 @@ function IftaFullReport({ userId, role, userVehicles }) {
                         {row.state_name !== row.state_code ? row.state_name : ''}
                       </span>
                     </td>
-                    <td style={cellMono(theme)}>{row.miles.toFixed(1)}</td>
-                    <td style={cellMono(theme)}>{row.gallons_purchased.toFixed(1)}</td>
-                    <td style={cellMono(theme)}>{row.gallons_consumed.toFixed(1)}</td>
+                    <td style={cellMono(theme)}>{fmtNum(row.miles, language)}</td>
+                    <td style={cellMono(theme)}>{fmtNum(row.gallons_purchased, language)}</td>
+                    <td style={cellMono(theme)}>{fmtNum(row.gallons_consumed, language)}</td>
                     <td style={cellMono(theme)}>
                       {row.tax_rate !== null ? '$' + row.tax_rate.toFixed(4) : (
                         <span title={t('ifta.noRateTooltip')}>{'\u2014'}</span>
@@ -518,9 +531,9 @@ function IftaFullReport({ userId, role, userVehicles }) {
           {/* Totals cards */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
             {[
-              { label: t('ifta.totalMiles'), value: report.totals.total_miles.toFixed(1), color: theme.text },
-              { label: t('ifta.totalGallons'), value: report.totals.total_gallons.toFixed(1), color: theme.text },
-              { label: t('ifta.averageMpg'), value: report.totals.average_mpg !== null ? report.totals.average_mpg.toFixed(1) : '\u2014', color: '#3b82f6' },
+              { label: t('ifta.totalMiles'), value: fmtNum(report.totals.total_miles, language), color: theme.text },
+              { label: t('ifta.totalGallons'), value: fmtNum(report.totals.total_gallons, language), color: theme.text },
+              { label: t('ifta.averageMpg'), value: report.totals.average_mpg !== null ? fmtNum(report.totals.average_mpg, language) : '\u2014', color: '#3b82f6' },
               {
                 label: t('ifta.netBalance'),
                 value: (report.totals.net_balance <= 0 ? '-' : '') + '$' + Math.abs(report.totals.net_balance).toFixed(2),
@@ -643,7 +656,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
                   }}
                 >
                   <span style={{ fontWeight: 700, color: theme.text, minWidth: '60px' }}>
-                    Q{r.quarter} {r.year}
+                    {t('ifta.q' + r.quarter)} {r.year}
                   </span>
                   <span style={{ color: theme.dim, flex: 1, minWidth: '80px' }}>
                     {getVehicleLabel(r.vehicle_id)}
@@ -675,7 +688,7 @@ function IftaFullReport({ userId, role, userVehicles }) {
                     }
                   </span>
                   <span style={{ color: theme.dim, fontSize: '11px' }}>
-                    {formatShortDate(r.submitted_at || r.created_at)}
+                    {formatShortDate(r.submitted_at || r.created_at, language)}
                   </span>
                 </div>
               ))}

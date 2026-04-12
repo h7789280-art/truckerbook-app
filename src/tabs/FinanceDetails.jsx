@@ -511,7 +511,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
             {segments.map((seg, i) => (
               <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
-                <div style={{ fontSize: '12px', color: theme.dim, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{seg.label}</div>
+                <div style={{ fontSize: '12px', color: theme.dim, flex: 1, minWidth: 0 }}>{seg.label}</div>
                 <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>
                   {formatNumber(Math.round(seg.value))} {cs}
                 </div>

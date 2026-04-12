@@ -703,9 +703,18 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             driverPay: tr.driver_pay || 0,
           }))
 
+          // Category translation for owner_operator
+          const isOwnerRole = profile?.role === 'owner_operator'
+          const catLabel = (key, fallback) => isOwnerRole ? (t('excel.' + key) || fallback) : fallback
+          const vExpCatLabel = (cat) => {
+            if (!isOwnerRole) return cat
+            const map = { def: t('excel.def') || 'DEF', oil: t('excel.oil') || 'Oil', supplies: t('excel.supplies') || 'Supplies', hotel: t('excel.motel') || 'Motel', equipment: t('excel.equipment') || 'Equipment', toll: t('excel.toll') || 'Toll', parts: t('excel.parts') || 'Parts' }
+            return map[cat] || cat
+          }
+
           const expensesArr = []
           data.fuels.forEach(f => expensesArr.push({
-            date: f.date || '', description: f.station || 'Fuel', category: 'Fuel',
+            date: f.date || '', description: f.station || (catLabel('fuel', 'Fuel')), category: catLabel('fuel', 'Fuel'),
             gallons: isImperial ? Math.round((f.liters || 0) * 0.264172 * 100) / 100 : (f.liters || 0),
             amount: f.cost || 0, odometer: f.odometer ? (isImperial ? Math.round(f.odometer * 0.621371) : f.odometer) : '',
           }))
@@ -714,15 +723,15 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             gallons: '', amount: e.amount || 0, odometer: '',
           }))
           data.serviceRecs.forEach(e => expensesArr.push({
-            date: e.date || '', description: e.description || e.type || 'Service', category: 'Service',
+            date: e.date || '', description: e.description || e.type || (catLabel('service', 'Service')), category: catLabel('service', 'Service'),
             gallons: '', amount: e.cost || 0, odometer: '',
           }))
           data.vehicleExps.forEach(e => expensesArr.push({
-            date: e.date || '', description: e.description || '', category: e.category || 'Vehicle',
+            date: e.date || '', description: e.description || '', category: vExpCatLabel(e.category || 'Vehicle'),
             gallons: '', amount: e.amount || 0, odometer: '',
           }))
           data.tireRecs.forEach(e => expensesArr.push({
-            date: e.installed_at || '', description: (e.brand || '') + ' ' + (e.model || ''), category: 'Tires',
+            date: e.installed_at || '', description: (e.brand || '') + ' ' + (e.model || ''), category: catLabel('tires', 'Tires'),
             gallons: '', amount: e.cost || 0, odometer: '',
           }))
 
@@ -784,6 +793,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             advances: data.advances.map(a => ({ date: a.date, amount: a.amount || 0, note: a.note || '' })),
             advancesTotal, payDue: payTotal - advancesTotal,
             distLabel, cs, t,
+            role: profile?.role,
             filename: `driver_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
           })
         }

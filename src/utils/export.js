@@ -220,7 +220,7 @@ export async function exportDriverReportExcel(opts) {
 
   // Translation helper with fallback
   const t = typeof _t === 'function' ? _t : (key) => {
-    const fb = { 'excel.sheetSummary': 'Summary', 'excel.sheetTrips': 'Trips', 'excel.sheetExpenses': 'Expenses', 'excel.sheetPaySheet': 'Pay Sheet', 'excel.driver': 'Driver', 'excel.phone': 'Phone', 'excel.vehicle': 'Vehicle', 'excel.period': 'Period', 'excel.trips': 'Trips', 'excel.odometer': 'Odometer', 'excel.hoursOnRoad': 'Hours on road', 'excel.earned': 'Earned', 'excel.personalExpenses': 'Personal Expenses (drivers)', 'excel.netClean': 'Net clean', 'excel.vehicleExpLabel': 'Vehicle expenses', 'excel.amount': 'Amount', 'excel.total': 'TOTAL', 'excel.costPer': 'Cost per', 'excel.tripIncomeLabel': 'Trip income', 'excel.netProfit': 'Net Profit', 'excel.date': 'Date', 'excel.origin': 'From', 'excel.destination': 'To', 'excel.distMiles': 'miles', 'excel.income': 'Income', 'excel.myEarnings': 'My earnings', 'excel.description': 'Description', 'excel.category': 'Category', 'excel.gallons': 'gal', 'excel.route': 'Route', 'excel.rate': 'Rate', 'excel.totalEarned': 'TOTAL earned', 'excel.advancesLabel': 'Advances', 'excel.totalAdvances': 'Total advances', 'excel.toPay': 'TO PAY' }
+    const fb = { 'excel.sheetSummary': 'Summary', 'excel.sheetTrips': 'Trips', 'excel.sheetExpenses': 'Expenses', 'excel.sheetPaySheet': 'Pay Sheet', 'excel.driver': 'Driver', 'excel.phone': 'Phone', 'excel.vehicle': 'Vehicle', 'excel.period': 'Period', 'excel.trips': 'Trips', 'excel.odometer': 'Odometer', 'excel.hoursOnRoad': 'Hours on road', 'excel.earned': 'Earned', 'excel.personalExpenses': 'Personal Expenses (drivers)', 'excel.netClean': 'Net clean', 'excel.vehicleExpLabel': 'Vehicle expenses', 'excel.amount': 'Amount', 'excel.total': 'TOTAL', 'excel.costPer': 'Cost per', 'excel.tripIncomeLabel': 'Trip income', 'excel.netProfit': 'Net Profit', 'excel.grossProfit': 'Gross Profit', 'excel.date': 'Date', 'excel.origin': 'From', 'excel.destination': 'To', 'excel.distMiles': 'miles', 'excel.income': 'Income', 'excel.myEarnings': 'My earnings', 'excel.description': 'Description', 'excel.category': 'Category', 'excel.gallons': 'gal', 'excel.route': 'Route', 'excel.rate': 'Rate', 'excel.totalEarned': 'TOTAL earned', 'excel.advancesLabel': 'Advances', 'excel.totalAdvances': 'Total advances', 'excel.toPay': 'TO PAY', 'byt.personalExpenses': 'Personal expenses' }
     return fb[key] || key
   }
 
@@ -323,8 +323,12 @@ export async function exportDriverReportExcel(opts) {
 
   if (payType === 'none') {
     ws1.addRow([])
+    const grossProfit = (tripIncome || 0) - (vehicleExpenseTotal || 0)
     addInfoRow(t('excel.tripIncomeLabel') + ' (' + cs + ')', fmtNum(tripIncome))
-    addInfoRow(t('excel.netProfit') + ' (' + cs + ')', fmtNum(netProfit))
+    addInfoRow(t('excel.vehicleExpLabel') + ' (' + cs + ')', fmtNum(vehicleExpenseTotal))
+    addInfoRow(t('excel.grossProfit') + ' (' + cs + ')', fmtNum(grossProfit))
+    addInfoRow(t('byt.personalExpenses') + ' (' + cs + ')', fmtNum(personalExpenses))
+    addInfoRow(t('excel.netClean') + ' (' + cs + ')', fmtNum(grossProfit - (personalExpenses || 0)))
   }
 
   ws1.getColumn(1).width = 30

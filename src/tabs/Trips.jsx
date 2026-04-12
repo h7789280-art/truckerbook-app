@@ -733,13 +733,13 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
           data.vehicleExps.forEach(e => { const cat = e.category || 'other'; vExpByCat[cat] = (vExpByCat[cat] || 0) + (e.amount || 0) })
 
           const vehicleExpenseCategories = []
-          if (fuelTotal > 0) vehicleExpenseCategories.push({ label: 'Fuel', amount: fuelTotal })
-          if (vExpByCat.def) vehicleExpenseCategories.push({ label: 'DEF', amount: vExpByCat.def })
-          if (serviceTotal > 0) vehicleExpenseCategories.push({ label: 'Repair', amount: serviceTotal })
-          if (tireTotal > 0) vehicleExpenseCategories.push({ label: 'Tires', amount: tireTotal })
+          if (fuelTotal > 0) vehicleExpenseCategories.push({ label: t('excel.fuel'), amount: fuelTotal })
+          if (vExpByCat.def) vehicleExpenseCategories.push({ label: t('excel.def'), amount: vExpByCat.def })
+          if (serviceTotal > 0) vehicleExpenseCategories.push({ label: t('excel.repair'), amount: serviceTotal })
+          if (tireTotal > 0) vehicleExpenseCategories.push({ label: t('excel.tires'), amount: tireTotal })
           const knownVCats = ['def', 'oil', 'supplies', 'hotel']
           Object.entries(vExpByCat).filter(([k]) => !knownVCats.includes(k)).forEach(([k, v]) => {
-            if (v > 0) vehicleExpenseCategories.push({ label: k, amount: v })
+            if (v > 0) vehicleExpenseCategories.push({ label: t('excel.' + k) || k, amount: v })
           })
 
           const vehicleExpenseTotal = vehicleExpenseCategories.reduce((s, c) => s + c.amount, 0)
@@ -1217,7 +1217,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
                 <div style={{ color: '#22c55e', fontSize: '16px', fontWeight: 700, fontFamily: 'monospace' }}>
                   +{fmtFull(trip.income || 0)} {cs}
                 </div>
-                {(trip.driver_pay != null && trip.driver_pay > 0) && (
+                {(trip.driver_pay != null && trip.driver_pay > 0) && profile?.role !== 'owner_operator' && (
                   <div style={{ color: '#22c55e', fontSize: '12px', fontFamily: 'monospace', marginTop: '2px', opacity: 0.8 }}>
                     {t('pay.myEarnings')}: {fmtFull(trip.driver_pay)} {cs}
                   </div>

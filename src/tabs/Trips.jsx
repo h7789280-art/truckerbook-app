@@ -512,6 +512,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
   const isCompanyRole = profile?.role === 'company'
+  const isOwnerRole = profile?.role === 'owner_operator'
   const [entries, setEntries] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -999,9 +1000,9 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
             </div>
           )}
         </>
-      ) : (
+      ) : !isOwnerRole ? (
         <TrailerBlock userId={userId} theme={theme} />
-      )}
+      ) : null}
 
       {/* Mini cards — only for non-company */}
       {!isCompanyRole && (

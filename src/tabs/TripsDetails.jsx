@@ -120,7 +120,7 @@ export default function TripsDetails({ userId, profile, onBack }) {
         >
           {'\u2190'}
         </button>
-        <div style={{ fontSize: '18px', fontWeight: 700 }}>{t('overview.inlineTripsTitle')}</div>
+        <div style={{ fontSize: '18px', fontWeight: 700 }}>{isOwner ? t('overview.goToTrips') : t('overview.inlineTripsTitle')}</div>
       </div>
 
       {/* Vehicle filter — company only */}

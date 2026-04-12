@@ -419,7 +419,7 @@ export default function AddModal({ isOpen, onClose, userId, activeTab, activeVeh
     } else if (activeTab === 'byt') {
       setFormType('byt')
       setForm({ category: 'food' })
-    } else if (activeTab === 'trips') {
+    } else if (activeTab === 'trips' || activeTab === 'trips_detail') {
       setFormType('trip')
     } else {
       setFormType(null)

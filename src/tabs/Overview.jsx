@@ -2427,6 +2427,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 </>
               )
             })()}
+
+            {/* Analytics link for owner_operator */}
+            {role === 'owner_operator' && (
+              <div style={{ textAlign: 'right', marginTop: '10px' }}>
+                <span
+                  onClick={(e) => { e.stopPropagation(); onExtraNav?.('finance') }}
+                  style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                >{t('overview.analyticsLink')}</span>
+              </div>
+            )}
           </div>
           )}
 
@@ -2437,6 +2447,28 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\ude9b'} {t('overview.goToTrips')}</div>
               <div style={{ fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
             </div>
+            {/* Trip summary for current month */}
+            {(() => {
+              const cnt = monthData.tripCount || 0
+              const inc = monthData.income || 0
+              const n10 = cnt % 10
+              const n100 = cnt % 100
+              const word = (n100 >= 11 && n100 <= 19) ? t('overview.tripsWord5')
+                : n10 === 1 ? t('overview.tripsWord1')
+                : (n10 >= 2 && n10 <= 4) ? t('overview.tripsWord234')
+                : t('overview.tripsWord5')
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+                  <div style={{ fontSize: '13px', color: theme.dim }}>
+                    {cnt} {word} {'\u00b7'} {formatNumber(Math.round(inc))} {cs}
+                  </div>
+                  <span
+                    onClick={(e) => { e.stopPropagation(); onExtraNav?.('trips') }}
+                    style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                  >{t('overview.allTrips')}</span>
+                </div>
+              )
+            })()}
           </div>
           )}
 

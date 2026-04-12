@@ -2302,7 +2302,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               <>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\udcb5'} {t('pay.myEarnings')} — {t('expenses.monthNames')[new Date().getMonth()]} {new Date().getFullYear()}</div>
-                  <div style={{ fontSize: '20px', color: theme.dim, opacity: 0.7 }}>{'\u203a'}</div>
+                  <div style={{ fontSize: '24px', color: '#000000', fontWeight: 700 }}>{'\u203a'}</div>
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <div>
@@ -2447,7 +2447,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           <div onClick={() => onExtraNav?.('trips_detail')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\ude9b'} {t('overview.goToTrips')}</div>
-              <div style={{ fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
+              <div style={{ fontSize: '24px', color: '#000000', fontWeight: 700 }}>{'\u203a'}</div>
             </div>
             {/* Trip summary for current month */}
             {(() => {

@@ -216,6 +216,7 @@ export async function exportDriverReportExcel(opts) {
     distLabel, cs,
     filename,
     t: _t,
+    role, // user role: 'owner_operator' | 'driver' | 'company'
   } = opts
 
   // Translation helper with fallback
@@ -292,7 +293,16 @@ export async function exportDriverReportExcel(opts) {
   addInfoRow(t('excel.hoursOnRoad'), fmtNum(totalHours))
   ws1.addRow([])
 
-  if (payType && payType !== 'none') {
+  const isOwner = role === 'owner_operator'
+  if (isOwner) {
+    const grossProfit = (tripIncome || 0) - (vehicleExpenseTotal || 0)
+    addInfoRow(t('excel.tripIncomeLabel') + ' (' + cs + ')', fmtNum(tripIncome))
+    addInfoRow(t('excel.vehicleExpLabel') + ' (' + cs + ')', fmtNum(vehicleExpenseTotal))
+    addInfoRow(t('excel.grossProfit') + ' (' + cs + ')', fmtNum(grossProfit))
+    addInfoRow(t('byt.personalExpenses') + ' (' + cs + ')', fmtNum(personalExpenses))
+    addInfoRow(t('excel.netClean') + ' (' + cs + ')', fmtNum(grossProfit - (personalExpenses || 0)))
+    ws1.addRow([])
+  } else if (payType && payType !== 'none') {
     addInfoRow(t('excel.earned') + ' (' + cs + ')', fmtNum(earned))
     addInfoRow(t('excel.personalExpenses') + ' (' + cs + ')', fmtNum(personalExpenses))
     addInfoRow(t('excel.netClean') + ' (' + cs + ')', fmtNum(netClean))
@@ -321,7 +331,7 @@ export async function exportDriverReportExcel(opts) {
     addInfoRow(t('excel.costPer') + ' ' + (distLabel || 'mi') + ' (' + cs + ')', fmtNum((vehicleExpenseTotal || 0) / totalMileage))
   }
 
-  if (payType === 'none') {
+  if (!isOwner && payType === 'none') {
     ws1.addRow([])
     const grossProfit = (tripIncome || 0) - (vehicleExpenseTotal || 0)
     addInfoRow(t('excel.tripIncomeLabel') + ' (' + cs + ')', fmtNum(tripIncome))
@@ -337,21 +347,21 @@ export async function exportDriverReportExcel(opts) {
   // ---- SHEET 2: Trips ----
   const ws2 = wb.addWorksheet(t('excel.sheetTrips'))
   const tripHeaders = [t('excel.date'), t('excel.origin'), t('excel.destination'), t('excel.distMiles'), t('excel.income') + ' (' + cs + ')']
-  if (payType && payType !== 'none') tripHeaders.push(t('excel.myEarnings') + ' (' + cs + ')')
+  if (!isOwner && payType && payType !== 'none') tripHeaders.push(t('excel.myEarnings') + ' (' + cs + ')')
   ws2.addRow(tripHeaders)
   styleHeaders(ws2, tripHeaders.length)
 
   let tripRowIdx = 2
   ;(trips || []).forEach(tr => {
     const row = [tr.date, tr.origin, tr.destination, fmtNum(tr.miles), fmtNum(tr.income)]
-    if (payType && payType !== 'none') row.push(fmtNum(tr.driverPay))
+    if (!isOwner && payType && payType !== 'none') row.push(fmtNum(tr.driverPay))
     ws2.addRow(row)
     tripRowIdx++
   })
 
   // TOTAL row
   const tripTotalRow = [t('excel.total'), '', '', fmtNum((trips || []).reduce((s, tr2) => s + (tr2.miles || 0), 0)), fmtNum((trips || []).reduce((s, tr2) => s + (tr2.income || 0), 0))]
-  if (payType && payType !== 'none') tripTotalRow.push(fmtNum((trips || []).reduce((s, tr2) => s + (tr2.driverPay || 0), 0)))
+  if (!isOwner && payType && payType !== 'none') tripTotalRow.push(fmtNum((trips || []).reduce((s, tr2) => s + (tr2.driverPay || 0), 0)))
   const ttr = ws2.addRow(tripTotalRow)
   ttr.eachCell(c => { c.font = { bold: true, size: 11 } })
 
@@ -376,8 +386,8 @@ export async function exportDriverReportExcel(opts) {
   styleAltRows(ws3, 2, expRowIdx - 1, expHeaders.length)
   autoWidth(ws3)
 
-  // ---- SHEET 4: Pay Sheet (only if payType != 'none') ----
-  if (payType && payType !== 'none') {
+  // ---- SHEET 4: Pay Sheet (only for hired drivers, not owner_operator) ----
+  if (!isOwner && payType && payType !== 'none') {
     const ws4 = wb.addWorksheet(t('excel.sheetPaySheet'))
     const payHeaders = [t('excel.date'), t('excel.route'), t('excel.distMiles'), t('excel.rate'), t('excel.earned') + ' (' + cs + ')']
     ws4.addRow(payHeaders)

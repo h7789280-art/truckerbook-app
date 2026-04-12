@@ -544,12 +544,21 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         driverPay: tr.driver_pay || 0,
       }))
 
+      // Category translation map for owner_operator expense sheet
+      const isOwnerRole = profile?.role === 'owner_operator'
+      const catLabel = (key, fallback) => isOwnerRole ? (t('excel.' + key) || fallback) : fallback
+      const vExpCatLabel = (cat) => {
+        if (!isOwnerRole) return cat
+        const map = { def: t('excel.def') || 'DEF', oil: t('excel.oil') || 'Oil', supplies: t('excel.supplies') || 'Supplies', hotel: t('excel.motel') || 'Motel', equipment: t('excel.equipment') || 'Equipment', toll: t('excel.toll') || 'Toll', parts: t('excel.parts') || 'Parts' }
+        return map[cat] || cat
+      }
+
       // All expenses merged
       const expensesArr = []
       data.fuels.forEach(f => expensesArr.push({
         date: f.date || '',
-        description: f.station || 'Fuel',
-        category: 'Fuel',
+        description: f.station || (catLabel('fuel', 'Fuel')),
+        category: catLabel('fuel', 'Fuel'),
         gallons: isImperial ? Math.round((f.liters || 0) * 0.264172 * 100) / 100 : (f.liters || 0),
         amount: f.cost || 0,
         odometer: f.odometer ? (isImperial ? Math.round(f.odometer * 0.621371) : f.odometer) : '',
@@ -564,8 +573,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       }))
       data.serviceRecs.forEach(e => expensesArr.push({
         date: e.date || '',
-        description: e.description || e.type || 'Service',
-        category: 'Service',
+        description: e.description || e.type || (catLabel('service', 'Service')),
+        category: catLabel('service', 'Service'),
         gallons: '',
         amount: e.cost || 0,
         odometer: '',
@@ -573,7 +582,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       data.vehicleExps.forEach(e => expensesArr.push({
         date: e.date || '',
         description: e.description || '',
-        category: e.category || 'Vehicle',
+        category: vExpCatLabel(e.category || 'Vehicle'),
         gallons: '',
         amount: e.amount || 0,
         odometer: '',
@@ -581,7 +590,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       data.tireRecs.forEach(e => expensesArr.push({
         date: e.installed_at || '',
         description: (e.brand || '') + ' ' + (e.model || ''),
-        category: 'Tires',
+        category: catLabel('tires', 'Tires'),
         gallons: '',
         amount: e.cost || 0,
         odometer: '',
@@ -679,6 +688,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         distLabel,
         cs,
         t,
+        role: profile?.role,
         filename: `driver_report_${String(month).padStart(2, '0')}_${year}.xlsx`,
       })
     } catch (err) {

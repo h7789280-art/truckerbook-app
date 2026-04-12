@@ -753,7 +753,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const greeting = getGreeting(profileName, t)
   const isCompanyRole = profile?.role === 'company'
   const role = profile?.role || 'owner_operator'
-  const isHiredDriver = role === 'driver' || profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent'
+  const isHiredDriver = role === 'driver' && (profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent')
   const totalExpenses = monthData.fuelCost + (isCompanyRole ? 0 : monthData.bytCost) + monthData.serviceCost + (monthData.vehicleExpCost || 0)
   const profit = monthData.income - totalExpenses
 

@@ -31,7 +31,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
 
   // Determine view mode
   const isCompanyRole = profile?.role === 'company'
-  const isHiredDriver = !isCompanyRole && (profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent')
+  const isHiredDriver = !isCompanyRole && profile?.role === 'driver' && (profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent')
   // else: owner-operator (default)
 
   // Salary settings from localStorage (same as Overview)

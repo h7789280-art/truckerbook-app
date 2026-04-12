@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
-import { supabase } from '../lib/supabase'
 import { fetchTrips, fetchFleetSummary } from '../lib/api'
 
 function formatNumber(n) {
@@ -14,6 +13,7 @@ export default function TripsDetails({ userId, profile, onBack }) {
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
   const distLabel = unitSys === 'imperial' ? 'mi' : '\u043a\u043c'
+  const isOwner = profile?.role === 'owner_operator'
 
   const [loading, setLoading] = useState(true)
   const [allTrips, setAllTrips] = useState([])
@@ -28,18 +28,23 @@ export default function TripsDetails({ userId, profile, onBack }) {
     if (!userId) return
     setLoading(true)
     try {
-      const [trips, fleet] = await Promise.all([
-        fetchTrips(userId),
-        fetchFleetSummary(userId),
-      ])
-      setAllTrips(trips || [])
-      setVehicles(fleet?.vehicles || [])
+      if (isOwner) {
+        const trips = await fetchTrips(userId)
+        setAllTrips(trips || [])
+      } else {
+        const [trips, fleet] = await Promise.all([
+          fetchTrips(userId),
+          fetchFleetSummary(userId),
+        ])
+        setAllTrips(trips || [])
+        setVehicles(fleet?.vehicles || [])
+      }
     } catch (e) {
       console.error(e)
     } finally {
       setLoading(false)
     }
-  }, [userId])
+  }, [userId, isOwner])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -118,8 +123,8 @@ export default function TripsDetails({ userId, profile, onBack }) {
         <div style={{ fontSize: '18px', fontWeight: 700 }}>{t('overview.inlineTripsTitle')}</div>
       </div>
 
-      {/* Vehicle filter */}
-      {vehicles.length > 0 && (
+      {/* Vehicle filter — company only */}
+      {!isOwner && vehicles.length > 0 && (
         <select
           value={filter}
           onChange={e => setFilter(e.target.value)}
@@ -189,7 +194,38 @@ export default function TripsDetails({ userId, profile, onBack }) {
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
           {t('common.loading')}
         </div>
+      ) : isOwner ? (
+        /* Owner-operator: flat trip list */
+        filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
+            {t('trips.noTrips')}
+          </div>
+        ) : (
+          filtered.map(tr => (
+            <div key={tr.id} style={{ ...cardStyle, marginBottom: '8px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ color: theme.text, fontSize: '14px', fontWeight: 600 }}>
+                    {tr.origin || '?'} {'\u2192'} {tr.destination || '?'}
+                  </div>
+                  <div style={{ color: theme.dim, fontSize: '12px', marginTop: '2px' }}>
+                    {fmtDate(tr.created_at)} {'\u00b7'} {formatNumber(tr.distance_km || 0)} {distLabel}
+                    {(tr.deadhead_km || 0) > 0 && (
+                      <span style={{ color: '#f59e0b', marginLeft: '6px' }}>
+                        {'\u00b7 '}{t('trips.deadhead')}{': '}{formatNumber(tr.deadhead_km)}{' '}{distLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div style={{ color: '#22c55e', fontSize: '14px', fontWeight: 700, fontFamily: 'monospace', flexShrink: 0 }}>
+                  +{formatNumber(tr.income || 0)} {cs}
+                </div>
+              </div>
+            </div>
+          ))
+        )
       ) : filter !== 'all' ? (
+        /* Company: filtered by specific vehicle */
         filtered.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '16px 0', color: theme.dim, fontSize: 13 }}>
             {t('trips.noTripsVehicle')}
@@ -218,6 +254,7 @@ export default function TripsDetails({ userId, profile, onBack }) {
           {t('trips.noVehicles')}
         </div>
       ) : (
+        /* Company: grouped by vehicle */
         vehicles.map(v => {
           const vTrips = tripsByVeh[v.id] || []
           const isExp = expanded === v.id

@@ -1778,7 +1778,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           <span>
             {t('overview.today') + ' '}{todaySummary.count}{' '}{t('shifts.shiftsLabel')}
             {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' '}{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
-            {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{t('driving.hourShort') + ' '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{t('driving.minShort')}
+            {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{t('tacho.hourShort') + ' '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{t('tacho.minShort')}
           </span>
         </div>
       )}
@@ -2071,8 +2071,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               const durationH = Math.floor(durationMin / 60)
               const durationM = durationMin % 60
               const durationStr = durationH > 0
-                ? `${durationH}${t('driving.hourShort')} ${durationM}${t('driving.minShort')}`
-                : `${durationM}${t('driving.minShort')}`
+                ? `${durationH}${t('tacho.hourShort')} ${durationM}${t('tacho.minShort')}`
+                : `${durationM}${t('tacho.minShort')}`
               const dateStr = start.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' })
               const timeStart = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
               const timeEnd = end ? end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '\u2014'
@@ -2164,7 +2164,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             {driverStats.map((d, i) => {
               const hours = Math.floor(d.totalMinutes / 60)
               const mins = Math.round(d.totalMinutes % 60)
-              const timeStr = hours > 0 ? `${hours}${t('driving.hourShort')} ${mins}${t('driving.minShort')}` : `${mins}${t('driving.minShort')}`
+              const timeStr = hours > 0 ? `${hours}${t('tacho.hourShort')} ${mins}${t('tacho.minShort')}` : `${mins}${t('tacho.minShort')}`
               const color = driverColorMap[d.name]
               return (
                 <div key={d.name} style={{

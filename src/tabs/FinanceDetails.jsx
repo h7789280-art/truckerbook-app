@@ -459,7 +459,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   // Mode-specific labels
   const incomeLabel = isHiredDriver ? t('pay.earnedMonth') : t('overview.income')
   const expenseLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expense')
-  const profitLabel = isHiredDriver ? t('pay.netClean') : isCompanyRole ? t('overview.grossProfit') : t('overview.netProfit')
+  const profitLabel = isHiredDriver ? t('pay.netClean') : isCompanyRole ? t('overview.grossProfit') : t('overview.netInHand')
   const headerTitle = isHiredDriver ? t('pay.myEarnings') : t('overview.analytics')
 
   // Donut chart
@@ -950,7 +950,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
                   <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                     {'\ud83d\udee3\ufe0f'}
                   </div>
-                  <div style={{ fontSize: '11px', color: theme.dim }}>Total Distance</div>
+                  <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.totalDistance')}</div>
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>
                   {formatNumber(fleetMetrics.totalMiles)} <span style={{ fontSize: '12px', fontWeight: 400 }}>mi</span>
@@ -964,7 +964,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
                   <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                     {'\ud83d\udcb2'}
                   </div>
-                  <div style={{ fontSize: '11px', color: theme.dim }}>Avg Rate/Mile</div>
+                  <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.avgRateMile')}</div>
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#8b5cf6' }}>
                   ${fleetMetrics.totalMiles > 0 ? (totalIncome / fleetMetrics.totalMiles).toFixed(2) : '0.00'}
@@ -978,7 +978,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
                   <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                     {'\u26fd'}
                   </div>
-                  <div style={{ fontSize: '11px', color: theme.dim }}>Fuel Expenses</div>
+                  <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fuelExpenses')}</div>
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>
                   ${formatNumber(Math.round(fleetMetrics.fuelCost))}
@@ -992,7 +992,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
                   <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                     {'\ud83d\udcca'}
                   </div>
-                  <div style={{ fontSize: '11px', color: theme.dim }}>Avg Fuel Price</div>
+                  <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.avgFuelPrice')}</div>
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>
                   ${fleetMetrics.totalGallons > 0 ? (fleetMetrics.fuelCost / fleetMetrics.totalGallons).toFixed(3) : '0.000'}<span style={{ fontSize: '12px', fontWeight: 400 }}>/gal</span>
@@ -1006,7 +1006,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
                   <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>
                     {'\ud83d\udcc9'}
                   </div>
-                  <div style={{ fontSize: '11px', color: theme.dim }}>Cost per Mile</div>
+                  <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.costPerMile')}</div>
                 </div>
                 <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>
                   ${fleetMetrics.totalMiles > 0 ? (totalExpense / fleetMetrics.totalMiles).toFixed(2) : '0.00'}<span style={{ fontSize: '12px', fontWeight: 400 }}>/mi</span>

@@ -1109,6 +1109,9 @@ const translations = {
       thisMonth: '\u042d\u0442\u043e\u0442 \u043c\u0435\u0441\u044f\u0446',
       prevMonth: '\u041f\u0440\u043e\u0448\u043b\u044b\u0439',
       download: '\u0421\u043a\u0430\u0447\u0430\u0442\u044c',
+      reports: '\u041e\u0442\u0447\u0451\u0442\u044b',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L \u0421\u0432\u043e\u0434\u043a\u0430',
@@ -2517,6 +2520,9 @@ const translations = {
       thisMonth: 'This month',
       prevMonth: 'Previous',
       download: 'Download',
+      reports: 'Reports',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L Summary',
@@ -3924,6 +3930,9 @@ const translations = {
       thisMonth: '\u0426\u0435\u0439 \u043c\u0456\u0441\u044f\u0446\u044c',
       prevMonth: '\u041c\u0438\u043d\u0443\u043b\u0438\u0439',
       download: '\u0417\u0430\u0432\u0430\u043d\u0442\u0430\u0436\u0438\u0442\u0438',
+      reports: '\u0417\u0432\u0456\u0442\u0438',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L \u0417\u0432\u0435\u0434\u0435\u043d\u043d\u044f',
@@ -5312,6 +5321,9 @@ const translations = {
     },
     finance: {
       exportExcel: 'Exportar a Excel',
+      reports: 'Informes',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L Resumen',
@@ -6700,6 +6712,9 @@ const translations = {
     },
     finance: {
       exportExcel: 'Export nach Excel',
+      reports: 'Berichte',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L \u00dcbersicht',
@@ -8088,6 +8103,9 @@ const translations = {
     },
     finance: {
       exportExcel: 'Exporter vers Excel',
+      reports: 'Rapports',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L R\u00e9sum\u00e9',
@@ -9476,6 +9494,9 @@ const translations = {
     },
     finance: {
       exportExcel: "Excel'e aktar",
+      reports: 'Raporlar',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L \u00d6zet',
@@ -10864,6 +10885,9 @@ const translations = {
     },
     finance: {
       exportExcel: 'Eksport do Excela',
+      reports: 'Raporty',
+      formatExcel: '\ud83d\udcca Excel',
+      formatPdf: '\ud83d\udcc4 PDF',
     },
     excel: {
       sheetPL: 'P&L Podsumowanie',

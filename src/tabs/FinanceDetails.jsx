@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData, fetchFleetBolDocuments, fetchVehicles } from '../lib/api'
-import { exportDriverReportExcel, exportFleetReportExcel } from '../utils/export'
+import { exportDriverReportExcel, exportFleetReportExcel, exportToPDF, exportFleetReportPDF } from '../utils/export'
 
 function formatNumber(n) {
   return n.toLocaleString('en-US')
@@ -22,6 +22,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   const [totalSalary, setTotalSalary] = useState(0)
   const [exporting, setExporting] = useState(false)
   const [showExportModal, setShowExportModal] = useState(false)
+  const [showFormatChooser, setShowFormatChooser] = useState(false)
+  const [exportFormat, setExportFormat] = useState('excel')
   const [fleetMetrics, setFleetMetrics] = useState({ totalMiles: 0, tripsCount: 0, fuelCost: 0, totalGallons: 0 })
   const [vehicles, setVehicles] = useState([])
   const [selectedVehicleId, setSelectedVehicleId] = useState('')
@@ -788,6 +790,59 @@ export default function FinanceDetails({ userId, profile, onBack }) {
     }
   }
 
+  const handleExportPdf = async (expYear, expMonth) => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const year = expYear
+      const month = expMonth
+      const isImperial = units === 'imperial'
+      const distLabel = isImperial ? 'mi' : 'km'
+
+      const data = await fetchDriverReportExportData(userId, year, month)
+
+      const rows = data.trips.map(tr => ({
+        date: (tr.created_at || '').slice(0, 10),
+        route: (tr.origin || '') + ' \u2192 ' + (tr.destination || ''),
+        miles: isImperial ? Math.round((tr.distance_km || 0) * 0.621371) : Math.round(tr.distance_km || 0),
+        income: tr.income || 0,
+        driverPay: tr.driver_pay || 0,
+      }))
+
+      // Add expense rows
+      const expRows = []
+      data.fuels.forEach(f => expRows.push({ date: f.date || '', desc: f.station || 'Fuel', amount: f.cost || 0 }))
+      data.bytExps.forEach(e => expRows.push({ date: e.date || '', desc: e.description || e.category || '', amount: e.amount || 0 }))
+      data.serviceRecs.forEach(e => expRows.push({ date: e.date || '', desc: e.description || e.type || 'Service', amount: e.cost || 0 }))
+      data.vehicleExps.forEach(e => expRows.push({ date: e.date || '', desc: e.description || e.category || '', amount: e.amount || 0 }))
+      data.tireRecs.forEach(e => expRows.push({ date: e.installed_at || '', desc: (e.brand || '') + ' ' + (e.model || ''), amount: e.cost || 0 }))
+
+      const allRows = [
+        ...rows.map(r => ({ date: r.date, description: r.route, [distLabel]: r.miles, income: r.income, expense: '' })),
+        ...expRows.map(r => ({ date: r.date, description: r.desc, [distLabel]: '', income: '', expense: r.amount })),
+      ].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+
+      const columns = [
+        { key: 'date', header: t('trips.date') || 'Date' },
+        { key: 'description', header: t('trips.description') || 'Description' },
+        { key: distLabel, header: distLabel },
+        { key: 'income', header: t('overview.income') || 'Income' },
+        { key: 'expense', header: t('overview.expense') || 'Expense' },
+      ]
+
+      const monthNames = t('expenses.monthNames')
+      const vehicleInfo = profile?.brand ? (profile.brand + ' ' + (profile.model || '')) : ''
+      const title = (profile?.full_name || profile?.name || '') + ' \u2014 ' + monthNames[month - 1] + ' ' + year
+
+      await exportToPDF(allRows, columns, title, `driver_report_${String(month).padStart(2, '0')}_${year}.pdf`, undefined, vehicleInfo)
+    } catch (err) {
+      console.error('PDF export error:', err)
+      alert(t('common.error') || 'Error')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div style={{ padding: '16px', maxWidth: 480, margin: '0 auto' }}>
       {/* Header */}
@@ -935,6 +990,30 @@ export default function FinanceDetails({ userId, profile, onBack }) {
               <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
             </div>
           </div>
+
+          {/* Reports button — owner-operator only */}
+          {!isCompanyRole && !isHiredDriver && (
+            <button
+              onClick={() => setShowFormatChooser(true)}
+              disabled={exporting}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '14px',
+                border: 'none',
+                background: exporting ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: exporting ? 'default' : 'pointer',
+                marginBottom: '12px',
+                opacity: exporting ? 0.6 : 1,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.reports')}
+            </button>
+          )}
 
           {/* Fleet salary row */}
           {isCompanyRole && totalSalary > 0 && (() => {
@@ -1269,28 +1348,78 @@ export default function FinanceDetails({ userId, profile, onBack }) {
             </div>
           )}
 
-          {/* Export button */}
-          <button
-            onClick={() => setShowExportModal(true)}
-            disabled={exporting}
-            style={{
-              width: '100%',
-              padding: '14px',
-              borderRadius: '14px',
-              border: 'none',
-              background: exporting ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#fff',
-              fontSize: '15px',
-              fontWeight: 700,
-              cursor: exporting ? 'default' : 'pointer',
-              marginBottom: '12px',
-              opacity: exporting ? 0.6 : 1,
-              transition: 'opacity 0.2s',
-            }}
-          >
-            {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.exportExcel')}
-          </button>
+          {/* Export button — company & hired driver keep old position */}
+          {(isCompanyRole || isHiredDriver) && (
+            <button
+              onClick={() => setShowExportModal(true)}
+              disabled={exporting}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '14px',
+                border: 'none',
+                background: exporting ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: exporting ? 'default' : 'pointer',
+                marginBottom: '12px',
+                opacity: exporting ? 0.6 : 1,
+                transition: 'opacity 0.2s',
+              }}
+            >
+              {exporting ? '\u23f3' : '\ud83d\udcc4'} {t('finance.exportExcel')}
+            </button>
+          )}
         </>
+      )}
+
+      {/* Format chooser modal */}
+      {showFormatChooser && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '16px' }}
+          onClick={() => setShowFormatChooser(false)}
+        >
+          <div
+            style={{ background: theme.card, borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '320px', border: '1px solid ' + theme.border }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px', color: theme.text, textAlign: 'center' }}>
+              {t('finance.reports')}
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => { setShowFormatChooser(false); setExportFormat('excel'); setShowExportModal(true) }}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid ' + theme.border,
+                  background: theme.bg, color: theme.text, fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                {t('finance.formatExcel')}
+              </button>
+              <button
+                onClick={() => { setShowFormatChooser(false); setExportFormat('pdf'); setShowExportModal(true) }}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid ' + theme.border,
+                  background: theme.bg, color: theme.text, fontSize: '15px', fontWeight: 600, cursor: 'pointer',
+                  textAlign: 'left',
+                }}
+              >
+                {t('finance.formatPdf')}
+              </button>
+            </div>
+            <button
+              onClick={() => setShowFormatChooser(false)}
+              style={{
+                width: '100%', padding: '10px', borderRadius: '12px', border: 'none',
+                background: 'transparent', color: theme.dim, fontSize: '13px', cursor: 'pointer', marginTop: '12px',
+              }}
+            >
+              {t('common.cancel')}
+            </button>
+          </div>
+        </div>
       )}
 
       {showExportModal && (
@@ -1301,8 +1430,13 @@ export default function FinanceDetails({ userId, profile, onBack }) {
           onClose={() => setShowExportModal(false)}
           onExport={(y, m) => {
             setShowExportModal(false)
-            if (isCompanyRole) handleFleetExportExcel(y, m)
-            else handleExportExcel(y, m)
+            if (isCompanyRole) {
+              handleFleetExportExcel(y, m)
+            } else if (exportFormat === 'pdf') {
+              handleExportPdf(y, m)
+            } else {
+              handleExportExcel(y, m)
+            }
           }}
         />
       )}

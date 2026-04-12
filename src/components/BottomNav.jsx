@@ -8,8 +8,8 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
   const DRIVER_TABS = [
     { key: 'overview', label: t('tabs.overview').toUpperCase(), icon: '\ud83d\udcca' },
     { key: 'expenses', label: t('tabs.expenses').toUpperCase(), icon: '\ud83d\udcb5' },
-    { key: 'trips', label: t('tabs.trips').toUpperCase(), icon: '\ud83d\ude9b' },
     { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
+    { key: 'documents', label: t('tabs.documents').toUpperCase(), icon: '\ud83d\udcc4' },
   ]
 
   const OWNER_TABS = [

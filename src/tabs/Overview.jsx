@@ -2239,11 +2239,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       )}
 
-      {/* Shift analytics — for non-owner_operator roles (owner_operator gets it after finance/trips) */}
-      {role !== 'owner_operator' && shiftAnalyticsCard}
+      {/* Shift analytics — for non-owner_operator/non-driver roles (driver gets it after finance/trips) */}
+      {role !== 'owner_operator' && role !== 'driver' && shiftAnalyticsCard}
 
-      {/* Driver stats summary — for non-owner_operator roles */}
-      {role !== 'owner_operator' && driverStatsCard}
+      {/* Driver stats summary — for non-owner_operator/non-driver roles */}
+      {role !== 'owner_operator' && role !== 'driver' && driverStatsCard}
       </>)}
 
       {/* Quick links — for owner_operator, rendered inside loading guard below; for others kept here */}
@@ -2440,8 +2440,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
-          {/* Trips card — for owner_operator, navigates to trips_detail (same as company) */}
-          {role === 'owner_operator' && (
+          {/* Trips card — for owner_operator and driver, navigates to trips_detail */}
+          {(role === 'owner_operator' || role === 'driver') && (
           <div onClick={() => onExtraNav?.('trips_detail')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\ude9b'} {t('overview.goToTrips')}</div>
@@ -2472,9 +2472,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
-          {/* Shift analytics — for owner_operator, shown after finance/trips */}
-          {role === 'owner_operator' && shiftAnalyticsCard}
-          {role === 'owner_operator' && driverStatsCard}
+          {/* Shift analytics — for owner_operator and driver, shown after finance/trips */}
+          {(role === 'owner_operator' || role === 'driver') && shiftAnalyticsCard}
+          {(role === 'owner_operator' || role === 'driver') && driverStatsCard}
 
           {/* Mini cards — mode-specific (hidden for job_seeker, driver, and company) */}
           {role !== 'job_seeker' && role !== 'driver' && !isCompanyRole && (

@@ -8,21 +8,24 @@ import EstimatedTaxTab from './EstimatedTaxTab'
 import TaxSummaryTab from './TaxSummaryTab'
 import DepreciationTab from './DepreciationTab'
 import MileageLogTab from './MileageLogTab'
+import DeductionChecklistTab from './DeductionChecklistTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [activeSection, setActiveSection] = useState(null)
 
-  // Drivers only see Per Diem (IFTA and Deadlines are for owner_operator/company only)
-  const showIfta = role === 'owner_operator' || role === 'company'
-  const showDeadlines = role === 'owner_operator' || role === 'company'
-  const showEstimatedTax = role === 'owner_operator' || role === 'company'
-  const showTaxSummary = role === 'owner_operator' || role === 'company'
-  const showDepreciation = role === 'owner_operator' || role === 'company'
-  const showMileageLog = role === 'owner_operator' || role === 'company'
+  const isOwnerOrCompany = role === 'owner_operator' || role === 'company'
+  // Drivers only see Per Diem, Estimated Tax, and Deduction Checklist
+  const showIfta = isOwnerOrCompany
+  const showDeadlines = isOwnerOrCompany
+  const showEstimatedTax = isOwnerOrCompany || role === 'driver'
+  const showTaxSummary = isOwnerOrCompany
+  const showDepreciation = isOwnerOrCompany
+  const showMileageLog = isOwnerOrCompany
+  const showDeductionChecklist = role === 'driver'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist') {
     return (
       <div>
         <button
@@ -42,6 +45,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'taxSummary' && showTaxSummary && <TaxSummaryTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'depreciation' && showDepreciation && <DepreciationTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'mileageLog' && showMileageLog && <MileageLogTab userId={userId} />}
+        {activeSection === 'deductionChecklist' && showDeductionChecklist && <DeductionChecklistTab />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -94,6 +98,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83D\uDCCB',
       title: t('bookkeeping.mileageLogCard'),
       desc: t('bookkeeping.mileageLogDescription'),
+    }] : []),
+    ...(showDeductionChecklist ? [{
+      key: 'deductionChecklist',
+      icon: '\u2705',
+      title: t('bookkeeping.deductionChecklistCard'),
+      desc: t('bookkeeping.deductionChecklistDescription'),
     }] : []),
   ]
 

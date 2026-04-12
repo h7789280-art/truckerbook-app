@@ -2318,29 +2318,47 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 </div>
               </>
             ) : (
+              (() => {
+                const vehicleCost = monthData.fuelCost + monthData.serviceCost + (monthData.vehicleExpCost || 0)
+                const grossProfit = monthData.income - vehicleCost
+                const personalCost = monthData.bytCost
+                const netInHand = grossProfit - personalCost
+                return (
               <>
-                <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcca'} {t('overview.analytics')} — {t('expenses.monthNames')[new Date().getMonth()]} {new Date().getFullYear()}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <div>
-                    <div style={dimText}>{t('overview.income')}</div>
-                    <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>
-                      {formatNumber(Math.round(monthData.income))} {cs}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={dimText}>{t('overview.expense')}</div>
-                    <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>
-                      {formatNumber(Math.round(totalExpenses))} {cs}
-                    </div>
+                <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcb0'} {t('overview.finances')} — {t('expenses.monthNames')[new Date().getMonth()]} {new Date().getFullYear()}</div>
+                {/* Section 1 — Business */}
+                <div style={{ fontSize: '11px', fontWeight: 700, color: theme.dim, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{t('overview.businessSection')}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <div style={dimText}>{t('overview.income')}</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: '#22c55e' }}>{formatNumber(Math.round(monthData.income))} {cs}</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <div style={dimText}>{t('overview.vehicleExpenses')}</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: '#ef4444' }}>{formatNumber(Math.round(vehicleCost))} {cs}</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0' }}>
+                  <div style={{ fontWeight: 700 }}>{t('overview.grossProfit')}</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 700, color: grossProfit >= 0 ? '#22c55e' : '#ef4444' }}>
+                    {grossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(grossProfit))} {cs}
                   </div>
                 </div>
-                <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
-                  <div style={dimText}>{t('overview.netProfit')}</div>
-                  <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: profit >= 0 ? '#22c55e' : '#ef4444' }}>
-                    {profit >= 0 ? '+' : ''}{formatNumber(Math.round(profit))} {cs}
+                {/* Divider */}
+                <div style={{ borderTop: '1px dashed ' + theme.border, margin: '10px 0' }} />
+                {/* Section 2 — Net total */}
+                <div style={{ fontSize: '11px', fontWeight: 700, color: theme.dim, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{t('overview.netTotalSection')}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <div style={dimText}>{t('overview.personalExpenses')}</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(personalCost))} {cs}</div>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div style={{ fontWeight: 700 }}>{t('overview.netInHand')}</div>
+                  <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '18px', color: netInHand >= 0 ? '#22c55e' : '#ef4444' }}>
+                    {netInHand >= 0 ? '+' : ''}{formatNumber(Math.round(netInHand))} {cs}
                   </div>
                 </div>
               </>
+                )
+              })()
             )}
 
             {/* Donut chart breakdown — hired driver sees only personal expenses */}

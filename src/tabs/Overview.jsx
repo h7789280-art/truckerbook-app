@@ -959,6 +959,296 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     )
   }
 
+  // Extracted blocks for conditional reordering by role
+  const shiftAnalyticsCard = (
+      <div style={{ ...cardStyle, marginBottom: '12px' }}>
+        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udcca'} {t('overview.shiftAnalytics')}</div>
+
+        {/* Period toggle */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: shiftPeriod === 'custom' ? '8px' : '12px' }}>
+          {[
+            { key: 'week', label: t('overview.week') },
+            { key: 'month', label: t('overview.month') },
+            { key: 'custom', label: t('overview.customPeriod') },
+          ].map(p => (
+            <button
+              key={p.key}
+              onClick={() => setShiftPeriod(p.key)}
+              style={{
+                flex: 1,
+                padding: '8px',
+                border: 'none',
+                borderRadius: '10px',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                background: shiftPeriod === p.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : theme.bg,
+                color: shiftPeriod === p.key ? '#fff' : theme.dim,
+                transition: 'all 0.2s',
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        {shiftPeriod === 'custom' && (
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom')}</div>
+              <input
+                type="date"
+                value={shiftCustomFrom}
+                onChange={e => setShiftCustomFrom(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '10px',
+                  border: `1px solid ${theme.border}`,
+                  background: theme.bg,
+                  color: theme.text,
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo')}</div>
+              <input
+                type="date"
+                value={shiftCustomTo}
+                onChange={e => setShiftCustomTo(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '8px',
+                  borderRadius: '10px',
+                  border: `1px solid ${theme.border}`,
+                  background: theme.bg,
+                  color: theme.text,
+                  fontSize: '13px',
+                  boxSizing: 'border-box',
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Stats cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+          {[
+            { label: t('overview.shiftsLabel'), value: String(shiftStats.count) },
+            { label: t('overview.kmLabel'), value: formatNumber(Math.round(shiftStats.totalKm)) },
+            { label: t('overview.hoursLabel'), value: shiftStats.totalHours.toFixed(1) },
+          ].map((s, i) => (
+            <div key={i} style={{
+              background: theme.bg,
+              borderRadius: '10px',
+              padding: '10px',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700 }}>{s.value}</div>
+              <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* History (team driving: color-coded by driver) */}
+        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcc3'} {t('overview.shiftHistory')}</div>
+        {shiftHistory.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '16px 0', color: theme.dim, fontSize: '13px' }}>
+            {t('overview.noCompletedShifts')}
+          </div>
+        ) : (() => {
+            const DRIVER_COLORS = ['#f59e0b', '#3b82f6']
+            const driverNames = [...new Set(shiftHistory.map(s => s.driver_name || '').filter(Boolean))]
+            const isTeamDriving = driverNames.length > 1
+            const driverColorMap = {}
+            driverNames.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
+
+            const filteredHistory = shiftPeriod === 'custom' && shiftCustomFrom && shiftCustomTo
+              ? shiftHistory.filter(s => {
+                  const d = new Date(s.started_at)
+                  const from = new Date(shiftCustomFrom); from.setHours(0,0,0,0)
+                  const to = new Date(shiftCustomTo); to.setHours(23,59,59,999)
+                  return d >= from && d <= to
+                })
+              : shiftHistory
+            const visibleShifts = shiftHistoryExpanded ? filteredHistory : filteredHistory.slice(0, 1)
+
+            return <>
+            {visibleShifts.map((sh, i) => {
+              const start = new Date(sh.started_at)
+              const end = sh.ended_at ? new Date(sh.ended_at) : null
+              const durationMin = end ? Math.round((end - start) / 60000) : 0
+              const durationH = Math.floor(durationMin / 60)
+              const durationM = durationMin % 60
+              const durationStr = durationH > 0
+                ? `${durationH}${t('tacho.hourShort')} ${durationM}${t('tacho.minShort')}`
+                : `${durationM}${t('tacho.minShort')}`
+              const dateStr = start.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' })
+              const timeStart = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+              const timeEnd = end ? end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '\u2014'
+              const kmDriven = sh.km_driven || 0
+              const driverName = sh.driver_name || ''
+              const driverColor = driverColorMap[driverName] || theme.dim
+
+              return (
+                <div key={sh.id || i} style={{
+                  background: theme.bg,
+                  borderRadius: '10px',
+                  padding: '12px',
+                  marginBottom: i < visibleShifts.length - 1 ? '8px' : 0,
+                  borderLeft: isTeamDriving ? `3px solid ${driverColor}` : 'none',
+                }}>
+                  {driverName ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: isTeamDriving ? driverColor : theme.text }}>
+                        {driverName} {'\u2014'} {formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}, {durationStr}
+                      </span>
+                      <span style={{ fontSize: '12px', color: theme.dim }}>{dateStr}</span>
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                      <span style={{ fontSize: '13px' }}>{'\ud83d\udcc5'} {dateStr}</span>
+                      <span style={{ fontSize: '13px', color: theme.dim }}>
+                        {timeStart} {'\u2014'} {timeEnd} ({durationStr})
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '12px', color: theme.dim }}>
+                      {timeStart} {'\u2014'} {timeEnd}
+                      {!driverName && ` (${durationStr})`}
+                    </span>
+                    <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>
+                      +{formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
+                    </span>
+                  </div>
+                </div>
+              )
+            })}
+            {filteredHistory.length > 1 && (
+              <div
+                onClick={() => setShiftHistoryExpanded(prev => !prev)}
+                style={{
+                  textAlign: 'center',
+                  padding: '10px 0',
+                  marginTop: '8px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  color: '#f59e0b',
+                }}
+              >
+                {shiftHistoryExpanded
+                  ? `${t('overview.collapse')} \u25b2`
+                  : `${t('overview.allShifts')} \u25bc`}
+              </div>
+            )}
+            </>
+          })()
+        }
+      </div>
+  )
+
+  const driverStatsCard = (() => {
+        const now = new Date()
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        const monthShifts = shiftHistory.filter(s => s.ended_at && new Date(s.started_at) >= monthStart)
+        const driverNamesAll = [...new Set(monthShifts.map(s => s.driver_name || '').filter(Boolean))]
+        if (driverNamesAll.length < 2) return null
+        const DRIVER_COLORS = ['#f59e0b', '#3b82f6']
+        const driverColorMap = {}
+        driverNamesAll.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
+        const driverStats = driverNamesAll.map(name => {
+          const shifts = monthShifts.filter(s => s.driver_name === name)
+          const totalKm = shifts.reduce((sum, s) => sum + (s.km_driven || 0), 0)
+          const totalMinutes = shifts.reduce((sum, s) => {
+            const start = new Date(s.started_at).getTime()
+            const end = new Date(s.ended_at).getTime()
+            return sum + (end - start) / 60000
+          }, 0)
+          return { name, count: shifts.length, totalKm, totalMinutes }
+        })
+        return (
+          <div style={{ ...cardStyle, marginBottom: '12px' }}>
+            <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udc65'} {t('overview.driverStats')}</div>
+            {driverStats.map((d, i) => {
+              const hours = Math.floor(d.totalMinutes / 60)
+              const mins = Math.round(d.totalMinutes % 60)
+              const timeStr = hours > 0 ? `${hours}${t('tacho.hourShort')} ${mins}${t('tacho.minShort')}` : `${mins}${t('tacho.minShort')}`
+              const color = driverColorMap[d.name]
+              return (
+                <div key={d.name} style={{
+                  background: theme.bg,
+                  borderRadius: '10px',
+                  padding: '12px',
+                  marginBottom: i < driverStats.length - 1 ? '8px' : 0,
+                  borderLeft: `3px solid ${color}`,
+                }}>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color, marginBottom: '8px' }}>
+                    {d.name}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{formatNumber(Math.round(d.totalKm))}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}</div>
+                    </div>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{d.count}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('shifts.shiftsLabel')}</div>
+                    </div>
+                    <div style={{ textAlign: 'center', flex: 1 }}>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{timeStr}</div>
+                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.behindWheel')}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+  })()
+
+  const ownerQuickLinksCard = onExtraNav ? (
+        <div style={{ ...cardStyle, marginBottom: '12px' }}>
+          <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
+          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+            {[
+              { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs') },
+              { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews') },
+              { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace') },
+            ].map(item => (
+              <button
+                key={item.key}
+                onClick={() => onExtraNav(item.key)}
+                style={{
+                  flex: '0 0 80px',
+                  width: '80px',
+                  height: '80px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  background: theme.card,
+                  border: '1px solid ' + theme.border,
+                  borderRadius: '14px',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
+                }}
+                onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
+                onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
+                onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
+              >
+                <span style={{ fontSize: '28px', lineHeight: 1 }}>{item.icon}</span>
+                <span style={{ fontSize: '11px', fontWeight: 600, color: theme.text, lineHeight: 1.2, textAlign: 'center' }}>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+  ) : null
+
   return (
     <div style={{ background: theme.bg, minHeight: '100vh', color: theme.text, padding: '16px', paddingBottom: '80px' }}>
       {/* Greeting */}
@@ -1949,296 +2239,14 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       )}
 
-      {/* Shift analytics */}
-      <div style={{ ...cardStyle, marginBottom: '12px' }}>
-        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udcca'} {t('overview.shiftAnalytics')}</div>
+      {/* Shift analytics — for non-owner_operator roles (owner_operator gets it after finance/trips) */}
+      {role !== 'owner_operator' && shiftAnalyticsCard}
 
-        {/* Period toggle */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: shiftPeriod === 'custom' ? '8px' : '12px' }}>
-          {[
-            { key: 'week', label: t('overview.week') },
-            { key: 'month', label: t('overview.month') },
-            { key: 'custom', label: t('overview.customPeriod') },
-          ].map(p => (
-            <button
-              key={p.key}
-              onClick={() => setShiftPeriod(p.key)}
-              style={{
-                flex: 1,
-                padding: '8px',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: shiftPeriod === p.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : theme.bg,
-                color: shiftPeriod === p.key ? '#fff' : theme.dim,
-                transition: 'all 0.2s',
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {shiftPeriod === 'custom' && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom')}</div>
-              <input
-                type="date"
-                value={shiftCustomFrom}
-                onChange={e => setShiftCustomFrom(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: '10px',
-                  border: `1px solid ${theme.border}`,
-                  background: theme.bg,
-                  color: theme.text,
-                  fontSize: '13px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo')}</div>
-              <input
-                type="date"
-                value={shiftCustomTo}
-                onChange={e => setShiftCustomTo(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: '10px',
-                  border: `1px solid ${theme.border}`,
-                  background: theme.bg,
-                  color: theme.text,
-                  fontSize: '13px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Stats cards */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-          {[
-            { label: t('overview.shiftsLabel'), value: String(shiftStats.count) },
-            { label: t('overview.kmLabel'), value: formatNumber(Math.round(shiftStats.totalKm)) },
-            { label: t('overview.hoursLabel'), value: shiftStats.totalHours.toFixed(1) },
-          ].map((s, i) => (
-            <div key={i} style={{
-              background: theme.bg,
-              borderRadius: '10px',
-              padding: '10px',
-              textAlign: 'center',
-            }}>
-              <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700 }}>{s.value}</div>
-              <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* History (team driving: color-coded by driver) */}
-        <div style={{ ...dimText, marginBottom: '8px' }}>{'\ud83d\udcc3'} {t('overview.shiftHistory')}</div>
-        {shiftHistory.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '16px 0', color: theme.dim, fontSize: '13px' }}>
-            {t('overview.noCompletedShifts')}
-          </div>
-        ) : (() => {
-            const DRIVER_COLORS = ['#f59e0b', '#3b82f6']
-            const driverNames = [...new Set(shiftHistory.map(s => s.driver_name || '').filter(Boolean))]
-            const isTeamDriving = driverNames.length > 1
-            const driverColorMap = {}
-            driverNames.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
-
-            const filteredHistory = shiftPeriod === 'custom' && shiftCustomFrom && shiftCustomTo
-              ? shiftHistory.filter(s => {
-                  const d = new Date(s.started_at)
-                  const from = new Date(shiftCustomFrom); from.setHours(0,0,0,0)
-                  const to = new Date(shiftCustomTo); to.setHours(23,59,59,999)
-                  return d >= from && d <= to
-                })
-              : shiftHistory
-            const visibleShifts = shiftHistoryExpanded ? filteredHistory : filteredHistory.slice(0, 1)
-
-            return <>
-            {visibleShifts.map((sh, i) => {
-              const start = new Date(sh.started_at)
-              const end = sh.ended_at ? new Date(sh.ended_at) : null
-              const durationMin = end ? Math.round((end - start) / 60000) : 0
-              const durationH = Math.floor(durationMin / 60)
-              const durationM = durationMin % 60
-              const durationStr = durationH > 0
-                ? `${durationH}${t('tacho.hourShort')} ${durationM}${t('tacho.minShort')}`
-                : `${durationM}${t('tacho.minShort')}`
-              const dateStr = start.toLocaleDateString(undefined, { day: '2-digit', month: '2-digit', year: 'numeric' })
-              const timeStart = start.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
-              const timeEnd = end ? end.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '\u2014'
-              const kmDriven = sh.km_driven || 0
-              const driverName = sh.driver_name || ''
-              const driverColor = driverColorMap[driverName] || theme.dim
-
-              return (
-                <div key={sh.id || i} style={{
-                  background: theme.bg,
-                  borderRadius: '10px',
-                  padding: '12px',
-                  marginBottom: i < visibleShifts.length - 1 ? '8px' : 0,
-                  borderLeft: isTeamDriving ? `3px solid ${driverColor}` : 'none',
-                }}>
-                  {driverName ? (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 600, color: isTeamDriving ? driverColor : theme.text }}>
-                        {driverName} {'\u2014'} {formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}, {durationStr}
-                      </span>
-                      <span style={{ fontSize: '12px', color: theme.dim }}>{dateStr}</span>
-                    </div>
-                  ) : (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                      <span style={{ fontSize: '13px' }}>{'\ud83d\udcc5'} {dateStr}</span>
-                      <span style={{ fontSize: '13px', color: theme.dim }}>
-                        {timeStart} {'\u2014'} {timeEnd} ({durationStr})
-                      </span>
-                    </div>
-                  )}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontSize: '12px', color: theme.dim }}>
-                      {timeStart} {'\u2014'} {timeEnd}
-                      {!driverName && ` (${durationStr})`}
-                    </span>
-                    <span style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700, color: '#22c55e' }}>
-                      +{formatNumber(kmDriven)} {unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
-                    </span>
-                  </div>
-                </div>
-              )
-            })}
-            {filteredHistory.length > 1 && (
-              <div
-                onClick={() => setShiftHistoryExpanded(prev => !prev)}
-                style={{
-                  textAlign: 'center',
-                  padding: '10px 0',
-                  marginTop: '8px',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 600,
-                  color: '#f59e0b',
-                }}
-              >
-                {shiftHistoryExpanded
-                  ? `${t('overview.collapse')} \u25b2`
-                  : `${t('overview.allShifts')} \u25bc`}
-              </div>
-            )}
-            </>
-          })()
-        }
-      </div>
-
-      {/* Driver stats summary — only when 2+ drivers on same vehicle */}
-      {(() => {
-        const now = new Date()
-        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-        const monthShifts = shiftHistory.filter(s => s.ended_at && new Date(s.started_at) >= monthStart)
-        const driverNamesAll = [...new Set(monthShifts.map(s => s.driver_name || '').filter(Boolean))]
-        if (driverNamesAll.length < 2) return null
-        const DRIVER_COLORS = ['#f59e0b', '#3b82f6']
-        const driverColorMap = {}
-        driverNamesAll.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
-        const driverStats = driverNamesAll.map(name => {
-          const shifts = monthShifts.filter(s => s.driver_name === name)
-          const totalKm = shifts.reduce((sum, s) => sum + (s.km_driven || 0), 0)
-          const totalMinutes = shifts.reduce((sum, s) => {
-            const start = new Date(s.started_at).getTime()
-            const end = new Date(s.ended_at).getTime()
-            return sum + (end - start) / 60000
-          }, 0)
-          return { name, count: shifts.length, totalKm, totalMinutes }
-        })
-        return (
-          <div style={{ ...cardStyle, marginBottom: '12px' }}>
-            <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udc65'} {t('overview.driverStats')}</div>
-            {driverStats.map((d, i) => {
-              const hours = Math.floor(d.totalMinutes / 60)
-              const mins = Math.round(d.totalMinutes % 60)
-              const timeStr = hours > 0 ? `${hours}${t('tacho.hourShort')} ${mins}${t('tacho.minShort')}` : `${mins}${t('tacho.minShort')}`
-              const color = driverColorMap[d.name]
-              return (
-                <div key={d.name} style={{
-                  background: theme.bg,
-                  borderRadius: '10px',
-                  padding: '12px',
-                  marginBottom: i < driverStats.length - 1 ? '8px' : 0,
-                  borderLeft: `3px solid ${color}`,
-                }}>
-                  <div style={{ fontSize: '14px', fontWeight: 700, color, marginBottom: '8px' }}>
-                    {d.name}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <div style={{ textAlign: 'center', flex: 1 }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{formatNumber(Math.round(d.totalKm))}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}</div>
-                    </div>
-                    <div style={{ textAlign: 'center', flex: 1 }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{d.count}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('shifts.shiftsLabel')}</div>
-                    </div>
-                    <div style={{ textAlign: 'center', flex: 1 }}>
-                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700 }}>{timeStr}</div>
-                      <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.behindWheel')}</div>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )
-      })()}
+      {/* Driver stats summary — for non-owner_operator roles */}
+      {role !== 'owner_operator' && driverStatsCard}
       </>)}
 
-      {/* Quick links — for owner_operator only, shown here (before finance); for company/driver — shown inside loading block at bottom */}
-      {onExtraNav && role !== 'job_seeker' && role !== 'company' && role !== 'driver' && (
-        <div style={{ ...cardStyle, marginBottom: '12px' }}>
-          <div style={{ ...dimText, marginBottom: '10px' }}>{'\u2b50'} {t('overview.quickLinks')}</div>
-          <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
-            {[
-              { key: 'jobs', icon: '\ud83d\udcbc', label: t('overview.qlJobs') },
-              { key: 'news', icon: '\ud83d\udcf0', label: t('overview.qlNews') },
-              { key: 'marketplace', icon: '\ud83d\udce2', label: t('overview.qlMarketplace') },
-            ].map(item => (
-              <button
-                key={item.key}
-                onClick={() => onExtraNav(item.key)}
-                style={{
-                  flex: '0 0 80px',
-                  width: '80px',
-                  height: '80px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  background: theme.card,
-                  border: '1px solid ' + theme.border,
-                  borderRadius: '14px',
-                  cursor: 'pointer',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                  transition: 'transform 0.15s, box-shadow 0.15s',
-                }}
-                onPointerDown={e => { e.currentTarget.style.transform = 'scale(0.95)' }}
-                onPointerUp={e => { e.currentTarget.style.transform = 'scale(1)' }}
-                onPointerLeave={e => { e.currentTarget.style.transform = 'scale(1)' }}
-              >
-                <span style={{ fontSize: '28px', lineHeight: 1 }}>{item.icon}</span>
-                <span style={{ fontSize: '11px', fontWeight: 600, color: theme.text, lineHeight: 1.2, textAlign: 'center' }}>{item.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Quick links — for owner_operator, rendered inside loading guard below; for others kept here */}
 
       {/* Job seeker — only quick links */}
       {role === 'job_seeker' && onExtraNav && (
@@ -2432,6 +2440,10 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
+          {/* Shift analytics — for owner_operator, shown after finance/trips */}
+          {role === 'owner_operator' && shiftAnalyticsCard}
+          {role === 'owner_operator' && driverStatsCard}
+
           {/* Mini cards — mode-specific (hidden for job_seeker, driver, and company) */}
           {role !== 'job_seeker' && role !== 'driver' && !isCompanyRole && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
@@ -2459,6 +2471,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             ))}
           </div>
           )}
+
+          {/* Quick links — for owner_operator, shown after stats */}
+          {role === 'owner_operator' && ownerQuickLinksCard}
 
           {/* AI Forecast — hidden for job_seeker and driver */}
           {role !== 'job_seeker' && role !== 'driver' && (

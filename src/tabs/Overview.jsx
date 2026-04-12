@@ -2422,6 +2422,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
+          {/* Trips card — for owner_operator, navigates to trips_detail (same as company) */}
+          {role === 'owner_operator' && (
+          <div onClick={() => onExtraNav?.('trips_detail')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\ude9b'} {t('overview.goToTrips')}</div>
+              <div style={{ fontSize: '14px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
+            </div>
+          </div>
+          )}
+
           {/* Mini cards — mode-specific (hidden for job_seeker, driver, and company) */}
           {role !== 'job_seeker' && role !== 'driver' && !isCompanyRole && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>

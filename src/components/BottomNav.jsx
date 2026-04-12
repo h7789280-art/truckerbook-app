@@ -12,6 +12,13 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
     { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
   ]
 
+  const OWNER_TABS = [
+    { key: 'overview', label: t('tabs.overview').toUpperCase(), icon: '\ud83d\udcca' },
+    { key: 'expenses', label: t('tabs.expenses').toUpperCase(), icon: '\ud83d\udcb5' },
+    { key: 'service', label: t('tabs.service').toUpperCase(), icon: '\ud83d\udd27' },
+    { key: 'documents', label: t('tabs.documents').toUpperCase(), icon: '\ud83d\udcc4' },
+  ]
+
   const COMPANY_TABS = [
     { key: 'overview', label: t('tabs.overview').toUpperCase(), icon: '\ud83d\udcca' },
     { key: 'expenses', label: t('tabs.expenses').toUpperCase(), icon: '\ud83d\udcb5' },
@@ -25,7 +32,7 @@ export default function BottomNav({ activeTab, onTabChange, role }) {
     { key: 'marketplace', label: t('tabs.marketplace').toUpperCase(), icon: '\ud83d\udce2' },
   ]
 
-  const tabs = role === 'job_seeker' ? JOB_SEEKER_TABS : role === 'company' ? COMPANY_TABS : DRIVER_TABS
+  const tabs = role === 'job_seeker' ? JOB_SEEKER_TABS : role === 'company' ? COMPANY_TABS : role === 'owner_operator' ? OWNER_TABS : DRIVER_TABS
 
   return (
     <nav

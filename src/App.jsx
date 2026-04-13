@@ -20,6 +20,7 @@ import PinLock from './components/PinLock'
 import FAB from './components/FAB'
 import { requestPermission, isPermissionGranted } from './lib/notifications'
 import AddModal from './components/AddModal'
+import ScanReceipt from './components/ScanReceipt'
 import ProfileScreen from './components/ProfileScreen'
 import Paywall from './components/Paywall'
 import VehicleSwitcher from './components/VehicleSwitcher'
@@ -227,6 +228,8 @@ function AppInner() {
   const [vehicleError, setVehicleError] = useState('')
   const [showWelcome, setShowWelcome] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [showFabMenu, setShowFabMenu] = useState(false)
+  const [showScanReceipt, setShowScanReceipt] = useState(false)
   const { unread: chatUnread, resetUnread: resetChatUnread } = useChatUnread()
 
   useEffect(() => {
@@ -693,7 +696,53 @@ function AppInner() {
       </div>
       {userRole !== 'job_seeker' && userRole !== 'company' && (
         <>
-          <FAB onClick={() => setIsModalOpen(true)} />
+          <FAB onClick={() => setShowFabMenu(true)} />
+          {showFabMenu && (
+            <div
+              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 150 }}
+              onClick={() => setShowFabMenu(false)}
+            >
+              <div
+                style={{
+                  position: 'fixed',
+                  bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 80px)',
+                  right: 20,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 10,
+                  alignItems: 'flex-end',
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  onClick={() => { setShowFabMenu(false); setShowScanReceipt(true) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '12px 18px', borderRadius: 14,
+                    background: theme.card, border: '1px solid ' + theme.border,
+                    color: theme.text, fontSize: 15, fontWeight: 600,
+                    cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                  }}
+                >
+                  {'\uD83D\uDCF7'} {t('scan.scanReceipt')}
+                </button>
+                <button
+                  onClick={() => { setShowFabMenu(false); setIsModalOpen(true) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '12px 18px', borderRadius: 14,
+                    background: theme.card, border: '1px solid ' + theme.border,
+                    color: theme.text, fontSize: 15, fontWeight: 600,
+                    cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                  }}
+                >
+                  {'\u270F\uFE0F'} {t('scan.addManually')}
+                </button>
+              </div>
+            </div>
+          )}
           <AddModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}
@@ -708,6 +757,12 @@ function AppInner() {
             onServiceSaved={handleServiceSaved}
             onVehicleExpenseSaved={handleVehicleExpenseSaved}
           />
+          {showScanReceipt && (
+            <ScanReceipt
+              onClose={() => setShowScanReceipt(false)}
+              onResult={(data) => console.log('Scan result:', data)}
+            />
+          )}
         </>
       )}
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} role={userRole} />

@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
+import ScanConfirm from './ScanConfirm'
 
 function compressForScan(file, maxSize = 1024 * 1024, quality = 0.7) {
   return new Promise((resolve) => {
@@ -57,7 +58,7 @@ function compressForScan(file, maxSize = 1024 * 1024, quality = 0.7) {
   })
 }
 
-export default function ScanReceipt({ onClose, onResult }) {
+export default function ScanReceipt({ onClose, onResult, userId, vehicleId, onSaved }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [preview, setPreview] = useState(null)
@@ -65,6 +66,7 @@ export default function ScanReceipt({ onClose, onResult }) {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
+  const [showConfirm, setShowConfirm] = useState(false)
   const cameraRef = useRef(null)
   const galleryRef = useRef(null)
 
@@ -108,6 +110,7 @@ export default function ScanReceipt({ onClose, onResult }) {
       }
 
       setResult(data)
+      setShowConfirm(true)
       if (onResult) onResult(data)
     } catch {
       setError(t('scan.error'))
@@ -247,8 +250,8 @@ export default function ScanReceipt({ onClose, onResult }) {
           </div>
         )}
 
-        {/* Result */}
-        {result && (
+        {/* Result preview (brief) */}
+        {result && !showConfirm && (
           <div style={{ marginTop: 16 }}>
             <div style={{
               padding: 14, borderRadius: 12,
@@ -263,42 +266,25 @@ export default function ScanReceipt({ onClose, onResult }) {
                   {'\uD83C\uDFEA'} {result.store_name}
                 </div>
               )}
-              {result.date && (
-                <div style={{ color: theme.dim, fontSize: 13, marginBottom: 4 }}>
-                  {'\uD83D\uDCC5'} {result.date}
-                </div>
-              )}
               {result.total != null && (
                 <div style={{ color: theme.text, fontSize: 16, fontWeight: 700, fontFamily: 'monospace' }}>
-                  {t('scan.total')}: {result.total}
+                  {t('scan.total')}: ${result.total}
                 </div>
               )}
+              <div style={{ color: theme.dim, fontSize: 13, marginTop: 4 }}>
+                {result.items?.length || 0} {t('scan.itemsFound')}
+              </div>
             </div>
 
-            {result.items && result.items.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {result.items.map((item, i) => (
-                  <div key={i} style={{
-                    padding: 10, borderRadius: 10,
-                    background: theme.card2, border: '1px solid ' + theme.border,
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ color: theme.text, fontSize: 14 }}>{item.description}</span>
-                      <span style={{ color: '#f59e0b', fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}>
-                        {item.amount}
-                      </span>
-                    </div>
-                    <div style={{ color: theme.dim, fontSize: 12, marginTop: 4 }}>
-                      {item.category}{item.subcategory ? ' / ' + item.subcategory : ''}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Reset to scan another */}
             <button
-              style={{ ...btnBase, width: '100%', marginTop: 12, flex: 'none' }}
+              style={{ ...scanBtn, opacity: 1, cursor: 'pointer' }}
+              onClick={() => setShowConfirm(true)}
+            >
+              {'\u2705'} {t('scan.confirm')}
+            </button>
+
+            <button
+              style={{ ...btnBase, width: '100%', marginTop: 8, flex: 'none' }}
               onClick={handleReset}
             >
               {'\uD83D\uDCF7'} {t('scan.scanAnother')}
@@ -306,6 +292,21 @@ export default function ScanReceipt({ onClose, onResult }) {
           </div>
         )}
       </div>
+
+      {/* Confirmation screen */}
+      {showConfirm && result && (
+        <ScanConfirm
+          result={result}
+          file={file}
+          userId={userId}
+          vehicleId={vehicleId}
+          onClose={() => setShowConfirm(false)}
+          onSaved={(count) => {
+            if (onSaved) onSaved(count)
+            onClose()
+          }}
+        />
+      )}
     </div>
   )
 }

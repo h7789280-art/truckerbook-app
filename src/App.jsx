@@ -761,6 +761,14 @@ function AppInner() {
             <ScanReceipt
               onClose={() => setShowScanReceipt(false)}
               onResult={(data) => console.log('Scan result:', data)}
+              userId={userId}
+              vehicleId={vehicleId}
+              onSaved={(count) => {
+                setShowScanReceipt(false)
+                setFuelRefreshKey(k => k + 1)
+                setBytRefreshKey(k => k + 1)
+                setOverviewRefreshKey(k => k + 1)
+              }}
             />
           )}
         </>

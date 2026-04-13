@@ -127,8 +127,9 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
 
       if (onSaved) onSaved(savedCount)
     } catch (e) {
-      console.error('ScanConfirm save error:', e)
-      setError(t('common.error'))
+      console.error('ScanConfirm save error:', e?.message || e, e)
+      const msg = e?.message || e?.error_description || String(e)
+      setError(msg)
     } finally {
       setSaving(false)
     }

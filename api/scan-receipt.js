@@ -1,4 +1,4 @@
-const MODELS = ['gemini-2.5-flash', 'gemini-1.5-flash']
+const MODELS = ['gemini-1.5-flash', 'gemini-2.5-flash']
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 2000
 
@@ -8,7 +8,7 @@ function sleep(ms) {
 
 async function callGemini(apiKey, model, requestBody) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 30000)
+  const timeout = setTimeout(() => controller.abort(), 60000)
 
   const response = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
@@ -113,6 +113,7 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
         if (!response.ok) {
           const errText = await response.text().catch(() => '')
           console.error('Gemini API error:', response.status, errText)
+          console.error('Full response:', JSON.stringify({ status: response.status, body: errText }))
           return res.status(502).json({
             error: '\u0421\u0435\u0440\u0432\u0438\u0441 \u0432\u0435\u0440\u043d\u0443\u043b \u043e\u0448\u0438\u0431\u043a\u0443. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
             detail: `Gemini API ${response.status}`,
@@ -120,20 +121,31 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
         }
 
         const data = await response.json()
+        console.log('Gemini raw response structure:', JSON.stringify({
+          candidatesCount: data?.candidates?.length,
+          finishReason: data?.candidates?.[0]?.finishReason,
+          partsCount: data?.candidates?.[0]?.content?.parts?.length,
+        }))
         const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
 
         if (!rawText) {
+          console.error('Empty rawText. Full response:', JSON.stringify(data))
           return res.status(502).json({ error: '\u041f\u0443\u0441\u0442\u043e\u0439 \u043e\u0442\u0432\u0435\u0442 \u043e\u0442 AI. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0434\u0440\u0443\u0433\u043e\u0435 \u0444\u043e\u0442\u043e.' })
         }
 
-        // Strip markdown code fences if present
-        const jsonStr = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+        // Strip markdown code fences if present (handles ```json ... ``` wrapping)
+        let jsonStr = rawText
+        if (jsonStr.startsWith('```')) {
+          jsonStr = jsonStr.replace(/^```(?:json)?\s*\n?/i, '').replace(/\n?\s*```\s*$/i, '')
+        }
 
         let parsed
         try {
           parsed = JSON.parse(jsonStr)
-        } catch {
+        } catch (parseErr) {
+          console.error('JSON parse error:', parseErr.message)
           console.error('Failed to parse Gemini response:', jsonStr.slice(0, 500))
+          console.error('Full response:', JSON.stringify(data))
           return res.status(502).json({ error: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c \u0447\u0435\u043a. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0434\u0440\u0443\u0433\u043e\u0435 \u0444\u043e\u0442\u043e.' })
         }
 
@@ -151,7 +163,7 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
           }
           break
         }
-        console.error(`Gemini error (model=${model}, attempt=${attempt}):`, err.message)
+        console.error(`Gemini error (model=${model}, attempt=${attempt}):`, err.message, err.stack)
         if (attempt < MAX_RETRIES) {
           await sleep(RETRY_DELAY_MS)
           continue

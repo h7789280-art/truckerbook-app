@@ -1,4 +1,4 @@
-const MODELS = ['gemini-1.5-flash', 'gemini-2.5-flash']
+const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro']
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 2000
 
@@ -100,24 +100,20 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
         console.log(`Gemini request: model=${model}, attempt=${attempt}/${MAX_RETRIES}`)
         const response = await callGemini(apiKey, model, requestBody)
 
-        if (response.status === 503) {
-          console.warn(`Gemini 503 (model=${model}, attempt=${attempt})`)
+        if (!response.ok) {
+          const errText = await response.text().catch(() => '')
+          console.warn(`Gemini ${response.status} (model=${model}, attempt=${attempt}): ${errText.slice(0, 200)}`)
+          // 404 = model removed, skip retries and go to next model immediately
+          if (response.status === 404) {
+            console.warn(`Model ${model} not found (404), switching to next model`)
+            break
+          }
           if (attempt < MAX_RETRIES) {
             await sleep(RETRY_DELAY_MS)
             continue
           }
           // All retries exhausted for this model — try fallback
           break
-        }
-
-        if (!response.ok) {
-          const errText = await response.text().catch(() => '')
-          console.error('Gemini API error:', response.status, errText)
-          console.error('Full response:', JSON.stringify({ status: response.status, body: errText }))
-          return res.status(502).json({
-            error: '\u0421\u0435\u0440\u0432\u0438\u0441 \u0432\u0435\u0440\u043d\u0443\u043b \u043e\u0448\u0438\u0431\u043a\u0443. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437.',
-            detail: `Gemini API ${response.status}`,
-          })
         }
 
         const data = await response.json()

@@ -23,18 +23,21 @@ const VEHICLE_CAT_MAP = {
 // AI category -> byt_expenses category
 const PERSONAL_CAT_MAP = {
   food: 'food',
+  tobacco: 'personal',
   phone: 'personal',
   clothes: 'personal',
+  medical: 'personal',
   other: 'other',
 }
 
 const VEHICLE_CATEGORIES = ['fuel', 'def', 'oil', 'parts', 'equipment', 'supplies', 'hotel', 'toll', 'other']
 const PERSONAL_CATEGORIES = ['food', 'shower', 'laundry', 'personal', 'other']
 
+// Auto-detect type: vehicle vs personal
+const PERSONAL_AI_CATS = new Set(['food', 'tobacco', 'phone', 'clothes', 'medical'])
+
 function guessType(aiCategory) {
-  if (PERSONAL_CAT_MAP[aiCategory] && !VEHICLE_CAT_MAP[aiCategory]) return 'personal'
-  if (aiCategory === 'food') return 'personal'
-  if (aiCategory === 'phone' || aiCategory === 'clothes') return 'personal'
+  if (PERSONAL_AI_CATS.has(aiCategory)) return 'personal'
   return 'vehicle'
 }
 

@@ -21,6 +21,7 @@ import FAB from './components/FAB'
 import { requestPermission, isPermissionGranted } from './lib/notifications'
 import AddModal from './components/AddModal'
 import ScanReceipt from './components/ScanReceipt'
+import TripFromText from './components/TripFromText'
 import ProfileScreen from './components/ProfileScreen'
 import Paywall from './components/Paywall'
 import VehicleSwitcher from './components/VehicleSwitcher'
@@ -230,6 +231,7 @@ function AppInner() {
   const [showChat, setShowChat] = useState(false)
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [showScanReceipt, setShowScanReceipt] = useState(false)
+  const [showTripFromText, setShowTripFromText] = useState(false)
   const { unread: chatUnread, resetUnread: resetChatUnread } = useChatUnread()
 
   useEffect(() => {
@@ -728,6 +730,19 @@ function AppInner() {
                   {'\uD83D\uDCF7'} {t('scan.scanReceipt')}
                 </button>
                 <button
+                  onClick={() => { setShowFabMenu(false); setShowTripFromText(true) }}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 10,
+                    padding: '12px 18px', borderRadius: 14,
+                    background: theme.card, border: '1px solid ' + theme.border,
+                    color: theme.text, fontSize: 15, fontWeight: 600,
+                    cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+                    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                  }}
+                >
+                  {'\uD83D\uDCCB'} {t('tripParse.fabButton')}
+                </button>
+                <button
                   onClick={() => { setShowFabMenu(false); setIsModalOpen(true) }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
@@ -767,6 +782,18 @@ function AppInner() {
                 setShowScanReceipt(false)
                 setFuelRefreshKey(k => k + 1)
                 setBytRefreshKey(k => k + 1)
+                setOverviewRefreshKey(k => k + 1)
+              }}
+            />
+          )}
+          {showTripFromText && (
+            <TripFromText
+              onClose={() => setShowTripFromText(false)}
+              userId={userId}
+              vehicleId={vehicleId}
+              onTripSaved={() => {
+                setShowTripFromText(false)
+                setTripsRefreshKey(k => k + 1)
                 setOverviewRefreshKey(k => k + 1)
               }}
             />

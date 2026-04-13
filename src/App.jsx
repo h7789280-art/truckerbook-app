@@ -20,8 +20,7 @@ import PinLock from './components/PinLock'
 import FAB from './components/FAB'
 import { requestPermission, isPermissionGranted } from './lib/notifications'
 import AddModal from './components/AddModal'
-import ScanReceipt from './components/ScanReceipt'
-import TripFromText from './components/TripFromText'
+import SmartScan from './components/SmartScan'
 import ProfileScreen from './components/ProfileScreen'
 import Paywall from './components/Paywall'
 import VehicleSwitcher from './components/VehicleSwitcher'
@@ -230,8 +229,7 @@ function AppInner() {
   const [showWelcome, setShowWelcome] = useState(false)
   const [showChat, setShowChat] = useState(false)
   const [showFabMenu, setShowFabMenu] = useState(false)
-  const [showScanReceipt, setShowScanReceipt] = useState(false)
-  const [showTripFromText, setShowTripFromText] = useState(false)
+  const [showSmartScan, setShowSmartScan] = useState(false)
   const { unread: chatUnread, resetUnread: resetChatUnread } = useChatUnread()
 
   useEffect(() => {
@@ -717,7 +715,7 @@ function AppInner() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
-                  onClick={() => { setShowFabMenu(false); setShowScanReceipt(true) }}
+                  onClick={() => { setShowFabMenu(false); setShowSmartScan(true) }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '12px 18px', borderRadius: 14,
@@ -727,20 +725,7 @@ function AppInner() {
                     fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                   }}
                 >
-                  {'\uD83D\uDCF7'} {t('scan.scanReceipt')}
-                </button>
-                <button
-                  onClick={() => { setShowFabMenu(false); setShowTripFromText(true) }}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '12px 18px', borderRadius: 14,
-                    background: theme.card, border: '1px solid ' + theme.border,
-                    color: theme.text, fontSize: 15, fontWeight: 600,
-                    cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-                    fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-                  }}
-                >
-                  {'\uD83D\uDCCB'} {t('tripParse.fabButton')}
+                  {'\uD83E\uDD16'} {t('smartScan.title')}
                 </button>
                 <button
                   onClick={() => { setShowFabMenu(false); setIsModalOpen(true) }}
@@ -772,28 +757,25 @@ function AppInner() {
             onServiceSaved={handleServiceSaved}
             onVehicleExpenseSaved={handleVehicleExpenseSaved}
           />
-          {showScanReceipt && (
-            <ScanReceipt
-              onClose={() => setShowScanReceipt(false)}
-              onResult={(data) => console.log('Scan result:', data)}
+          {showSmartScan && (
+            <SmartScan
+              onClose={() => setShowSmartScan(false)}
               userId={userId}
               vehicleId={vehicleId}
               onSaved={(count) => {
-                setShowScanReceipt(false)
+                setShowSmartScan(false)
                 setFuelRefreshKey(k => k + 1)
                 setBytRefreshKey(k => k + 1)
                 setOverviewRefreshKey(k => k + 1)
               }}
-            />
-          )}
-          {showTripFromText && (
-            <TripFromText
-              onClose={() => setShowTripFromText(false)}
-              userId={userId}
-              vehicleId={vehicleId}
               onTripSaved={() => {
-                setShowTripFromText(false)
+                setShowSmartScan(false)
                 setTripsRefreshKey(k => k + 1)
+                setOverviewRefreshKey(k => k + 1)
+              }}
+              onServiceSaved={() => {
+                setShowSmartScan(false)
+                setServiceRefreshKey(k => k + 1)
                 setOverviewRefreshKey(k => k + 1)
               }}
             />

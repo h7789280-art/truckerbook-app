@@ -51,6 +51,9 @@ Categories to use:
 
 If you cannot read the receipt clearly, return: {"error": "Cannot read receipt", "items": []}`
 
+  // Strip data URI prefix if present (e.g. "data:image/jpeg;base64,...")
+  const cleanBase64 = image.includes(',') ? image.split(',')[1] : image
+
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30000)
@@ -64,13 +67,13 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
         body: JSON.stringify({
           contents: [{
             parts: [
+              { text: prompt },
               {
-                inlineData: {
-                  mimeType: 'image/jpeg',
-                  data: image,
+                inline_data: {
+                  mime_type: 'image/jpeg',
+                  data: cleanBase64,
                 },
               },
-              { text: prompt },
             ],
           }],
         }),
@@ -82,7 +85,7 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
     if (!response.ok) {
       const errText = await response.text().catch(() => '')
       console.error('Gemini API error:', response.status, errText)
-      return res.status(502).json({ error: 'AI service error' })
+      return res.status(502).json({ error: `Gemini API ${response.status}: ${errText.slice(0, 300)}` })
     }
 
     const data = await response.json()
@@ -108,7 +111,7 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
     if (err.name === 'AbortError') {
       return res.status(504).json({ error: 'AI request timed out' })
     }
-    console.error('scan-receipt error:', err)
-    return res.status(500).json({ error: 'Internal server error' })
+    console.error('Gemini API error:', err.message, err.response?.data || err)
+    return res.status(500).json({ error: err.message || 'Unknown error' })
   }
 }

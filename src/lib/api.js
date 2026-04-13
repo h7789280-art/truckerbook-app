@@ -544,8 +544,8 @@ export async function addVehicleExpense(entry) {
     .insert(row)
     .select()
   if (error) {
-    console.error('addVehicleExpense error:', error)
-    throw error
+    console.error('addVehicleExpense error:', JSON.stringify(error), 'row:', JSON.stringify(row))
+    throw new Error(error.message || error.details || JSON.stringify(error))
   }
   return data
 }

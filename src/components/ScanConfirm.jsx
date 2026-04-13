@@ -104,23 +104,29 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
 
       let savedCount = 0
       for (const item of checkedItems) {
+        const desc = storeName ? `${item.description} (${storeName})` : item.description
+        const amt = parseFloat(item.amount) || 0
         if (item.type === 'vehicle') {
-          await addVehicleExpense({
-            vehicle_id: vehicleId,
+          const itemData = {
+            vehicle_id: vehicleId || null,
             category: item.category,
-            description: storeName ? `${item.description} (${storeName})` : item.description,
-            amount: parseFloat(item.amount) || 0,
+            description: desc,
+            amount: amt,
             date,
             receipt_url: receiptUrl,
-          })
+          }
+          console.log('Saving vehicle_expense:', JSON.stringify(itemData))
+          await addVehicleExpense(itemData)
         } else {
-          await addBytExpense({
+          const itemData = {
             category: item.category,
-            name: storeName ? `${item.description} (${storeName})` : item.description,
-            amount: parseFloat(item.amount) || 0,
+            name: desc,
+            amount: amt,
             date,
             receipt_url: receiptUrl,
-          })
+          }
+          console.log('Saving byt_expense:', JSON.stringify(itemData))
+          await addBytExpense(itemData)
         }
         savedCount++
       }

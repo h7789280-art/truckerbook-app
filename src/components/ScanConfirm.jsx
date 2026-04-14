@@ -5,7 +5,8 @@ import { uploadReceiptPhoto, addVehicleExpense, addBytExpense } from '../lib/api
 
 // AI category -> vehicle_expenses category (valid DB values: def, oil, parts, equipment, supplies, hotel, toll, other)
 const VEHICLE_CAT_MAP = {
-  fuel: 'other',
+  fuel: 'fuel',
+  reefer: 'reefer',
   def: 'def',
   oil: 'oil',
   tools: 'parts',
@@ -30,7 +31,7 @@ const PERSONAL_CAT_MAP = {
   other: 'other',
 }
 
-const VEHICLE_CATEGORIES = ['def', 'oil', 'parts', 'equipment', 'supplies', 'hotel', 'toll', 'other']
+const VEHICLE_CATEGORIES = ['fuel', 'reefer', 'def', 'oil', 'parts', 'equipment', 'supplies', 'hotel', 'toll', 'other']
 const PERSONAL_CATEGORIES = ['food', 'shower', 'laundry', 'personal', 'other']
 
 // Auto-detect type: vehicle vs personal
@@ -105,6 +106,7 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
       }
 
       let savedCount = 0
+      const errors = []
       for (const item of checkedItems) {
         let desc = item.description
         // Enrich fuel description with gallons/price details
@@ -118,32 +120,42 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
         }
         if (storeName) desc = `${desc} (${storeName})`
         const amt = parseFloat(item.amount) || 0
-        if (item.type === 'vehicle') {
-          const itemData = {
-            vehicle_id: vehicleId || null,
-            category: item.category,
-            description: desc,
-            amount: amt,
-            date,
-            receipt_url: receiptUrl,
+        try {
+          if (item.type === 'vehicle') {
+            const itemData = {
+              vehicle_id: vehicleId || null,
+              category: item.category,
+              description: desc,
+              amount: amt,
+              date,
+              receipt_url: receiptUrl,
+            }
+            console.log('Saving vehicle_expense:', JSON.stringify(itemData))
+            await addVehicleExpense(itemData)
+          } else {
+            const itemData = {
+              category: item.category,
+              name: desc,
+              amount: amt,
+              date,
+              receipt_url: receiptUrl,
+            }
+            console.log('Saving byt_expense:', JSON.stringify(itemData))
+            await addBytExpense(itemData)
           }
-          console.log('Saving vehicle_expense:', JSON.stringify(itemData))
-          await addVehicleExpense(itemData)
-        } else {
-          const itemData = {
-            category: item.category,
-            name: desc,
-            amount: amt,
-            date,
-            receipt_url: receiptUrl,
-          }
-          console.log('Saving byt_expense:', JSON.stringify(itemData))
-          await addBytExpense(itemData)
+          savedCount++
+        } catch (itemErr) {
+          const msg = itemErr?.message || String(itemErr)
+          console.error(`ScanConfirm: failed to save "${desc}" ($${amt}):`, msg, itemErr)
+          errors.push(`${desc}: ${msg}`)
         }
-        savedCount++
       }
 
-      if (onSaved) onSaved(savedCount)
+      if (errors.length > 0) {
+        setError(`\u274C ${errors.length} error(s):\n${errors.join('\n')}`)
+      } else if (onSaved) {
+        onSaved(savedCount)
+      }
     } catch (e) {
       console.error('ScanConfirm save error:', e?.message || e, e)
       const msg = e?.message || e?.error_description || String(e)
@@ -155,6 +167,7 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
 
   const CAT_KEY_MAP = {
     fuel: 'addModal.refueling',
+    reefer: 'addModal.catReefer',
     def: 'addModal.catDef',
     oil: 'addModal.catOil',
     parts: 'addModal.catParts',
@@ -374,7 +387,7 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
           <div style={{
             marginBottom: 12, padding: 10, borderRadius: 10,
             background: 'rgba(239,68,68,0.1)', color: '#ef4444',
-            fontSize: 13, textAlign: 'center',
+            fontSize: 13, textAlign: 'center', whiteSpace: 'pre-line',
           }}>
             {error}
           </div>

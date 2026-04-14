@@ -4,13 +4,17 @@ import { fetchVehicles } from '../lib/api'
 import Fuel from './Fuel'
 import Byt from './Byt'
 
-export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile }) {
+export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile, initialSubTab, initialCategory }) {
   const { t } = useLanguage()
-  const [subTab, setSubTab] = useState('vehicle')
+  const [subTab, setSubTab] = useState(initialSubTab || 'vehicle')
   const [vehicles, setVehicles] = useState([])
   const [filterVehicleId, setFilterVehicleId] = useState('all')
 
   const isCompany = userRole === 'company'
+
+  useEffect(() => {
+    if (initialSubTab) setSubTab(initialSubTab)
+  }, [initialSubTab])
 
   useEffect(() => {
     if (onSubTabChange) onSubTabChange(subTab)
@@ -111,6 +115,7 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
           userRole={userRole}
           vehicles={vehicles}
           isAllVehicles={isCompany && filterVehicleId === 'all'}
+          initialCategory={initialCategory}
         />
       ) : (
         <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} />

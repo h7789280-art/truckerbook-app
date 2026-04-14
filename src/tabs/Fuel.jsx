@@ -54,7 +54,7 @@ function getDateRange(period, customFrom, customTo) {
   return { from: null, to: null }
 }
 
-export default function Fuel({ userId, refreshKey, profile, filterVehicleId, userRole, vehicles, isAllVehicles }) {
+export default function Fuel({ userId, refreshKey, profile, filterVehicleId, userRole, vehicles, isAllVehicles, initialCategory }) {
   const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -78,7 +78,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
   const [fuelEntries, setFuelEntries] = useState([])
   const [vehicleExpenses, setVehicleExpenses] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
+  const [filter, setFilter] = useState(initialCategory || 'all')
   const [showExportMenu, setShowExportMenu] = useState(false)
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
   const [period, setPeriod] = useState('month')

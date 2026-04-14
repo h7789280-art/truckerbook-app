@@ -2523,9 +2523,13 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                               </div>
                             </div>
                             {segs.length > 0 && (
-                              <>
+                              <div onClick={e => { e.stopPropagation(); onExtraNav?.('personal_expenses') }} style={{ cursor: 'pointer', borderRadius: '8px', transition: 'opacity 0.15s' }} onPointerDown={e => { e.stopPropagation(); e.currentTarget.style.opacity = '0.6' }} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
                                 <div style={{ borderTop: '1px solid ' + theme.border, margin: '12px 0 0 0' }} />
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
+                                  <div style={{ fontSize: '12px', color: theme.dim }}>{t('byt.personalExpenses')}</div>
+                                  <div style={{ fontSize: '18px', color: theme.dim, fontWeight: 700 }}>{'\u203a'}</div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
                                   <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
                                     <svg viewBox="0 0 120 120" width="120" height="120">
                                       {segs.map((seg, i) => (
@@ -2551,7 +2555,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                                     ))}
                                   </div>
                                 </div>
-                              </>
+                              </div>
                             )}
                           </>
                         )}
@@ -2645,7 +2649,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 </div>
 
                 {/* PAGE 3: Fuel Expenses */}
-                <div style={{ ...cardStyle, flex: '0 0 100%', width: '100%', scrollSnapAlign: 'start', boxSizing: 'border-box', position: 'relative' }}>
+                <div onClick={() => onExtraNav?.('fuel_analytics')} style={{ ...cardStyle, flex: '0 0 100%', width: '100%', scrollSnapAlign: 'start', boxSizing: 'border-box', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
                   {(() => {
                     const periodLabel = getCarouselDateRange().label
                     const fuelExps = carouselVehicleExps.filter(e => e.category === 'fuel' || e.category === 'reefer')
@@ -2669,6 +2673,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       <>
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                           <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\u26fd'} {t('overview.fuelExpTitle')} — {periodLabel}</div>
+                          <div style={{ fontSize: '24px', color: theme.dim, fontWeight: 700 }}>{'\u203a'}</div>
                         </div>
                         {carouselLoading ? (
                           <div style={{ textAlign: 'center', padding: '20px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>

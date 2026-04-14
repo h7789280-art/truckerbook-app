@@ -204,9 +204,28 @@ function AppInner() {
   const [prevTab, setPrevTab] = useState('overview')
   const isExtraTab = ['jobs', 'news', 'marketplace'].includes(activeTab) && userRole !== 'job_seeker'
 
+  const [expensesInitSubTab, setExpensesInitSubTab] = useState(null)
+  const [expensesInitCategory, setExpensesInitCategory] = useState(null)
+
   const handleExtraTabNav = useCallback((tab) => {
     setPrevTab(activeTab)
-    setActiveTab(tab)
+    if (tab === 'vehicle_expenses') {
+      setExpensesInitSubTab('vehicle')
+      setExpensesInitCategory(null)
+      setActiveTab('expenses')
+    } else if (tab === 'fuel_analytics') {
+      setExpensesInitSubTab('vehicle')
+      setExpensesInitCategory('fuel')
+      setActiveTab('expenses')
+    } else if (tab === 'personal_expenses') {
+      setExpensesInitSubTab('personal')
+      setExpensesInitCategory(null)
+      setActiveTab('expenses')
+    } else {
+      setExpensesInitSubTab(null)
+      setExpensesInitCategory(null)
+      setActiveTab(tab)
+    }
   }, [activeTab])
 
   const handleBackFromExtra = useCallback(() => {
@@ -451,7 +470,7 @@ function AppInner() {
     }
     switch (activeTab) {
       case 'expenses':
-        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} />
+        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} initialSubTab={expensesInitSubTab} initialCategory={expensesInitCategory} />
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
       case 'service':
@@ -782,7 +801,7 @@ function AppInner() {
           )}
         </>
       )}
-      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} role={userRole} />
+      <BottomNav activeTab={activeTab} onTabChange={(tab) => { setExpensesInitSubTab(null); setExpensesInitCategory(null); setActiveTab(tab) }} role={userRole} />
       {userRole !== 'job_seeker' && activeTab === 'overview' && showChat && (
         <DriverChat
           userId={userId}

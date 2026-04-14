@@ -86,6 +86,26 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
     }))
   }
 
+  const oldDateWarning = useMemo(() => {
+    if (!date) return null
+    const d = new Date(date + 'T00:00:00')
+    const now = new Date()
+    const diffMs = now.getTime() - d.getTime()
+    const diffDays = diffMs / (1000 * 60 * 60 * 24)
+    if (diffDays > 30) {
+      const monthNames = [
+        '\u042F\u043D\u0432\u0430\u0440\u044C', '\u0424\u0435\u0432\u0440\u0430\u043B\u044C', '\u041C\u0430\u0440\u0442',
+        '\u0410\u043F\u0440\u0435\u043B\u044C', '\u041C\u0430\u0439', '\u0418\u044E\u043D\u044C',
+        '\u0418\u044E\u043B\u044C', '\u0410\u0432\u0433\u0443\u0441\u0442', '\u0421\u0435\u043D\u0442\u044F\u0431\u0440\u044C',
+        '\u041E\u043A\u0442\u044F\u0431\u0440\u044C', '\u041D\u043E\u044F\u0431\u0440\u044C', '\u0414\u0435\u043A\u0430\u0431\u0440\u044C',
+      ]
+      const month = monthNames[d.getMonth()]
+      const year = d.getFullYear()
+      return `\u26A0\uFE0F \u0414\u0430\u0442\u0430 \u0441\u0442\u0430\u0440\u0448\u0435 30 \u0434\u043D\u0435\u0439. \u0420\u0430\u0441\u0445\u043E\u0434 \u0431\u0443\u0434\u0435\u0442 \u0437\u0430\u043F\u0438\u0441\u0430\u043D \u0432 ${month} ${year}.`
+    }
+    return null
+  }, [date])
+
   const checkedItems = useMemo(() => items.filter(it => it.checked), [items])
   const total = useMemo(() => checkedItems.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0), [checkedItems])
 
@@ -157,7 +177,6 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
       if (errors.length > 0) {
         setError(`\u274C ${errors.length} error(s):\n${errors.join('\n')}`)
       } else if (savedCount > 0 && onSaved) {
-        alert(`Saved: ${savedCount}, Errors: ${errors.length}`)
         onSaved(savedCount)
       } else if (savedCount === 0) {
         setError('Nothing was saved — no items succeeded')
@@ -292,6 +311,11 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
             onChange={e => setDate(e.target.value)}
             style={inputStyle}
           />
+          {oldDateWarning && (
+            <div style={{ marginTop: 6, color: '#eab308', fontSize: 12, fontWeight: 500 }}>
+              {oldDateWarning}
+            </div>
+          )}
         </div>
 
         {/* Items */}

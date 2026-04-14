@@ -32,7 +32,7 @@ function formatNumber(n) {
   return n.toLocaleString('en-US')
 }
 
-export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey, onExtraNav, userRole }) {
+export default function Overview({ userName, userId, profile, onOpenProfile, activeVehicleId, refreshKey, onExtraNav, userRole, onOpenSmartScan, onOpenAddModal }) {
   const { theme, mode, setMode } = useTheme()
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
@@ -1901,6 +1901,55 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </button>
         ))}
       </div>
+      )}
+
+      {/* AI Scanner + Manual add buttons — for driver and owner_operator */}
+      {(role === 'owner_operator' || role === 'driver') && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+          <button
+            onClick={onOpenSmartScan}
+            style={{
+              width: '100%',
+              padding: '16px',
+              border: 'none',
+              borderRadius: '14px',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: '#fff',
+              fontSize: '17px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              boxShadow: '0 4px 14px rgba(34,197,94,0.3)',
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            {'\uD83E\uDD16'} {t('smartScan.title')}
+          </button>
+          <button
+            onClick={onOpenAddModal}
+            style={{
+              width: '100%',
+              padding: '12px',
+              border: '1px solid ' + theme.border,
+              borderRadius: '12px',
+              background: theme.card,
+              color: theme.text,
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            {'\u270F\uFE0F'} {t('scan.addManually')}
+          </button>
+        </div>
       )}
 
       {/* Shift blocks — hidden for company and job_seeker roles */}

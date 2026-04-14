@@ -469,7 +469,7 @@ function AppInner() {
       case 'trips_detail':
         return <TripsDetails userId={userId} profile={profile} onBack={handleBackFromExtra} />
       default:
-        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} />
+        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} onOpenSmartScan={() => setShowSmartScan(true)} onOpenAddModal={() => setIsModalOpen(true)} />
     }
   }
 

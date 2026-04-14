@@ -3,9 +3,9 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { uploadReceiptPhoto, addVehicleExpense, addBytExpense } from '../lib/api'
 
-// AI category -> vehicle_expenses category
+// AI category -> vehicle_expenses category (valid DB values: def, oil, parts, equipment, supplies, hotel, toll, other)
 const VEHICLE_CAT_MAP = {
-  fuel: 'fuel',
+  fuel: 'other',
   def: 'def',
   oil: 'oil',
   tools: 'parts',
@@ -30,7 +30,7 @@ const PERSONAL_CAT_MAP = {
   other: 'other',
 }
 
-const VEHICLE_CATEGORIES = ['fuel', 'def', 'oil', 'parts', 'equipment', 'supplies', 'hotel', 'toll', 'other']
+const VEHICLE_CATEGORIES = ['def', 'oil', 'parts', 'equipment', 'supplies', 'hotel', 'toll', 'other']
 const PERSONAL_CATEGORIES = ['food', 'shower', 'laundry', 'personal', 'other']
 
 // Auto-detect type: vehicle vs personal
@@ -62,6 +62,8 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
         amount: parseFloat(item.amount) || 0,
         type,
         category: mapCategory(item.category, type),
+        aiCategory: item.category || '',
+        fuelDetails: item.fuel_details || null,
       }
     })
   )
@@ -104,7 +106,17 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
 
       let savedCount = 0
       for (const item of checkedItems) {
-        const desc = storeName ? `${item.description} (${storeName})` : item.description
+        let desc = item.description
+        // Enrich fuel description with gallons/price details
+        if (item.aiCategory === 'fuel' && item.fuelDetails) {
+          const fd = item.fuelDetails
+          const gal = fd.gallons ? parseFloat(fd.gallons) : null
+          const ppg = fd.price_per_gallon ? parseFloat(fd.price_per_gallon) : null
+          if (gal && ppg) {
+            desc = `${desc} ${gal} gal @ $${ppg.toFixed(2)}/gal`
+          }
+        }
+        if (storeName) desc = `${desc} (${storeName})`
         const amt = parseFloat(item.amount) || 0
         if (item.type === 'vehicle') {
           const itemData = {
@@ -328,6 +340,13 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
                         {'\uD83D\uDC64'} {t('scan.personalType')}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* Row 3: fuel details (gallons x price) */}
+                {item.checked && item.aiCategory === 'fuel' && item.fuelDetails && (
+                  <div style={{ paddingLeft: 28, marginTop: 4, color: theme.dim, fontSize: 12, fontFamily: 'monospace' }}>
+                    {'\u26FD'} {parseFloat(item.fuelDetails.gallons || 0).toFixed(2)} gal {'\u00D7'} ${parseFloat(item.fuelDetails.price_per_gallon || 0).toFixed(2)}/gal
                   </div>
                 )}
               </div>

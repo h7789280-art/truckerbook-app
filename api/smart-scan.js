@@ -41,9 +41,16 @@ IF type is "receipt", return:
   "date": "YYYY-MM-DD",
   "total": 123.45,
   "items": [
-    {"description": "...", "amount": 0.00, "category": "fuel|def|food|tobacco|tools|parts|supplies|parking|scale|wash|tolls|phone|clothes|medical|other"}
+    {"description": "...", "amount": 0.00, "category": "fuel|def|food|tobacco|tools|parts|supplies|parking|scale|wash|tolls|phone|clothes|medical|other", "fuel_details": null}
   ]
 }
+
+For FUEL items (category "fuel"), also extract fuel_details:
+{"fuel_details": {"gallons": 95.10, "price_per_gallon": 3.30, "total": 313.83}}
+- gallons: number of gallons/liters purchased
+- price_per_gallon: price per gallon/liter
+These are usually printed on the receipt near the fuel line item.
+For non-fuel items, set fuel_details to null.
 
 IF type is "trip", return:
 {

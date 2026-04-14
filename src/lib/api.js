@@ -578,6 +578,18 @@ export async function fetchVehicleExpensesByMonth(userId, year, month) {
   return data || []
 }
 
+export async function fetchVehicleExpensesByDateRange(userId, startDate, endDate) {
+  const { data, error } = await supabase
+    .from('vehicle_expenses')
+    .select('*')
+    .eq('user_id', userId)
+    .gte('date', startDate)
+    .lt('date', endDate)
+    .order('date', { ascending: false })
+  if (error) throw error
+  return data || []
+}
+
 export async function deleteVehicleExpense(id) {
   const { error } = await supabase
     .from('vehicle_expenses')

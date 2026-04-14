@@ -130,8 +130,9 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
               date,
               receipt_url: receiptUrl,
             }
-            console.log('Saving vehicle_expense:', JSON.stringify(itemData))
-            await addVehicleExpense(itemData)
+            console.log('[ScanConfirm] BEFORE vehicle_expense INSERT:', JSON.stringify(itemData))
+            const result = await addVehicleExpense(itemData)
+            console.log('[ScanConfirm] AFTER vehicle_expense INSERT ok:', JSON.stringify(result))
           } else {
             const itemData = {
               category: item.category,
@@ -140,21 +141,26 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
               date,
               receipt_url: receiptUrl,
             }
-            console.log('Saving byt_expense:', JSON.stringify(itemData))
-            await addBytExpense(itemData)
+            console.log('[ScanConfirm] BEFORE byt_expense INSERT:', JSON.stringify(itemData))
+            const result = await addBytExpense(itemData)
+            console.log('[ScanConfirm] AFTER byt_expense INSERT ok:', JSON.stringify(result))
           }
           savedCount++
         } catch (itemErr) {
           const msg = itemErr?.message || String(itemErr)
-          console.error(`ScanConfirm: failed to save "${desc}" ($${amt}):`, msg, itemErr)
+          console.error(`[ScanConfirm] FAILED to save "${desc}" ($${amt}):`, msg, itemErr)
           errors.push(`${desc}: ${msg}`)
         }
       }
 
+      console.log(`[ScanConfirm] Save complete: savedCount=${savedCount}, errors=${errors.length}`)
       if (errors.length > 0) {
         setError(`\u274C ${errors.length} error(s):\n${errors.join('\n')}`)
-      } else if (onSaved) {
+      } else if (savedCount > 0 && onSaved) {
+        alert(`Saved: ${savedCount}, Errors: ${errors.length}`)
         onSaved(savedCount)
+      } else if (savedCount === 0) {
+        setError('Nothing was saved — no items succeeded')
       }
     } catch (e) {
       console.error('ScanConfirm save error:', e?.message || e, e)

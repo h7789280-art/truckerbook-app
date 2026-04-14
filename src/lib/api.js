@@ -535,13 +535,19 @@ export async function addVehicleExpense(entry) {
     receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('vehicle_expenses', row)
+  console.log('[addVehicleExpense] INSERT row:', JSON.stringify(row))
   const { data, error } = await supabase
     .from('vehicle_expenses')
     .insert(row)
     .select()
+  console.log('[addVehicleExpense] result data:', JSON.stringify(data), 'error:', JSON.stringify(error))
   if (error) {
     console.error('addVehicleExpense error:', JSON.stringify(error), 'row:', JSON.stringify(row))
     throw new Error(error.message || error.details || JSON.stringify(error))
+  }
+  if (!data || data.length === 0) {
+    console.error('addVehicleExpense: insert returned empty data (possible RLS block), row:', JSON.stringify(row))
+    throw new Error('Insert returned empty result — check RLS policies or table existence')
   }
   return data
 }

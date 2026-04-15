@@ -387,7 +387,20 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
       } else if (isAllVehicles) {
         pdfSubtitle = t('expenses.allVehicles')
       }
-      exportToPDF(rows, columns, pdfTitle, `fuel_report_${ym}.pdf`, lang, pdfSubtitle)
+      const fuelPerDistLabel = unitSys === 'imperial'
+        ? t('fuel.exportFuelPerMile')
+        : t('fuel.exportFuelPerKm')
+      exportToPDF(rows, columns, pdfTitle, `fuel_report_${ym}.pdf`, lang, pdfSubtitle, {
+        fuelTotals: {
+          volumeKey: 'volume',
+          priceKey: 'price_per_unit',
+          amountKey: 'amount',
+          odometerKey: 'odometer',
+          fuelPerDistLabel,
+        },
+        totalLabel: t('fuel.total'),
+        averageLabel: t('fuel.exportAverage'),
+      })
     }
   }
 

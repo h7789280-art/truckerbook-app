@@ -992,13 +992,70 @@ export async function exportFleetReportExcel(opts) {
  * @param {string} title
  * @param {string} filename
  */
-export async function exportToPDF(data, columns, title, filename, locale, subtitle) {
+export async function exportToPDF(data, columns, title, filename, locale, subtitle, options) {
   const { default: jsPDF } = await import('jspdf')
   const { default: autoTable } = await import('jspdf-autotable')
   const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
 
+  const fuelTotals = options && options.fuelTotals
+  const totalLabel = (options && options.totalLabel) || 'TOTAL'
+  const averageLabel = (options && options.averageLabel) || 'avg'
+
   const head = [columns.map(c => c.header)]
   const body = data.map(row => columns.map(c => String(row[c.key] ?? '')))
+
+  // Build fuel totals rows for the table
+  const footRows = []
+  if (fuelTotals && data.length > 0) {
+    const amountIdx = columns.findIndex(c => c.key === 'amount')
+    const volIdx = columns.findIndex(c => c.key === fuelTotals.volumeKey)
+    const priceIdx = columns.findIndex(c => c.key === fuelTotals.priceKey)
+    const odomIdx = columns.findIndex(c => c.key === fuelTotals.odometerKey)
+
+    // "Totals" row
+    const totalVals = columns.map(() => '')
+    totalVals[0] = totalLabel
+    if (amountIdx >= 0) {
+      totalVals[amountIdx] = String(Math.round(data.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100)
+    }
+    if (volIdx >= 0) {
+      totalVals[volIdx] = String(Math.round(data.reduce((s, r) => s + (Number(r[fuelTotals.volumeKey]) || 0), 0) * 100) / 100)
+    }
+    if (priceIdx >= 0) {
+      const prices = data.map(r => Number(r[fuelTotals.priceKey]) || 0).filter(v => v > 0)
+      totalVals[priceIdx] = prices.length > 0
+        ? `${Math.round((prices.reduce((s, v) => s + v, 0) / prices.length) * 100) / 100} (${averageLabel})`
+        : ''
+    }
+    if (odomIdx >= 0) {
+      const odomValues = data.map(r => Number(r[fuelTotals.odometerKey]) || 0).filter(v => v > 0)
+      if (odomValues.length >= 2) {
+        const totalDist = Math.max(...odomValues) - Math.min(...odomValues)
+        if (totalDist > 0) totalVals[odomIdx] = String(totalDist)
+      }
+    }
+    footRows.push({ cells: totalVals, style: 'total' })
+
+    // "Fuel per mile/km" row
+    if (fuelTotals.fuelPerDistLabel && odomIdx >= 0) {
+      const odomValues = data.map(r => Number(r[fuelTotals.odometerKey]) || 0).filter(v => v > 0)
+      if (odomValues.length >= 2) {
+        const totalDist = Math.max(...odomValues) - Math.min(...odomValues)
+        const totalAmount = data.reduce((s, r) => s + (Number(r[fuelTotals.amountKey]) || 0), 0)
+        if (totalDist > 0) {
+          const fpdVals = columns.map(() => '')
+          fpdVals[0] = fuelTotals.fuelPerDistLabel
+          fpdVals[amountIdx >= 0 ? amountIdx : 0] = String(Math.round((totalAmount / totalDist) * 100) / 100)
+          footRows.push({ cells: fpdVals, style: 'fuelPerDist' })
+        }
+      }
+    }
+  }
+
+  // Append styled footer rows to body
+  for (const fr of footRows) {
+    body.push(fr.cells)
+  }
 
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
 
@@ -1022,6 +1079,13 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
     nextY = 28
   }
 
+  // Map footer row indices for custom styling
+  const dataRowCount = data.length
+  const footerStyleMap = {}
+  for (let i = 0; i < footRows.length; i++) {
+    footerStyleMap[dataRowCount + i] = footRows[i].style
+  }
+
   autoTable(doc, {
     startY: nextY + 2,
     head,
@@ -1030,6 +1094,19 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
     headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     margin: { left: 14, right: 14 },
+    didParseCell: function (hookData) {
+      if (hookData.section !== 'body') return
+      const st = footerStyleMap[hookData.row.index]
+      if (st === 'total') {
+        hookData.cell.styles.fillColor = [255, 242, 204] // #FFF2CC
+        hookData.cell.styles.fontStyle = 'bold'
+        hookData.cell.styles.font = 'Roboto'
+      } else if (st === 'fuelPerDist') {
+        hookData.cell.styles.fillColor = [217, 234, 211] // #D9EAD3
+        hookData.cell.styles.fontStyle = 'bold'
+        hookData.cell.styles.font = 'Roboto'
+      }
+    },
   })
 
   doc.save(filename || 'report.pdf')

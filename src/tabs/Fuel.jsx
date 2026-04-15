@@ -170,7 +170,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
     }
   })
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     setShowExportMenu(false)
     const volLabel = unitSys === 'imperial' ? t('excel.gallons') : t('fuel.exportVolume')
     const priceLabel = unitSys === 'imperial'
@@ -277,7 +277,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         ? t('fuel.exportFuelPerMile')
         : t('fuel.exportFuelPerKm')
       if (allExportRows.length > 0 || vehicleSummary.length > 0) {
-        exportAllVehiclesExcel({
+        await exportAllVehiclesExcel({
           allRows: allExportRows,
           columns,
           categoryData,
@@ -335,7 +335,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
       const fuelPerDistLabel = unitSys === 'imperial'
         ? t('fuel.exportFuelPerMile')
         : t('fuel.exportFuelPerKm')
-      exportToExcelWithSummary({
+      await exportToExcelWithSummary({
         summary: {
           currencySymbol: cs,
         },

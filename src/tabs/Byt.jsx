@@ -124,7 +124,7 @@ export default function Byt({ userId, refreshKey }) {
     return () => document.removeEventListener('mousedown', handler)
   }, [showFilterDropdown])
 
-  const handleExport = (format) => {
+  const handleExport = async (format) => {
     setShowExportMenu(false)
     const columns = [
       { header: t('fuel.exportDate'), key: 'date' },
@@ -144,7 +144,7 @@ export default function Byt({ userId, refreshKey }) {
     const now2 = new Date()
     const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
     if (format === 'excel') {
-      exportToExcel(rows, columns, `personal_expenses_${ym}.xlsx`)
+      await exportToExcel(rows, columns, `personal_expenses_${ym}.xlsx`)
     } else {
       // Build period-aware title
       const monthNames = t('expenses.monthNames')

@@ -469,7 +469,7 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
   const totalCost = filteredRepairs.reduce((s, r) => s + (r.cost || 0), 0)
 
   // Export
-  const handleExport = () => {
+  const handleExport = async () => {
     const now2 = new Date()
     const ym = `${String(now2.getMonth() + 1).padStart(2, '0')}_${now2.getFullYear()}`
     const prefix = isRepair ? 'repair' : 'maintenance'
@@ -498,7 +498,7 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
     }))
     rows.push({ date: '', category: '', description: t('service.totalLabel'), amount: Math.round(totalCost), odometer: '', sto: '', receipt: '' })
     const fn = plate ? `${prefix}_${plate}_${ym}.xlsx` : `${prefix}_report_${ym}.xlsx`
-    exportToExcel(rows, columns, fn)
+    await exportToExcel(rows, columns, fn)
   }
 
   const periodBtnStyle = (active) => ({

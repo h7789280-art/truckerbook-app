@@ -1,44 +1,119 @@
-import * as XLSX from 'xlsx'
+// ====== Shared Excel styling constants & helpers (ExcelJS) ======
+const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }  // gray
+const HEADER_FONT = { bold: true, size: 11 }
+const HEADER_BORDER_BOTTOM = { bottom: { style: 'thin', color: { argb: 'FF999999' } } }
+
+const TOTAL_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF2CC' } }  // yellow
+const TOTAL_FONT = { bold: true, size: 11 }
+const TOTAL_BORDER_TOP = { top: { style: 'thin', color: { argb: 'FF999999' } } }
+
+const FUEL_PER_DIST_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9EAD3' } }  // light green
+const FUEL_PER_DIST_FONT = { bold: true, size: 11 }
+
+/** Apply styled header row (row 1) — gray bg, bold, bottom border */
+const styledHeaders = (ws, colCount) => {
+  const row = ws.getRow(1)
+  for (let c = 1; c <= colCount; c++) {
+    const cell = row.getCell(c)
+    cell.fill = HEADER_FILL
+    cell.font = HEADER_FONT
+    cell.border = HEADER_BORDER_BOTTOM
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+  }
+  row.height = 24
+}
+
+/** Apply TOTAL row styling — yellow bg, bold, top border */
+const styleTotalRow = (ws, rowNum, colCount) => {
+  const row = ws.getRow(rowNum)
+  for (let c = 1; c <= colCount; c++) {
+    const cell = row.getCell(c)
+    cell.fill = TOTAL_FILL
+    cell.font = TOTAL_FONT
+    cell.border = TOTAL_BORDER_TOP
+  }
+}
+
+/** Apply fuel-per-distance row styling — green bg, bold */
+const styleFuelPerDistRow = (ws, rowNum, colCount) => {
+  const row = ws.getRow(rowNum)
+  for (let c = 1; c <= colCount; c++) {
+    const cell = row.getCell(c)
+    cell.fill = FUEL_PER_DIST_FILL
+    cell.font = FUEL_PER_DIST_FONT
+  }
+}
+
+/** Auto-fit column widths */
+const styledAutoWidth = (ws) => {
+  if (!ws.columns || ws.columns.length === 0) return
+  ws.columns.forEach(col => {
+    let maxLen = 10
+    col.eachCell({ includeEmpty: true }, cell => {
+      const len = cell.value ? String(cell.value).length : 0
+      if (len > maxLen) maxLen = len
+    })
+    col.width = Math.min(maxLen + 3, 40)
+  })
+}
+
+/** Alternating light-yellow rows */
+const LIGHT_YELLOW_ALT = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF8E1' } }
+const styledAltRows = (ws, startRow, endRow, colCount) => {
+  for (let r = startRow; r <= endRow; r++) {
+    if ((r - startRow) % 2 === 1) {
+      const row = ws.getRow(r)
+      for (let c = 1; c <= colCount; c++) {
+        row.getCell(c).fill = LIGHT_YELLOW_ALT
+      }
+    }
+  }
+}
 
 /**
  * @param {Array<Object>} data
  * @param {Array<{header: string, key: string}>} columns
  * @param {string} filename
  */
-export function exportToExcel(data, columns, filename) {
-  const headers = columns.map(c => c.header)
-  const rows = data.map(row => columns.map(c => {
-    const v = row[c.key] ?? ''
-    return (v && typeof v === 'object' && v.hyperlink) ? (v.text || v.hyperlink) : v
-  }))
+export async function exportToExcel(data, columns, filename) {
+  const excelMod = await import('exceljs')
+  const ExcelJS = excelMod.default || excelMod
+  const fileSaverMod = await import('file-saver')
+  const saveAs = fileSaverMod.saveAs || fileSaverMod.default?.saveAs || fileSaverMod.default
 
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Report')
+
+  // Headers
+  const headers = columns.map(c => c.header)
+  ws.addRow(headers)
+  styledHeaders(ws, headers.length)
+
+  // Data rows
+  data.forEach(row => {
+    const vals = columns.map(c => {
+      const v = row[c.key] ?? ''
+      return (v && typeof v === 'object' && v.hyperlink) ? (v.text || v.hyperlink) : v
+    })
+    ws.addRow(vals)
+  })
 
   // Add hyperlinks for cells with link data
   data.forEach((row, ri) => {
     columns.forEach((c, ci) => {
       const v = row[c.key]
       if (v && typeof v === 'object' && v.hyperlink) {
-        const cellRef = XLSX.utils.encode_cell({ r: ri + 1, c: ci })
-        if (ws[cellRef]) {
-          ws[cellRef].l = { Target: v.hyperlink, Tooltip: v.text || '' }
-        }
+        const cell = ws.getRow(ri + 2).getCell(ci + 1)
+        cell.value = { text: v.text || v.hyperlink, hyperlink: v.hyperlink }
+        cell.font = { color: { argb: 'FF0563C1' }, underline: true }
       }
     })
   })
 
-  // Auto-width columns
-  ws['!cols'] = columns.map((_, i) => {
-    const maxLen = Math.max(
-      headers[i].length,
-      ...rows.map(r => String(r[i]).length)
-    )
-    return { wch: Math.min(maxLen + 2, 40) }
-  })
+  styledAutoWidth(ws)
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Report')
-  XLSX.writeFile(wb, filename)
+  const buffer = await wb.xlsx.writeBuffer()
+  saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 }
 
 /**
@@ -52,7 +127,12 @@ export function exportToExcel(data, columns, filename) {
  * @param {Object} opts.labels - { driver, phone, vehicle, period, category, amount, total, mileage, costPerUnit }
  * @param {string} opts.filename
  */
-export function exportToExcelWithSummary(opts) {
+export async function exportToExcelWithSummary(opts) {
+  const excelMod = await import('exceljs')
+  const ExcelJS = excelMod.default || excelMod
+  const fileSaverMod = await import('file-saver')
+  const saveAs = fileSaverMod.saveAs || fileSaverMod.default?.saveAs || fileSaverMod.default
+
   const {
     summary,
     detailsData,
@@ -60,40 +140,56 @@ export function exportToExcelWithSummary(opts) {
     detailsSheetName,
     labels,
     filename,
-    categoryData, // [{label, count, amount}]
+    categoryData,
     categorySheetName,
-    fuelTotals, // optional: { volumeKey, priceKey, amountKey, odometerKey, fuelPerDistLabel }
+    fuelTotals,
   } = opts
 
   const cs = summary.currencySymbol || '$'
+  const wb = new ExcelJS.Workbook()
+  const colCount = detailsColumns.length
 
   // --- Sheet 1: Details (by date) ---
+  const ws1 = wb.addWorksheet(detailsSheetName || 'By date')
   const headers = detailsColumns.map(c => c.header)
-  const rows = detailsData.map(row => detailsColumns.map(c => row[c.key] ?? ''))
+  ws1.addRow(headers)
+  styledHeaders(ws1, colCount)
 
-  // Add totals row at the bottom
+  let dataRowCount = 0
+  detailsData.forEach(row => {
+    ws1.addRow(detailsColumns.map(c => row[c.key] ?? ''))
+    dataRowCount++
+  })
+
+  styledAltRows(ws1, 2, 1 + dataRowCount, colCount)
+
+  // Add totals row
   const amountIdx = detailsColumns.findIndex(c => c.key === 'amount')
-  if (amountIdx >= 0 && rows.length > 0) {
-    const totalRow = detailsColumns.map(() => '')
-    totalRow[0] = labels.total || 'TOTAL'
-    totalRow[amountIdx] = Math.round(detailsData.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100
+  let totalRowNum = 0
+  let fuelRowNum = 0
+  if (amountIdx >= 0 && detailsData.length > 0) {
+    ws1.addRow([]) // empty separator
+    const totalVals = detailsColumns.map(() => '')
+    totalVals[0] = labels.total || 'TOTAL'
+    totalVals[amountIdx] = Math.round(detailsData.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100
 
     if (fuelTotals) {
       const volIdx = detailsColumns.findIndex(c => c.key === fuelTotals.volumeKey)
       const priceIdx = detailsColumns.findIndex(c => c.key === fuelTotals.priceKey)
       if (volIdx >= 0) {
-        totalRow[volIdx] = Math.round(detailsData.reduce((s, r) => s + (Number(r[fuelTotals.volumeKey]) || 0), 0) * 100) / 100
+        totalVals[volIdx] = Math.round(detailsData.reduce((s, r) => s + (Number(r[fuelTotals.volumeKey]) || 0), 0) * 100) / 100
       }
       if (priceIdx >= 0) {
         const prices = detailsData.map(r => Number(r[fuelTotals.priceKey]) || 0).filter(v => v > 0)
-        totalRow[priceIdx] = prices.length > 0
+        totalVals[priceIdx] = prices.length > 0
           ? `${Math.round((prices.reduce((s, v) => s + v, 0) / prices.length) * 100) / 100} (${labels.average || 'avg'})`
           : ''
       }
     }
 
-    rows.push([]) // empty separator
-    rows.push(totalRow)
+    ws1.addRow(totalVals)
+    totalRowNum = ws1.rowCount
+    styleTotalRow(ws1, totalRowNum, colCount)
 
     // Fuel per mile/km row
     if (fuelTotals && fuelTotals.fuelPerDistLabel) {
@@ -106,56 +202,47 @@ export function exportToExcelWithSummary(opts) {
           const totalDist = maxOdom - minOdom
           const totalAmount = detailsData.reduce((s, r) => s + (Number(r[fuelTotals.amountKey]) || 0), 0)
           if (totalDist > 0) {
-            const fuelPerDistRow = detailsColumns.map(() => '')
-            fuelPerDistRow[0] = fuelTotals.fuelPerDistLabel
-            fuelPerDistRow[amountIdx] = Math.round((totalAmount / totalDist) * 100) / 100
-            rows.push(fuelPerDistRow)
+            const fuelPerDistVals = detailsColumns.map(() => '')
+            fuelPerDistVals[0] = fuelTotals.fuelPerDistLabel
+            fuelPerDistVals[amountIdx] = Math.round((totalAmount / totalDist) * 100) / 100
+            ws1.addRow(fuelPerDistVals)
+            fuelRowNum = ws1.rowCount
+            styleFuelPerDistRow(ws1, fuelRowNum, colCount)
           }
         }
       }
     }
   }
 
-  const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rows])
-  ws1['!cols'] = detailsColumns.map((_, i) => {
-    const maxLen = Math.max(
-      headers[i].length,
-      ...rows.map(r => String(r[i]).length)
-    )
-    return { wch: Math.min(maxLen + 2, 40) }
-  })
-
-  // Bold headers (row 1) and totals rows
-  const totalRowIdx = rows.findIndex(r => r[0] === (labels.total || 'TOTAL'))
-  for (let c = 0; c < headers.length; c++) {
-    const headerRef = XLSX.utils.encode_cell({ r: 0, c })
-    if (ws1[headerRef]) ws1[headerRef].s = { font: { bold: true } }
-    if (totalRowIdx >= 0) {
-      const totRef = XLSX.utils.encode_cell({ r: totalRowIdx + 1, c })
-      if (ws1[totRef]) ws1[totRef].s = { font: { bold: true } }
-    }
-  }
+  styledAutoWidth(ws1)
 
   // --- Sheet 2: By category ---
+  const ws2 = wb.addWorksheet(categorySheetName || 'By category')
   const catHeaders = [
     labels.category || 'Category',
     labels.entriesCount || 'Entries',
     `${labels.amount || 'Amount'} (${cs})`,
   ]
-  const catRows = (categoryData || []).map(c => [c.label, c.count, c.amount])
+  ws2.addRow(catHeaders)
+  styledHeaders(ws2, 3)
+
+  let catDataRows = 0
+  ;(categoryData || []).forEach(c => {
+    ws2.addRow([c.label, c.count, c.amount])
+    catDataRows++
+  })
+  styledAltRows(ws2, 2, 1 + catDataRows, 3)
+
   const catTotal = (categoryData || []).reduce((s, c) => s + (c.amount || 0), 0)
   const catCountTotal = (categoryData || []).reduce((s, c) => s + (c.count || 0), 0)
-  catRows.push([])
-  catRows.push([labels.total || 'TOTAL', catCountTotal, catTotal])
+  ws2.addRow([]) // separator
+  ws2.addRow([labels.total || 'TOTAL', catCountTotal, catTotal])
+  styleTotalRow(ws2, ws2.rowCount, 3)
 
-  const ws2 = XLSX.utils.aoa_to_sheet([catHeaders, ...catRows])
-  ws2['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 18 }]
+  styledAutoWidth(ws2)
 
-  // --- Build workbook ---
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws1, detailsSheetName || 'By date')
-  XLSX.utils.book_append_sheet(wb, ws2, categorySheetName || 'By category')
-  XLSX.writeFile(wb, filename)
+  const buffer = await wb.xlsx.writeBuffer()
+  saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 }
 
 /**
@@ -170,36 +257,52 @@ export function exportToExcelWithSummary(opts) {
  * @param {string} opts.cs - currency symbol
  * @param {string} opts.filename
  */
-export function exportAllVehiclesExcel(opts) {
+export async function exportAllVehiclesExcel(opts) {
+  const excelMod = await import('exceljs')
+  const ExcelJS = excelMod.default || excelMod
+  const fileSaverMod = await import('file-saver')
+  const saveAs = fileSaverMod.saveAs || fileSaverMod.default?.saveAs || fileSaverMod.default
+
   const { allRows, columns, categoryData, vehicleSummary, labels, sheetNames, cs, filename, fuelTotals } = opts
-  const wb = XLSX.utils.book_new()
+  const wb = new ExcelJS.Workbook()
+  const colCount = columns.length
 
   // --- Sheet 1: By date ---
+  const ws1 = wb.addWorksheet((sheetNames && sheetNames.byDate) || 'By date')
   const headers = columns.map(c => c.header)
-  const rows = allRows.map(row => columns.map(c => row[c.key] ?? ''))
+  ws1.addRow(headers)
+  styledHeaders(ws1, colCount)
+
+  let dataRowCount = 0
+  allRows.forEach(row => {
+    ws1.addRow(columns.map(c => row[c.key] ?? ''))
+    dataRowCount++
+  })
+  styledAltRows(ws1, 2, 1 + dataRowCount, colCount)
 
   const amountIdx = columns.findIndex(c => c.key === 'amount')
-  if (amountIdx >= 0 && rows.length > 0) {
-    const totalRow = columns.map(() => '')
-    totalRow[0] = labels.total || 'TOTAL'
-    totalRow[amountIdx] = Math.round(allRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100
+  if (amountIdx >= 0 && allRows.length > 0) {
+    ws1.addRow([]) // separator
+    const totalVals = columns.map(() => '')
+    totalVals[0] = labels.total || 'TOTAL'
+    totalVals[amountIdx] = Math.round(allRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100
 
     if (fuelTotals) {
       const volIdx = columns.findIndex(c => c.key === fuelTotals.volumeKey)
       const priceIdx = columns.findIndex(c => c.key === fuelTotals.priceKey)
       if (volIdx >= 0) {
-        totalRow[volIdx] = Math.round(allRows.reduce((s, r) => s + (Number(r[fuelTotals.volumeKey]) || 0), 0) * 100) / 100
+        totalVals[volIdx] = Math.round(allRows.reduce((s, r) => s + (Number(r[fuelTotals.volumeKey]) || 0), 0) * 100) / 100
       }
       if (priceIdx >= 0) {
         const prices = allRows.map(r => Number(r[fuelTotals.priceKey]) || 0).filter(v => v > 0)
-        totalRow[priceIdx] = prices.length > 0
+        totalVals[priceIdx] = prices.length > 0
           ? `${Math.round((prices.reduce((s, v) => s + v, 0) / prices.length) * 100) / 100} (${labels.average || 'avg'})`
           : ''
       }
     }
 
-    rows.push([])
-    rows.push(totalRow)
+    ws1.addRow(totalVals)
+    styleTotalRow(ws1, ws1.rowCount, colCount)
 
     // Fuel per mile/km row
     if (fuelTotals && fuelTotals.fuelPerDistLabel) {
@@ -208,55 +311,45 @@ export function exportAllVehiclesExcel(opts) {
         const totalDist = Math.max(...odomValues) - Math.min(...odomValues)
         const totalAmount = allRows.reduce((s, r) => s + (Number(r[fuelTotals.amountKey]) || 0), 0)
         if (totalDist > 0) {
-          const fuelPerDistRow = columns.map(() => '')
-          fuelPerDistRow[0] = fuelTotals.fuelPerDistLabel
-          fuelPerDistRow[amountIdx] = Math.round((totalAmount / totalDist) * 100) / 100
-          rows.push(fuelPerDistRow)
+          const fuelPerDistVals = columns.map(() => '')
+          fuelPerDistVals[0] = fuelTotals.fuelPerDistLabel
+          fuelPerDistVals[amountIdx] = Math.round((totalAmount / totalDist) * 100) / 100
+          ws1.addRow(fuelPerDistVals)
+          styleFuelPerDistRow(ws1, ws1.rowCount, colCount)
         }
       }
     }
   }
 
-  const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rows])
-  ws1['!cols'] = columns.map((_, i) => {
-    const maxLen = Math.max(
-      headers[i].length,
-      ...rows.map(r => String(r[i]).length)
-    )
-    return { wch: Math.min(maxLen + 2, 40) }
-  })
-
-  // Bold headers and totals
-  const totalRowIdx = rows.findIndex(r => r[0] === (labels.total || 'TOTAL'))
-  for (let c = 0; c < headers.length; c++) {
-    const headerRef = XLSX.utils.encode_cell({ r: 0, c })
-    if (ws1[headerRef]) ws1[headerRef].s = { font: { bold: true } }
-    if (totalRowIdx >= 0) {
-      const totRef = XLSX.utils.encode_cell({ r: totalRowIdx + 1, c })
-      if (ws1[totRef]) ws1[totRef].s = { font: { bold: true } }
-    }
-  }
-
-  XLSX.utils.book_append_sheet(wb, ws1, (sheetNames && sheetNames.byDate) || 'By date')
+  styledAutoWidth(ws1)
 
   // --- Sheet 2: By category ---
+  const ws2 = wb.addWorksheet((sheetNames && sheetNames.byCategory) || 'By category')
   const catHeaders = [
     labels.category || 'Category',
     labels.entriesCount || 'Entries',
     `${labels.amount || 'Amount'} (${cs || '$'})`,
   ]
-  const catRows = (categoryData || []).map(c => [c.label, c.count, c.amount])
+  ws2.addRow(catHeaders)
+  styledHeaders(ws2, 3)
+
+  let catDataRows = 0
+  ;(categoryData || []).forEach(c => {
+    ws2.addRow([c.label, c.count, c.amount])
+    catDataRows++
+  })
+  styledAltRows(ws2, 2, 1 + catDataRows, 3)
+
   const catTotal = (categoryData || []).reduce((s, c) => s + (c.amount || 0), 0)
   const catCountTotal = (categoryData || []).reduce((s, c) => s + (c.count || 0), 0)
-  catRows.push([])
-  catRows.push([labels.total || 'TOTAL', catCountTotal, catTotal])
-
-  const ws2 = XLSX.utils.aoa_to_sheet([catHeaders, ...catRows])
-  ws2['!cols'] = [{ wch: 25 }, { wch: 18 }, { wch: 18 }]
-  XLSX.utils.book_append_sheet(wb, ws2, (sheetNames && sheetNames.byCategory) || 'By category')
+  ws2.addRow([]) // separator
+  ws2.addRow([labels.total || 'TOTAL', catCountTotal, catTotal])
+  styleTotalRow(ws2, ws2.rowCount, 3)
+  styledAutoWidth(ws2)
 
   // --- Sheet 3: By vehicle ---
   if (vehicleSummary && vehicleSummary.length > 0) {
+    const ws3 = wb.addWorksheet((sheetNames && sheetNames.byVehicle) || 'By vehicle')
     const vehHeaders = [
       labels.vehicle || 'Vehicle',
       labels.plate || 'Plate',
@@ -264,18 +357,26 @@ export function exportAllVehiclesExcel(opts) {
       `${labels.amount || 'Amount'} (${cs || '$'})`,
       labels.entriesCount || 'Entries',
     ]
-    const vehRows = vehicleSummary.map(v => [v.name, v.plate, v.driver, v.amount, v.count])
+    ws3.addRow(vehHeaders)
+    styledHeaders(ws3, 5)
+
+    let vehDataRows = 0
+    vehicleSummary.forEach(v => {
+      ws3.addRow([v.name, v.plate, v.driver, v.amount, v.count])
+      vehDataRows++
+    })
+    styledAltRows(ws3, 2, 1 + vehDataRows, 5)
+
     const vehTotalAmount = vehicleSummary.reduce((s, v) => s + (v.amount || 0), 0)
     const vehTotalCount = vehicleSummary.reduce((s, v) => s + (v.count || 0), 0)
-    vehRows.push([])
-    vehRows.push([labels.total || 'TOTAL', '', '', vehTotalAmount, vehTotalCount])
-
-    const ws3 = XLSX.utils.aoa_to_sheet([vehHeaders, ...vehRows])
-    ws3['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 20 }, { wch: 18 }, { wch: 18 }]
-    XLSX.utils.book_append_sheet(wb, ws3, (sheetNames && sheetNames.byVehicle) || 'By vehicle')
+    ws3.addRow([]) // separator
+    ws3.addRow([labels.total || 'TOTAL', '', '', vehTotalAmount, vehTotalCount])
+    styleTotalRow(ws3, ws3.rowCount, 5)
+    styledAutoWidth(ws3)
   }
 
-  XLSX.writeFile(wb, filename)
+  const buffer = await wb.xlsx.writeBuffer()
+  saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 }
 
 /**
@@ -317,45 +418,6 @@ export async function exportDriverReportExcel(opts) {
   const wb = new ExcelJS.Workbook()
 
   const ORANGE = 'F59E0B'
-  const LIGHT_YELLOW = 'FFF8E1'
-
-  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + ORANGE } }
-  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }
-  const altFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + LIGHT_YELLOW } }
-
-  const styleHeaders = (ws, colCount) => {
-    const row = ws.getRow(1)
-    for (let c = 1; c <= colCount; c++) {
-      const cell = row.getCell(c)
-      cell.fill = headerFill
-      cell.font = headerFont
-      cell.alignment = { horizontal: 'center', vertical: 'middle' }
-    }
-    row.height = 24
-  }
-
-  const styleAltRows = (ws, startRow, endRow, colCount) => {
-    for (let r = startRow; r <= endRow; r++) {
-      if ((r - startRow) % 2 === 1) {
-        const row = ws.getRow(r)
-        for (let c = 1; c <= colCount; c++) {
-          row.getCell(c).fill = altFill
-        }
-      }
-    }
-  }
-
-  const autoWidth = (ws) => {
-    if (!ws.columns || ws.columns.length === 0) return
-    ws.columns.forEach(col => {
-      let maxLen = 10
-      col.eachCell({ includeEmpty: true }, cell => {
-        const len = cell.value ? String(cell.value).length : 0
-        if (len > maxLen) maxLen = len
-      })
-      col.width = Math.min(maxLen + 3, 40)
-    })
-  }
 
   const fmtNum = (n) => {
     if (n == null || isNaN(n)) return ''
@@ -400,19 +462,20 @@ export async function exportDriverReportExcel(opts) {
 
   // Vehicle expenses breakdown
   const catHeaderRow = ws1.addRow([t('excel.vehicleExpLabel'), t('excel.amount') + ' (' + cs + ')'])
-  catHeaderRow.getCell(1).fill = headerFill
-  catHeaderRow.getCell(1).font = headerFont
-  catHeaderRow.getCell(2).fill = headerFill
-  catHeaderRow.getCell(2).font = headerFont
+  catHeaderRow.getCell(1).fill = HEADER_FILL
+  catHeaderRow.getCell(1).font = HEADER_FONT
+  catHeaderRow.getCell(1).border = HEADER_BORDER_BOTTOM
+  catHeaderRow.getCell(2).fill = HEADER_FILL
+  catHeaderRow.getCell(2).font = HEADER_FONT
+  catHeaderRow.getCell(2).border = HEADER_BORDER_BOTTOM
 
   if (vehicleExpenseCategories) {
     vehicleExpenseCategories.forEach(cat => {
       ws1.addRow([cat.label, fmtNum(cat.amount)])
     })
   }
-  const totalRow1 = ws1.addRow([t('excel.total'), fmtNum(vehicleExpenseTotal ?? 0)])
-  totalRow1.getCell(1).font = { bold: true, size: 11 }
-  totalRow1.getCell(2).font = { bold: true, size: 11 }
+  ws1.addRow([t('excel.total'), fmtNum(vehicleExpenseTotal ?? 0)])
+  styleTotalRow(ws1, ws1.rowCount, 2)
 
   ws1.addRow([])
   addInfoRow(t('excel.odometer') + ' (' + (distLabel || 'mi') + ')', fmtNum(totalMileage))
@@ -438,7 +501,7 @@ export async function exportDriverReportExcel(opts) {
   const tripHeaders = [t('excel.date'), t('excel.origin'), t('excel.destination'), t('excel.distMiles'), t('excel.income') + ' (' + cs + ')']
   if (!isOwner && payType && payType !== 'none') tripHeaders.push(t('excel.myEarnings') + ' (' + cs + ')')
   ws2.addRow(tripHeaders)
-  styleHeaders(ws2, tripHeaders.length)
+  styledHeaders(ws2, tripHeaders.length)
 
   let tripRowIdx = 2
   ;(trips || []).forEach(tr => {
@@ -448,20 +511,21 @@ export async function exportDriverReportExcel(opts) {
     tripRowIdx++
   })
 
+  styledAltRows(ws2, 2, tripRowIdx - 1, tripHeaders.length)
+
   // TOTAL row
   const tripTotalRow = [t('excel.total'), '', '', fmtNum((trips || []).reduce((s, tr2) => s + (tr2.miles || 0), 0)), fmtNum((trips || []).reduce((s, tr2) => s + (tr2.income || 0), 0))]
   if (!isOwner && payType && payType !== 'none') tripTotalRow.push(fmtNum((trips || []).reduce((s, tr2) => s + (tr2.driverPay || 0), 0)))
-  const ttr = ws2.addRow(tripTotalRow)
-  ttr.eachCell(c => { c.font = { bold: true, size: 11 } })
+  ws2.addRow(tripTotalRow)
+  styleTotalRow(ws2, ws2.rowCount, tripHeaders.length)
 
-  styleAltRows(ws2, 2, tripRowIdx - 1, tripHeaders.length)
-  autoWidth(ws2)
+  styledAutoWidth(ws2)
 
   // ---- SHEET 3: Expenses ----
   const ws3 = wb.addWorksheet(t('excel.sheetExpenses'))
   const expHeaders = [t('excel.date'), t('excel.description'), t('excel.category'), t('excel.gallons'), t('excel.amount') + ' (' + cs + ')', t('excel.odometer') + ' (' + (distLabel || 'mi') + ')']
   ws3.addRow(expHeaders)
-  styleHeaders(ws3, expHeaders.length)
+  styledHeaders(ws3, expHeaders.length)
 
   let expRowIdx = 2
   ;(expenses || []).sort((a, b) => (a.date || '').localeCompare(b.date || '')).forEach(e => {
@@ -469,18 +533,19 @@ export async function exportDriverReportExcel(opts) {
     expRowIdx++
   })
 
-  const expTotalRow = ws3.addRow([t('excel.total'), '', '', '', fmtNum((expenses || []).reduce((s, e) => s + (e.amount || 0), 0)), ''])
-  expTotalRow.eachCell(c => { c.font = { bold: true, size: 11 } })
+  styledAltRows(ws3, 2, expRowIdx - 1, expHeaders.length)
 
-  styleAltRows(ws3, 2, expRowIdx - 1, expHeaders.length)
-  autoWidth(ws3)
+  ws3.addRow([t('excel.total'), '', '', '', fmtNum((expenses || []).reduce((s, e) => s + (e.amount || 0), 0)), ''])
+  styleTotalRow(ws3, ws3.rowCount, expHeaders.length)
+
+  styledAutoWidth(ws3)
 
   // ---- SHEET 4: Pay Sheet (only for hired drivers, not owner_operator) ----
   if (!isOwner && payType && payType !== 'none') {
     const ws4 = wb.addWorksheet(t('excel.sheetPaySheet'))
     const payHeaders = [t('excel.date'), t('excel.route'), t('excel.distMiles'), t('excel.rate'), t('excel.earned') + ' (' + cs + ')']
     ws4.addRow(payHeaders)
-    styleHeaders(ws4, payHeaders.length)
+    styledHeaders(ws4, payHeaders.length)
 
     let payRowIdx = 2
     ;(payRows || []).forEach(r => {
@@ -488,12 +553,12 @@ export async function exportDriverReportExcel(opts) {
       payRowIdx++
     })
 
-    styleAltRows(ws4, 2, payRowIdx - 1, payHeaders.length)
+    styledAltRows(ws4, 2, payRowIdx - 1, payHeaders.length)
 
     // TOTAL
     ws4.addRow([])
-    const payTotalR = ws4.addRow([t('excel.totalEarned'), '', '', '', fmtNum(payTotal ?? 0)])
-    payTotalR.eachCell(c => { c.font = { bold: true, size: 11 } })
+    ws4.addRow([t('excel.totalEarned'), '', '', '', fmtNum(payTotal ?? 0)])
+    styleTotalRow(ws4, ws4.rowCount, payHeaders.length)
 
     // Advances
     if (advances && advances.length > 0) {
@@ -503,8 +568,8 @@ export async function exportDriverReportExcel(opts) {
       advances.forEach(a => {
         ws4.addRow([a.date, a.note || '', '', '', fmtNum(a.amount)])
       })
-      const advTotalR = ws4.addRow([t('excel.totalAdvances'), '', '', '', fmtNum(advancesTotal ?? 0)])
-      advTotalR.eachCell(c => { c.font = { bold: true, size: 11 } })
+      ws4.addRow([t('excel.totalAdvances'), '', '', '', fmtNum(advancesTotal ?? 0)])
+      styleTotalRow(ws4, ws4.rowCount, payHeaders.length)
     }
 
     ws4.addRow([])
@@ -512,7 +577,7 @@ export async function exportDriverReportExcel(opts) {
     dueR.getCell(1).font = { bold: true, size: 12, color: { argb: 'FF' + ORANGE } }
     dueR.getCell(5).font = { bold: true, size: 12, color: { argb: 'FF' + ORANGE } }
 
-    autoWidth(ws4)
+    styledAutoWidth(ws4)
   }
 
   // Write file
@@ -584,46 +649,7 @@ export async function exportFleetReportExcel(opts) {
   const wb = new ExcelJS.Workbook()
 
   const ORANGE = 'F59E0B'
-  const LIGHT_YELLOW = 'FFF8E1'
-
-  const headerFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + ORANGE } }
-  const headerFont = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }
-  const altFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + LIGHT_YELLOW } }
   const boldFont = { bold: true, size: 11 }
-
-  const styleHeaders = (ws, colCount) => {
-    const row = ws.getRow(1)
-    for (let c = 1; c <= colCount; c++) {
-      const cell = row.getCell(c)
-      cell.fill = headerFill
-      cell.font = headerFont
-      cell.alignment = { horizontal: 'center', vertical: 'middle' }
-    }
-    row.height = 24
-  }
-
-  const styleAltRows = (ws, startRow, endRow, colCount) => {
-    for (let r = startRow; r <= endRow; r++) {
-      if ((r - startRow) % 2 === 1) {
-        const row = ws.getRow(r)
-        for (let c = 1; c <= colCount; c++) {
-          row.getCell(c).fill = altFill
-        }
-      }
-    }
-  }
-
-  const autoWidth = (ws) => {
-    if (!ws.columns || ws.columns.length === 0) return
-    ws.columns.forEach(col => {
-      let maxLen = 10
-      col.eachCell({ includeEmpty: true }, cell => {
-        const len = cell.value ? String(cell.value).length : 0
-        if (len > maxLen) maxLen = len
-      })
-      col.width = Math.min(maxLen + 3, 40)
-    })
-  }
 
   const fmtNum = (n) => {
     if (n == null || isNaN(n)) return ''
@@ -775,7 +801,7 @@ export async function exportFleetReportExcel(opts) {
   const ws2 = wb.addWorksheet(t('excel.sheetDrivers'))
   const drvHeaders = [t('excel.driver'), t('excel.vehicle'), t('excel.plate'), t('excel.trips'), distLabel, t('excel.income') + ' (' + cs + ')', t('excel.expense') + ' (' + cs + ')', t('excel.salary') + ' (' + cs + ')', t('excel.profit') + ' (' + cs + ')', cs + '/' + distLabel]
   ws2.addRow(drvHeaders)
-  styleHeaders(ws2, drvHeaders.length)
+  styledHeaders(ws2, drvHeaders.length)
 
   let drvRowIdx = 2
   let drvTotIncome = 0, drvTotExpense = 0, drvTotSalary = 0, drvTotMiles = 0, drvTotTrips = 0
@@ -807,19 +833,19 @@ export async function exportFleetReportExcel(opts) {
     ws2.addRow([name, vehicleLabel, plateLabel, tripsCount, miles, fmtNum(income), fmtNum(expense), fmtNum(salary), fmtNum(profit), fmtNum(perMile)])
     drvRowIdx++
   })
-  styleAltRows(ws2, 2, drvRowIdx - 1, drvHeaders.length)
+  styledAltRows(ws2, 2, drvRowIdx - 1, drvHeaders.length)
 
   const drvTotProfit = drvTotIncome - drvTotExpense - drvTotSalary
   const drvTotPM = drvTotMiles > 0 ? drvTotProfit / drvTotMiles : 0
-  const drvTotal = ws2.addRow([t('excel.total'), '', '', drvTotTrips, drvTotMiles, fmtNum(drvTotIncome), fmtNum(drvTotExpense), fmtNum(drvTotSalary), fmtNum(drvTotProfit), fmtNum(drvTotPM)])
-  drvTotal.eachCell(c => { c.font = boldFont })
-  autoWidth(ws2)
+  ws2.addRow([t('excel.total'), '', '', drvTotTrips, drvTotMiles, fmtNum(drvTotIncome), fmtNum(drvTotExpense), fmtNum(drvTotSalary), fmtNum(drvTotProfit), fmtNum(drvTotPM)])
+  styleTotalRow(ws2, ws2.rowCount, drvHeaders.length)
+  styledAutoWidth(ws2)
 
   // ---- SHEET 3: By Vehicles ----
   const ws3 = wb.addWorksheet(t('excel.sheetVehicles'))
   const vehHeaders = [t('excel.vehicle'), t('excel.plate'), t('excel.driver'), t('excel.income') + ' (' + cs + ')', t('excel.fuel') + ' (' + cs + ')', t('excel.def') + ' (' + cs + ')', t('excel.repair') + ' (' + cs + ')', t('excel.maintenance') + ' (' + cs + ')', t('excel.other') + ' (' + cs + ')', t('excel.totalExpShort') + ' (' + cs + ')', t('excel.profit') + ' (' + cs + ')', distLabel, cs + '/' + distLabel]
   ws3.addRow(vehHeaders)
-  styleHeaders(ws3, vehHeaders.length)
+  styledHeaders(ws3, vehHeaders.length)
 
   let vRowIdx = 2
   let vTotIncome = 0, vTotFuel = 0, vTotDef = 0, vTotRepair = 0, vTotService = 0, vTotOther = 0, vTotExp = 0, vTotProfit = 0, vTotMiles = 0
@@ -839,18 +865,18 @@ export async function exportFleetReportExcel(opts) {
     ws3.addRow([va.label, va.plate, va.driver, fmtNum(va.income), fmtNum(va.fuelCost), fmtNum(va.defCost), fmtNum(repairCost), fmtNum(maintenanceCost), fmtNum(otherExp), fmtNum(totalExp), fmtNum(profit), va.miles, fmtNum(perMile)])
     vRowIdx++
   })
-  styleAltRows(ws3, 2, vRowIdx - 1, vehHeaders.length)
+  styledAltRows(ws3, 2, vRowIdx - 1, vehHeaders.length)
 
   const vTotPM = vTotMiles > 0 ? vTotProfit / vTotMiles : 0
-  const vTotal = ws3.addRow([t('excel.total'), '', '', fmtNum(vTotIncome), fmtNum(vTotFuel), fmtNum(vTotDef), fmtNum(vTotRepair), fmtNum(vTotService), fmtNum(vTotOther), fmtNum(vTotExp), fmtNum(vTotProfit), vTotMiles, fmtNum(vTotPM)])
-  vTotal.eachCell(c => { c.font = boldFont })
-  autoWidth(ws3)
+  ws3.addRow([t('excel.total'), '', '', fmtNum(vTotIncome), fmtNum(vTotFuel), fmtNum(vTotDef), fmtNum(vTotRepair), fmtNum(vTotService), fmtNum(vTotOther), fmtNum(vTotExp), fmtNum(vTotProfit), vTotMiles, fmtNum(vTotPM)])
+  styleTotalRow(ws3, ws3.rowCount, vehHeaders.length)
+  styledAutoWidth(ws3)
 
   // ---- SHEET 4: Expenses by Category ----
   const ws4 = wb.addWorksheet(t('excel.sheetCategories'))
   const catHeaders = [t('excel.category'), t('excel.amount') + ' (' + cs + ')', t('excel.entries'), t('excel.pctOfTotal')]
   ws4.addRow(catHeaders)
-  styleHeaders(ws4, catHeaders.length)
+  styledHeaders(ws4, catHeaders.length)
 
   // Build category breakdown
   const catMap = {}
@@ -883,17 +909,17 @@ export async function exportFleetReportExcel(opts) {
     ws4.addRow([key, fmtNum(data.sum), data.count, fmtNum(pct) + '%'])
     catRowIdx++
   })
-  styleAltRows(ws4, 2, catRowIdx - 1, catHeaders.length)
+  styledAltRows(ws4, 2, catRowIdx - 1, catHeaders.length)
 
-  const catTotal = ws4.addRow([t('excel.total'), fmtNum(catTotalSum), catTotCount, '100%'])
-  catTotal.eachCell(c => { c.font = boldFont })
-  autoWidth(ws4)
+  ws4.addRow([t('excel.total'), fmtNum(catTotalSum), catTotCount, '100%'])
+  styleTotalRow(ws4, ws4.rowCount, catHeaders.length)
+  styledAutoWidth(ws4)
 
   // ---- SHEET 5: Payroll (Salaries) ----
   const ws5 = wb.addWorksheet(t('excel.sheetPayroll'))
   const payHeaders = [t('excel.driver'), t('excel.payType'), t('excel.rate'), t('excel.trips'), distLabelFull, t('excel.earned') + ' (' + cs + ')']
   ws5.addRow(payHeaders)
-  styleHeaders(ws5, payHeaders.length)
+  styledHeaders(ws5, payHeaders.length)
 
   let payRowIdx = 2
   let payTotEarned = 0
@@ -919,16 +945,16 @@ export async function exportFleetReportExcel(opts) {
     payRowIdx++
   })
 
-  styleAltRows(ws5, 2, payRowIdx - 1, payHeaders.length)
-  const payTotal = ws5.addRow([t('excel.total'), '', '', '', '', fmtNum(payTotEarned)])
-  payTotal.eachCell(c => { c.font = boldFont })
-  autoWidth(ws5)
+  styledAltRows(ws5, 2, payRowIdx - 1, payHeaders.length)
+  ws5.addRow([t('excel.total'), '', '', '', '', fmtNum(payTotEarned)])
+  styleTotalRow(ws5, ws5.rowCount, payHeaders.length)
+  styledAutoWidth(ws5)
 
   // ---- SHEET 6: All Expenses (detailed) ----
   const ws6 = wb.addWorksheet(t('excel.sheetAllExpenses'))
   const expHeaders = [t('excel.date'), t('excel.description'), t('excel.category'), isImperial ? t('excel.gallons') : t('excel.liters'), t('excel.amount') + ' (' + cs + ')', t('excel.odometer')]
   ws6.addRow(expHeaders)
-  styleHeaders(ws6, expHeaders.length)
+  styledHeaders(ws6, expHeaders.length)
 
   const allExpenses = []
   fuels.forEach(f => allExpenses.push({ date: f.date, description: f.station || t('excel.fuel'), category: t('excel.fuel'), gal: convGal(f.liters), amount: f.cost || 0, odometer: f.odometer ? convDist(f.odometer) : '' }))
@@ -945,10 +971,10 @@ export async function exportFleetReportExcel(opts) {
     ws6.addRow([e.date || '', e.description, e.category, e.gal !== '' ? fmtNum(e.gal) : '', fmtNum(e.amount), e.odometer])
     expRowIdx++
   })
-  styleAltRows(ws6, 2, expRowIdx - 1, expHeaders.length)
-  const expTotalRow = ws6.addRow([t('excel.total'), '', '', '', fmtNum(expTotalAmt), ''])
-  expTotalRow.eachCell(c => { c.font = boldFont })
-  autoWidth(ws6)
+  styledAltRows(ws6, 2, expRowIdx - 1, expHeaders.length)
+  ws6.addRow([t('excel.total'), '', '', '', fmtNum(expTotalAmt), ''])
+  styleTotalRow(ws6, ws6.rowCount, expHeaders.length)
+  styledAutoWidth(ws6)
 
   // Write file
   const buffer = await wb.xlsx.writeBuffer()

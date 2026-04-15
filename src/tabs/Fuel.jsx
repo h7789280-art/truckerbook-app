@@ -154,24 +154,35 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
   const isCompany = userRole === 'company'
 
   // Helper: build export rows from an entries list
-  const buildExportRows = (entries, fuelsSource) => entries.map(e => ({
-    date: e.date || '',
-    description: e.name || '',
-    category: getCat(e.category).label,
-    volume: e.source === 'fuel' ? (fuelsSource.find(f => f.id === e.id)?.liters || '') : '',
-    amount: Math.round(e.amount),
-    odometer: e.source === 'fuel' ? (fuelsSource.find(f => f.id === e.id)?.odometer || '') : '',
-  }))
+  const buildExportRows = (entries, fuelsSource) => entries.map(e => {
+    const fuel = e.source === 'fuel' ? fuelsSource.find(f => f.id === e.id) : null
+    const vol = fuel ? (fuel.liters || 0) : ''
+    const cost = e.amount || 0
+    const ppg = (fuel && vol > 0) ? Math.round((cost / vol) * 100) / 100 : ''
+    return {
+      date: e.date || '',
+      description: e.name || '',
+      category: getCat(e.category).label,
+      volume: vol || '',
+      price_per_unit: ppg,
+      amount: Math.round(cost * 100) / 100,
+      odometer: fuel ? (fuel.odometer || '') : '',
+    }
+  })
 
   const handleExport = (format) => {
     setShowExportMenu(false)
     const volLabel = unitSys === 'imperial' ? t('excel.gallons') : t('fuel.exportVolume')
+    const priceLabel = unitSys === 'imperial'
+      ? `${t('fuel.exportPricePerGal')} (${cs})`
+      : `${t('fuel.exportPricePerUnit')} (${cs})`
     const distLabel = unitSys === 'imperial' ? t('excel.distMiles') : t('trips.km')
     const columns = [
       { header: t('fuel.exportDate'), key: 'date' },
       { header: t('fuel.exportDescription'), key: 'description' },
       { header: t('fuel.exportCategory'), key: 'category' },
       { header: volLabel, key: 'volume' },
+      { header: priceLabel, key: 'price_per_unit' },
       { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
       { header: `${t('fuel.exportOdometer')} (${distLabel})`, key: 'odometer' },
     ]
@@ -262,6 +273,9 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         .filter(c => c.key !== 'all' && catTotals[c.key])
         .map(c => ({ label: c.label, count: catTotals[c.key].count, amount: catTotals[c.key].amount }))
 
+      const fuelPerDistLabel2 = unitSys === 'imperial'
+        ? t('fuel.exportFuelPerMile')
+        : t('fuel.exportFuelPerKm')
       if (allExportRows.length > 0 || vehicleSummary.length > 0) {
         exportAllVehiclesExcel({
           allRows: allExportRows,
@@ -276,6 +290,14 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
             vehicle: t('fuel.exportVehicle'),
             plate: t('fuel.exportPlate'),
             driver: t('fuel.exportDriver'),
+            average: t('fuel.exportAverage'),
+          },
+          fuelTotals: {
+            volumeKey: 'volume',
+            priceKey: 'price_per_unit',
+            amountKey: 'amount',
+            odometerKey: 'odometer',
+            fuelPerDistLabel: fuelPerDistLabel2,
           },
           sheetNames: {
             byDate: t('fuel.sheetByDate'),
@@ -310,6 +332,9 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
           return { label: c.label, count, amount: Math.round(totals[c.key]) }
         })
 
+      const fuelPerDistLabel = unitSys === 'imperial'
+        ? t('fuel.exportFuelPerMile')
+        : t('fuel.exportFuelPerKm')
       exportToExcelWithSummary({
         summary: {
           currencySymbol: cs,
@@ -324,6 +349,14 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
           entriesCount: t('fuel.entries'),
           amount: t('fuel.exportAmount'),
           total: t('fuel.total'),
+          average: t('fuel.exportAverage'),
+        },
+        fuelTotals: {
+          volumeKey: 'volume',
+          priceKey: 'price_per_unit',
+          amountKey: 'amount',
+          odometerKey: 'odometer',
+          fuelPerDistLabel,
         },
         filename: exportFilename,
       })

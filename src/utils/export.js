@@ -62,6 +62,7 @@ export function exportToExcelWithSummary(opts) {
     filename,
     categoryData, // [{label, count, amount}]
     categorySheetName,
+    fuelTotals, // optional: { volumeKey, priceKey, amountKey, odometerKey, fuelPerDistLabel }
   } = opts
 
   const cs = summary.currencySymbol || '$'
@@ -75,9 +76,44 @@ export function exportToExcelWithSummary(opts) {
   if (amountIdx >= 0 && rows.length > 0) {
     const totalRow = detailsColumns.map(() => '')
     totalRow[0] = labels.total || 'TOTAL'
-    totalRow[amountIdx] = detailsData.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    totalRow[amountIdx] = Math.round(detailsData.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100
+
+    if (fuelTotals) {
+      const volIdx = detailsColumns.findIndex(c => c.key === fuelTotals.volumeKey)
+      const priceIdx = detailsColumns.findIndex(c => c.key === fuelTotals.priceKey)
+      if (volIdx >= 0) {
+        totalRow[volIdx] = Math.round(detailsData.reduce((s, r) => s + (Number(r[fuelTotals.volumeKey]) || 0), 0) * 100) / 100
+      }
+      if (priceIdx >= 0) {
+        const prices = detailsData.map(r => Number(r[fuelTotals.priceKey]) || 0).filter(v => v > 0)
+        totalRow[priceIdx] = prices.length > 0
+          ? `${Math.round((prices.reduce((s, v) => s + v, 0) / prices.length) * 100) / 100} (${labels.average || 'avg'})`
+          : ''
+      }
+    }
+
     rows.push([]) // empty separator
     rows.push(totalRow)
+
+    // Fuel per mile/km row
+    if (fuelTotals && fuelTotals.fuelPerDistLabel) {
+      const odomIdx = detailsColumns.findIndex(c => c.key === fuelTotals.odometerKey)
+      if (odomIdx >= 0) {
+        const odomValues = detailsData.map(r => Number(r[fuelTotals.odometerKey]) || 0).filter(v => v > 0)
+        if (odomValues.length >= 2) {
+          const maxOdom = Math.max(...odomValues)
+          const minOdom = Math.min(...odomValues)
+          const totalDist = maxOdom - minOdom
+          const totalAmount = detailsData.reduce((s, r) => s + (Number(r[fuelTotals.amountKey]) || 0), 0)
+          if (totalDist > 0) {
+            const fuelPerDistRow = detailsColumns.map(() => '')
+            fuelPerDistRow[0] = fuelTotals.fuelPerDistLabel
+            fuelPerDistRow[amountIdx] = Math.round((totalAmount / totalDist) * 100) / 100
+            rows.push(fuelPerDistRow)
+          }
+        }
+      }
+    }
   }
 
   const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rows])
@@ -88,6 +124,17 @@ export function exportToExcelWithSummary(opts) {
     )
     return { wch: Math.min(maxLen + 2, 40) }
   })
+
+  // Bold headers (row 1) and totals rows
+  const totalRowIdx = rows.findIndex(r => r[0] === (labels.total || 'TOTAL'))
+  for (let c = 0; c < headers.length; c++) {
+    const headerRef = XLSX.utils.encode_cell({ r: 0, c })
+    if (ws1[headerRef]) ws1[headerRef].s = { font: { bold: true } }
+    if (totalRowIdx >= 0) {
+      const totRef = XLSX.utils.encode_cell({ r: totalRowIdx + 1, c })
+      if (ws1[totRef]) ws1[totRef].s = { font: { bold: true } }
+    }
+  }
 
   // --- Sheet 2: By category ---
   const catHeaders = [
@@ -124,7 +171,7 @@ export function exportToExcelWithSummary(opts) {
  * @param {string} opts.filename
  */
 export function exportAllVehiclesExcel(opts) {
-  const { allRows, columns, categoryData, vehicleSummary, labels, sheetNames, cs, filename } = opts
+  const { allRows, columns, categoryData, vehicleSummary, labels, sheetNames, cs, filename, fuelTotals } = opts
   const wb = XLSX.utils.book_new()
 
   // --- Sheet 1: By date ---
@@ -135,9 +182,39 @@ export function exportAllVehiclesExcel(opts) {
   if (amountIdx >= 0 && rows.length > 0) {
     const totalRow = columns.map(() => '')
     totalRow[0] = labels.total || 'TOTAL'
-    totalRow[amountIdx] = allRows.reduce((s, r) => s + (Number(r.amount) || 0), 0)
+    totalRow[amountIdx] = Math.round(allRows.reduce((s, r) => s + (Number(r.amount) || 0), 0) * 100) / 100
+
+    if (fuelTotals) {
+      const volIdx = columns.findIndex(c => c.key === fuelTotals.volumeKey)
+      const priceIdx = columns.findIndex(c => c.key === fuelTotals.priceKey)
+      if (volIdx >= 0) {
+        totalRow[volIdx] = Math.round(allRows.reduce((s, r) => s + (Number(r[fuelTotals.volumeKey]) || 0), 0) * 100) / 100
+      }
+      if (priceIdx >= 0) {
+        const prices = allRows.map(r => Number(r[fuelTotals.priceKey]) || 0).filter(v => v > 0)
+        totalRow[priceIdx] = prices.length > 0
+          ? `${Math.round((prices.reduce((s, v) => s + v, 0) / prices.length) * 100) / 100} (${labels.average || 'avg'})`
+          : ''
+      }
+    }
+
     rows.push([])
     rows.push(totalRow)
+
+    // Fuel per mile/km row
+    if (fuelTotals && fuelTotals.fuelPerDistLabel) {
+      const odomValues = allRows.map(r => Number(r[fuelTotals.odometerKey]) || 0).filter(v => v > 0)
+      if (odomValues.length >= 2) {
+        const totalDist = Math.max(...odomValues) - Math.min(...odomValues)
+        const totalAmount = allRows.reduce((s, r) => s + (Number(r[fuelTotals.amountKey]) || 0), 0)
+        if (totalDist > 0) {
+          const fuelPerDistRow = columns.map(() => '')
+          fuelPerDistRow[0] = fuelTotals.fuelPerDistLabel
+          fuelPerDistRow[amountIdx] = Math.round((totalAmount / totalDist) * 100) / 100
+          rows.push(fuelPerDistRow)
+        }
+      }
+    }
   }
 
   const ws1 = XLSX.utils.aoa_to_sheet([headers, ...rows])
@@ -148,6 +225,18 @@ export function exportAllVehiclesExcel(opts) {
     )
     return { wch: Math.min(maxLen + 2, 40) }
   })
+
+  // Bold headers and totals
+  const totalRowIdx = rows.findIndex(r => r[0] === (labels.total || 'TOTAL'))
+  for (let c = 0; c < headers.length; c++) {
+    const headerRef = XLSX.utils.encode_cell({ r: 0, c })
+    if (ws1[headerRef]) ws1[headerRef].s = { font: { bold: true } }
+    if (totalRowIdx >= 0) {
+      const totRef = XLSX.utils.encode_cell({ r: totalRowIdx + 1, c })
+      if (ws1[totRef]) ws1[totRef].s = { font: { bold: true } }
+    }
+  }
+
   XLSX.utils.book_append_sheet(wb, ws1, (sheetNames && sheetNames.byDate) || 'By date')
 
   // --- Sheet 2: By category ---

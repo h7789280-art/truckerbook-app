@@ -516,6 +516,61 @@ export async function deleteRouteNote(noteId) {
   if (error) throw error
 }
 
+// --- Duplicate receipt check ---
+
+function fuzzyMatch(a, b) {
+  if (!a || !b) return false
+  const na = a.trim().toLowerCase()
+  const nb = b.trim().toLowerCase()
+  if (na === nb) return true
+  // Match first 10 chars
+  if (na.length >= 10 && nb.length >= 10 && na.slice(0, 10) === nb.slice(0, 10)) return true
+  // Simple similarity: count matching chars / max length
+  const longer = na.length >= nb.length ? na : nb
+  const shorter = na.length < nb.length ? na : nb
+  if (longer.length === 0) return false
+  let matches = 0
+  for (let i = 0; i < shorter.length; i++) {
+    if (longer[i] === shorter[i]) matches++
+  }
+  return (matches / longer.length) > 0.8
+}
+
+export async function checkDuplicateReceipt({ amount, date, description, userId, table }) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return []
+  const uid = userId || user.id
+
+  const thirtyDaysAgo = new Date()
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+  const since = thirtyDaysAgo.toISOString().slice(0, 10)
+
+  const tables = table ? [table] : ['vehicle_expenses', 'byt_expenses']
+  const duplicates = []
+
+  for (const tbl of tables) {
+    const descCol = tbl === 'byt_expenses' ? 'name' : 'description'
+    const { data, error } = await supabase
+      .from(tbl)
+      .select('*')
+      .eq('user_id', uid)
+      .gte('date', since)
+      .order('date', { ascending: false })
+    if (error || !data) continue
+
+    for (const row of data) {
+      let score = 0
+      if (parseFloat(row.amount) === parseFloat(amount)) score++
+      if (row.date === date) score++
+      if (fuzzyMatch(row[descCol], description)) score++
+      if (score >= 2) {
+        duplicates.push({ ...row, _table: tbl, _descCol: descCol })
+      }
+    }
+  }
+  return duplicates
+}
+
 // --- Vehicle expenses ---
 
 export async function addVehicleExpense(entry) {

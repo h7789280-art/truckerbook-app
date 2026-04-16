@@ -2441,6 +2441,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     const avgRate = dashTotalMiles > 0 ? (dashIncome / dashTotalMiles).toFixed(2) : '0.00'
                     const avgFuelPrice = dashTotalGallons > 0 ? (dashFuelCost / dashTotalGallons).toFixed(3) : '0.000'
                     const costMile = dashTotalMiles > 0 ? (dashExpense / dashTotalMiles).toFixed(2) : '0.00'
+                    const netRateMile = dashTotalMiles > 0 ? ((dashIncome - dashFuelCost) / dashTotalMiles).toFixed(2) : '0.00'
+                    const netRateColor = dashFuelCost === 0 ? theme.dim : (parseFloat(netRateMile) >= 0 ? '#22c55e' : '#ef4444')
                     return (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                         {/* Total Distance */}
@@ -2508,6 +2510,17 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                             {cs}{costMile}<span style={{ fontSize: '12px', fontWeight: 400 }}>/{distUnit}</span>
                           </div>
                           <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{formatNumber(dashTotalMiles)} {distUnit}</div>
+                        </div>
+                        {/* Net Rate per Mile */}
+                        <div style={{ ...cardStyle, padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: dashFuelCost === 0 ? 'rgba(100,116,139,0.15)' : (parseFloat(netRateMile) >= 0 ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)'), display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udcb5'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.netRatePerMile')}</div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: netRateColor }}>
+                            {cs}{netRateMile}<span style={{ fontSize: '12px', fontWeight: 400 }}>/{distUnit}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{t('overview.netRatePerMileHint')}</div>
                         </div>
                       </div>
                     )

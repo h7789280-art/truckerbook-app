@@ -124,6 +124,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [dashTripsCount, setDashTripsCount] = useState(0)
   const [dashFuelCost, setDashFuelCost] = useState(0)
   const [dashTotalGallons, setDashTotalGallons] = useState(0)
+  const [dashVehicleMainExp, setDashVehicleMainExp] = useState(0) // service + vehicle_expenses (non-fuel)
+  const [dashDriverPay, setDashDriverPay] = useState(0)
+  const [dashPersonalExp, setDashPersonalExp] = useState(0)
   const [dashChartData, setDashChartData] = useState([]) // [{label, fullLabel, income, expense}]
 
   // Close fleet export menu on outside click
@@ -442,7 +445,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         fetchFuels(userId).catch(() => []),
         fetchTrips(userId).catch(() => []),
         fetchBytExpenses(userId).catch(() => []),
-        isDriver ? Promise.resolve([]) : fetchServiceRecords(userId).catch(() => []),
+        fetchServiceRecords(userId).catch(() => []),
         fetchVehicleExpensesByDateRange(userId, start, end).catch(() => []),
       ])
       const inRange = (dateStr) => {
@@ -458,22 +461,30 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       const rangeVehicleExp = vehicleExps.filter(e => inRange(e.date))
       const vehicleExpCost = rangeVehicleExp.reduce((s, e) => s + (e.amount || 0), 0)
 
-      let totalIncome, totalExp
-      if (isDriver) {
-        // Driver: income = driver_pay, expense = personal expenses only
-        totalIncome = rangeTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
-        totalExp = rangeByt.reduce((s, e) => s + (e.amount || 0), 0)
-      } else {
-        // Owner-operator: income from trips, all expenses (fuel + byt + service + vehicle)
-        totalIncome = rangeTrips.reduce((s, t) => s + (t.income || 0), 0)
-        const fuelCost = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
-        const bytCost = rangeByt.reduce((s, e) => s + (e.amount || 0), 0)
-        const serviceCost = rangeService.reduce((s, e) => s + (e.cost || 0), 0)
-        totalExp = fuelCost + bytCost + serviceCost + vehicleExpCost
-      }
+      // Both driver and owner_operator: full vehicle picture
+      const totalIncome = rangeTrips.reduce((s, t) => s + (t.income || 0), 0)
+      const fuelCostAll = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
+      const serviceCostAll = rangeService.reduce((s, e) => s + (e.cost || 0), 0)
+      const bytCostAll = rangeByt.reduce((s, e) => s + (e.amount || 0), 0)
+      const totalExp = fuelCostAll + (isDriver ? 0 : bytCostAll) + serviceCostAll + vehicleExpCost
       setDashIncome(totalIncome)
       setDashExpense(totalExp)
       setDashProfit(totalIncome - totalExp)
+
+      // Vehicle maintenance (non-fuel): service + vehicle_expenses excluding fuel/reefer
+      const nonFuelVehicleExpCost = rangeVehicleExp
+        .filter(e => e.category !== 'fuel' && e.category !== 'reefer')
+        .reduce((s, e) => s + (e.amount || 0), 0)
+      setDashVehicleMainExp(serviceCostAll + nonFuelVehicleExpCost)
+
+      // Driver salary tracking (separate from vehicle stats)
+      if (isDriver) {
+        setDashDriverPay(rangeTrips.reduce((s, t) => s + (t.driver_pay || 0), 0))
+        setDashPersonalExp(bytCostAll)
+      } else {
+        setDashDriverPay(0)
+        setDashPersonalExp(0)
+      }
 
       // Fleet metrics
       const totalKm = rangeTrips.reduce((s, t) => s + (t.distance_km || 0), 0)
@@ -531,16 +542,14 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         dataMap[key][field] += value || 0
       }
 
-      if (isDriver) {
-        rangeTrips.forEach(tr => addToGroup(tr.created_at, 'income', tr.driver_pay || 0))
+      // Both driver and owner_operator: chart uses full vehicle income/expenses
+      rangeTrips.forEach(tr => addToGroup(tr.created_at, 'income', tr.income || 0))
+      rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+      if (!isDriver) {
         rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
-      } else {
-        rangeTrips.forEach(tr => addToGroup(tr.created_at, 'income', tr.income || 0))
-        rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
-        rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
-        rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
-        rangeVehicleExp.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
       }
+      rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+      rangeVehicleExp.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
 
       // Fill gaps
       if (groupMode === 'day') {
@@ -2333,11 +2342,16 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 <div style={{ textAlign: 'center', padding: '30px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>
               ) : (
                 <>
+                  {/* Section header for driver */}
+                  {isHiredDriver && (
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\udcca'} {t('overview.workStats')}</div>
+                  )}
+
                   {/* 3 summary cards: Income / Expense / Net */}
                   {(() => {
-                    const incLabel = isHiredDriver ? t('pay.earnedMonth') : t('overview.income')
-                    const expLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expense')
-                    const netLabel = isHiredDriver ? t('pay.netClean') : t('overview.netInHand')
+                    const incLabel = t('overview.income')
+                    const expLabel = t('overview.expense')
+                    const netLabel = t('overview.netInHand')
                     return (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                         <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
@@ -2422,7 +2436,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                           <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>
                             {cs}{formatNumber(Math.round(dashFuelCost))}
                           </div>
-                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTotalGallons > 0 ? dashTotalGallons.toFixed(1) + ' ' + volUnit : dash}</div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTotalGallons > 0 ? dashTotalGallons.toFixed(1) + ' ' + volUnit + (dashTotalMiles > 0 && dashTotalGallons > 0 ? ' \u00b7 ' + (dashTotalMiles / dashTotalGallons).toFixed(1) + ' MPG' : '') : dash}</div>
                         </div>
                         {/* Avg Fuel Price */}
                         <div style={{ ...cardStyle, padding: '12px' }}>
@@ -2435,8 +2449,19 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                           </div>
                           <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTotalGallons > 0 ? dashTotalGallons.toFixed(1) + ' ' + volUnit : dash}</div>
                         </div>
-                        {/* Cost per Mile — full width */}
-                        <div style={{ ...cardStyle, padding: '12px', gridColumn: '1 / -1' }}>
+                        {/* Vehicle Maintenance Expense */}
+                        <div style={{ ...cardStyle, padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udd27'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.vehicleExpTitle')}</div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#8b5cf6' }}>
+                            {cs}{formatNumber(Math.round(dashVehicleMainExp))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dash}</div>
+                        </div>
+                        {/* Cost per Mile */}
+                        <div style={{ ...cardStyle, padding: '12px' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                             <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udcc9'}</div>
                             <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.costPerMile')}</div>
@@ -2462,8 +2487,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       const line = dashChartData.map((m, i) => `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(m[field])}`).join(' ')
                       return `${line} L${getX(dashChartData.length - 1)},${baseline} L${getX(0)},${baseline} Z`
                     }
-                    const incLabel = isHiredDriver ? t('pay.earnedMonth') : t('overview.income')
-                    const expLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expense')
+                    const incLabel = t('overview.income')
+                    const expLabel = t('overview.expense')
                     return (
                       <div style={{ ...cardStyle, marginBottom: '12px', padding: '12px' }}>
                         <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '8px' }}>{incLabel} / {expLabel}</div>
@@ -2505,6 +2530,36 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       </div>
                     )
                   })()}
+
+                  {/* My Salary block — only for hired driver */}
+                  {isHiredDriver && (
+                    <div style={{ marginTop: '16px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\udcb0'} {t('pay.mySalary')}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('pay.earnedMonth')}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
+                            {formatNumber(Math.round(dashDriverPay))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('byt.personalExpenses')}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#ef4444', marginTop: '4px' }}>
+                            {formatNumber(Math.round(dashPersonalExp))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('pay.netToMe')}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: (dashDriverPay - dashPersonalExp) >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
+                            {(dashDriverPay - dashPersonalExp) >= 0 ? '+' : ''}{formatNumber(Math.round(dashDriverPay - dashPersonalExp))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -2531,8 +2531,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     )
                   })()}
 
-                  {/* My Salary block — only for hired driver */}
-                  {isHiredDriver && (
+                  {/* My Salary block — only for driver role */}
+                  {role === 'driver' && (
                     <div style={{ marginTop: '16px' }}>
                       <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\udcb0'} {t('pay.mySalary')}</div>
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>

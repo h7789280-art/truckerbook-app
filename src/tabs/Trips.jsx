@@ -803,6 +803,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         alert('Export error: ' + (err?.message || JSON.stringify(err)))
       }
     } else {
+      const isDriverWithPay = profile?.role === 'driver' && entries.some(e => e.driver_pay > 0)
       const columns = [
         { header: t('fuel.exportDate'), key: 'date' },
         { header: t('trips.from'), key: 'from' },
@@ -810,14 +811,27 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         { header: `${t('trips.distance')} (${distLabel})`, key: 'distance' },
         { header: `${t('trips.income')} (${cs})`, key: 'income' },
       ]
+      if (isDriverWithPay) columns.push({ header: `${t('trips.driverSalary')} (${cs})`, key: 'driverPay' })
       const rows = entries.map(e => ({
         date: formatDate(e.created_at),
         from: e.origin || '',
         to: e.destination || '',
         distance: e.distance_km || 0,
         income: e.income || 0,
+        ...(isDriverWithPay ? { driverPay: e.driver_pay || 0 } : {}),
       }))
-      exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`, lang)
+      if (isDriverWithPay) {
+        const totalRow = {
+          date: t('excel.total') || 'TOTAL',
+          from: '', to: '',
+          distance: entries.reduce((s, e) => s + (e.distance_km || 0), 0),
+          income: entries.reduce((s, e) => s + (e.income || 0), 0),
+          driverPay: entries.reduce((s, e) => s + (e.driver_pay || 0), 0),
+        }
+        rows.push(totalRow)
+      }
+      const pdfOptions = isDriverWithPay ? { tripsTotalRow: true, totalLabel: t('excel.total') || 'TOTAL' } : undefined
+      exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`, lang, undefined, pdfOptions)
     }
   }
 

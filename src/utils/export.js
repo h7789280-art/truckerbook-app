@@ -498,15 +498,16 @@ export async function exportDriverReportExcel(opts) {
 
   // ---- SHEET 2: Trips ----
   const ws2 = wb.addWorksheet(t('excel.sheetTrips'))
+  const hasDriverPay = (!isOwner && payType && payType !== 'none') || (role === 'driver' && (trips || []).some(tr => tr.driverPay > 0))
   const tripHeaders = [t('excel.date'), t('excel.origin'), t('excel.destination'), t('excel.distMiles'), t('excel.income') + ' (' + cs + ')']
-  if (!isOwner && payType && payType !== 'none') tripHeaders.push(t('excel.myEarnings') + ' (' + cs + ')')
+  if (hasDriverPay) tripHeaders.push(t('excel.myEarnings') + ' (' + cs + ')')
   ws2.addRow(tripHeaders)
   styledHeaders(ws2, tripHeaders.length)
 
   let tripRowIdx = 2
   ;(trips || []).forEach(tr => {
     const row = [tr.date, tr.origin, tr.destination, fmtNum(tr.miles), fmtNum(tr.income)]
-    if (!isOwner && payType && payType !== 'none') row.push(fmtNum(tr.driverPay))
+    if (hasDriverPay) row.push(fmtNum(tr.driverPay))
     ws2.addRow(row)
     tripRowIdx++
   })
@@ -515,7 +516,7 @@ export async function exportDriverReportExcel(opts) {
 
   // TOTAL row
   const tripTotalRow = [t('excel.total'), '', '', fmtNum((trips || []).reduce((s, tr2) => s + (tr2.miles || 0), 0)), fmtNum((trips || []).reduce((s, tr2) => s + (tr2.income || 0), 0))]
-  if (!isOwner && payType && payType !== 'none') tripTotalRow.push(fmtNum((trips || []).reduce((s, tr2) => s + (tr2.driverPay || 0), 0)))
+  if (hasDriverPay) tripTotalRow.push(fmtNum((trips || []).reduce((s, tr2) => s + (tr2.driverPay || 0), 0)))
   ws2.addRow(tripTotalRow)
   styleTotalRow(ws2, ws2.rowCount, tripHeaders.length)
 
@@ -998,6 +999,7 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
   const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
 
   const fuelTotals = options && options.fuelTotals
+  const tripsTotalRow = options && options.tripsTotalRow
   const totalLabel = (options && options.totalLabel) || 'TOTAL'
   const averageLabel = (options && options.averageLabel) || 'avg'
 
@@ -1084,6 +1086,10 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
   const footerStyleMap = {}
   for (let i = 0; i < footRows.length; i++) {
     footerStyleMap[dataRowCount + i] = footRows[i].style
+  }
+  // If tripsTotalRow, the last data row is a total row
+  if (tripsTotalRow && data.length > 0) {
+    footerStyleMap[data.length - 1] = 'total'
   }
 
   autoTable(doc, {

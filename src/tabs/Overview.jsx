@@ -2342,18 +2342,49 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                 <div style={{ textAlign: 'center', padding: '30px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>
               ) : (
                 <>
+                  {/* My Salary block — for driver role, shown BEFORE work stats */}
+                  {role === 'driver' && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\udcb0'} {t('pay.mySalary')}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('pay.earnedMonth')}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
+                            {formatNumber(Math.round(dashDriverPay))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('byt.personalExpenses')}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#ef4444', marginTop: '4px' }}>
+                            {formatNumber(Math.round(dashPersonalExp))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('pay.netToMe')}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: (dashDriverPay - dashPersonalExp) >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
+                            {(dashDriverPay - dashPersonalExp) >= 0 ? '+' : ''}{formatNumber(Math.round(dashDriverPay - dashPersonalExp))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Section header for driver */}
                   {isHiredDriver && (
                     <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\udcca'} {t('overview.workStats')}</div>
                   )}
 
-                  {/* 3 summary cards: Income / Expense / Net */}
+                  {/* Summary cards: Income / Expense (driver: 2 cards) or Income / Expense / Net (owner_operator: 3 cards) */}
                   {(() => {
                     const incLabel = t('overview.income')
                     const expLabel = t('overview.expense')
                     const netLabel = t('overview.netInHand')
+                    const isDriverRole = role === 'driver'
                     return (
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: isDriverRole ? '1fr 1fr' : '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
                         <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
                           <div style={{ fontSize: '11px', color: theme.dim }}>{incLabel}</div>
                           <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
@@ -2368,6 +2399,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                           </div>
                           <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                         </div>
+                        {!isDriverRole && (
                         <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
                           <div style={{ fontSize: '11px', color: theme.dim }}>{netLabel}</div>
                           <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: dashProfit >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
@@ -2375,6 +2407,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                           </div>
                           <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                         </div>
+                        )}
                       </div>
                     )
                   })()}
@@ -2531,35 +2564,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     )
                   })()}
 
-                  {/* My Salary block — only for driver role */}
-                  {role === 'driver' && (
-                    <div style={{ marginTop: '16px' }}>
-                      <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\udcb0'} {t('pay.mySalary')}</div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
-                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('pay.earnedMonth')}</div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
-                            {formatNumber(Math.round(dashDriverPay))}
-                          </div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
-                        </div>
-                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('byt.personalExpenses')}</div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#ef4444', marginTop: '4px' }}>
-                            {formatNumber(Math.round(dashPersonalExp))}
-                          </div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
-                        </div>
-                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{t('pay.netToMe')}</div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: (dashDriverPay - dashPersonalExp) >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
-                            {(dashDriverPay - dashPersonalExp) >= 0 ? '+' : ''}{formatNumber(Math.round(dashDriverPay - dashPersonalExp))}
-                          </div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+                  {/* My Salary block moved to top of dashboard (before Work Stats) for driver role */}
                 </>
               )}
             </div>
@@ -2597,9 +2602,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
-          {/* Shift analytics — for owner_operator and driver, shown after finance/trips */}
-          {(role === 'owner_operator' || role === 'driver') && shiftAnalyticsCard}
-          {(role === 'owner_operator' || role === 'driver') && driverStatsCard}
+          {/* Shift analytics — for owner_operator only (removed from driver Overview) */}
+          {role === 'owner_operator' && shiftAnalyticsCard}
+          {role === 'owner_operator' && driverStatsCard}
 
           {/* Quick links — for owner_operator, shown after stats */}
           {role === 'owner_operator' && ownerQuickLinksCard}

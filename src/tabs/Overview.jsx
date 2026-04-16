@@ -443,7 +443,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         fetchTrips(userId).catch(() => []),
         fetchBytExpenses(userId).catch(() => []),
         isDriver ? Promise.resolve([]) : fetchServiceRecords(userId).catch(() => []),
-        isDriver ? fetchVehicleExpensesByDateRange(userId, start, end).catch(() => []) : Promise.resolve([]),
+        fetchVehicleExpensesByDateRange(userId, start, end).catch(() => []),
       ])
       const inRange = (dateStr) => {
         if (!dateStr) return false
@@ -455,18 +455,21 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       const rangeByt = bytExps.filter(e => inRange(e.date))
       const rangeService = serviceRecs.filter(e => inRange(e.date))
 
+      const rangeVehicleExp = vehicleExps.filter(e => inRange(e.date))
+      const vehicleExpCost = rangeVehicleExp.reduce((s, e) => s + (e.amount || 0), 0)
+
       let totalIncome, totalExp
       if (isDriver) {
-        // Driver: income = driver_pay, expense = byt expenses
+        // Driver: income = driver_pay, expense = personal expenses only
         totalIncome = rangeTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
         totalExp = rangeByt.reduce((s, e) => s + (e.amount || 0), 0)
       } else {
-        // Owner-operator: income from trips, all expenses
+        // Owner-operator: income from trips, all expenses (fuel + byt + service + vehicle)
         totalIncome = rangeTrips.reduce((s, t) => s + (t.income || 0), 0)
         const fuelCost = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
         const bytCost = rangeByt.reduce((s, e) => s + (e.amount || 0), 0)
         const serviceCost = rangeService.reduce((s, e) => s + (e.cost || 0), 0)
-        totalExp = fuelCost + bytCost + serviceCost
+        totalExp = fuelCost + bytCost + serviceCost + vehicleExpCost
       }
       setDashIncome(totalIncome)
       setDashExpense(totalExp)
@@ -536,6 +539,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
         rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
         rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+        rangeVehicleExp.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
       }
 
       // Fill gaps
@@ -739,13 +743,23 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     return () => { cancelled = true }
   }, [userId])
 
-  // Load shift analytics (with team driving support)
+  // Load shift analytics (with team driving support) — uses dashPeriod for unified period
   const loadShiftAnalytics = useCallback(async () => {
     if (!userId) return
     try {
       const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
+      // Map dashPeriod to getShiftStats params (it only accepts 'week'|'month'|'custom')
+      let shiftApiPeriod = dashPeriod
+      let shiftApiFrom = dashCustomFrom
+      let shiftApiTo = dashCustomTo
+      if (dashPeriod !== 'week' && dashPeriod !== 'month') {
+        const { start, end } = getDashDateRange()
+        shiftApiPeriod = 'custom'
+        shiftApiFrom = start
+        shiftApiTo = end
+      }
       const [stats, userHistory, today, vehicleHistory] = await Promise.all([
-        getShiftStats(userId, shiftPeriod, shiftCustomFrom, shiftCustomTo),
+        getShiftStats(userId, shiftApiPeriod, shiftApiFrom, shiftApiTo),
         getCompletedShifts(userId, 10),
         getTodayShiftSummary(userId),
         vehicleId ? getVehicleShifts(vehicleId, 20) : Promise.resolve([]),
@@ -766,7 +780,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     } catch (err) {
       console.error('loadShiftAnalytics error:', err)
     }
-  }, [userId, shiftPeriod, activeVehicleId, shiftCustomFrom, shiftCustomTo])
+  }, [userId, dashPeriod, dashCustomFrom, dashCustomTo, getDashDateRange, activeVehicleId])
 
   useEffect(() => {
     loadShiftAnalytics()
@@ -1134,75 +1148,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       <div style={{ ...cardStyle, marginBottom: '12px' }}>
         <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udcca'} {t('overview.shiftAnalytics')}</div>
 
-        {/* Period toggle */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: shiftPeriod === 'custom' ? '8px' : '12px' }}>
-          {[
-            { key: 'week', label: t('overview.week') },
-            { key: 'month', label: t('overview.month') },
-            { key: 'custom', label: t('overview.customPeriod') },
-          ].map(p => (
-            <button
-              key={p.key}
-              onClick={() => setShiftPeriod(p.key)}
-              style={{
-                flex: 1,
-                padding: '8px',
-                border: 'none',
-                borderRadius: '10px',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                background: shiftPeriod === p.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : theme.bg,
-                color: shiftPeriod === p.key ? '#fff' : theme.dim,
-                transition: 'all 0.2s',
-              }}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
-        {shiftPeriod === 'custom' && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '12px', alignItems: 'center' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateFrom')}</div>
-              <input
-                type="date"
-                value={shiftCustomFrom}
-                onChange={e => setShiftCustomFrom(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: '10px',
-                  border: `1px solid ${theme.border}`,
-                  background: theme.bg,
-                  color: theme.text,
-                  fontSize: '13px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '4px' }}>{t('overview.dateTo')}</div>
-              <input
-                type="date"
-                value={shiftCustomTo}
-                onChange={e => setShiftCustomTo(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px',
-                  borderRadius: '10px',
-                  border: `1px solid ${theme.border}`,
-                  background: theme.bg,
-                  color: theme.text,
-                  fontSize: '13px',
-                  boxSizing: 'border-box',
-                }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Stats cards */}
+        {/* Stats cards — uses unified dashPeriod from top selector */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
           {[
             { label: t('overview.shiftsLabel'), value: String(shiftStats.count) },
@@ -1234,14 +1180,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             const driverColorMap = {}
             driverNames.forEach((name, idx) => { driverColorMap[name] = DRIVER_COLORS[idx] || DRIVER_COLORS[0] })
 
-            const filteredHistory = shiftPeriod === 'custom' && shiftCustomFrom && shiftCustomTo
-              ? shiftHistory.filter(s => {
-                  const d = new Date(s.started_at)
-                  const from = new Date(shiftCustomFrom); from.setHours(0,0,0,0)
-                  const to = new Date(shiftCustomTo); to.setHours(23,59,59,999)
-                  return d >= from && d <= to
-                })
-              : shiftHistory
+            const { start: rangeStart, end: rangeEnd } = getDashDateRange()
+            const filteredHistory = shiftHistory.filter(s => {
+              const d = s.started_at ? s.started_at.slice(0, 10) : ''
+              return d >= rangeStart && d <= rangeEnd
+            })
             const visibleShifts = shiftHistoryExpanded ? filteredHistory : filteredHistory.slice(0, 1)
 
             return <>
@@ -2124,173 +2067,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
       {/* Shift blocks — hidden for company and job_seeker roles */}
       {role !== 'company' && role !== 'job_seeker' && (<>
-      {/* Combined Shift + HOS card */}
-      <div ref={shiftBlockRef} style={{ ...cardStyle, marginBottom: '12px' }}>
-        <div style={{ ...dimText, marginBottom: '10px' }}>{'\ud83d\udee3\ufe0f'} {t('overview.shift')}</div>
-        {activeShift ? (
-          <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '14px' }}>
-                {'\u2705'} {t('overview.startedAt')}{new Date(activeShift.started_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-              </span>
-              <span style={{ fontFamily: 'monospace', fontSize: '20px', fontWeight: 700, color: '#f59e0b' }}>
-                {formatTimer(shiftElapsed)}
-              </span>
-            </div>
-            <div style={{ fontSize: '13px', color: theme.dim, marginBottom: '12px' }}>
-              {t('overview.odometerStart')}{formatNumber(activeShift.odometer_start || 0)}{' '}{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
-            </div>
-            <button
-              onClick={() => { setShiftModal('end'); setShiftOdometer('') }}
-              style={{
-                width: '100%',
-                padding: '14px',
-                border: 'none',
-                borderRadius: '12px',
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                color: '#fff',
-                fontSize: '16px',
-                fontWeight: 700,
-                cursor: 'pointer',
-              }}
-            >
-              {'\u23f9'} {t('overview.endShift')}
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={() => { setShiftModal('start'); setShiftOdometer('') }}
-            style={{
-              width: '100%',
-              padding: '14px',
-              border: 'none',
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#fff',
-              fontSize: '16px',
-              fontWeight: 700,
-              cursor: 'pointer',
-            }}
-          >
-            {'\u25b6'} {t('overview.startShift')}
-          </button>
-        )}
-        {/* HOS timer — only for countries without mandatory ELD/tachograph */}
-        {showHOS && (
-          <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: '1px solid ' + theme.border }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <span style={{ fontSize: '14px', color: theme.dim }}>{'\u23f1\ufe0f'} {t('overview.drivingTime')}</span>
-              <span style={{ fontSize: '12px', color: theme.dim }}>
-                {hosMode === 'usa' ? t('overview.maxUsa') : t('overview.maxCis')}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{
-                fontSize: '32px',
-                fontFamily: 'monospace',
-                fontWeight: 700,
-                color: seconds >= hosMaxSeconds ? '#ef4444' : theme.text,
-              }}>
-                {formatTimer(seconds)}
-              </span>
-              <button
-                onClick={handleTimerToggle}
-                style={{
-                  width: '48px',
-                  height: '48px',
-                  borderRadius: '50%',
-                  border: 'none',
-                  background: timerRunning
-                    ? 'linear-gradient(135deg, #ef4444, #dc2626)'
-                    : 'linear-gradient(135deg, #f59e0b, #d97706)',
-                  color: '#fff',
-                  fontSize: '20px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                {timerRunning ? '\u23f8' : '\u25b6'}
-              </button>
-            </div>
-            {/* Progress bar */}
-            <div style={{ marginTop: '8px', background: theme.border, borderRadius: '4px', height: '6px', overflow: 'hidden', position: 'relative' }}>
-              <div style={{
-                width: `${Math.min((seconds / hosMaxSeconds) * 100, 100)}%`,
-                height: '100%',
-                background: seconds >= hosMaxSeconds ? '#ef4444' : '#f59e0b',
-                transition: 'width 1s linear',
-              }} />
-              {hosMode === 'usa' && (
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: `${(hosBreak8hSeconds / hosMaxSeconds) * 100}%`,
-                  width: '2px',
-                  height: '100%',
-                  background: '#ef4444',
-                  opacity: 0.7,
-                }} />
-              )}
-            </div>
-            {hosMode === 'usa' && seconds >= hosBreak8hSeconds && seconds < hosMaxSeconds && (
-              <div style={{
-                marginTop: '6px',
-                fontSize: '12px',
-                color: '#f59e0b',
-                fontWeight: 600,
-              }}>
-                {'\u26A0\uFE0F ' + t('overview.break30min')}
-              </div>
-            )}
-            {seconds >= hosMaxSeconds && (
-              <div style={{
-                marginTop: '6px',
-                fontSize: '13px',
-                color: '#ef4444',
-                fontWeight: 700,
-                textAlign: 'center',
-              }}>
-                {'\uD83D\uDED1 ' + t('overview.limitExceeded')}
-              </div>
-            )}
-            {hosWarning && seconds < hosMaxSeconds && (
-              <div style={{
-                marginTop: '6px',
-                fontSize: '12px',
-                color: '#f59e0b',
-                fontWeight: 600,
-              }}>
-                {hosWarning}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Today shift summary banner */}
-      {todaySummary && (
-        <div style={{
-          background: theme.card2,
-          border: '1px solid ' + theme.border,
-          borderRadius: '10px',
-          padding: '10px 14px',
-          marginBottom: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          fontSize: '13px',
-          color: theme.dim,
-        }}>
-          <span>{'\ud83d\ude9b'}</span>
-          <span>
-            {t('overview.today') + ' '}{todaySummary.count}{' '}{t('shifts.shiftsLabel')}
-            {' \u00b7 '}{formatNumber(Math.round(todaySummary.totalKm))}{' '}{unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')}
-            {' \u00b7 '}{Math.floor(todaySummary.totalMinutes / 60)}{t('tacho.hourShort') + ' '}{String(todaySummary.totalMinutes % 60).padStart(2, '0')}{t('tacho.minShort')}
-          </span>
-        </div>
-      )}
 
       {/* Shift modal */}
       {shiftModal && (
@@ -2624,7 +2400,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                           <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>
                             {formatNumber(dashTotalMiles)} <span style={{ fontSize: '12px', fontWeight: 400 }}>{distUnit}</span>
                           </div>
-                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTripsCount} {t('overview.tripsLabel').toLowerCase()}</div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTripsCount} {(() => { const n10 = dashTripsCount % 10; const n100 = dashTripsCount % 100; return (n100 >= 11 && n100 <= 19) ? t('overview.tripsWord5') : n10 === 1 ? t('overview.tripsWord1') : (n10 >= 2 && n10 <= 4) ? t('overview.tripsWord234') : t('overview.tripsWord5') })()}</div>
                         </div>
                         {/* Avg Rate/Mile */}
                         <div style={{ ...cardStyle, padding: '12px' }}>

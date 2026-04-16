@@ -112,17 +112,19 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [reassignModal, setReassignModal] = useState(null) // { vehicleId, vehicleName }
   const [reassignDriverId, setReassignDriverId] = useState('')
   const [driverActionLoading, setDriverActionLoading] = useState(false)
-  // Driver carousel state
-  const [carouselPage, setCarouselPage] = useState(0)
-  const carouselRef = useRef(null)
-  const [carouselPeriod, setCarouselPeriod] = useState('month') // 'week' | 'month' | 'custom'
-  const [carouselCustomFrom, setCarouselCustomFrom] = useState('')
-  const [carouselCustomTo, setCarouselCustomTo] = useState('')
-  const [carouselVehicleExps, setCarouselVehicleExps] = useState([])
-  const [carouselTrips, setCarouselTrips] = useState([])
-  const [carouselBytExps, setCarouselBytExps] = useState([])
-  const [carouselDriverPay, setCarouselDriverPay] = useState(0)
-  const [carouselLoading, setCarouselLoading] = useState(false)
+  // Unified dashboard analytics state (for owner_operator and driver)
+  const [dashPeriod, setDashPeriod] = useState('month') // 'week' | 'month' | '3m' | '6m' | 'year' | 'custom'
+  const [dashCustomFrom, setDashCustomFrom] = useState('')
+  const [dashCustomTo, setDashCustomTo] = useState('')
+  const [dashLoading, setDashLoading] = useState(false)
+  const [dashIncome, setDashIncome] = useState(0)
+  const [dashExpense, setDashExpense] = useState(0)
+  const [dashProfit, setDashProfit] = useState(0)
+  const [dashTotalMiles, setDashTotalMiles] = useState(0)
+  const [dashTripsCount, setDashTripsCount] = useState(0)
+  const [dashFuelCost, setDashFuelCost] = useState(0)
+  const [dashTotalGallons, setDashTotalGallons] = useState(0)
+  const [dashChartData, setDashChartData] = useState([]) // [{label, fullLabel, income, expense}]
 
   // Close fleet export menu on outside click
   useEffect(() => {
@@ -408,82 +410,162 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     loadData()
   }, [loadData, refreshKey])
 
-  // Carousel period date range helper
-  const getCarouselDateRange = useCallback(() => {
+  // Unified dashboard period date range helper
+  const toLocalDateStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const getDashDateRange = useCallback(() => {
     const now = new Date()
-    if (carouselPeriod === 'week') {
+    if (dashPeriod === 'custom' && dashCustomFrom && dashCustomTo) {
+      return { start: dashCustomFrom, end: dashCustomTo }
+    }
+    if (dashPeriod === 'week') {
       const day = now.getDay()
       const diff = day === 0 ? 6 : day - 1
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - diff)
-      const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 7)
-      return {
-        start: `${start.getFullYear()}-${String(start.getMonth() + 1).padStart(2, '0')}-${String(start.getDate()).padStart(2, '0')}`,
-        end: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`,
-        label: `${t('overview.periodWeek')}`,
-      }
+      return { start: toLocalDateStr(start), end: toLocalDateStr(now) }
     }
-    if (carouselPeriod === 'custom' && carouselCustomFrom && carouselCustomTo) {
-      const endD = new Date(carouselCustomTo)
-      endD.setDate(endD.getDate() + 1)
-      return {
-        start: carouselCustomFrom,
-        end: `${endD.getFullYear()}-${String(endD.getMonth() + 1).padStart(2, '0')}-${String(endD.getDate()).padStart(2, '0')}`,
-        label: `${carouselCustomFrom} \u2014 ${carouselCustomTo}`,
-      }
-    }
-    // default: month
-    const msStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const msEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-    return {
-      start: `${msStart.getFullYear()}-${String(msStart.getMonth() + 1).padStart(2, '0')}-01`,
-      end: `${msEnd.getFullYear()}-${String(msEnd.getMonth() + 1).padStart(2, '0')}-01`,
-      label: `${t('expenses.monthNames')[now.getMonth()]} ${now.getFullYear()}`,
-    }
-  }, [carouselPeriod, carouselCustomFrom, carouselCustomTo, t])
+    const monthsMap = { month: 1, '3m': 3, '6m': 6, year: 12 }
+    const months = monthsMap[dashPeriod] || 1
+    const start = new Date(now.getFullYear(), now.getMonth() - months + 1, 1)
+    return { start: toLocalDateStr(start), end: toLocalDateStr(now) }
+  }, [dashPeriod, dashCustomFrom, dashCustomTo])
 
-  // Load carousel data when period changes
-  const loadCarouselData = useCallback(async () => {
+  // Load unified dashboard data when period changes (owner_operator + driver)
+  const loadDashData = useCallback(async () => {
     if (!userId) return
-    const role = profile?.role || 'owner_operator'
-    if (role !== 'driver') return
-    const { start, end } = getCarouselDateRange()
-    setCarouselLoading(true)
+    const r = profile?.role || 'owner_operator'
+    if (r !== 'owner_operator' && r !== 'driver') return
+    const { start, end } = getDashDateRange()
+    setDashLoading(true)
     try {
-      const [vExps, allTrips, bytExps] = await Promise.all([
-        fetchVehicleExpensesByDateRange(userId, start, end).catch(() => []),
+      const isDriver = r === 'driver'
+      const [fuels, allTrips, bytExps, serviceRecs, vehicleExps] = await Promise.all([
+        fetchFuels(userId).catch(() => []),
         fetchTrips(userId).catch(() => []),
         fetchBytExpenses(userId).catch(() => []),
+        isDriver ? Promise.resolve([]) : fetchServiceRecords(userId).catch(() => []),
+        isDriver ? fetchVehicleExpensesByDateRange(userId, start, end).catch(() => []) : Promise.resolve([]),
       ])
       const inRange = (dateStr) => {
         if (!dateStr) return false
         const d = dateStr.slice(0, 10)
-        return d >= start && d < end
+        return d >= start && d <= end
       }
-      const filteredTrips = allTrips.filter(e => inRange(e.created_at))
-      const filteredByt = bytExps.filter(e => inRange(e.date))
-      const driverPay = filteredTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
-      setCarouselVehicleExps(vExps)
-      setCarouselTrips(filteredTrips)
-      setCarouselBytExps(filteredByt)
-      setCarouselDriverPay(driverPay)
+      const rangeFuels = fuels.filter(e => inRange(e.date))
+      const rangeTrips = allTrips.filter(e => inRange(e.created_at))
+      const rangeByt = bytExps.filter(e => inRange(e.date))
+      const rangeService = serviceRecs.filter(e => inRange(e.date))
+
+      let totalIncome, totalExp
+      if (isDriver) {
+        // Driver: income = driver_pay, expense = byt expenses
+        totalIncome = rangeTrips.reduce((s, t) => s + (t.driver_pay || 0), 0)
+        totalExp = rangeByt.reduce((s, e) => s + (e.amount || 0), 0)
+      } else {
+        // Owner-operator: income from trips, all expenses
+        totalIncome = rangeTrips.reduce((s, t) => s + (t.income || 0), 0)
+        const fuelCost = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
+        const bytCost = rangeByt.reduce((s, e) => s + (e.amount || 0), 0)
+        const serviceCost = rangeService.reduce((s, e) => s + (e.cost || 0), 0)
+        totalExp = fuelCost + bytCost + serviceCost
+      }
+      setDashIncome(totalIncome)
+      setDashExpense(totalExp)
+      setDashProfit(totalIncome - totalExp)
+
+      // Fleet metrics
+      const totalKm = rangeTrips.reduce((s, t) => s + (t.distance_km || 0), 0)
+      const totalMiles = Math.round(totalKm * 0.621371)
+      setDashTotalMiles(totalMiles)
+      setDashTripsCount(rangeTrips.length)
+
+      // Fuel metrics (from fuel_entries for owner, vehicle_expenses for driver)
+      if (isDriver) {
+        const fuelExps = vehicleExps.filter(e => e.category === 'fuel' || e.category === 'reefer')
+        const fuelCost = fuelExps.reduce((s, e) => s + (e.amount || 0), 0)
+        let totalGal = 0
+        fuelExps.forEach(e => {
+          const desc = e.description || ''
+          const match = desc.match(/([\d,.]+)\s*gal/i)
+          if (match) { const g = parseFloat(match[1].replace(',', '')); if (!isNaN(g)) totalGal += g }
+        })
+        setDashFuelCost(fuelCost)
+        setDashTotalGallons(totalGal)
+      } else {
+        const fuelCost = rangeFuels.reduce((s, e) => s + (e.cost || 0), 0)
+        const totalGal = rangeFuels.reduce((s, e) => s + (e.liters || 0), 0)
+        setDashFuelCost(fuelCost)
+        setDashTotalGallons(totalGal)
+      }
+
+      // Chart data: group by day or month based on period
+      const startDate = new Date(start)
+      const endDate = new Date(end)
+      const diffDays = Math.round((endDate - startDate) / (1000 * 60 * 60 * 24))
+      const groupMode = (dashPeriod === 'month' || dashPeriod === 'week') ? 'day'
+        : dashPeriod === '3m' ? 'week'
+        : (dashPeriod === 'custom' && diffDays < 62) ? 'day' : 'month'
+
+      const getGroupKey = (dateStr) => {
+        if (!dateStr) return null
+        const d = dateStr.slice(0, 10)
+        if (groupMode === 'day') return d
+        if (groupMode === 'week') {
+          const dt = new Date(d)
+          const day = dt.getDay()
+          const monday = new Date(dt)
+          monday.setDate(dt.getDate() - ((day + 6) % 7))
+          return monday.toISOString().slice(0, 10)
+        }
+        return d.slice(0, 7)
+      }
+
+      const dataMap = {}
+      const ensureGroup = (key) => { if (key && !dataMap[key]) dataMap[key] = { income: 0, expense: 0 } }
+      const addToGroup = (dateStr, field, value) => {
+        const key = getGroupKey(dateStr)
+        if (!key) return
+        ensureGroup(key)
+        dataMap[key][field] += value || 0
+      }
+
+      if (isDriver) {
+        rangeTrips.forEach(tr => addToGroup(tr.created_at, 'income', tr.driver_pay || 0))
+        rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
+      } else {
+        rangeTrips.forEach(tr => addToGroup(tr.created_at, 'income', tr.income || 0))
+        rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+        rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
+        rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
+      }
+
+      // Fill gaps
+      if (groupMode === 'day') {
+        const cur = new Date(start)
+        const endD = new Date(end)
+        while (cur <= endD) { ensureGroup(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1) }
+      }
+
+      const shortMonths = t('expenses.monthNamesShort')
+      const getLabel = (key) => {
+        if (groupMode === 'day') return String(new Date(key).getDate())
+        if (groupMode === 'week') { const d = new Date(key); return `${d.getDate()} ${shortMonths[d.getMonth()]}` }
+        return shortMonths[Number(key.split('-')[1]) - 1]
+      }
+
+      const sorted = Object.entries(dataMap)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, vals]) => ({ label: getLabel(key), income: vals.income, expense: vals.expense }))
+      setDashChartData(sorted)
     } catch (err) {
-      console.error('loadCarouselData error:', err)
+      console.error('loadDashData error:', err)
     } finally {
-      setCarouselLoading(false)
+      setDashLoading(false)
     }
-  }, [userId, profile?.role, getCarouselDateRange])
+  }, [userId, profile?.role, getDashDateRange, dashPeriod, t])
 
   useEffect(() => {
-    loadCarouselData()
-  }, [loadCarouselData, refreshKey])
-
-  // Carousel scroll handler
-  const handleCarouselScroll = useCallback(() => {
-    const el = carouselRef.current
-    if (!el) return
-    const page = Math.round(el.scrollLeft / el.clientWidth)
-    setCarouselPage(page)
-  }, [])
+    loadDashData()
+  }, [loadDashData, refreshKey])
 
   // Load vehicle report
   const openVehicleReport = useCallback(async (vehicle) => {
@@ -2432,391 +2514,224 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       ) : (
         <>
-          {/* Finance card — driver carousel OR owner-operator card */}
-          {role !== 'job_seeker' && !isCompanyRole && (
-            role === 'driver' ? (
-            /* ===== DRIVER CAROUSEL: 3 swipeable pages with period selector ===== */
+          {/* ===== UNIFIED DASHBOARD: Period selector + 3 summary cards + Reports + Metrics + Chart (owner_operator & driver) ===== */}
+          {(role === 'owner_operator' || role === 'driver') && (
             <div style={{ marginBottom: '12px' }}>
-              {/* Period selector tabs */}
-              <div style={{ display: 'flex', gap: '4px', marginBottom: '8px' }}>
-                {['week', 'month', 'custom'].map(p => (
-                  <button key={p} onClick={() => setCarouselPeriod(p)} style={{
-                    flex: 1, padding: '6px 0', borderRadius: '8px', border: 'none', fontSize: '13px', fontWeight: 600, cursor: 'pointer',
-                    background: carouselPeriod === p ? '#f59e0b' : theme.card,
-                    color: carouselPeriod === p ? '#000' : theme.dim,
+              {/* Period selector */}
+              <div style={{ display: 'flex', gap: '4px', marginBottom: dashPeriod === 'custom' ? '8px' : '12px', flexWrap: 'wrap' }}>
+                {[
+                  { key: 'week', label: t('overview.periodWeek') },
+                  { key: 'month', label: t('overview.periodMonth') },
+                  { key: '3m', label: '3 ' + t('overview.financeMonths') },
+                  { key: '6m', label: '6 ' + t('overview.financeMonths') },
+                  { key: 'year', label: t('overview.financeYear') },
+                  { key: 'custom', label: t('overview.customPeriod') },
+                ].map(p => (
+                  <button key={p.key} onClick={() => setDashPeriod(p.key)} style={{
+                    flex: 1, minWidth: '48px', padding: '7px 2px', borderRadius: '10px', border: 'none', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                    background: dashPeriod === p.key ? 'linear-gradient(135deg, #f59e0b, #d97706)' : theme.card,
+                    color: dashPeriod === p.key ? '#fff' : theme.dim,
+                    transition: 'all 0.2s',
                   }}>
-                    {p === 'week' ? t('overview.periodWeek') : p === 'month' ? t('overview.periodMonth') : t('overview.periodCustom')}
+                    {p.label}
                   </button>
                 ))}
               </div>
               {/* Custom date pickers */}
-              {carouselPeriod === 'custom' && (
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+              {dashPeriod === 'custom' && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '2px' }}>{t('overview.periodFrom')}</div>
-                    <input type="date" value={carouselCustomFrom} onChange={e => setCarouselCustomFrom(e.target.value)}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid ' + theme.border, background: theme.card, color: theme.text, fontSize: '13px' }} />
+                    <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '2px' }}>{t('overview.dateFrom')}</div>
+                    <input type="date" value={dashCustomFrom} onChange={e => setDashCustomFrom(e.target.value)}
+                      style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid ' + theme.border, background: theme.card, color: theme.text, fontSize: '13px', boxSizing: 'border-box' }} />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '2px' }}>{t('overview.periodTo')}</div>
-                    <input type="date" value={carouselCustomTo} onChange={e => setCarouselCustomTo(e.target.value)}
-                      style={{ width: '100%', padding: '6px 8px', borderRadius: '8px', border: '1px solid ' + theme.border, background: theme.card, color: theme.text, fontSize: '13px' }} />
+                    <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '2px' }}>{t('overview.dateTo')}</div>
+                    <input type="date" value={dashCustomTo} onChange={e => setDashCustomTo(e.target.value)}
+                      style={{ width: '100%', padding: '8px', borderRadius: '10px', border: '1px solid ' + theme.border, background: theme.card, color: theme.text, fontSize: '13px', boxSizing: 'border-box' }} />
                   </div>
                 </div>
               )}
-              {/* Swipeable carousel container */}
-              <div ref={carouselRef} onScroll={handleCarouselScroll} style={{
-                display: 'flex', overflowX: 'auto', scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
-                scrollbarWidth: 'none', msOverflowStyle: 'none', gap: '0px',
-              }}>
-                {/* PAGE 1: My Earnings */}
-                <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, flex: '0 0 100%', width: '100%', scrollSnapAlign: 'start', boxSizing: 'border-box', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+
+              {dashLoading ? (
+                <div style={{ textAlign: 'center', padding: '30px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>
+              ) : (
+                <>
+                  {/* 3 summary cards: Income / Expense / Net */}
                   {(() => {
-                    const periodLabel = getCarouselDateRange().label
-                    const dPay = carouselDriverPay
-                    const bCost = carouselBytExps.reduce((s, e) => s + (e.amount || 0), 0)
-                    const driverNet = dPay - bCost
-                    // Personal expense breakdown for donut
-                    const bytByCat = {}
-                    carouselBytExps.forEach(e => {
-                      const cat = e.category || 'other'
-                      bytByCat[cat] = (bytByCat[cat] || 0) + (e.amount || 0)
-                    })
-                    const chartData = []
-                    if (bytByCat.food) chartData.push({ label: t('overview.foodShort'), value: bytByCat.food, color: '#22c55e' })
-                    if (bytByCat.hotel) chartData.push({ label: t('overview.housingShort'), value: bytByCat.hotel, color: '#3b82f6' })
-                    const otherByt = Object.entries(bytByCat).filter(([k]) => k !== 'food' && k !== 'hotel').reduce((s, [, v]) => s + v, 0)
-                    if (otherByt > 0) chartData.push({ label: t('overview.otherShort'), value: otherByt, color: '#06b6d4' })
-                    const donutTotal = chartData.reduce((s, e) => s + e.value, 0)
-                    const radius = 50, strokeWidth = 14, circumference = 2 * Math.PI * radius
-                    let cumOff = 0
-                    const segs = chartData.map(e => {
-                      const pct = donutTotal > 0 ? e.value / donutTotal : 0
-                      const dashLen = pct * circumference
-                      const offset = cumOff; cumOff += dashLen
-                      return { ...e, pct, dashLen, offset }
-                    })
+                    const incLabel = isHiredDriver ? t('pay.earnedMonth') : t('overview.income')
+                    const expLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expense')
+                    const netLabel = isHiredDriver ? t('pay.netClean') : t('overview.netInHand')
                     return (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\udcb5'} {t('pay.myEarnings')} — {periodLabel}</div>
-                          <div style={{ fontSize: '24px', color: theme.dim, fontWeight: 700 }}>{'\u203a'}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{incLabel}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
+                            {formatNumber(Math.round(dashIncome))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                         </div>
-                        {carouselLoading ? (
-                          <div style={{ textAlign: 'center', padding: '20px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>
-                        ) : (
-                          <>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                              <div>
-                                <div style={dimText}>{t('pay.earnedMonth')}</div>
-                                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#22c55e' }}>{formatNumber(Math.round(dPay))} {cs}</div>
-                              </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={dimText}>{t('byt.personalExpenses')}</div>
-                                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>{formatNumber(Math.round(bCost))} {cs}</div>
-                              </div>
-                            </div>
-                            <div style={{ borderTop: '1px solid ' + theme.border, paddingTop: '8px', textAlign: 'center' }}>
-                              <div style={dimText}>{t('pay.netClean')}</div>
-                              <div style={{ fontSize: '22px', fontFamily: 'monospace', fontWeight: 700, color: driverNet >= 0 ? '#22c55e' : '#ef4444' }}>
-                                {driverNet >= 0 ? '+' : ''}{formatNumber(Math.round(driverNet))} {cs}
-                              </div>
-                            </div>
-                            {segs.length > 0 && (
-                              <div onClick={e => { e.stopPropagation(); onExtraNav?.('personal_expenses') }} style={{ cursor: 'pointer', borderRadius: '8px', transition: 'opacity 0.15s' }} onPointerDown={e => { e.stopPropagation(); e.currentTarget.style.opacity = '0.6' }} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
-                                <div style={{ borderTop: '1px solid ' + theme.border, margin: '12px 0 0 0' }} />
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '8px' }}>
-                                  <div style={{ fontSize: '12px', color: theme.dim }}>{t('byt.personalExpenses')}</div>
-                                  <div style={{ fontSize: '18px', color: theme.dim, fontWeight: 700 }}>{'\u203a'}</div>
-                                </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '8px' }}>
-                                  <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
-                                    <svg viewBox="0 0 120 120" width="120" height="120">
-                                      {segs.map((seg, i) => (
-                                        <circle key={i} cx="60" cy="60" r={radius} fill="none" stroke={seg.color} strokeWidth={strokeWidth}
-                                          strokeDasharray={`${seg.dashLen} ${circumference - seg.dashLen}`} strokeDashoffset={-seg.offset}
-                                          transform="rotate(-90 60 60)" strokeLinecap="butt" />
-                                      ))}
-                                    </svg>
-                                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                      <div style={{ fontSize: '10px', color: theme.dim }}>{t('overview.total')}</div>
-                                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700 }}>
-                                        {donutTotal >= 1000 ? `${Math.round(donutTotal / 1000)}k` : formatNumber(Math.round(donutTotal))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
-                                    {segs.map((seg, i) => (
-                                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
-                                        <div style={{ fontSize: '12px', color: theme.dim, flex: 1, minWidth: 0 }}>{seg.label}</div>
-                                        <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>{formatNumber(Math.round(seg.value))}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{expLabel}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#ef4444', marginTop: '4px' }}>
+                            {formatNumber(Math.round(dashExpense))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{netLabel}</div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: dashProfit >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
+                            {dashProfit >= 0 ? '+' : ''}{formatNumber(Math.round(dashProfit))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                        </div>
+                      </div>
                     )
                   })()}
-                </div>
 
-                {/* PAGE 2: Vehicle Expenses */}
-                <div onClick={() => onExtraNav?.('vehicle_expenses')} style={{ ...cardStyle, flex: '0 0 100%', width: '100%', scrollSnapAlign: 'start', boxSizing: 'border-box', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
-                  {(() => {
-                    const periodLabel = getCarouselDateRange().label
-                    const vExps = carouselVehicleExps
-                    const totalAmt = vExps.reduce((s, e) => s + (e.amount || 0), 0)
-                    const catColors = { fuel: '#f59e0b', def: '#3b82f6', oil: '#8b5cf6', parts: '#ef4444', equipment: '#06b6d4', supplies: '#84cc16', toll: '#ec4899', reefer: '#14b8a6', other: '#64748b' }
-                    const catLabels = { fuel: t('overview.fuelShort'), def: 'DEF', oil: t('overview.repairShort'), parts: t('overview.repairShort'), equipment: t('overview.vehicleShort'), supplies: t('overview.vehicleShort'), toll: 'Toll', reefer: 'Reefer', other: t('overview.otherShort') }
-                    const byCat = {}
-                    vExps.forEach(e => {
-                      const cat = e.category || 'other'
-                      byCat[cat] = (byCat[cat] || 0) + (e.amount || 0)
-                    })
-                    const chartData = Object.entries(byCat).filter(([, v]) => v > 0).map(([k, v]) => ({
-                      label: catLabels[k] || k, value: v, color: catColors[k] || '#64748b',
-                    })).sort((a, b) => b.value - a.value)
-                    const donutTotal = chartData.reduce((s, e) => s + e.value, 0)
-                    const radius = 50, strokeWidth = 14, circumference = 2 * Math.PI * radius
-                    let cumOff = 0
-                    const segs = chartData.map(e => {
-                      const pct = donutTotal > 0 ? e.value / donutTotal : 0
-                      const dashLen = pct * circumference
-                      const offset = cumOff; cumOff += dashLen
-                      return { ...e, pct, dashLen, offset }
-                    })
-                    return (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\ude9b'} {t('overview.vehicleExpTitle')} — {periodLabel}</div>
-                          <div style={{ fontSize: '24px', color: theme.dim, fontWeight: 700 }}>{'\u203a'}</div>
-                        </div>
-                        {carouselLoading ? (
-                          <div style={{ textAlign: 'center', padding: '20px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>
-                        ) : (
-                          <>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                              <div>
-                                <div style={dimText}>{t('overview.totalForPeriod')}</div>
-                                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: '#ef4444' }}>{formatNumber(Math.round(totalAmt))} {cs}</div>
-                              </div>
-                              <div style={{ textAlign: 'right' }}>
-                                <div style={dimText}>{t('overview.entriesCount')}</div>
-                                <div style={{ fontSize: '20px', fontFamily: 'monospace', fontWeight: 700, color: theme.text }}>{vExps.length}</div>
-                              </div>
-                            </div>
-                            {segs.length > 0 && (
-                              <>
-                                <div style={{ borderTop: '1px solid ' + theme.border, margin: '12px 0 0 0' }} />
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px' }}>
-                                  <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
-                                    <svg viewBox="0 0 120 120" width="120" height="120">
-                                      {segs.map((seg, i) => (
-                                        <circle key={i} cx="60" cy="60" r={radius} fill="none" stroke={seg.color} strokeWidth={strokeWidth}
-                                          strokeDasharray={`${seg.dashLen} ${circumference - seg.dashLen}`} strokeDashoffset={-seg.offset}
-                                          transform="rotate(-90 60 60)" strokeLinecap="butt" />
-                                      ))}
-                                    </svg>
-                                    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                                      <div style={{ fontSize: '10px', color: theme.dim }}>{t('overview.total')}</div>
-                                      <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700 }}>
-                                        {donutTotal >= 1000 ? `${Math.round(donutTotal / 1000)}k` : formatNumber(Math.round(donutTotal))}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
-                                    {segs.map((seg, i) => (
-                                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
-                                        <div style={{ fontSize: '12px', color: theme.dim, flex: 1, minWidth: 0 }}>{seg.label}</div>
-                                        <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>{formatNumber(Math.round(seg.value))}</div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              </>
-                            )}
-                            {vExps.length === 0 && <div style={{ textAlign: 'center', color: theme.dim, fontSize: 13, padding: '12px 0' }}>{t('overview.noData')}</div>}
-                          </>
-                        )}
-                      </>
-                    )
-                  })()}
-                </div>
+                  {/* Reports button */}
+                  <button
+                    onClick={() => onExtraNav?.('finance')}
+                    style={{
+                      width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
+                      background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',
+                      fontSize: '15px', fontWeight: 700, cursor: 'pointer', marginBottom: '12px',
+                      transition: 'opacity 0.2s',
+                    }}
+                    onPointerDown={e => e.currentTarget.style.opacity = '0.7'}
+                    onPointerUp={e => e.currentTarget.style.opacity = '1'}
+                    onPointerLeave={e => e.currentTarget.style.opacity = '1'}
+                  >
+                    {'\ud83d\udcc4'} {t('finance.reports')}
+                  </button>
 
-                {/* PAGE 3: Fuel Expenses */}
-                <div onClick={() => onExtraNav?.('fuel_analytics')} style={{ ...cardStyle, flex: '0 0 100%', width: '100%', scrollSnapAlign: 'start', boxSizing: 'border-box', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+                  {/* Metric cards grid */}
                   {(() => {
-                    const periodLabel = getCarouselDateRange().label
-                    const fuelExps = carouselVehicleExps.filter(e => e.category === 'fuel' || e.category === 'reefer')
-                    const totalFuel = fuelExps.reduce((s, e) => s + (e.amount || 0), 0)
-                    // Parse gallons from description: "DIESEL 114.531 gal @ $3.46/gal (Love's)" or "114.531 gal"
-                    let totalGallons = 0
-                    fuelExps.forEach(e => {
-                      const desc = e.description || ''
-                      const match = desc.match(/([\d,.]+)\s*gal/i)
-                      if (match) {
-                        const g = parseFloat(match[1].replace(',', ''))
-                        if (!isNaN(g)) totalGallons += g
-                      }
-                    })
-                    const avgPriceGal = totalGallons > 0 ? totalFuel / totalGallons : 0
-                    const totalMiles = carouselTrips.reduce((s, t) => s + (t.distance_km || 0), 0)
-                    const fuelPerMile = totalMiles > 0 ? totalFuel / totalMiles : 0
-                    const mpg = totalGallons > 0 && totalMiles > 0 ? totalMiles / totalGallons : 0
                     const dash = '\u2014'
+                    const distUnit = unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')
+                    const volUnit = unitSys === 'imperial' ? 'gal' : t('fuel.litersShort') || 'L'
+                    const avgRate = dashTotalMiles > 0 ? (dashIncome / dashTotalMiles).toFixed(2) : '0.00'
+                    const avgFuelPrice = dashTotalGallons > 0 ? (dashFuelCost / dashTotalGallons).toFixed(3) : '0.000'
+                    const costMile = dashTotalMiles > 0 ? (dashExpense / dashTotalMiles).toFixed(2) : '0.00'
                     return (
-                      <>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                          <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\u26fd'} {t('overview.fuelExpTitle')} — {periodLabel}</div>
-                          <div style={{ fontSize: '24px', color: theme.dim, fontWeight: 700 }}>{'\u203a'}</div>
-                        </div>
-                        {carouselLoading ? (
-                          <div style={{ textAlign: 'center', padding: '20px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>
-                        ) : fuelExps.length === 0 ? (
-                          <div style={{ textAlign: 'center', color: theme.dim, fontSize: 13, padding: '24px 0' }}>{t('overview.noData')}</div>
-                        ) : (
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span>{'\ud83d\udcb0'}</span><span style={dimText}>{t('overview.totalForPeriod')}</span></div>
-                              <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '18px', color: '#ef4444' }}>{formatNumber(Math.round(totalFuel))} {cs}</div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span>{'\u26fd\ufe0f'}</span><span style={dimText}>{t('overview.gallonsBought')}</span></div>
-                              <div style={{ fontFamily: 'monospace', fontWeight: 600, color: theme.text }}>{totalGallons > 0 ? totalGallons.toFixed(2) + ' gal' : dash}</div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span>{'\ud83d\udcca'}</span><span style={dimText}>{t('overview.avgPriceGal')}</span></div>
-                              <div style={{ fontFamily: 'monospace', fontWeight: 600, color: theme.text }}>{avgPriceGal > 0 ? (cs + avgPriceGal.toFixed(2) + '/gal') : dash}</div>
-                            </div>
-                            <div style={{ borderTop: '1px solid ' + theme.border, margin: '2px 0' }} />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span>{'\ud83d\udee3\ufe0f'}</span><span style={dimText}>{t('overview.milesDriven')}</span></div>
-                              <div style={{ fontFamily: 'monospace', fontWeight: 600, color: theme.text }}>{totalMiles > 0 ? formatNumber(Math.round(totalMiles)) + ' mi' : dash}</div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span>{'\ud83d\udcb5'}</span><span style={dimText}>{t('overview.fuelPerMile')}</span></div>
-                              <div style={{ fontFamily: 'monospace', fontWeight: 600, color: theme.text }}>{fuelPerMile > 0 ? (cs + fuelPerMile.toFixed(2) + '/mi') : dash}</div>
-                            </div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><span>{'\u26fd'}</span><span style={dimText}>MPG</span></div>
-                              <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '18px', color: '#22c55e' }}>{mpg > 0 ? mpg.toFixed(1) + ' mpg' : dash}</div>
-                            </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                        {/* Total Distance */}
+                        <div style={{ ...cardStyle, padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(59,130,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udee3\ufe0f'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.totalDistance')}</div>
                           </div>
-                        )}
-                      </>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#3b82f6' }}>
+                            {formatNumber(dashTotalMiles)} <span style={{ fontSize: '12px', fontWeight: 400 }}>{distUnit}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTripsCount} {t('overview.tripsLabel').toLowerCase()}</div>
+                        </div>
+                        {/* Avg Rate/Mile */}
+                        <div style={{ ...cardStyle, padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(139,92,246,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udcb2'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.avgRateMile')}</div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#8b5cf6' }}>
+                            {cs}{avgRate}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{formatNumber(dashTotalMiles)} {distUnit}</div>
+                        </div>
+                        {/* Fuel Expenses */}
+                        <div style={{ ...cardStyle, padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\u26fd'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.fuelExpenses')}</div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>
+                            {cs}{formatNumber(Math.round(dashFuelCost))}
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTotalGallons > 0 ? dashTotalGallons.toFixed(1) + ' ' + volUnit : dash}</div>
+                        </div>
+                        {/* Avg Fuel Price */}
+                        <div style={{ ...cardStyle, padding: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(245,158,11,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udcca'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.avgFuelPrice')}</div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#f59e0b' }}>
+                            {cs}{avgFuelPrice}<span style={{ fontSize: '12px', fontWeight: 400 }}>/{volUnit}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dashTotalGallons > 0 ? dashTotalGallons.toFixed(1) + ' ' + volUnit : dash}</div>
+                        </div>
+                        {/* Cost per Mile — full width */}
+                        <div style={{ ...cardStyle, padding: '12px', gridColumn: '1 / -1' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udcc9'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.costPerMile')}</div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>
+                            {cs}{costMile}<span style={{ fontSize: '12px', fontWeight: 400 }}>/{distUnit}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{formatNumber(dashTotalMiles)} {distUnit}</div>
+                        </div>
+                      </div>
                     )
                   })()}
-                </div>
-              </div>
-              {/* Dot indicators */}
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '8px' }}>
-                {[0, 1, 2].map(i => (
-                  <div key={i} onClick={() => { carouselRef.current?.children[i]?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' }) }}
-                    style={{ width: '8px', height: '8px', borderRadius: '50%', background: carouselPage === i ? '#f59e0b' : theme.border, cursor: 'pointer', transition: 'background 0.2s' }} />
-                ))}
-              </div>
-            </div>
-            ) : (
-            /* ===== OWNER-OPERATOR: original finance card ===== */
-            <div onClick={() => onExtraNav?.('finance')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
-              {(() => {
-                const vehicleCost = monthData.fuelCost + monthData.serviceCost + (monthData.vehicleExpCost || 0)
-                const grossProfit = monthData.income - vehicleCost
-                const personalCost = monthData.bytCost
-                const netInHand = grossProfit - personalCost
-                return (
-              <>
-                <div style={{ ...dimText, marginBottom: '12px' }}>{'\ud83d\udcb0'} {t('overview.finances')} — {t('expenses.monthNames')[new Date().getMonth()]} {new Date().getFullYear()}</div>
-                <div style={{ fontSize: '11px', fontWeight: 700, color: theme.dim, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{t('overview.businessSection')}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <div style={dimText}>{t('overview.income')}</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: '#22c55e' }}>{formatNumber(Math.round(monthData.income))} {cs}</div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <div style={dimText}>{t('overview.vehicleExpenses')}</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: '#ef4444' }}>{formatNumber(Math.round(vehicleCost))} {cs}</div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0' }}>
-                  <div style={{ fontWeight: 700 }}>{t('overview.grossProfit')}</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 700, color: grossProfit >= 0 ? '#22c55e' : '#ef4444' }}>
-                    {grossProfit >= 0 ? '+' : ''}{formatNumber(Math.round(grossProfit))} {cs}
-                  </div>
-                </div>
-                <div style={{ borderTop: '1px dashed ' + theme.border, margin: '10px 0' }} />
-                <div style={{ fontSize: '11px', fontWeight: 700, color: theme.dim, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>{t('overview.netTotalSection')}</div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <div style={dimText}>{t('overview.personalExpenses')}</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 600, color: '#f59e0b' }}>{formatNumber(Math.round(personalCost))} {cs}</div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <div style={{ fontWeight: 700 }}>{t('overview.netInHand')}</div>
-                  <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: '18px', color: netInHand >= 0 ? '#22c55e' : '#ef4444' }}>
-                    {netInHand >= 0 ? '+' : ''}{formatNumber(Math.round(netInHand))} {cs}
-                  </div>
-                </div>
-              </>
-                )
-              })()}
-              {/* Donut chart breakdown */}
-              {(() => {
-                const chartData = expenseBreakdown
-                if (chartData.length === 0) return null
-                const donutTotal = chartData.reduce((s, e) => s + e.value, 0)
-                const radius = 50, strokeWidth = 14, circumference = 2 * Math.PI * radius
-                let cumulativeOffset = 0
-                const segments = chartData.map(e => {
-                  const pct = e.value / donutTotal
-                  const dashLen = pct * circumference
-                  const offset = cumulativeOffset; cumulativeOffset += dashLen
-                  return { ...e, pct, dashLen, offset }
-                })
-                return (
-                  <>
-                    <div style={{ borderTop: '1px solid ' + theme.border, margin: '12px 0 0 0' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginTop: '12px' }}>
-                      <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
-                        <svg viewBox="0 0 120 120" width="120" height="120">
-                          {segments.map((seg, i) => (
-                            <circle key={i} cx="60" cy="60" r={radius} fill="none" stroke={seg.color} strokeWidth={strokeWidth}
-                              strokeDasharray={`${seg.dashLen} ${circumference - seg.dashLen}`} strokeDashoffset={-seg.offset}
-                              transform="rotate(-90 60 60)" strokeLinecap="butt" />
+
+                  {/* Income / Expense chart */}
+                  {dashChartData.length > 1 && (() => {
+                    const chartW = 340, chartH = 180, padL = 10, padR = 10, padT = 20, padB = 30
+                    const maxVal = Math.max(...dashChartData.map(m => m.income), ...dashChartData.map(m => m.expense), 1)
+                    const getX = (i) => dashChartData.length <= 1 ? padL + (chartW - padL - padR) / 2 : padL + (i / (dashChartData.length - 1)) * (chartW - padL - padR)
+                    const getY = (val) => padT + (1 - val / maxVal) * (chartH - padT - padB)
+                    const buildLine = (field) => dashChartData.map((m, i) => `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(m[field])}`).join(' ')
+                    const buildArea = (field) => {
+                      const baseline = getY(0)
+                      const line = dashChartData.map((m, i) => `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(m[field])}`).join(' ')
+                      return `${line} L${getX(dashChartData.length - 1)},${baseline} L${getX(0)},${baseline} Z`
+                    }
+                    const incLabel = isHiredDriver ? t('pay.earnedMonth') : t('overview.income')
+                    const expLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expense')
+                    return (
+                      <div style={{ ...cardStyle, marginBottom: '12px', padding: '12px' }}>
+                        <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '8px' }}>{incLabel} / {expLabel}</div>
+                        <svg viewBox={`0 0 ${chartW} ${chartH}`} width="100%" style={{ overflow: 'visible' }}>
+                          {[0, 0.25, 0.5, 0.75, 1].map(frac => {
+                            const y = padT + (1 - frac) * (chartH - padT - padB)
+                            return <line key={frac} x1={padL} y1={y} x2={chartW - padR} y2={y} stroke={theme.border} strokeWidth="0.5" strokeDasharray="4,4" />
+                          })}
+                          <path d={buildArea('income')} fill="#22c55e" fillOpacity="0.12" />
+                          <path d={buildArea('expense')} fill="#ef4444" fillOpacity="0.12" />
+                          <path d={buildLine('income')} fill="none" stroke="#22c55e" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                          <path d={buildLine('expense')} fill="none" stroke="#ef4444" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+                          {dashChartData.map((m, i) => (
+                            <g key={i}>
+                              <circle cx={getX(i)} cy={getY(m.income)} r="3" fill="#22c55e" stroke={theme.card} strokeWidth="1" />
+                              <circle cx={getX(i)} cy={getY(m.expense)} r="3" fill="#ef4444" stroke={theme.card} strokeWidth="1" />
+                            </g>
                           ))}
+                          {/* X-axis labels — show every Nth to avoid overlap */}
+                          {(() => {
+                            const step = dashChartData.length > 15 ? Math.ceil(dashChartData.length / 10) : dashChartData.length > 7 ? 2 : 1
+                            return dashChartData.filter((_, i) => i % step === 0 || i === dashChartData.length - 1).map((m, _, arr) => {
+                              const idx = dashChartData.indexOf(m)
+                              return <text key={idx} x={getX(idx)} y={chartH - 5} textAnchor="middle" fontSize="9" fill={theme.dim}>{m.label}</text>
+                            })
+                          })()}
                         </svg>
-                        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                          <div style={{ fontSize: '10px', color: theme.dim }}>{t('overview.total')}</div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '14px', fontWeight: 700 }}>
-                            {donutTotal >= 1000 ? `${Math.round(donutTotal / 1000)}k` : formatNumber(Math.round(donutTotal))}
+                        {/* Legend */}
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ width: '10px', height: '3px', borderRadius: '2px', background: '#22c55e' }} />
+                            <span style={{ fontSize: '11px', color: theme.dim }}>{incLabel}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <div style={{ width: '10px', height: '3px', borderRadius: '2px', background: '#ef4444' }} />
+                            <span style={{ fontSize: '11px', color: theme.dim }}>{expLabel}</span>
                           </div>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', flex: 1, minWidth: 0 }}>
-                        {segments.map((seg, i) => (
-                          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: seg.color, flexShrink: 0 }} />
-                            <div style={{ fontSize: '12px', color: theme.dim, flex: 1, minWidth: 0 }}>{seg.label}</div>
-                            <div style={{ fontFamily: 'monospace', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>{formatNumber(Math.round(seg.value))}</div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                )
-              })()}
-              {/* Analytics link for owner_operator */}
-              {role === 'owner_operator' && (
-                <div style={{ textAlign: 'right', marginTop: '10px' }}>
-                  <span onClick={(e) => { e.stopPropagation(); onExtraNav?.('finance') }}
-                    style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
-                  >{t('overview.analyticsLink')}</span>
-                </div>
+                    )
+                  })()}
+                </>
               )}
             </div>
-            )
           )}
 
           {/* Trips card — for owner_operator and driver, navigates to trips_detail */}
@@ -2854,34 +2769,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           {/* Shift analytics — for owner_operator and driver, shown after finance/trips */}
           {(role === 'owner_operator' || role === 'driver') && shiftAnalyticsCard}
           {(role === 'owner_operator' || role === 'driver') && driverStatsCard}
-
-          {/* Mini cards — mode-specific (hidden for job_seeker, driver, and company) */}
-          {role !== 'job_seeker' && role !== 'driver' && !isCompanyRole && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-            {(isCompanyRole ? [
-              { label: t('overview.fleetVehicles'), value: String(fleetData ? fleetData.totalVehicles + (profile?.brand ? 1 : 0) : (profile?.brand ? 1 : 0)), unit: '', icon: '\ud83d\ude9b', action: () => {} },
-              { label: t('overview.mileage'), value: formatNumber(Math.round(fleetData ? fleetData.totalKm : monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel'), icon: '\ud83d\udee3\ufe0f', action: () => {} },
-              { label: t('overview.tripsLabel'), value: String(fleetData ? fleetData.tripCount : monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
-              { label: t('overview.costPerKm'), value: (() => { const km = fleetData ? fleetData.totalKm : monthData.totalKm; const exp = fleetData ? fleetData.totalExpenses : totalExpenses; return km > 0 ? (exp / km).toFixed(1) : '\u2014' })(), unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
-            ] : isHiredDriver ? [
-              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel'), icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
-              { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
-            ] : [
-              { label: t('overview.mileage'), value: formatNumber(Math.round(monthData.totalKm)), unit: unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel'), icon: '\ud83d\udee3\ufe0f', action: () => shiftBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }) },
-              { label: t('overview.consumption'), value: monthData.avgConsumption > 0 ? monthData.avgConsumption.toFixed(1) : '\u2014', unit: unitSys === 'imperial' ? 'MPG' : t('fuel.consumptionUnit') || 'l/100km', icon: '\u26fd', action: () => onExtraNav?.('expenses') },
-              { label: t('overview.tripsLabel'), value: String(monthData.tripCount), unit: '', icon: '\ud83d\ude9a', action: () => onExtraNav?.('trips') },
-              { label: t('overview.costPerKm'), value: monthData.totalKm > 0 ? (totalExpenses / monthData.totalKm).toFixed(1) : '\u2014', unit: cs + '/' + (unitSys === 'imperial' ? 'mi' : t('shifts.kmLabel')), icon: '\ud83d\udcb0', action: () => onExtraNav?.('trips') },
-            ]).map((item, i) => (
-              <div key={i} onClick={item.action} style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
-                <div style={{ position: 'absolute', top: '6px', right: '8px', fontSize: '10px', color: theme.dim, opacity: 0.5 }}>{'\u203a'}</div>
-                <div style={{ fontSize: '18px', marginBottom: '4px' }}>{item.icon}</div>
-                <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700 }}>{item.value}</div>
-                <div style={{ fontSize: '11px', color: theme.dim }}>{item.unit}</div>
-                <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{item.label}</div>
-              </div>
-            ))}
-          </div>
-          )}
 
           {/* Quick links — for owner_operator, shown after stats */}
           {role === 'owner_operator' && ownerQuickLinksCard}

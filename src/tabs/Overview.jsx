@@ -2377,10 +2377,15 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\udcca'} {t('overview.workStats')}</div>
                   )}
 
+                  {/* Vehicle stats header for driver role */}
+                  {role === 'driver' && (
+                    <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\ude9a'} {t('overview.vehicleStats')}</div>
+                  )}
+
                   {/* Summary cards: Income / Expense (driver: 2 cards) or Income / Expense / Net (owner_operator: 3 cards) */}
                   {(() => {
-                    const incLabel = t('overview.income')
-                    const expLabel = t('overview.expense')
+                    const incLabel = role === 'driver' ? t('overview.vehicleIncome') : t('overview.income')
+                    const expLabel = role === 'driver' ? t('overview.vehicleExpense') : t('overview.expense')
                     const netLabel = t('overview.netInHand')
                     const isDriverRole = role === 'driver'
                     return (

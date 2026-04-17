@@ -2425,6 +2425,12 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     }
                     const goBusiness = () => onExtraNav?.('business_pnl_report', { period: dashPeriod, customFrom: dashCustomFrom, customTo: dashCustomTo })
                     const goPersonal = () => onExtraNav?.('net_in_hand_report', { period: dashPeriod, customFrom: dashCustomFrom, customTo: dashCustomTo })
+                    const fmtSigned = (val) => {
+                      const rounded = Math.round(val)
+                      const sign = rounded >= 0 ? '+' : '-'
+                      return sign + cs + formatNumber(Math.abs(rounded))
+                    }
+                    const fmtPlain = (val) => cs + formatNumber(Math.round(val))
                     return (
                       <div style={{ marginBottom: '12px' }}>
                         {/* Row 1 — Business */}
@@ -2432,20 +2438,17 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
                           <div onClick={goBusiness} {...press} style={cellStyle}>
                             <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.income')}</div>
-                            <div style={{ ...numStyle, color: '#22c55e' }}>{formatNumber(Math.round(dashIncome))}</div>
-                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                            <div style={{ ...numStyle, color: '#22c55e' }}>{fmtPlain(dashIncome)}</div>
                           </div>
                           <div onClick={goBusiness} {...press} style={cellStyle}>
                             <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.vehicleExpense')}</div>
-                            <div style={{ ...numStyle, color: '#ef4444' }}>{formatNumber(Math.round(dashBusinessExp))}</div>
-                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                            <div style={{ ...numStyle, color: '#ef4444' }}>{fmtPlain(dashBusinessExp)}</div>
                           </div>
                           <div onClick={goBusiness} {...press} style={emphasisCellStyle}>
                             <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.businessProfit')}</div>
                             <div style={{ ...numStyle, color: businessProfitValue >= 0 ? '#22c55e' : '#ef4444' }}>
-                              {businessProfitValue >= 0 ? '+' : ''}{formatNumber(Math.round(businessProfitValue))}
+                              {fmtSigned(businessProfitValue)}
                             </div>
-                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                           </div>
                         </div>
                         {/* Row 2 — Personal */}
@@ -2453,15 +2456,13 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
                           <div onClick={goPersonal} {...press} style={cellStyle}>
                             <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.personalExpense')}</div>
-                            <div style={{ ...numStyle, color: '#ef4444' }}>{formatNumber(Math.round(dashPersonalExp))}</div>
-                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                            <div style={{ ...numStyle, color: '#ef4444' }}>{fmtPlain(dashPersonalExp)}</div>
                           </div>
                           <div onClick={goPersonal} {...press} style={cellStyle}>
                             <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.netInHand')}</div>
                             <div style={{ ...numStyle, color: netInHandValue >= 0 ? '#22c55e' : '#ef4444' }}>
-                              {netInHandValue >= 0 ? '+' : ''}{formatNumber(Math.round(netInHandValue))}
+                              {fmtSigned(netInHandValue)}
                             </div>
-                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                           </div>
                         </div>
                       </div>

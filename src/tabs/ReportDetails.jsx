@@ -164,37 +164,58 @@ function Donut({ segments, theme, t, cs, title }) {
 // Two-line area chart
 function LineChart({ data, labels, colors, theme, cs, title }) {
   if (!data || data.length === 0) return null
-  const W = 340, H = 180, padL = 10, padR = 10, padT = 20, padB = 30
+  const W = 340, H = 180, padL = 46, padR = 10, padT = 20, padB = 30
   const seriesKeys = Object.keys(data[0]).filter(k => k !== 'key' && k !== 'label' && k !== 'fullLabel')
-  const maxVal = Math.max(1, ...data.flatMap(d => seriesKeys.map(k => d[k] || 0)))
+  const allVals = data.flatMap(d => seriesKeys.map(k => Number(d[k]) || 0))
+  const rawMin = Math.min(0, ...allVals)
+  const rawMax = Math.max(0, ...allVals, 1)
+  const span = (rawMax - rawMin) || 1
+  const yMin = rawMin - span * 0.08
+  const yMax = rawMax + span * 0.08
   const getX = (i) => data.length <= 1 ? padL + (W - padL - padR) / 2 : padL + (i / (data.length - 1)) * (W - padL - padR)
-  const getY = (val) => padT + (1 - val / maxVal) * (H - padT - padB)
-  const buildLine = (k) => data.map((m, i) => `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(m[k] || 0)}`).join(' ')
+  const getY = (val) => padT + (1 - (val - yMin) / (yMax - yMin)) * (H - padT - padB)
+  const zeroY = getY(0)
+  const buildLine = (k) => data.map((m, i) => `${i === 0 ? 'M' : 'L'}${getX(i)},${getY(Number(m[k]) || 0)}`).join(' ')
   const buildArea = (k) => {
     if (data.length === 0) return ''
-    const baseline = getY(0)
     const line = buildLine(k)
     const lastX = getX(data.length - 1)
     const firstX = getX(0)
-    return `${line} L${lastX},${baseline} L${firstX},${baseline} Z`
+    return `${line} L${lastX},${zeroY} L${firstX},${zeroY} Z`
   }
+  const fmtTick = (v) => {
+    const r = Math.round(v)
+    const abs = Math.abs(r).toLocaleString('en-US')
+    return (r < 0 ? '-' : '') + cs + abs
+  }
+  const yTicks = rawMin < 0
+    ? [{ v: rawMax, y: getY(rawMax) }, { v: 0, y: zeroY }, { v: rawMin, y: getY(rawMin) }]
+    : [{ v: rawMax, y: getY(rawMax) }, { v: 0, y: zeroY }]
   return (
     <div style={{
       background: theme.card, borderRadius: 16, padding: 12,
       border: `1px solid ${theme.border}`, marginBottom: 10,
     }}>
       <div style={{ fontSize: 12, color: theme.dim, marginBottom: 8 }}>{title}</div>
-      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ overflow: 'visible' }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ overflow: 'hidden' }}>
         {[0, 0.25, 0.5, 0.75, 1].map(frac => {
           const y = padT + (1 - frac) * (H - padT - padB)
           return <line key={frac} x1={padL} y1={y} x2={W - padR} y2={y} stroke={theme.border} strokeWidth="0.5" strokeDasharray="4,4" />
         })}
+        {rawMin < 0 && (
+          <line x1={padL} y1={zeroY} x2={W - padR} y2={zeroY} stroke={theme.dim} strokeWidth="1" strokeDasharray="5,3" opacity="0.8" />
+        )}
+        {yTicks.map((tick, i) => (
+          <text key={i} x={padL - 4} y={tick.y + 3} textAnchor="end" fill={theme.dim} fontSize="9" fontFamily="monospace">
+            {fmtTick(tick.v)}
+          </text>
+        ))}
         {seriesKeys.map((k, si) => (
           <g key={k}>
             <path d={buildArea(k)} fill={colors[si]} fillOpacity="0.12" />
             <path d={buildLine(k)} fill="none" stroke={colors[si]} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
             {data.map((m, i) => (
-              <circle key={i} cx={getX(i)} cy={getY(m[k] || 0)} r="3.5" fill={colors[si]} stroke={theme.card} strokeWidth="1.5" />
+              <circle key={i} cx={getX(i)} cy={getY(Number(m[k]) || 0)} r="3.5" fill={colors[si]} stroke={theme.card} strokeWidth="1.5" />
             ))}
           </g>
         ))}

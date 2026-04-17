@@ -16,6 +16,13 @@ import FinanceDetails from './tabs/FinanceDetails'
 import TripsDetails from './tabs/TripsDetails'
 import Reports from './tabs/Reports'
 import MySalary from './tabs/MySalary'
+import {
+  BusinessPnlDetails,
+  NetInHandDetails,
+  TripsReportDetails,
+  VehicleExpensesDetails,
+  PersonalExpensesDetails,
+} from './tabs/ReportDetails'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import PinLock from './components/PinLock'
@@ -208,8 +215,9 @@ function AppInner() {
 
   const [expensesInitSubTab, setExpensesInitSubTab] = useState(null)
   const [expensesInitCategory, setExpensesInitCategory] = useState(null)
+  const [reportDrillPayload, setReportDrillPayload] = useState(null)
 
-  const handleExtraTabNav = useCallback((tab) => {
+  const handleExtraTabNav = useCallback((tab, payload) => {
     setNavStack((s) => [...s, activeTab])
     if (tab === 'vehicle_expenses') {
       setExpensesInitSubTab('vehicle')
@@ -223,6 +231,17 @@ function AppInner() {
       setExpensesInitSubTab('personal')
       setExpensesInitCategory(null)
       setActiveTab('expenses')
+    } else if (
+      tab === 'business_pnl_report' ||
+      tab === 'net_in_hand_report' ||
+      tab === 'trips_report' ||
+      tab === 'vehicle_expenses_report' ||
+      tab === 'personal_expenses_report'
+    ) {
+      setReportDrillPayload(payload || null)
+      setExpensesInitSubTab(null)
+      setExpensesInitCategory(null)
+      setActiveTab(tab)
     } else {
       setExpensesInitSubTab(null)
       setExpensesInitCategory(null)
@@ -503,6 +522,16 @@ function AppInner() {
         return <Reports userId={userId} profile={profile} onBack={handleBackFromExtra} onNavigate={handleExtraTabNav} />
       case 'my_salary':
         return <MySalary userId={userId} profile={profile} onBack={handleBackFromExtra} onOpenProfile={() => setShowProfile(true)} />
+      case 'business_pnl_report':
+        return <BusinessPnlDetails userId={userId} onBack={handleBackFromExtra} initialPeriod={reportDrillPayload?.period} initialCustomFrom={reportDrillPayload?.customFrom} initialCustomTo={reportDrillPayload?.customTo} />
+      case 'net_in_hand_report':
+        return <NetInHandDetails userId={userId} onBack={handleBackFromExtra} initialPeriod={reportDrillPayload?.period} initialCustomFrom={reportDrillPayload?.customFrom} initialCustomTo={reportDrillPayload?.customTo} />
+      case 'trips_report':
+        return <TripsReportDetails userId={userId} onBack={handleBackFromExtra} initialPeriod={reportDrillPayload?.period} initialCustomFrom={reportDrillPayload?.customFrom} initialCustomTo={reportDrillPayload?.customTo} />
+      case 'vehicle_expenses_report':
+        return <VehicleExpensesDetails userId={userId} onBack={handleBackFromExtra} initialPeriod={reportDrillPayload?.period} initialCustomFrom={reportDrillPayload?.customFrom} initialCustomTo={reportDrillPayload?.customTo} />
+      case 'personal_expenses_report':
+        return <PersonalExpensesDetails userId={userId} onBack={handleBackFromExtra} initialPeriod={reportDrillPayload?.period} initialCustomFrom={reportDrillPayload?.customFrom} initialCustomTo={reportDrillPayload?.customTo} />
 
       default:
         return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} onOpenSmartScan={() => setShowSmartScan(true)} onOpenAddModal={() => setIsModalOpen(true)} />

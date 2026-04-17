@@ -583,7 +583,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
                 pnlEmpty
                   ? t('reports.noRecords')
                   : `${t('overview.income')}: ${cs}${fmt(totalIncome)} \u00b7 ${labels.vehicleExpenses}: ${cs}${fmt(totalVehicleExp)} \u00b7 ${t('reports.businessProfit')}: ${netProfit >= 0 ? '+' : ''}${cs}${fmt(netProfit)}`,
-                () => onNavigate?.('finance'),
+                () => onNavigate?.('business_pnl_report', { period, customFrom, customTo }),
                 'pnl_excel', 'pnl_pdf',
                 doPnlExcel, doPnlPdf,
                 pnlEmpty,
@@ -592,7 +592,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
                 '\ud83d\udcb5',
                 t('reports.netInHand'),
                 `${t('reports.businessProfit')}: ${cs}${fmt(netProfit)} \u00b7 ${labels.personalExpenses}: ${cs}${fmt(personalCost)} \u00b7 ${t('reports.netInHand')}: ${netInHandAmt >= 0 ? '+' : ''}${cs}${fmt(netInHandAmt)}`,
-                () => onNavigate?.('finance'),
+                () => onNavigate?.('net_in_hand_report', { period, customFrom, customTo }),
                 'nih_excel', 'nih_pdf',
                 doNetInHandExcel, doNetInHandPdf,
                 false,
@@ -635,7 +635,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
             tripsEmpty
               ? t('reports.noRecords')
               : `${trips.length} \u00b7 ${cs}${fmt(totalIncome)} \u00b7 ${fmt(totalDist)} ${distLabel}`,
-            () => onNavigate?.('trips'),
+            () => onNavigate?.(isOwner ? 'trips_report' : 'trips', { period, customFrom, customTo }),
             'trips_excel', 'trips_pdf',
             doTripsExcel, doTripsPdf,
             tripsEmpty,
@@ -657,7 +657,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
             vExpEmpty
               ? t('reports.noRecords')
               : `${cs}${fmt(vehicleExpCost + serviceCost + tireCost)} \u00b7 ${vExpCombined.length}`,
-            () => onNavigate?.('vehicle_expenses'),
+            () => onNavigate?.(isOwner ? 'vehicle_expenses_report' : 'vehicle_expenses', { period, customFrom, customTo }),
             'vexp_excel', 'vexp_pdf',
             doVExpExcel, doVExpPdf,
             vExpEmpty,
@@ -668,7 +668,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
             bytEmpty
               ? t('reports.noRecords')
               : `${cs}${fmt(personalCost)} \u00b7 ${bytExps.length}`,
-            () => onNavigate?.('personal_expenses'),
+            () => onNavigate?.(isOwner ? 'personal_expenses_report' : 'personal_expenses', { period, customFrom, customTo }),
             'byt_excel', 'byt_pdf',
             doBytExcel, doBytPdf,
             bytEmpty,

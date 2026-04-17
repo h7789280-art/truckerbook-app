@@ -3590,7 +3590,10 @@ function PartDetailModal({ part, currentOdometer, onClose, onEdit, onDelete, onR
 
 function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, onClose, onSaved, t }) {
   const isEdit = !!editing
-  const initialCategory = editing?.category || preset?.category || ''
+  // Для режима "Добавить" — по умолчанию первая категория из PART_PRESETS ("oil" / Моторное масло)
+  const defaultCategory = PART_PRESETS[0].category
+  const initialCategory = editing?.category || preset?.category || defaultCategory
+  const initialPreset = getPresetByCategory(initialCategory)
   const [category, setCategory] = useState(initialCategory)
 
   const getDefaultName = (cat) => {
@@ -3602,8 +3605,7 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   const [partName, setPartName] = useState(() => {
     if (editing) return editing.part_name || getDefaultName(editing.category)
     if (preset?.name) return preset.name
-    if (preset?.category) return getDefaultName(preset.category)
-    return ''
+    return getDefaultName(initialCategory)
   })
   const [installedDate, setInstalledDate] = useState(() => {
     if (editing?.installed_date) return editing.installed_date
@@ -3617,14 +3619,12 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   const [resourceMiles, setResourceMiles] = useState(() => {
     if (editing?.resource_miles != null) return String(editing.resource_miles)
     if (preset?.miles != null) return String(preset.miles)
-    const p = initialCategory ? getPresetByCategory(initialCategory) : null
-    return p?.miles != null ? String(p.miles) : ''
+    return initialPreset?.miles != null ? String(initialPreset.miles) : ''
   })
   const [resourceMonths, setResourceMonths] = useState(() => {
     if (editing?.resource_months != null) return String(editing.resource_months)
     if (preset?.months != null) return String(preset.months)
-    const p = initialCategory ? getPresetByCategory(initialCategory) : null
-    return p?.months != null ? String(p.months) : ''
+    return initialPreset?.months != null ? String(initialPreset.months) : ''
   })
   const [cost, setCost] = useState(editing?.cost != null ? String(editing.cost) : '')
   const [notes, setNotes] = useState(editing?.notes || '')
@@ -3679,41 +3679,55 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
     }
   }
 
-  const overlay = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }
-  const sheet = {
+  // Полноэкранный overlay с z-index выше BottomNav (100) и FAB (100).
+  // Flex-column: header (flex: 0 0 auto) — body (flex: 1 1 auto, scroll) — footer (flex: 0 0 auto).
+  const overlay = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     background: 'var(--bg)',
-    width: '100%',
-    maxWidth: 480,
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    maxHeight: '90vh',
+    zIndex: 9999,
     display: 'flex',
     flexDirection: 'column',
   }
-  const headerStyle = { padding: '16px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, borderBottom: '1px solid var(--border)' }
-  const bodyStyle = { padding: '16px 20px', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch' }
+  const headerStyle = {
+    flex: '0 0 auto',
+    padding: 'calc(16px + env(safe-area-inset-top, 0px)) 20px 12px',
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottom: '1px solid var(--border)',
+    background: 'var(--bg)',
+  }
+  const bodyStyle = {
+    flex: '1 1 auto',
+    padding: '16px 20px 100px',
+    overflowY: 'auto',
+    WebkitOverflowScrolling: 'touch',
+  }
   const footerStyle = {
-    padding: '12px 20px calc(12px + env(safe-area-inset-bottom, 0px))',
+    flex: '0 0 auto',
+    padding: '16px 20px calc(16px + env(safe-area-inset-bottom, 0px))',
     borderTop: '1px solid var(--border)',
     background: 'var(--bg)',
     display: 'flex',
     gap: 8,
-    flexShrink: 0,
   }
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' }
   const labelStyle = { fontSize: 12, color: 'var(--dim)', marginBottom: 4, display: 'block', fontWeight: 600 }
 
   return (
-    <div style={overlay} onClick={onClose}>
-      <div style={sheet} onClick={e => e.stopPropagation()}>
-        <div style={headerStyle}>
-          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
-            {isEdit ? t('resources.editPart') : t('resources.addPart')}
-          </div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 24, cursor: 'pointer' }}>{'\u00D7'}</button>
+    <div style={overlay}>
+      <div style={headerStyle}>
+        <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
+          {isEdit ? t('resources.editPart') : t('resources.addPart')}
         </div>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 28, cursor: 'pointer', padding: 0, lineHeight: 1 }}>{'\u00D7'}</button>
+      </div>
 
-        <div style={bodyStyle}>
+      <div style={bodyStyle}>
           {/* Category grid */}
           <div style={{ marginBottom: 14 }}>
             <div style={labelStyle}>{t('resources.category')}</div>
@@ -3791,7 +3805,6 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
             {saving ? t('common.saving') : t('common.save')}
           </button>
         </div>
-      </div>
     </div>
   )
 }

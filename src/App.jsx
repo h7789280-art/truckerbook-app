@@ -15,6 +15,7 @@ import Marketplace from './tabs/Marketplace'
 import FinanceDetails from './tabs/FinanceDetails'
 import TripsDetails from './tabs/TripsDetails'
 import Reports from './tabs/Reports'
+import MySalary from './tabs/MySalary'
 import BottomNav from './components/BottomNav'
 import Auth from './components/Auth'
 import PinLock from './components/PinLock'
@@ -500,6 +501,8 @@ function AppInner() {
         return <TripsDetails userId={userId} profile={profile} onBack={handleBackFromExtra} />
       case 'reports':
         return <Reports userId={userId} profile={profile} onBack={handleBackFromExtra} onNavigate={handleExtraTabNav} />
+      case 'my_salary':
+        return <MySalary userId={userId} profile={profile} onBack={handleBackFromExtra} onOpenProfile={() => setShowProfile(true)} />
 
       default:
         return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} onOpenSmartScan={() => setShowSmartScan(true)} onOpenAddModal={() => setIsModalOpen(true)} />

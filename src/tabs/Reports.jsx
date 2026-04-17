@@ -28,6 +28,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
   const isImperial = units === 'imperial'
   const distLabel = isImperial ? 'mi' : 'km'
   const volLabel = isImperial ? 'gal' : 'L'
+  const isDriver = profile?.role === 'driver'
 
   const [period, setPeriod] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
@@ -556,7 +557,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
             salaryEmpty
               ? t('reports.noRecords')
               : `${t('pay.earnedMonth')}: ${cs}${fmt(totalDriverPay)} \u00b7 ${t('byt.personalExpenses')}: ${cs}${fmt(personalCost)} \u00b7 ${t('pay.netToMe')}: ${netToMe >= 0 ? '+' : ''}${cs}${fmt(netToMe)}`,
-            () => onNavigate?.('trips_detail'),
+            () => onNavigate?.('my_salary'),
             'salary_excel', 'salary_pdf',
             doSalaryExcel, doSalaryPdf,
             salaryEmpty,
@@ -566,7 +567,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
             t('reports.pnlReport'),
             pnlEmpty
               ? t('reports.noRecords')
-              : `${t('overview.income')}: ${cs}${fmt(totalIncome)} \u00b7 ${t('overview.expense')}: ${cs}${fmt(totalVehicleExp)} \u00b7 ${t('overview.netInHand')}: ${netProfit >= 0 ? '+' : ''}${cs}${fmt(netProfit)}`,
+              : `${t('overview.income')}: ${cs}${fmt(totalIncome)} \u00b7 ${t('overview.expense')}: ${cs}${fmt(totalVehicleExp)} \u00b7 ${isDriver ? t('reports.vehicleResult') : t('overview.netInHand')}: ${netProfit >= 0 ? '+' : ''}${cs}${fmt(netProfit)}`,
             () => onNavigate?.('finance'),
             'pnl_excel', 'pnl_pdf',
             doPnlExcel, doPnlPdf,

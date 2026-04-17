@@ -2146,9 +2146,11 @@ export async function exportDriverFullReportPDF(opts) {
 
   const baseOpts = {
     styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', font: 'Roboto' },
-    headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
+    headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold', font: 'Roboto' },
+    bodyStyles: { font: 'Roboto' },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     margin: { left: 14, right: 14 },
+    showHead: 'everyPage',
   }
 
   const sectionTitle = (title) => {
@@ -2334,7 +2336,7 @@ export async function exportDriverFullReportPDF(opts) {
       autoTable(doc, {
         startY: 28,
         head: [[L.date || 'Date', L.station || 'Station', volLabel, cs + '/' + volLabel, (L.total || 'Total') + ' (' + cs + ')', (L.odometer || 'Odo') + ' (' + distLabel + ')']],
-        body: [[{ content: L.noFuelRecords || 'No fuel records for this period', colSpan: 6, styles: { halign: 'center', fontStyle: 'italic', textColor: 100 } }]],
+        body: [[{ content: L.noFuelRecords || 'No fuel records for this period', colSpan: 6, styles: { halign: 'center', fontStyle: 'normal', font: 'Roboto', textColor: 100 } }]],
         ...baseOpts,
       })
     } else {

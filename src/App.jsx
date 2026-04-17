@@ -202,14 +202,14 @@ function AppInner() {
   })
   const userRole = profile?.role || 'owner_operator'
   const [activeTab, setActiveTab] = useState(userRole === 'job_seeker' ? 'jobs' : 'overview')
-  const [prevTab, setPrevTab] = useState('overview')
+  const [navStack, setNavStack] = useState([])
   const isExtraTab = ['jobs', 'news', 'marketplace'].includes(activeTab) && userRole !== 'job_seeker'
 
   const [expensesInitSubTab, setExpensesInitSubTab] = useState(null)
   const [expensesInitCategory, setExpensesInitCategory] = useState(null)
 
   const handleExtraTabNav = useCallback((tab) => {
-    setPrevTab(activeTab)
+    setNavStack((s) => [...s, activeTab])
     if (tab === 'vehicle_expenses') {
       setExpensesInitSubTab('vehicle')
       setExpensesInitCategory(null)
@@ -230,8 +230,18 @@ function AppInner() {
   }, [activeTab])
 
   const handleBackFromExtra = useCallback(() => {
-    setActiveTab(prevTab)
-  }, [prevTab])
+    setNavStack((s) => {
+      if (s.length === 0) {
+        setActiveTab('overview')
+        return s
+      }
+      const target = s[s.length - 1]
+      setActiveTab(target)
+      return s.slice(0, -1)
+    })
+  }, [])
+
+  const backFromReports = navStack.length > 0 && navStack[navStack.length - 1] === 'reports'
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [fuelRefreshKey, setFuelRefreshKey] = useState(0)
   const [tripsRefreshKey, setTripsRefreshKey] = useState(0)
@@ -471,9 +481,9 @@ function AppInner() {
     }
     switch (activeTab) {
       case 'expenses':
-        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} initialSubTab={expensesInitSubTab} initialCategory={expensesInitCategory} />
+        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} initialSubTab={expensesInitSubTab} initialCategory={expensesInitCategory} onBack={backFromReports ? handleBackFromExtra : undefined} />
       case 'trips':
-        return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} />
+        return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} />
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} />
       case 'documents':
@@ -805,7 +815,7 @@ function AppInner() {
           )}
         </>
       )}
-      <BottomNav activeTab={activeTab} onTabChange={(tab) => { setExpensesInitSubTab(null); setExpensesInitCategory(null); setActiveTab(tab) }} role={userRole} />
+      <BottomNav activeTab={activeTab} onTabChange={(tab) => { setExpensesInitSubTab(null); setExpensesInitCategory(null); setNavStack([]); setActiveTab(tab) }} role={userRole} />
       {userRole !== 'job_seeker' && activeTab === 'overview' && showChat && (
         <DriverChat
           userId={userId}

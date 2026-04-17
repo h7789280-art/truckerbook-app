@@ -4,7 +4,7 @@ import { fetchVehicles } from '../lib/api'
 import Fuel from './Fuel'
 import Byt from './Byt'
 
-export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile, initialSubTab, initialCategory }) {
+export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile, initialSubTab, initialCategory, onBack }) {
   const { t } = useLanguage()
   const [subTab, setSubTab] = useState(initialSubTab || 'vehicle')
   const [vehicles, setVehicles] = useState([])
@@ -34,6 +34,25 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {onBack && (
+        <div style={{ padding: '12px 16px 0' }}>
+          <button
+            onClick={onBack}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--text, #e2e8f0)',
+              fontSize: '22px',
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: '8px',
+              fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            }}
+          >
+            {'\u2190'}
+          </button>
+        </div>
+      )}
       {/* Switcher — hidden for company (only vehicle expenses, no personal tab) */}
       {!isCompany && (
         <div style={{

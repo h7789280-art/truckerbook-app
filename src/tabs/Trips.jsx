@@ -1339,11 +1339,29 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   )
 }
 
-export default function Trips({ userId, refreshKey, profile }) {
+export default function Trips({ userId, refreshKey, profile, onBack }) {
   const { theme } = useTheme()
 
   return (
     <div style={{ padding: '16px', paddingBottom: '80px' }}>
+      {onBack && (
+        <button
+          onClick={onBack}
+          style={{
+            background: 'none',
+            border: 'none',
+            color: theme.text,
+            fontSize: '22px',
+            cursor: 'pointer',
+            padding: '4px 8px',
+            borderRadius: '8px',
+            marginBottom: '8px',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+          }}
+        >
+          {'\u2190'}
+        </button>
+      )}
       <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} profile={profile} />
     </div>
   )

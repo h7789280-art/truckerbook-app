@@ -730,7 +730,7 @@ function AppInner() {
         )}
         {renderTab()}
       </div>
-      {userRole !== 'job_seeker' && userRole !== 'company' && !(userRole === 'driver' && activeTab === 'overview') && (
+      {userRole !== 'job_seeker' && userRole !== 'company' && userRole !== 'driver' && (
         <>
           <FAB onClick={() => setShowFabMenu(true)} />
           {showFabMenu && (

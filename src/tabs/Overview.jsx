@@ -2419,7 +2419,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
 
                   {/* Reports button */}
                   <button
-                    onClick={() => onExtraNav?.('finance')}
+                    onClick={() => onExtraNav?.(role === 'driver' ? 'reports' : 'finance')}
                     style={{
                       width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
                       background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',

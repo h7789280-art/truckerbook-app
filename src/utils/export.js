@@ -1526,3 +1526,503 @@ export async function exportFleetReportPDF(opts) {
 
   doc.save(filename || 'fleet_pl_report.pdf')
 }
+
+/* ============================================================
+ * Driver Full Report — single multi-sheet Excel / multi-section PDF
+ * 7 sheets/sections:
+ *   1. Summary
+ *   2. My Salary (trips + driverPay)
+ *   3. Vehicle P&L (date / income / expense / profit)
+ *   4. Trips (date, from, to, dist, income)
+ *   5. Fuel (date, station, gallons, price/gal, total, odometer)
+ *   6. Vehicle expenses (date, category, description, amount)
+ *   7. Personal expenses (date, category, description, amount)
+ * ============================================================ */
+
+const ORANGE_HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF59E0B' } }
+const ORANGE_HEADER_FONT = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } }
+
+const orangeHeaders = (ws, colCount) => {
+  const row = ws.getRow(1)
+  for (let c = 1; c <= colCount; c++) {
+    const cell = row.getCell(c)
+    cell.fill = ORANGE_HEADER_FILL
+    cell.font = ORANGE_HEADER_FONT
+    cell.alignment = { horizontal: 'center', vertical: 'middle' }
+    cell.border = HEADER_BORDER_BOTTOM
+  }
+  row.height = 24
+}
+
+export async function exportDriverFullReportExcel(opts) {
+  const excelMod = await import('exceljs')
+  const ExcelJS = excelMod.default || excelMod
+  const fileSaverMod = await import('file-saver')
+  const saveAs = fileSaverMod.saveAs || fileSaverMod.default?.saveAs || fileSaverMod.default
+
+  const {
+    period, cs, distLabel, volLabel, isImperial,
+    trips, fuels, vehicleExps, bytExps, serviceRecs, tireRecs,
+    labels, filename,
+  } = opts
+
+  const L = labels || {}
+  const fmt = (n) => (n == null || isNaN(n)) ? '' : Math.round(Number(n) * 100) / 100
+  const wb = new ExcelJS.Workbook()
+
+  const convDist = (km) => isImperial ? Math.round((km || 0) * 0.621371) : Math.round(km || 0)
+  const convVol = (liters) => isImperial ? Math.round((liters || 0) * 0.264172 * 100) / 100 : (Math.round((liters || 0) * 100) / 100)
+
+  // ---- computed totals ----
+  const totalIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
+  const totalDriverPay = trips.reduce((s, t) => s + (t.driver_pay || 0), 0)
+  const totalDist = trips.reduce((s, t) => s + convDist(t.distance_km || 0), 0)
+  const tripsCount = trips.length
+  const fuelCost = fuels.reduce((s, f) => s + (f.cost || 0), 0)
+  const totalVol = fuels.reduce((s, f) => s + convVol(f.liters || 0), 0)
+  const serviceCost = serviceRecs.reduce((s, r) => s + (r.cost || 0), 0)
+  const tireCost = (tireRecs || []).reduce((s, r) => s + (r.cost || 0), 0)
+  const vehicleExpCost = vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const personalCost = bytExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalVehicleExp = fuelCost + serviceCost + tireCost + vehicleExpCost
+  const netProfit = totalIncome - totalVehicleExp
+  const mpg = (totalDist > 0 && totalVol > 0) ? (totalDist / totalVol) : 0
+  const avgRatePerDist = totalDist > 0 ? totalIncome / totalDist : 0
+  const costPerDist = totalDist > 0 ? totalVehicleExp / totalDist : 0
+
+  // ---- Sheet 1: Summary ----
+  const ws1 = wb.addWorksheet(L.summarySheet || 'Summary')
+  ws1.addRow([L.summarySheet || 'Summary', period || ''])
+  ws1.getRow(1).getCell(1).font = { bold: true, size: 14, color: { argb: 'FFF59E0B' } }
+  ws1.getRow(1).getCell(2).font = { italic: true, size: 11, color: { argb: 'FF666666' } }
+  ws1.addRow([])
+
+  const addKV = (label, value) => {
+    const r = ws1.addRow([label, value])
+    r.getCell(1).font = { bold: true, size: 11 }
+    r.getCell(2).font = { size: 11 }
+  }
+  addKV(L.period || 'Period', period || '')
+  addKV(L.trips || 'Trips', tripsCount)
+  addKV((L.distance || 'Distance') + ' (' + distLabel + ')', totalDist)
+  addKV((L.income || 'Income') + ' (' + cs + ')', fmt(totalIncome))
+  addKV((L.driverPay || 'Driver pay') + ' (' + cs + ')', fmt(totalDriverPay))
+  addKV((L.fuelCost || 'Fuel cost') + ' (' + cs + ')', fmt(fuelCost))
+  addKV((L.vehicleExpenses || 'Vehicle expenses') + ' (' + cs + ')', fmt(totalVehicleExp))
+  addKV((L.personalExpenses || 'Personal expenses') + ' (' + cs + ')', fmt(personalCost))
+  addKV((L.netProfit || 'Net profit') + ' (' + cs + ')', fmt(netProfit))
+  ws1.addRow([])
+  addKV('MPG', mpg > 0 ? Math.round(mpg * 10) / 10 : '')
+  addKV((L.avgRatePerDist || 'Avg rate') + ' (' + cs + '/' + distLabel + ')', avgRatePerDist > 0 ? Math.round(avgRatePerDist * 100) / 100 : '')
+  addKV((L.costPerDist || 'Cost') + ' (' + cs + '/' + distLabel + ')', costPerDist > 0 ? Math.round(costPerDist * 100) / 100 : '')
+  ws1.getColumn(1).width = 36
+  ws1.getColumn(2).width = 20
+
+  // ---- Sheet 2: My Salary ----
+  const ws2 = wb.addWorksheet(L.mySalary || 'My Salary')
+  const salaryHeaders = [
+    L.date || 'Date',
+    L.route || 'Route',
+    distLabel,
+    (L.income || 'Income') + ' (' + cs + ')',
+    (L.driverPay || 'My pay') + ' (' + cs + ')',
+  ]
+  ws2.addRow(salaryHeaders)
+  orangeHeaders(ws2, salaryHeaders.length)
+  let sRows = 0
+  trips.forEach(tr => {
+    ws2.addRow([
+      (tr.created_at || '').slice(0, 10),
+      (tr.origin || '') + ' \u2192 ' + (tr.destination || ''),
+      convDist(tr.distance_km || 0),
+      fmt(tr.income),
+      fmt(tr.driver_pay),
+    ])
+    sRows++
+  })
+  styledAltRows(ws2, 2, 1 + sRows, salaryHeaders.length)
+  if (sRows > 0) {
+    ws2.addRow([])
+    ws2.addRow([L.total || 'TOTAL', '', totalDist, fmt(totalIncome), fmt(totalDriverPay)])
+    styleTotalRow(ws2, ws2.rowCount, salaryHeaders.length)
+  }
+  styledAutoWidth(ws2)
+
+  // ---- Sheet 3: Vehicle P&L ----
+  const ws3 = wb.addWorksheet(L.pnlReport || 'Vehicle P&L')
+  const pnlHeaders = [
+    L.date || 'Date',
+    (L.income || 'Income') + ' (' + cs + ')',
+    (L.expense || 'Expense') + ' (' + cs + ')',
+    (L.profit || 'Profit') + ' (' + cs + ')',
+  ]
+  ws3.addRow(pnlHeaders)
+  orangeHeaders(ws3, pnlHeaders.length)
+
+  const pnlMap = {}
+  trips.forEach(tr => {
+    const d = (tr.created_at || '').slice(0, 10)
+    if (!pnlMap[d]) pnlMap[d] = { income: 0, expense: 0 }
+    pnlMap[d].income += (tr.income || 0)
+  })
+  const addExp = (d, amount) => {
+    if (!d || !amount) return
+    const k = d.slice(0, 10)
+    if (!pnlMap[k]) pnlMap[k] = { income: 0, expense: 0 }
+    pnlMap[k].expense += amount
+  }
+  fuels.forEach(f => addExp(f.date, f.cost || 0))
+  serviceRecs.forEach(r => addExp(r.date, r.cost || 0))
+  ;(tireRecs || []).forEach(r => addExp(r.installed_at, r.cost || 0))
+  vehicleExps.forEach(e => addExp(e.date, e.amount || 0))
+
+  const pnlKeys = Object.keys(pnlMap).sort()
+  let pRows = 0
+  pnlKeys.forEach(k => {
+    const v = pnlMap[k]
+    ws3.addRow([k, fmt(v.income), fmt(v.expense), fmt(v.income - v.expense)])
+    pRows++
+  })
+  styledAltRows(ws3, 2, 1 + pRows, pnlHeaders.length)
+  if (pRows > 0) {
+    ws3.addRow([])
+    ws3.addRow([L.total || 'TOTAL', fmt(totalIncome), fmt(totalVehicleExp), fmt(totalIncome - totalVehicleExp)])
+    styleTotalRow(ws3, ws3.rowCount, pnlHeaders.length)
+  }
+  styledAutoWidth(ws3)
+
+  // ---- Sheet 4: Trips ----
+  const ws4 = wb.addWorksheet(L.trips || 'Trips')
+  const tripHeaders = [
+    L.date || 'Date',
+    L.from || 'From',
+    L.to || 'To',
+    distLabel,
+    (L.income || 'Income') + ' (' + cs + ')',
+  ]
+  ws4.addRow(tripHeaders)
+  orangeHeaders(ws4, tripHeaders.length)
+  let tRows = 0
+  trips.forEach(tr => {
+    ws4.addRow([
+      (tr.created_at || '').slice(0, 10),
+      tr.origin || '',
+      tr.destination || '',
+      convDist(tr.distance_km || 0),
+      fmt(tr.income),
+    ])
+    tRows++
+  })
+  styledAltRows(ws4, 2, 1 + tRows, tripHeaders.length)
+  if (tRows > 0) {
+    ws4.addRow([])
+    ws4.addRow([L.total || 'TOTAL', '', '', totalDist, fmt(totalIncome)])
+    styleTotalRow(ws4, ws4.rowCount, tripHeaders.length)
+  }
+  styledAutoWidth(ws4)
+
+  // ---- Sheet 5: Fuel ----
+  const ws5 = wb.addWorksheet(L.fuel || 'Fuel')
+  const fuelHeaders = [
+    L.date || 'Date',
+    L.station || 'Station',
+    volLabel,
+    cs + '/' + volLabel,
+    (L.total || 'Total') + ' (' + cs + ')',
+    (L.odometer || 'Odometer') + ' (' + distLabel + ')',
+  ]
+  ws5.addRow(fuelHeaders)
+  orangeHeaders(ws5, fuelHeaders.length)
+  let fRows = 0
+  const sortedFuels = [...fuels].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+  sortedFuels.forEach(f => {
+    const vol = convVol(f.liters || 0)
+    const price = vol > 0 ? Math.round(((f.cost || 0) / vol) * 1000) / 1000 : 0
+    ws5.addRow([
+      (f.date || '').slice(0, 10),
+      f.station || '',
+      vol,
+      price,
+      fmt(f.cost),
+      f.odometer ? convDist(f.odometer) : '',
+    ])
+    fRows++
+  })
+  styledAltRows(ws5, 2, 1 + fRows, fuelHeaders.length)
+  if (fRows > 0) {
+    ws5.addRow([])
+    const avgPrice = totalVol > 0 ? Math.round((fuelCost / totalVol) * 1000) / 1000 : ''
+    ws5.addRow([L.total || 'TOTAL', '', totalVol, avgPrice, fmt(fuelCost), ''])
+    styleTotalRow(ws5, ws5.rowCount, fuelHeaders.length)
+    if (totalDist > 0 && totalVol > 0) {
+      const fuelPerDist = Math.round((fuelCost / totalDist) * 100) / 100
+      const fpdLabel = isImperial ? (L.fuelPerMile || 'Fuel cost/mi') : (L.fuelPerKm || 'Fuel cost/km')
+      ws5.addRow([fpdLabel, '', '', '', fuelPerDist, ''])
+      styleFuelPerDistRow(ws5, ws5.rowCount, fuelHeaders.length)
+    }
+  }
+  styledAutoWidth(ws5)
+
+  // ---- Sheet 6: Vehicle expenses ----
+  const ws6 = wb.addWorksheet(L.vehicleExpenses || 'Vehicle Expenses')
+  const vHeaders = [
+    L.date || 'Date',
+    L.category || 'Category',
+    L.description || 'Description',
+    (L.amount || 'Amount') + ' (' + cs + ')',
+  ]
+  ws6.addRow(vHeaders)
+  orangeHeaders(ws6, vHeaders.length)
+  let vRows = 0
+  const combinedVExp = []
+  vehicleExps.forEach(e => combinedVExp.push({ date: e.date || '', category: e.category || '', description: e.description || '', amount: e.amount || 0 }))
+  serviceRecs.forEach(r => combinedVExp.push({ date: r.date || '', category: r.type || (L.repair || 'Service'), description: r.description || '', amount: r.cost || 0 }))
+  ;(tireRecs || []).forEach(r => combinedVExp.push({ date: r.installed_at || '', category: L.tires || 'Tires', description: ((r.brand || '') + ' ' + (r.model || '')).trim(), amount: r.cost || 0 }))
+  combinedVExp.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+  combinedVExp.forEach(e => {
+    ws6.addRow([e.date.slice(0, 10), e.category, e.description, fmt(e.amount)])
+    vRows++
+  })
+  styledAltRows(ws6, 2, 1 + vRows, vHeaders.length)
+  if (vRows > 0) {
+    const vSum = combinedVExp.reduce((s, r) => s + (r.amount || 0), 0)
+    ws6.addRow([])
+    ws6.addRow([L.total || 'TOTAL', '', '', fmt(vSum)])
+    styleTotalRow(ws6, ws6.rowCount, vHeaders.length)
+  }
+  styledAutoWidth(ws6)
+
+  // ---- Sheet 7: Personal expenses ----
+  const ws7 = wb.addWorksheet(L.personalExpenses || 'Personal Expenses')
+  const pHeaders = [
+    L.date || 'Date',
+    L.category || 'Category',
+    L.description || 'Description',
+    (L.amount || 'Amount') + ' (' + cs + ')',
+  ]
+  ws7.addRow(pHeaders)
+  orangeHeaders(ws7, pHeaders.length)
+  let pr = 0
+  const sortedByt = [...bytExps].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+  sortedByt.forEach(e => {
+    ws7.addRow([(e.date || '').slice(0, 10), e.category || '', e.description || '', fmt(e.amount)])
+    pr++
+  })
+  styledAltRows(ws7, 2, 1 + pr, pHeaders.length)
+  if (pr > 0) {
+    ws7.addRow([])
+    ws7.addRow([L.total || 'TOTAL', '', '', fmt(personalCost)])
+    styleTotalRow(ws7, ws7.rowCount, pHeaders.length)
+  }
+  styledAutoWidth(ws7)
+
+  const buffer = await wb.xlsx.writeBuffer()
+  saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename || 'full_report.xlsx')
+}
+
+export async function exportDriverFullReportPDF(opts) {
+  const { default: jsPDF } = await import('jspdf')
+  const { default: autoTable } = await import('jspdf-autotable')
+  const { robotoRegularBase64, robotoBoldBase64 } = await import('./roboto-font.js')
+
+  const {
+    period, cs, distLabel, volLabel, isImperial,
+    trips, fuels, vehicleExps, bytExps, serviceRecs, tireRecs,
+    labels, filename,
+  } = opts
+
+  const L = labels || {}
+  const fmt = (n) => (n == null || isNaN(n)) ? '' : String(Math.round(Number(n) * 100) / 100)
+  const convDist = (km) => isImperial ? Math.round((km || 0) * 0.621371) : Math.round(km || 0)
+  const convVol = (liters) => isImperial ? Math.round((liters || 0) * 0.264172 * 100) / 100 : (Math.round((liters || 0) * 100) / 100)
+
+  const totalIncome = trips.reduce((s, t) => s + (t.income || 0), 0)
+  const totalDriverPay = trips.reduce((s, t) => s + (t.driver_pay || 0), 0)
+  const totalDist = trips.reduce((s, t) => s + convDist(t.distance_km || 0), 0)
+  const fuelCost = fuels.reduce((s, f) => s + (f.cost || 0), 0)
+  const totalVol = fuels.reduce((s, f) => s + convVol(f.liters || 0), 0)
+  const serviceCost = serviceRecs.reduce((s, r) => s + (r.cost || 0), 0)
+  const tireCost = (tireRecs || []).reduce((s, r) => s + (r.cost || 0), 0)
+  const vehicleExpCost = vehicleExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const personalCost = bytExps.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalVehicleExp = fuelCost + serviceCost + tireCost + vehicleExpCost
+  const netProfit = totalIncome - totalVehicleExp
+  const mpg = (totalDist > 0 && totalVol > 0) ? totalDist / totalVol : 0
+
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  doc.addFileToVFS('Roboto-Regular.ttf', robotoRegularBase64)
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal')
+  doc.addFileToVFS('Roboto-Bold.ttf', robotoBoldBase64)
+  doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
+  doc.setFont('Roboto', 'normal')
+
+  const baseOpts = {
+    styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', font: 'Roboto' },
+    headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: [249, 250, 251] },
+    margin: { left: 14, right: 14 },
+  }
+
+  const sectionTitle = (title) => {
+    doc.setFontSize(14)
+    doc.setTextColor(245, 158, 11)
+    doc.text(title, 14, 15)
+    doc.setFontSize(10)
+    doc.setTextColor(100)
+    if (period) doc.text(String(period), 14, 21)
+    doc.setTextColor(0)
+  }
+
+  const markTotalRow = (lastIdx) => ({
+    didParseCell: (d) => {
+      if (d.section === 'body' && d.row.index === lastIdx) {
+        d.cell.styles.fillColor = [255, 242, 204]
+        d.cell.styles.fontStyle = 'bold'
+      }
+    },
+  })
+
+  // ---- Section 1: Summary ----
+  sectionTitle(L.summarySheet || 'Summary')
+  const sumRows = [
+    [L.trips || 'Trips', String(trips.length)],
+    [(L.distance || 'Distance') + ' (' + distLabel + ')', String(totalDist)],
+    [(L.income || 'Income') + ' (' + cs + ')', fmt(totalIncome)],
+    [(L.driverPay || 'Driver pay') + ' (' + cs + ')', fmt(totalDriverPay)],
+    [(L.fuelCost || 'Fuel cost') + ' (' + cs + ')', fmt(fuelCost)],
+    [(L.vehicleExpenses || 'Vehicle exp.') + ' (' + cs + ')', fmt(totalVehicleExp)],
+    [(L.personalExpenses || 'Personal exp.') + ' (' + cs + ')', fmt(personalCost)],
+    [(L.netProfit || 'Net profit') + ' (' + cs + ')', fmt(netProfit)],
+    ['MPG', mpg > 0 ? String(Math.round(mpg * 10) / 10) : '-'],
+  ]
+  autoTable(doc, { startY: 28, head: [[L.metric || 'Metric', L.value || 'Value']], body: sumRows, ...baseOpts })
+
+  // ---- Section 2: My Salary ----
+  doc.addPage()
+  sectionTitle(L.mySalary || 'My Salary')
+  const salBody = trips.map(tr => [
+    (tr.created_at || '').slice(0, 10),
+    (tr.origin || '') + ' \u2192 ' + (tr.destination || ''),
+    String(convDist(tr.distance_km || 0)),
+    fmt(tr.income),
+    fmt(tr.driver_pay),
+  ])
+  salBody.push([L.total || 'TOTAL', '', String(totalDist), fmt(totalIncome), fmt(totalDriverPay)])
+  autoTable(doc, {
+    startY: 28,
+    head: [[L.date || 'Date', L.route || 'Route', distLabel, (L.income || 'Income') + ' (' + cs + ')', (L.driverPay || 'My pay') + ' (' + cs + ')']],
+    body: salBody,
+    ...baseOpts,
+    ...markTotalRow(salBody.length - 1),
+  })
+
+  // ---- Section 3: Vehicle P&L ----
+  doc.addPage()
+  sectionTitle(L.pnlReport || 'Vehicle P&L')
+  const pnlMap = {}
+  trips.forEach(tr => {
+    const d = (tr.created_at || '').slice(0, 10)
+    if (!pnlMap[d]) pnlMap[d] = { income: 0, expense: 0 }
+    pnlMap[d].income += (tr.income || 0)
+  })
+  const addExp = (d, a) => {
+    if (!d || !a) return
+    const k = d.slice(0, 10)
+    if (!pnlMap[k]) pnlMap[k] = { income: 0, expense: 0 }
+    pnlMap[k].expense += a
+  }
+  fuels.forEach(f => addExp(f.date, f.cost || 0))
+  serviceRecs.forEach(r => addExp(r.date, r.cost || 0))
+  ;(tireRecs || []).forEach(r => addExp(r.installed_at, r.cost || 0))
+  vehicleExps.forEach(e => addExp(e.date, e.amount || 0))
+  const pnlKeys = Object.keys(pnlMap).sort()
+  const pnlBody = pnlKeys.map(k => [k, fmt(pnlMap[k].income), fmt(pnlMap[k].expense), fmt(pnlMap[k].income - pnlMap[k].expense)])
+  pnlBody.push([L.total || 'TOTAL', fmt(totalIncome), fmt(totalVehicleExp), fmt(totalIncome - totalVehicleExp)])
+  autoTable(doc, {
+    startY: 28,
+    head: [[L.date || 'Date', (L.income || 'Income') + ' (' + cs + ')', (L.expense || 'Expense') + ' (' + cs + ')', (L.profit || 'Profit') + ' (' + cs + ')']],
+    body: pnlBody,
+    ...baseOpts,
+    ...markTotalRow(pnlBody.length - 1),
+  })
+
+  // ---- Section 4: Trips ----
+  doc.addPage()
+  sectionTitle(L.trips || 'Trips')
+  const tripBody = trips.map(tr => [
+    (tr.created_at || '').slice(0, 10),
+    tr.origin || '',
+    tr.destination || '',
+    String(convDist(tr.distance_km || 0)),
+    fmt(tr.income),
+  ])
+  tripBody.push([L.total || 'TOTAL', '', '', String(totalDist), fmt(totalIncome)])
+  autoTable(doc, {
+    startY: 28,
+    head: [[L.date || 'Date', L.from || 'From', L.to || 'To', distLabel, (L.income || 'Income') + ' (' + cs + ')']],
+    body: tripBody,
+    ...baseOpts,
+    ...markTotalRow(tripBody.length - 1),
+  })
+
+  // ---- Section 5: Fuel ----
+  doc.addPage()
+  sectionTitle(L.fuel || 'Fuel')
+  const sortedFuels = [...fuels].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+  const fuelBody = sortedFuels.map(f => {
+    const vol = convVol(f.liters || 0)
+    const price = vol > 0 ? Math.round(((f.cost || 0) / vol) * 1000) / 1000 : 0
+    return [
+      (f.date || '').slice(0, 10),
+      f.station || '',
+      String(vol),
+      String(price),
+      fmt(f.cost),
+      f.odometer ? String(convDist(f.odometer)) : '',
+    ]
+  })
+  const avgPrice = totalVol > 0 ? (fuelCost / totalVol).toFixed(3) : ''
+  fuelBody.push([L.total || 'TOTAL', '', String(totalVol), avgPrice, fmt(fuelCost), ''])
+  autoTable(doc, {
+    startY: 28,
+    head: [[L.date || 'Date', L.station || 'Station', volLabel, cs + '/' + volLabel, (L.total || 'Total') + ' (' + cs + ')', (L.odometer || 'Odo') + ' (' + distLabel + ')']],
+    body: fuelBody,
+    ...baseOpts,
+    ...markTotalRow(fuelBody.length - 1),
+  })
+
+  // ---- Section 6: Vehicle expenses ----
+  doc.addPage()
+  sectionTitle(L.vehicleExpenses || 'Vehicle Expenses')
+  const vCombined = []
+  vehicleExps.forEach(e => vCombined.push({ date: e.date || '', category: e.category || '', description: e.description || '', amount: e.amount || 0 }))
+  serviceRecs.forEach(r => vCombined.push({ date: r.date || '', category: r.type || (L.repair || 'Service'), description: r.description || '', amount: r.cost || 0 }))
+  ;(tireRecs || []).forEach(r => vCombined.push({ date: r.installed_at || '', category: L.tires || 'Tires', description: ((r.brand || '') + ' ' + (r.model || '')).trim(), amount: r.cost || 0 }))
+  vCombined.sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+  const vBody = vCombined.map(e => [e.date.slice(0, 10), e.category, e.description, fmt(e.amount)])
+  const vSum = vCombined.reduce((s, r) => s + (r.amount || 0), 0)
+  vBody.push([L.total || 'TOTAL', '', '', fmt(vSum)])
+  autoTable(doc, {
+    startY: 28,
+    head: [[L.date || 'Date', L.category || 'Category', L.description || 'Description', (L.amount || 'Amount') + ' (' + cs + ')']],
+    body: vBody,
+    ...baseOpts,
+    ...markTotalRow(vBody.length - 1),
+  })
+
+  // ---- Section 7: Personal expenses ----
+  doc.addPage()
+  sectionTitle(L.personalExpenses || 'Personal Expenses')
+  const sortedByt = [...bytExps].sort((a, b) => (a.date || '').localeCompare(b.date || ''))
+  const pBody = sortedByt.map(e => [(e.date || '').slice(0, 10), e.category || '', e.description || '', fmt(e.amount)])
+  pBody.push([L.total || 'TOTAL', '', '', fmt(personalCost)])
+  autoTable(doc, {
+    startY: 28,
+    head: [[L.date || 'Date', L.category || 'Category', L.description || 'Description', (L.amount || 'Amount') + ' (' + cs + ')']],
+    body: pBody,
+    ...baseOpts,
+    ...markTotalRow(pBody.length - 1),
+  })
+
+  doc.save(filename || 'full_report.pdf')
+}

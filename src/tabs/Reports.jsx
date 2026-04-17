@@ -29,6 +29,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
   const distLabel = isImperial ? 'mi' : 'km'
   const volLabel = isImperial ? 'gal' : 'L'
   const isDriver = profile?.role === 'driver'
+  const isOwner = !isDriver && profile?.role !== 'company' && profile?.role !== 'job_seeker'
 
   const [period, setPeriod] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
@@ -107,6 +108,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
   const netProfit = totalIncome - totalVehicleExp
   const mpg = (totalDist > 0 && fuelVol > 0) ? totalDist / fuelVol : 0
   const netToMe = totalDriverPay - personalCost
+  const netInHandAmt = netProfit - personalCost
 
   const periodLabel = (() => {
     const { start, end } = getDateRange()
@@ -119,8 +121,8 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     pnlReport: t('reports.pnlReport'),
     trips: t('tabs.trips'),
     fuel: t('tabs.fuel'),
-    vehicleExpenses: t('overview.vehicleExpense') || 'Vehicle expenses',
-    personalExpenses: t('byt.personalExpenses') || 'Personal expenses',
+    vehicleExpenses: t('reports.vehicleExpenses') || t('overview.vehicleExpense') || 'Vehicle expenses',
+    personalExpenses: t('reports.personalExpenses') || t('byt.personalExpenses') || 'Personal expenses',
     period: t('excel.period') || 'Period',
     date: t('excel.date') || 'Date',
     route: t('excel.route') || 'Route',
@@ -132,7 +134,6 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     driverPay: t('trips.driverSalary') || t('excel.myEarnings') || 'Driver pay',
     fuelCost: t('overview.fuelExpenses') || 'Fuel cost',
     netProfit: t('overview.netProfit') || 'Net profit',
-    personalExpenses: t('byt.personalExpenses') || 'Personal expenses',
     distance: t('trips.distance') || 'Distance',
     avgRatePerDist: t('overview.avgRateMile') || 'Avg rate',
     costPerDist: t('overview.costPerMile') || 'Cost per mile',
@@ -379,6 +380,29 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     `pnl_${getDateRange().start}_${getDateRange().end}.pdf`,
   ))
 
+  // Net in hand (owner_operator only) — summary rows
+  const netInHandRows = [
+    { metric: t('overview.income'), amount: totalIncome },
+    { metric: labels.vehicleExpenses, amount: totalVehicleExp },
+    { metric: t('reports.businessProfit'), amount: netProfit },
+    { metric: labels.personalExpenses, amount: personalCost },
+    { metric: t('reports.netInHand'), amount: netInHandAmt },
+  ]
+  const netInHandColumns = [
+    { header: labels.metric, key: 'metric' },
+    { header: `${labels.amount} (${cs})`, key: 'amount' },
+  ]
+  const doNetInHandExcel = () => runExport('nih_excel', () => exportToExcel(
+    netInHandRows, netInHandColumns,
+    `net_in_hand_${getDateRange().start}_${getDateRange().end}.xlsx`,
+  ))
+  const doNetInHandPdf = () => runExport('nih_pdf', () => exportToPDF(
+    netInHandRows.map(r => ({ ...r, amount: fmt(r.amount) })),
+    netInHandColumns,
+    t('reports.netInHand'),
+    `net_in_hand_${getDateRange().start}_${getDateRange().end}.pdf`,
+  ))
+
   // ---- UI ----
 
   const cardStyle = {
@@ -551,27 +575,54 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
           <div style={{ fontSize: 13, fontWeight: 700, color: theme.dim, margin: '16px 0 8px', textTransform: 'uppercase', letterSpacing: 0.5 }}>
             {'\ud83d\udcb0'} {t('reports.financialSection')}
           </div>
-          {categoryCard(
-            '\ud83d\udcb5',
-            t('pay.mySalary'),
-            salaryEmpty
-              ? t('reports.noRecords')
-              : `${t('pay.earnedMonth')}: ${cs}${fmt(totalDriverPay)} \u00b7 ${t('byt.personalExpenses')}: ${cs}${fmt(personalCost)} \u00b7 ${t('pay.netToMe')}: ${netToMe >= 0 ? '+' : ''}${cs}${fmt(netToMe)}`,
-            () => onNavigate?.('my_salary'),
-            'salary_excel', 'salary_pdf',
-            doSalaryExcel, doSalaryPdf,
-            salaryEmpty,
-          )}
-          {categoryCard(
-            '\ud83d\udcca',
-            t('reports.pnlReport'),
-            pnlEmpty
-              ? t('reports.noRecords')
-              : `${t('overview.income')}: ${cs}${fmt(totalIncome)} \u00b7 ${t('overview.expense')}: ${cs}${fmt(totalVehicleExp)} \u00b7 ${isDriver ? t('reports.vehicleResult') : t('overview.netInHand')}: ${netProfit >= 0 ? '+' : ''}${cs}${fmt(netProfit)}`,
-            () => onNavigate?.('finance'),
-            'pnl_excel', 'pnl_pdf',
-            doPnlExcel, doPnlPdf,
-            pnlEmpty,
+          {isOwner ? (
+            <>
+              {categoryCard(
+                '\ud83d\udcca',
+                t('reports.businessPnl'),
+                pnlEmpty
+                  ? t('reports.noRecords')
+                  : `${t('overview.income')}: ${cs}${fmt(totalIncome)} \u00b7 ${labels.vehicleExpenses}: ${cs}${fmt(totalVehicleExp)} \u00b7 ${t('reports.businessProfit')}: ${netProfit >= 0 ? '+' : ''}${cs}${fmt(netProfit)}`,
+                () => onNavigate?.('finance'),
+                'pnl_excel', 'pnl_pdf',
+                doPnlExcel, doPnlPdf,
+                pnlEmpty,
+              )}
+              {categoryCard(
+                '\ud83d\udcb5',
+                t('reports.netInHand'),
+                `${t('reports.businessProfit')}: ${cs}${fmt(netProfit)} \u00b7 ${labels.personalExpenses}: ${cs}${fmt(personalCost)} \u00b7 ${t('reports.netInHand')}: ${netInHandAmt >= 0 ? '+' : ''}${cs}${fmt(netInHandAmt)}`,
+                () => onNavigate?.('finance'),
+                'nih_excel', 'nih_pdf',
+                doNetInHandExcel, doNetInHandPdf,
+                false,
+              )}
+            </>
+          ) : (
+            <>
+              {categoryCard(
+                '\ud83d\udcb5',
+                t('pay.mySalary'),
+                salaryEmpty
+                  ? t('reports.noRecords')
+                  : `${t('pay.earnedMonth')}: ${cs}${fmt(totalDriverPay)} \u00b7 ${t('byt.personalExpenses')}: ${cs}${fmt(personalCost)} \u00b7 ${t('pay.netToMe')}: ${netToMe >= 0 ? '+' : ''}${cs}${fmt(netToMe)}`,
+                () => onNavigate?.('my_salary'),
+                'salary_excel', 'salary_pdf',
+                doSalaryExcel, doSalaryPdf,
+                salaryEmpty,
+              )}
+              {categoryCard(
+                '\ud83d\udcca',
+                t('reports.pnlReport'),
+                pnlEmpty
+                  ? t('reports.noRecords')
+                  : `${t('overview.income')}: ${cs}${fmt(totalIncome)} \u00b7 ${t('overview.expense')}: ${cs}${fmt(totalVehicleExp)} \u00b7 ${isDriver ? t('reports.vehicleResult') : t('overview.netInHand')}: ${netProfit >= 0 ? '+' : ''}${cs}${fmt(netProfit)}`,
+                () => onNavigate?.('finance'),
+                'pnl_excel', 'pnl_pdf',
+                doPnlExcel, doPnlPdf,
+                pnlEmpty,
+              )}
+            </>
           )}
 
           {/* Operations section */}

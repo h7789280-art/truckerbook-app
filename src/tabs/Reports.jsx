@@ -115,10 +115,39 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     return `${start} \u2014 ${end}`
   })()
 
+  const categoryLabels = {
+    food: t('byt.food') || 'Food',
+    shower: t('byt.shower') || 'Shower',
+    laundry: t('byt.laundry') || 'Laundry',
+    personal: t('byt.personal') || 'Personal',
+    other: t('excel.other') || t('categories.other') || t('overview.otherShort') || 'Other',
+    def: 'DEF',
+    fuel: t('excel.fuel') || 'Fuel',
+    repair: t('excel.repair') || 'Repair',
+    maintenance: t('excel.maintenance') || 'Maintenance',
+    parts: t('excel.parts') || 'Parts',
+    supplies: t('excel.supplies') || 'Supplies',
+    equipment: t('excel.equipment') || 'Equipment',
+    motel: t('excel.motel') || 'Motel',
+    hotel: t('excel.motel') || 'Motel',
+    toll: t('excel.toll') || 'Toll',
+    platon: 'Platon',
+    oil: t('overview.oilShort') || 'Oil',
+    tires: t('overview.tiresShort') || t('excel.tires') || 'Tires',
+    reefer: t('fuel.reefer') || 'Reefer',
+  }
+
   const labels = {
     summarySheet: t('reports.summarySheet'),
+    totalsSheet: t('reports.totalsSheet') || 'Totals',
     mySalary: t('pay.mySalary'),
     pnlReport: t('reports.pnlReport'),
+    businessPnl: t('reports.businessPnl') || 'Business P&L',
+    businessProfit: t('reports.businessProfit') || 'Business profit',
+    netInHand: t('reports.netInHand') || 'Net in hand',
+    businessSection: t('details.businessSection') || 'Business',
+    personalSection: t('details.personalSection') || 'Personal',
+    noFuelRecords: t('reports.noFuelRecords') || 'No fuel records for this period',
     trips: t('tabs.trips'),
     fuel: t('tabs.fuel'),
     vehicleExpenses: t('reports.vehicleExpenses') || t('overview.vehicleExpense') || 'Vehicle expenses',
@@ -145,17 +174,20 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     total: t('excel.total') || 'TOTAL',
     tires: t('overview.tiresShort') || t('excel.tires') || 'Tires',
     repair: t('excel.repair') || 'Repair',
+    maintenance: t('excel.maintenance') || 'Maintenance',
     metric: t('excel.category') || 'Metric',
     value: t('excel.amount') || 'Value',
     fuelPerMile: t('fuel.exportFuelPerMile') || 'Fuel/mi',
     fuelPerKm: t('fuel.exportFuelPerKm') || 'Fuel/km',
+    categoryLabels,
   }
 
+  const reportRole = isOwner ? 'owner_operator' : (profile?.role || 'driver')
   const fullReportPayload = {
     period: periodLabel,
     cs, distLabel, volLabel, isImperial,
     trips, fuels, vehicleExps, bytExps, serviceRecs, tireRecs,
-    labels,
+    labels, role: reportRole,
   }
 
   const runExport = async (key, fn) => {

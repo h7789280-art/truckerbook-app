@@ -3611,7 +3611,8 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   })
   const [installedOdometer, setInstalledOdometer] = useState(() => {
     if (editing?.installed_odometer != null) return String(editing.installed_odometer)
-    return currentOdometer ? String(currentOdometer) : ''
+    if (typeof currentOdometer === 'number' && currentOdometer > 0) return String(currentOdometer)
+    return ''
   })
   const [resourceMiles, setResourceMiles] = useState(() => {
     if (editing?.resource_miles != null) return String(editing.resource_miles)
@@ -3679,82 +3680,103 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   }
 
   const overlay = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }
-  const sheet = { background: 'var(--bg)', width: '100%', maxWidth: 480, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, maxHeight: '90vh', overflowY: 'auto' }
+  const sheet = {
+    background: 'var(--bg)',
+    width: '100%',
+    maxWidth: 480,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '90vh',
+    display: 'flex',
+    flexDirection: 'column',
+  }
+  const headerStyle = { padding: '16px 20px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0, borderBottom: '1px solid var(--border)' }
+  const bodyStyle = { padding: '16px 20px', overflowY: 'auto', flex: 1, WebkitOverflowScrolling: 'touch' }
+  const footerStyle = {
+    padding: '12px 20px calc(12px + env(safe-area-inset-bottom, 0px))',
+    borderTop: '1px solid var(--border)',
+    background: 'var(--bg)',
+    display: 'flex',
+    gap: 8,
+    flexShrink: 0,
+  }
   const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' }
   const labelStyle = { fontSize: 12, color: 'var(--dim)', marginBottom: 4, display: 'block', fontWeight: 600 }
 
   return (
     <div style={overlay} onClick={onClose}>
       <div style={sheet} onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={headerStyle}>
           <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
             {isEdit ? t('resources.editPart') : t('resources.addPart')}
           </div>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 24, cursor: 'pointer' }}>{'\u00D7'}</button>
         </div>
 
-        {/* Category grid */}
-        <div style={{ marginBottom: 14 }}>
-          <div style={labelStyle}>{t('resources.category')}</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
-            {PART_PRESETS.map(p => (
-              <button
-                key={p.category}
-                type="button"
-                onClick={() => pickCategory(p.category)}
-                style={{
-                  padding: '8px 4px', borderRadius: 10,
-                  border: category === p.category ? '2px solid #f59e0b' : '1px solid var(--border)',
-                  background: category === p.category ? 'var(--card2)' : 'var(--card)',
-                  color: 'var(--text)', fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-                }}
-              >
-                <div style={{ fontSize: 20 }}>{p.icon}</div>
-                <div style={{ lineHeight: 1.1, textAlign: 'center' }}>{t(p.name_key)}</div>
-              </button>
-            ))}
+        <div style={bodyStyle}>
+          {/* Category grid */}
+          <div style={{ marginBottom: 14 }}>
+            <div style={labelStyle}>{t('resources.category')}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+              {PART_PRESETS.map(p => (
+                <button
+                  key={p.category}
+                  type="button"
+                  onClick={() => pickCategory(p.category)}
+                  style={{
+                    padding: '8px 4px', borderRadius: 10,
+                    border: category === p.category ? '2px solid #f59e0b' : '1px solid var(--border)',
+                    background: category === p.category ? 'var(--card2)' : 'var(--card)',
+                    color: 'var(--text)', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                  }}
+                >
+                  <div style={{ fontSize: 20 }}>{p.icon}</div>
+                  <div style={{ lineHeight: 1.1, textAlign: 'center' }}>{t(p.name_key)}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <label style={labelStyle}>{t('resources.partName')}</label>
+            <input type="text" value={partName} onChange={e => setPartName(e.target.value)} style={inputStyle} />
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div>
+              <label style={labelStyle}>{t('resources.installedDate')}</label>
+              <input type="date" value={installedDate} onChange={e => setInstalledDate(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>{t('resources.installedOdometer')}</label>
+              <input type="number" inputMode="numeric" value={installedOdometer} onChange={e => setInstalledOdometer(e.target.value)} placeholder="0" style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+            <div>
+              <label style={labelStyle}>{t('resources.resourceMiles')}</label>
+              <input type="number" inputMode="numeric" value={resourceMiles} onChange={e => setResourceMiles(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>{t('resources.resourceMonths')}</label>
+              <input type="number" inputMode="numeric" value={resourceMonths} onChange={e => setResourceMonths(e.target.value)} style={inputStyle} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 10 }}>
+            <label style={labelStyle}>{t('resources.cost')}</label>
+            <input type="number" inputMode="decimal" value={cost} onChange={e => setCost(e.target.value)} style={inputStyle} />
+          </div>
+
+          <div style={{ marginBottom: 4 }}>
+            <label style={labelStyle}>{t('resources.notes')}</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, fontFamily: 'inherit' }} />
           </div>
         </div>
 
-        <div style={{ marginBottom: 10 }}>
-          <label style={labelStyle}>{t('resources.partName')}</label>
-          <input type="text" value={partName} onChange={e => setPartName(e.target.value)} style={inputStyle} />
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-          <div>
-            <label style={labelStyle}>{t('resources.installedDate')}</label>
-            <input type="date" value={installedDate} onChange={e => setInstalledDate(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>{t('resources.installedOdometer')}</label>
-            <input type="number" inputMode="numeric" value={installedOdometer} onChange={e => setInstalledOdometer(e.target.value)} style={inputStyle} />
-          </div>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-          <div>
-            <label style={labelStyle}>{t('resources.resourceMiles')}</label>
-            <input type="number" inputMode="numeric" value={resourceMiles} onChange={e => setResourceMiles(e.target.value)} style={inputStyle} />
-          </div>
-          <div>
-            <label style={labelStyle}>{t('resources.resourceMonths')}</label>
-            <input type="number" inputMode="numeric" value={resourceMonths} onChange={e => setResourceMonths(e.target.value)} style={inputStyle} />
-          </div>
-        </div>
-
-        <div style={{ marginBottom: 10 }}>
-          <label style={labelStyle}>{t('resources.cost')}</label>
-          <input type="number" inputMode="decimal" value={cost} onChange={e => setCost(e.target.value)} style={inputStyle} />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <label style={labelStyle}>{t('resources.notes')}</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, fontFamily: 'inherit' }} />
-        </div>
-
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={footerStyle}>
           <button
             onClick={onClose}
             style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}

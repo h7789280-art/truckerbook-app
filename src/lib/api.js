@@ -2345,36 +2345,53 @@ export async function deletePartResource(id) {
   if (error) throw error
 }
 
-// Find the latest known odometer for a vehicle from trips or fuel entries (last 90 days)
+// Find the latest known odometer for a vehicle from trips or fuel entries (last 90 days),
+// falling back to vehicles.odometer for the given vehicle if no recent movement is recorded.
 export async function fetchLatestOdometer(userId, vehicleId) {
   try {
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    const tripsQ = supabase
+    let tripsQ = supabase
       .from('trips')
       .select('odometer_end, date')
       .eq('user_id', userId)
       .gte('date', since)
       .order('date', { ascending: false })
       .limit(1)
-    if (vehicleId) tripsQ.eq('vehicle_id', vehicleId)
+    if (vehicleId) tripsQ = tripsQ.eq('vehicle_id', vehicleId)
     const { data: trips } = await tripsQ
     const tripOdo = trips && trips[0] && trips[0].odometer_end ? Number(trips[0].odometer_end) : null
 
-    const fuelQ = supabase
+    let fuelQ = supabase
       .from('fuel_entries')
       .select('odometer, date')
       .eq('user_id', userId)
       .gte('date', since)
       .order('date', { ascending: false })
       .limit(1)
-    if (vehicleId) fuelQ.eq('vehicle_id', vehicleId)
+    if (vehicleId) fuelQ = fuelQ.eq('vehicle_id', vehicleId)
     const { data: fuels } = await fuelQ
     const fuelOdo = fuels && fuels[0] && fuels[0].odometer ? Number(fuels[0].odometer) : null
 
     const candidates = [tripOdo, fuelOdo].filter(v => v && !isNaN(v))
-    if (candidates.length) return Math.max(...candidates)
-    return null
-  } catch {
+    let result = candidates.length ? Math.max(...candidates) : null
+
+    if (result == null && vehicleId) {
+      const { data: veh } = await supabase
+        .from('vehicles')
+        .select('odometer')
+        .eq('id', vehicleId)
+        .maybeSingle()
+      if (veh && veh.odometer != null && !isNaN(Number(veh.odometer))) {
+        result = Number(veh.odometer)
+      }
+    }
+
+    // eslint-disable-next-line no-console
+    console.log('[fetchLatestOdometer]', { userId, vehicleId, tripOdo, fuelOdo, result })
+    return result
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.warn('[fetchLatestOdometer] error:', err)
     return null
   }
 }

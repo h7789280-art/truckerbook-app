@@ -779,6 +779,10 @@ function AppInner() {
               </div>
             </div>
           )}
+        </>
+      )}
+      {userRole !== 'job_seeker' && userRole !== 'company' && (
+        <>
           <AddModal
             isOpen={isModalOpen}
             onClose={() => setIsModalOpen(false)}

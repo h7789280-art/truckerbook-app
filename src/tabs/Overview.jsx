@@ -125,6 +125,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [dashFuelCost, setDashFuelCost] = useState(0)
   const [dashTotalGallons, setDashTotalGallons] = useState(0)
   const [dashVehicleMainExp, setDashVehicleMainExp] = useState(0) // service + vehicle_expenses (non-fuel)
+  const [dashBusinessExp, setDashBusinessExp] = useState(0) // fuel + service + vehicle_expenses (owner_operator business side)
   const [dashDriverPay, setDashDriverPay] = useState(0)
   const [dashPersonalExp, setDashPersonalExp] = useState(0)
   const [dashChartData, setDashChartData] = useState([]) // [{label, fullLabel, income, expense}]
@@ -483,8 +484,11 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         setDashPersonalExp(bytCostAll)
       } else {
         setDashDriverPay(0)
-        setDashPersonalExp(0)
+        setDashPersonalExp(bytCostAll)
       }
+
+      // Business-only expense for owner_operator (vehicle costs, excluding personal/byt)
+      setDashBusinessExp(fuelCostAll + serviceCostAll + vehicleExpCost)
 
       // Fleet metrics
       const totalKm = rangeTrips.reduce((s, t) => s + (t.distance_km || 0), 0)
@@ -2382,37 +2386,84 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>{'\ud83d\ude9a'} {t('overview.vehicleStats')}</div>
                   )}
 
-                  {/* Summary cards: Income / Expense (driver: 2 cards) or Income / Expense / Net (owner_operator: 3 cards) */}
+                  {/* Summary cards: driver → 2 cards (Income/Expense). owner_operator → 5 cards in 2 rows (Business/Personal) */}
                   {(() => {
-                    const incLabel = role === 'driver' ? t('overview.vehicleIncome') : t('overview.income')
-                    const expLabel = role === 'driver' ? t('overview.vehicleExpense') : t('overview.expense')
-                    const netLabel = t('overview.netInHand')
                     const isDriverRole = role === 'driver'
+                    if (isDriverRole) {
+                      const incLabel = t('overview.vehicleIncome')
+                      const expLabel = t('overview.vehicleExpense')
+                      return (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                          <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{incLabel}</div>
+                            <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
+                              {formatNumber(Math.round(dashIncome))}
+                            </div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                          </div>
+                          <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{expLabel}</div>
+                            <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#ef4444', marginTop: '4px' }}>
+                              {formatNumber(Math.round(dashExpense))}
+                            </div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                          </div>
+                        </div>
+                      )
+                    }
+                    // owner_operator: 5-card two-row layout
+                    const businessProfitValue = dashIncome - dashBusinessExp
+                    const netInHandValue = businessProfitValue - dashPersonalExp
+                    const sectionHdrStyle = { fontSize: '12px', fontWeight: 700, letterSpacing: '0.4px', color: '#888', textTransform: 'uppercase', marginBottom: '6px' }
+                    const numStyle = { fontFamily: 'monospace', fontSize: 'clamp(14px, 4.2vw, 16px)', fontWeight: 700, marginTop: '4px', whiteSpace: 'nowrap' }
+                    const cellStyle = { ...cardStyle, textAlign: 'center', padding: '12px 8px', cursor: 'pointer', transition: 'opacity 0.15s' }
+                    const emphasisCellStyle = { ...cellStyle, border: '1px solid #f59e0b' }
+                    const press = {
+                      onPointerDown: (e) => { e.currentTarget.style.opacity = '0.7' },
+                      onPointerUp: (e) => { e.currentTarget.style.opacity = '1' },
+                      onPointerLeave: (e) => { e.currentTarget.style.opacity = '1' },
+                    }
+                    const goBusiness = () => onExtraNav?.('business_pnl_report', { period: dashPeriod, customFrom: dashCustomFrom, customTo: dashCustomTo })
+                    const goPersonal = () => onExtraNav?.('net_in_hand_report', { period: dashPeriod, customFrom: dashCustomFrom, customTo: dashCustomTo })
                     return (
-                      <div style={{ display: 'grid', gridTemplateColumns: isDriverRole ? '1fr 1fr' : '1fr 1fr 1fr', gap: '8px', marginBottom: '12px' }}>
-                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{incLabel}</div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#22c55e', marginTop: '4px' }}>
-                            {formatNumber(Math.round(dashIncome))}
+                      <div style={{ marginBottom: '12px' }}>
+                        {/* Row 1 — Business */}
+                        <div style={sectionHdrStyle}>{t('overview.sectionBusiness')}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                          <div onClick={goBusiness} {...press} style={cellStyle}>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.income')}</div>
+                            <div style={{ ...numStyle, color: '#22c55e' }}>{formatNumber(Math.round(dashIncome))}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                           </div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
-                        </div>
-                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{expLabel}</div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: '#ef4444', marginTop: '4px' }}>
-                            {formatNumber(Math.round(dashExpense))}
+                          <div onClick={goBusiness} {...press} style={cellStyle}>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.vehicleExpense')}</div>
+                            <div style={{ ...numStyle, color: '#ef4444' }}>{formatNumber(Math.round(dashBusinessExp))}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                           </div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
-                        </div>
-                        {!isDriverRole && (
-                        <div style={{ ...cardStyle, textAlign: 'center', padding: '12px 8px' }}>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{netLabel}</div>
-                          <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: 700, color: dashProfit >= 0 ? '#22c55e' : '#ef4444', marginTop: '4px' }}>
-                            {dashProfit >= 0 ? '+' : ''}{formatNumber(Math.round(dashProfit))}
+                          <div onClick={goBusiness} {...press} style={emphasisCellStyle}>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.businessProfit')}</div>
+                            <div style={{ ...numStyle, color: businessProfitValue >= 0 ? '#22c55e' : '#ef4444' }}>
+                              {businessProfitValue >= 0 ? '+' : ''}{formatNumber(Math.round(businessProfitValue))}
+                            </div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                           </div>
-                          <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
                         </div>
-                        )}
+                        {/* Row 2 — Personal */}
+                        <div style={sectionHdrStyle}>{t('overview.sectionPersonal')}</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                          <div onClick={goPersonal} {...press} style={cellStyle}>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.personalExpense')}</div>
+                            <div style={{ ...numStyle, color: '#ef4444' }}>{formatNumber(Math.round(dashPersonalExp))}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                          </div>
+                          <div onClick={goPersonal} {...press} style={cellStyle}>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.netInHand')}</div>
+                            <div style={{ ...numStyle, color: netInHandValue >= 0 ? '#22c55e' : '#ef4444' }}>
+                              {netInHandValue >= 0 ? '+' : ''}{formatNumber(Math.round(netInHandValue))}
+                            </div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{cs}</div>
+                          </div>
+                        </div>
                       </div>
                     )
                   })()}

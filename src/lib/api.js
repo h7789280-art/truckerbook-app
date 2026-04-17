@@ -2301,3 +2301,81 @@ export async function getFleetPositions(companyId) {
       }
     })
 }
+
+// ===== Part Resources (owner_operator planned maintenance) =====
+
+export async function fetchPartResources(userId, status = null) {
+  let query = supabase
+    .from('part_resources')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+  if (status) query = query.eq('status', status)
+  const { data, error } = await query
+  if (error) throw error
+  return data || []
+}
+
+export async function addPartResource(row) {
+  const { data, error } = await supabase
+    .from('part_resources')
+    .insert([row])
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function updatePartResource(id, patch) {
+  const { data, error } = await supabase
+    .from('part_resources')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw error
+  return data
+}
+
+export async function deletePartResource(id) {
+  const { error } = await supabase
+    .from('part_resources')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
+// Find the latest known odometer for a vehicle from trips or fuel entries (last 90 days)
+export async function fetchLatestOdometer(userId, vehicleId) {
+  try {
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const tripsQ = supabase
+      .from('trips')
+      .select('odometer_end, date')
+      .eq('user_id', userId)
+      .gte('date', since)
+      .order('date', { ascending: false })
+      .limit(1)
+    if (vehicleId) tripsQ.eq('vehicle_id', vehicleId)
+    const { data: trips } = await tripsQ
+    const tripOdo = trips && trips[0] && trips[0].odometer_end ? Number(trips[0].odometer_end) : null
+
+    const fuelQ = supabase
+      .from('fuel_entries')
+      .select('odometer, date')
+      .eq('user_id', userId)
+      .gte('date', since)
+      .order('date', { ascending: false })
+      .limit(1)
+    if (vehicleId) fuelQ.eq('vehicle_id', vehicleId)
+    const { data: fuels } = await fuelQ
+    const fuelOdo = fuels && fuels[0] && fuels[0].odometer ? Number(fuels[0].odometer) : null
+
+    const candidates = [tripOdo, fuelOdo].filter(v => v && !isNaN(v))
+    if (candidates.length) return Math.max(...candidates)
+    return null
+  } catch {
+    return null
+  }
+}
+

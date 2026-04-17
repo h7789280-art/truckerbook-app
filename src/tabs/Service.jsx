@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchVehicles, addServiceRecord, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchVehicles, addServiceRecord, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument, fetchPartResources, addPartResource, updatePartResource, deletePartResource, fetchLatestOdometer } from '../lib/api'
+import { PART_PRESETS, getPresetByCategory } from '../lib/partResourcePresets'
+import { calculatePartWear } from '../lib/partResourceCalc'
 import DVIRInspection from '../components/DVIRInspection'
 import TrailerInspectionContent from '../components/TrailerInspection'
 import IncidentsContent from '../components/IncidentsSection'
@@ -22,6 +24,9 @@ function getSubTabs(t, userRole) {
     { key: 'service', label: '\uD83D\uDD27 ' + t('service.service') },
     { key: 'tires', label: '\uD83D\uDEDE ' + t('service.tires') },
   ]
+  if (userRole === 'owner_operator') {
+    tabs.push({ key: 'resources', label: '\u2699\uFE0F ' + t('serviceTab.resources') })
+  }
   if (userRole !== 'company') {
     tabs.push({ key: 'checklist', label: '\u2705 ' + t('service.checklist') })
   }
@@ -267,6 +272,9 @@ export default function Service({ userId, activeVehicleId, userRole, profile }) 
       )}
       {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} userRole={userRole} vehicles={vehicles} profile={profile} />}
       {activeTab === 'dvir' && <DVIRInspection userId={userId} vehicleId={activeVehicleId} />}
+      {activeTab === 'resources' && userRole === 'owner_operator' && (
+        <ResourcesTab userId={userId} vehicleId={activeVehicleId} profileOdometer={odometer} />
+      )}
     </div>
   )
 }
@@ -3254,6 +3262,513 @@ function VehiclePhotoModal({ userId, vehicleId, onClose, onSaved }) {
         >
           {saving ? t('common.saving') : t('common.save')}
         </button>
+      </div>
+    </div>
+  )
+}
+
+/* ===== RESOURCES TAB (owner_operator only) ===== */
+function ResourcesTab({ userId, vehicleId, profileOdometer }) {
+  const { t } = useLanguage()
+  const cs = getCurrencySymbol()
+  const [parts, setParts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [currentOdometer, setCurrentOdometer] = useState(null)
+  const [showAddModal, setShowAddModal] = useState(false)
+  const [addPreset, setAddPreset] = useState(null)
+  const [editPart, setEditPart] = useState(null)
+  const [detailPart, setDetailPart] = useState(null)
+  const [showHistory, setShowHistory] = useState(false)
+
+  const loadData = useCallback(async () => {
+    if (!userId) return
+    try {
+      setLoading(true)
+      const rows = await fetchPartResources(userId).catch(() => [])
+      setParts(rows)
+      const latest = await fetchLatestOdometer(userId, vehicleId)
+      setCurrentOdometer(latest != null ? latest : (profileOdometer || null))
+    } catch (err) {
+      console.error('ResourcesTab loadData error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [userId, vehicleId, profileOdometer])
+
+  useEffect(() => { loadData() }, [loadData])
+
+  const odo = currentOdometer || 0
+
+  const active = parts.filter(p => p.status === 'active')
+  const removed = parts.filter(p => p.status === 'removed')
+
+  const withWear = active.map(p => ({ ...p, _wear: calculatePartWear(p, odo) }))
+  withWear.sort((a, b) => b._wear.percent - a._wear.percent)
+
+  const needsReplacement = withWear.filter(p => p._wear.percent >= 100).length
+  const soonReplacement = withWear.filter(p => p._wear.percent >= 75 && p._wear.percent < 100).length
+
+  if (loading) {
+    return (
+      <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
+        {t('common.loading')}
+      </div>
+    )
+  }
+
+  const counterCard = (label, value, color) => (
+    <div style={{ ...cardStyle, flex: 1, padding: '14px 10px', textAlign: 'center' }}>
+      <div style={{ fontSize: 22, fontWeight: 800, color, fontFamily: 'monospace', lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 6, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+    </div>
+  )
+
+  return (
+    <div>
+      {/* 3 counter cards */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+        {counterCard(t('resources.active'), active.length, 'var(--text)')}
+        {counterCard(t('resources.needsReplacement'), needsReplacement, '#ef4444')}
+        {counterCard(t('resources.soonReplacement'), soonReplacement, '#f59e0b')}
+      </div>
+
+      {/* Add button */}
+      <button
+        onClick={() => { setAddPreset(null); setShowAddModal(true) }}
+        style={{
+          width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000',
+          fontSize: '15px', fontWeight: 700, cursor: 'pointer', marginBottom: '16px',
+        }}
+      >
+        {'+ ' + t('resources.addPart')}
+      </button>
+
+      {/* Active parts */}
+      {withWear.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--dim)', fontSize: 14, marginBottom: '16px' }}>
+          {t('common.noData')}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+          {withWear.map(p => (
+            <PartCard key={p.id} part={p} wear={p._wear} onClick={() => setDetailPart(p)} t={t} />
+          ))}
+        </div>
+      )}
+
+      {/* History accordion */}
+      {removed.length > 0 && (
+        <div style={{ ...cardStyle, padding: 0, marginBottom: 16 }}>
+          <button
+            onClick={() => setShowHistory(v => !v)}
+            style={{
+              width: '100%', padding: '14px 16px', background: 'transparent', border: 'none',
+              color: 'var(--text)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }}
+          >
+            <span>{t('resources.history')} ({removed.length})</span>
+            <span style={{ color: 'var(--dim)' }}>{showHistory ? '\u25B2' : '\u25BC'}</span>
+          </button>
+          {showHistory && (
+            <div style={{ borderTop: '1px solid var(--border)' }}>
+              {removed.map(p => {
+                const preset = getPresetByCategory(p.category)
+                const milesUsed = (p.removed_odometer || 0) - (p.installed_odometer || 0)
+                const startDate = p.installed_date ? new Date(p.installed_date).toLocaleDateString() : ''
+                const endDate = p.removed_date ? new Date(p.removed_date).toLocaleDateString() : ''
+                return (
+                  <div key={p.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{ fontSize: 22 }}>{preset.icon}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                        {p.part_name || t(preset.name_key)}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>
+                        {startDate} {'\u2014'} {endDate} {'\u00B7'} {milesUsed.toLocaleString('en-US')} mi
+                      </div>
+                    </div>
+                    {p.cost != null && (
+                      <div style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'monospace' }}>
+                        {cs}{Math.round(p.cost).toLocaleString('en-US')}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Detail modal */}
+      {detailPart && (
+        <PartDetailModal
+          part={detailPart}
+          currentOdometer={odo}
+          onClose={() => setDetailPart(null)}
+          onEdit={() => { setEditPart(detailPart); setDetailPart(null) }}
+          onDelete={async () => {
+            if (!confirm(t('resources.confirmDelete'))) return
+            try {
+              await deletePartResource(detailPart.id)
+              setDetailPart(null)
+              await loadData()
+            } catch (e) { alert(e.message || String(e)) }
+          }}
+          onReplace={async () => {
+            if (!confirm(t('resources.confirmReplace'))) return
+            try {
+              await updatePartResource(detailPart.id, {
+                status: 'removed',
+                removed_date: new Date().toISOString().slice(0, 10),
+                removed_odometer: odo,
+              })
+              const preset = getPresetByCategory(detailPart.category)
+              setDetailPart(null)
+              setAddPreset({
+                category: detailPart.category,
+                name: detailPart.part_name || t(preset.name_key),
+                miles: detailPart.resource_miles,
+                months: detailPart.resource_months,
+              })
+              setShowAddModal(true)
+              await loadData()
+            } catch (e) { alert(e.message || String(e)) }
+          }}
+          t={t}
+        />
+      )}
+
+      {/* Add/Edit modal */}
+      {(showAddModal || editPart) && (
+        <PartFormModal
+          userId={userId}
+          vehicleId={vehicleId}
+          currentOdometer={odo}
+          preset={addPreset}
+          editing={editPart}
+          onClose={() => { setShowAddModal(false); setEditPart(null); setAddPreset(null) }}
+          onSaved={async () => {
+            setShowAddModal(false); setEditPart(null); setAddPreset(null)
+            await loadData()
+          }}
+          t={t}
+        />
+      )}
+    </div>
+  )
+}
+
+function PartCard({ part, wear, onClick, t }) {
+  const preset = getPresetByCategory(part.category)
+  const percent = Math.min(wear.percent, 100)
+  const color = wear.percent >= 90 ? '#ef4444' : (wear.percent >= 75 ? '#f59e0b' : '#22c55e')
+
+  let remainingLine = ''
+  if (wear.percent >= 100) {
+    if (wear.whichIsLimiting === 'miles' && wear.milesRemaining != null) {
+      remainingLine = interpolate(t('resources.overdue'), { n: Math.abs(Math.round(wear.milesRemaining)).toLocaleString('en-US') })
+    } else if (wear.whichIsLimiting === 'months' && wear.monthsRemaining != null) {
+      remainingLine = interpolate(t('resources.overdue'), { n: Math.abs(Math.round(wear.monthsRemaining)) })
+    } else {
+      remainingLine = interpolate(t('resources.overdue'), { n: 0 })
+    }
+  } else if (wear.whichIsLimiting === 'miles' && wear.milesRemaining != null) {
+    remainingLine = interpolate(t('resources.remainingMiles'), { n: Math.max(0, Math.round(wear.milesRemaining)).toLocaleString('en-US') })
+  } else if (wear.whichIsLimiting === 'months' && wear.monthsRemaining != null) {
+    remainingLine = interpolate(t('resources.remainingMonths'), { n: Math.max(0, Math.round(wear.monthsRemaining)) })
+  }
+
+  const installDate = part.installed_date ? new Date(part.installed_date).toLocaleDateString() : ''
+  const installOdo = part.installed_odometer != null ? part.installed_odometer.toLocaleString('en-US') : ''
+
+  return (
+    <div
+      onClick={onClick}
+      style={{ ...cardStyle, cursor: 'pointer', padding: '14px 16px' }}
+    >
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
+        <div style={{ fontSize: 28, flexShrink: 0 }}>{preset.icon}</div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {part.part_name || t(preset.name_key)}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 3 }}>
+            {installDate}{installOdo ? ' \u00B7 ' + installOdo + ' mi' : ''}
+          </div>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color, fontFamily: 'monospace', flexShrink: 0 }}>
+          {Math.round(wear.percent)}%
+        </div>
+      </div>
+      <div style={{ width: '100%', height: 8, background: 'var(--card2)', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ width: percent + '%', height: '100%', background: color, transition: 'width 300ms' }} />
+      </div>
+      {remainingLine && (
+        <div style={{ fontSize: 12, color: wear.percent >= 100 ? '#ef4444' : 'var(--dim)', marginTop: 8, fontWeight: wear.percent >= 100 ? 600 : 400 }}>
+          {wear.percent >= 100 ? '\u26A0\uFE0F ' : ''}{remainingLine}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PartDetailModal({ part, currentOdometer, onClose, onEdit, onDelete, onReplace, t }) {
+  const preset = getPresetByCategory(part.category)
+  const wear = calculatePartWear(part, currentOdometer)
+  const percent = Math.min(wear.percent, 100)
+  const color = wear.percent >= 90 ? '#ef4444' : (wear.percent >= 75 ? '#f59e0b' : '#22c55e')
+  const cs = getCurrencySymbol()
+
+  const overlay = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }
+  const sheet = { background: 'var(--bg)', width: '100%', maxWidth: 480, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, maxHeight: '90vh', overflowY: 'auto' }
+
+  const row = (label, value) => value ? (
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border)' }}>
+      <span style={{ fontSize: 13, color: 'var(--dim)' }}>{label}</span>
+      <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{value}</span>
+    </div>
+  ) : null
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={sheet} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <div style={{ fontSize: 32 }}>{preset.icon}</div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)' }}>
+              {part.part_name || t(preset.name_key)}
+            </div>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 24, cursor: 'pointer' }}>{'\u00D7'}</button>
+        </div>
+
+        {/* Wear bar */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ fontSize: 12, color: 'var(--dim)' }}>{t('resources.wear')}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color, fontFamily: 'monospace' }}>{Math.round(wear.percent)}%</span>
+          </div>
+          <div style={{ width: '100%', height: 10, background: 'var(--card2)', borderRadius: 5, overflow: 'hidden' }}>
+            <div style={{ width: percent + '%', height: '100%', background: color }} />
+          </div>
+        </div>
+
+        {row(t('resources.installedDate'), part.installed_date ? new Date(part.installed_date).toLocaleDateString() : null)}
+        {row(t('resources.installedOdometer'), part.installed_odometer != null ? part.installed_odometer.toLocaleString('en-US') + ' mi' : null)}
+        {row(t('resources.resourceMiles'), part.resource_miles ? part.resource_miles.toLocaleString('en-US') : null)}
+        {row(t('resources.resourceMonths'), part.resource_months || null)}
+        {row(t('resources.cost'), part.cost != null ? cs + Math.round(part.cost).toLocaleString('en-US') : null)}
+        {row(t('resources.notes'), part.notes || null)}
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 20 }}>
+          <button
+            onClick={onReplace}
+            style={{ padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+          >
+            {'\uD83D\uDD04 ' + t('resources.replace')}
+          </button>
+          <button
+            onClick={onEdit}
+            style={{ padding: '12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          >
+            {'\u270F\uFE0F ' + t('common.edit')}
+          </button>
+          <button
+            onClick={onDelete}
+            style={{ padding: '12px', borderRadius: 10, border: '1px solid #ef444433', background: 'transparent', color: '#ef4444', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          >
+            {'\uD83D\uDDD1\uFE0F ' + t('common.delete')}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, onClose, onSaved, t }) {
+  const isEdit = !!editing
+  const initialCategory = editing?.category || preset?.category || ''
+  const [category, setCategory] = useState(initialCategory)
+
+  const getDefaultName = (cat) => {
+    if (!cat) return ''
+    const p = getPresetByCategory(cat)
+    return t(p.name_key)
+  }
+
+  const [partName, setPartName] = useState(() => {
+    if (editing) return editing.part_name || getDefaultName(editing.category)
+    if (preset?.name) return preset.name
+    if (preset?.category) return getDefaultName(preset.category)
+    return ''
+  })
+  const [installedDate, setInstalledDate] = useState(() => {
+    if (editing?.installed_date) return editing.installed_date
+    return new Date().toISOString().slice(0, 10)
+  })
+  const [installedOdometer, setInstalledOdometer] = useState(() => {
+    if (editing?.installed_odometer != null) return String(editing.installed_odometer)
+    return currentOdometer ? String(currentOdometer) : ''
+  })
+  const [resourceMiles, setResourceMiles] = useState(() => {
+    if (editing?.resource_miles != null) return String(editing.resource_miles)
+    if (preset?.miles != null) return String(preset.miles)
+    const p = initialCategory ? getPresetByCategory(initialCategory) : null
+    return p?.miles != null ? String(p.miles) : ''
+  })
+  const [resourceMonths, setResourceMonths] = useState(() => {
+    if (editing?.resource_months != null) return String(editing.resource_months)
+    if (preset?.months != null) return String(preset.months)
+    const p = initialCategory ? getPresetByCategory(initialCategory) : null
+    return p?.months != null ? String(p.months) : ''
+  })
+  const [cost, setCost] = useState(editing?.cost != null ? String(editing.cost) : '')
+  const [notes, setNotes] = useState(editing?.notes || '')
+  const [saving, setSaving] = useState(false)
+
+  const pickCategory = (cat) => {
+    setCategory(cat)
+    const p = getPresetByCategory(cat)
+    const presetNames = PART_PRESETS.map(pp => t(pp.name_key))
+    if (!partName || presetNames.includes(partName)) {
+      setPartName(t(p.name_key))
+    }
+    setResourceMiles(p.miles != null ? String(p.miles) : '')
+    setResourceMonths(p.months != null ? String(p.months) : '')
+  }
+
+  const handleSave = async () => {
+    if (!category) return
+    if (!installedDate) return
+    const odoNum = parseInt(installedOdometer, 10)
+    if (!Number.isFinite(odoNum) || odoNum < 0) return
+    const milesNum = resourceMiles === '' ? null : parseInt(resourceMiles, 10)
+    const monthsNum = resourceMonths === '' ? null : parseInt(resourceMonths, 10)
+    const costNum = cost === '' ? null : parseFloat(cost)
+    setSaving(true)
+    try {
+      const payload = {
+        category,
+        part_name: partName || t(getPresetByCategory(category).name_key),
+        installed_date: installedDate,
+        installed_odometer: odoNum,
+        resource_miles: (milesNum != null && Number.isFinite(milesNum)) ? milesNum : null,
+        resource_months: (monthsNum != null && Number.isFinite(monthsNum)) ? monthsNum : null,
+        cost: (costNum != null && Number.isFinite(costNum)) ? costNum : null,
+        notes: notes || null,
+      }
+      if (isEdit) {
+        await updatePartResource(editing.id, payload)
+      } else {
+        await addPartResource({
+          ...payload,
+          user_id: userId,
+          vehicle_id: vehicleId || null,
+          status: 'active',
+        })
+      }
+      onSaved()
+    } catch (e) {
+      alert(e.message || String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const overlay = { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }
+  const sheet = { background: 'var(--bg)', width: '100%', maxWidth: 480, borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 20, maxHeight: '90vh', overflowY: 'auto' }
+  const inputStyle = { width: '100%', padding: '10px 12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: 14, boxSizing: 'border-box' }
+  const labelStyle = { fontSize: 12, color: 'var(--dim)', marginBottom: 4, display: 'block', fontWeight: 600 }
+
+  return (
+    <div style={overlay} onClick={onClose}>
+      <div style={sheet} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)' }}>
+            {isEdit ? t('resources.editPart') : t('resources.addPart')}
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--dim)', fontSize: 24, cursor: 'pointer' }}>{'\u00D7'}</button>
+        </div>
+
+        {/* Category grid */}
+        <div style={{ marginBottom: 14 }}>
+          <div style={labelStyle}>{t('resources.category')}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 6 }}>
+            {PART_PRESETS.map(p => (
+              <button
+                key={p.category}
+                type="button"
+                onClick={() => pickCategory(p.category)}
+                style={{
+                  padding: '8px 4px', borderRadius: 10,
+                  border: category === p.category ? '2px solid #f59e0b' : '1px solid var(--border)',
+                  background: category === p.category ? 'var(--card2)' : 'var(--card)',
+                  color: 'var(--text)', fontSize: 10, fontWeight: 600, cursor: 'pointer',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                }}
+              >
+                <div style={{ fontSize: 20 }}>{p.icon}</div>
+                <div style={{ lineHeight: 1.1, textAlign: 'center' }}>{t(p.name_key)}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>{t('resources.partName')}</label>
+          <input type="text" value={partName} onChange={e => setPartName(e.target.value)} style={inputStyle} />
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <div>
+            <label style={labelStyle}>{t('resources.installedDate')}</label>
+            <input type="date" value={installedDate} onChange={e => setInstalledDate(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>{t('resources.installedOdometer')}</label>
+            <input type="number" inputMode="numeric" value={installedOdometer} onChange={e => setInstalledOdometer(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+          <div>
+            <label style={labelStyle}>{t('resources.resourceMiles')}</label>
+            <input type="number" inputMode="numeric" value={resourceMiles} onChange={e => setResourceMiles(e.target.value)} style={inputStyle} />
+          </div>
+          <div>
+            <label style={labelStyle}>{t('resources.resourceMonths')}</label>
+            <input type="number" inputMode="numeric" value={resourceMonths} onChange={e => setResourceMonths(e.target.value)} style={inputStyle} />
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={labelStyle}>{t('resources.cost')}</label>
+          <input type="number" inputMode="decimal" value={cost} onChange={e => setCost(e.target.value)} style={inputStyle} />
+        </div>
+
+        <div style={{ marginBottom: 16 }}>
+          <label style={labelStyle}>{t('resources.notes')}</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} style={{ ...inputStyle, fontFamily: 'inherit' }} />
+        </div>
+
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, padding: '12px', borderRadius: 10, border: '1px solid var(--border)', background: 'var(--card)', color: 'var(--text)', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+          >
+            {t('common.cancel')}
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || !category || !installedDate}
+            style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000', fontSize: 14, fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}
+          >
+            {saving ? t('common.saving') : t('common.save')}
+          </button>
+        </div>
       </div>
     </div>
   )

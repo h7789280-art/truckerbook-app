@@ -33,7 +33,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
 
   // Determine view mode
   const isCompanyRole = profile?.role === 'company'
-  const isHiredDriver = !isCompanyRole && profile?.role === 'driver' && (profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent')
+  const isDriverRole = profile?.role === 'driver'
+  const isHiredDriver = !isCompanyRole && isDriverRole && (profile?.pay_type === 'per_mile' || profile?.pay_type === 'percent')
   // else: owner-operator (default)
 
   // Salary settings from localStorage (same as Overview)
@@ -187,7 +188,8 @@ export default function FinanceDetails({ userId, profile, onBack }) {
           if (isCompanyRole) addToGroup(tr.created_at, 'driverPay', tr.driver_pay || 0)
         })
         rangeFuels.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
-        if (!isCompanyRole) {
+        if (!isCompanyRole && !isDriverRole) {
+          // Personal byt is part of P&L only for owner-operator. Company & driver see vehicle P&L without personal.
           rangeByt.forEach(e => addToGroup(e.date, 'expense', e.amount || 0))
         }
         rangeService.forEach(e => addToGroup(e.date, 'expense', e.cost || 0))
@@ -335,7 +337,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         const serviceCost = rangeService.reduce((s, e) => s + (e.cost || 0), 0)
         const vehicleExpCost = rangeVehicleExp.reduce((s, e) => s + (e.amount || 0), 0)
         const bytByCategory = {}
-        if (!isCompanyRole) {
+        if (!isCompanyRole && !isDriverRole) {
           rangeByt.forEach(e => {
             const cat = e.category || 'other'
             bytByCategory[cat] = (bytByCategory[cat] || 0) + (e.amount || 0)
@@ -358,7 +360,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
     } finally {
       setLoading(false)
     }
-  }, [userId, getDateRange, t, isHiredDriver, isCompanyRole, salaryMode, salaryRate, selectedVehicleId])
+  }, [userId, getDateRange, t, isHiredDriver, isCompanyRole, isDriverRole, salaryMode, salaryRate, selectedVehicleId])
 
   useEffect(() => { loadData() }, [loadData])
 
@@ -461,7 +463,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
   // Mode-specific labels
   const incomeLabel = isHiredDriver ? t('pay.earnedMonth') : t('overview.income')
   const expenseLabel = isHiredDriver ? t('byt.personalExpenses') : t('overview.expense')
-  const profitLabel = isHiredDriver ? t('pay.netClean') : isCompanyRole ? t('overview.grossProfit') : t('overview.netInHand')
+  const profitLabel = isHiredDriver ? t('pay.netClean') : isCompanyRole ? t('overview.grossProfit') : isDriverRole ? t('reports.vehicleResult') : t('overview.netInHand')
   const headerTitle = isHiredDriver ? t('pay.myEarnings') : t('overview.analytics')
 
   // Donut chart

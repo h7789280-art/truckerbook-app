@@ -1015,8 +1015,8 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         )}
       </div>
 
-      {/* Extra vehicles from vehicles table */}
-      {vehicles.length > 0 && (
+      {/* Extra vehicles from vehicles table — only for owner_operator and company */}
+      {vehicles.length > 0 && (profile?.role === 'owner_operator' || profile?.role === 'company') && (
         <div style={{ marginBottom: '12px' }}>
           <div style={{
             fontSize: '13px',

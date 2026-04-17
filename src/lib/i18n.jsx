@@ -36,6 +36,10 @@ const translations = {
       language: '\u042f\u0437\u044b\u043a',
       month: '\u041c\u0435\u0441\u044f\u0446',
       period: '\u041f\u0435\u0440\u0438\u043e\u0434',
+      recordsCount: '\u0417\u0430\u043f\u0438\u0441\u0435\u0439',
+    },
+    categories: {
+      other: '\u041f\u0440\u043e\u0447\u0435\u0435',
     },
     auth: {
       phone: '\u0422\u0435\u043b\u0435\u0444\u043e\u043d',
@@ -1612,6 +1616,10 @@ const translations = {
       language: 'Language',
       month: 'Month',
       period: 'Period',
+      recordsCount: 'Entries',
+    },
+    categories: {
+      other: 'Other',
     },
     auth: {
       phone: 'Phone',
@@ -3188,6 +3196,10 @@ const translations = {
       language: '\u041c\u043e\u0432\u0430',
       month: '\u041c\u0456\u0441\u044f\u0446\u044c',
       period: '\u041f\u0435\u0440\u0456\u043e\u0434',
+      recordsCount: '\u0417\u0430\u043f\u0438\u0441\u0456\u0432',
+    },
+    categories: {
+      other: '\u0406\u043d\u0448\u0435',
     },
     auth: {
       phone: '\u0422\u0435\u043b\u0435\u0444\u043e\u043d',
@@ -4763,6 +4775,10 @@ const translations = {
       language: 'Idioma',
       month: 'Mes',
       period: 'Per\u00edodo',
+      recordsCount: 'Registros',
+    },
+    categories: {
+      other: 'Otro',
     },
     auth: {
       phone: 'Tel\u00e9fono',
@@ -6305,6 +6321,10 @@ const translations = {
       language: 'Sprache',
       month: 'Monat',
       period: 'Zeitraum',
+      recordsCount: 'Eintr\u00e4ge',
+    },
+    categories: {
+      other: 'Sonstiges',
     },
     auth: {
       phone: 'Telefon',
@@ -7847,6 +7867,10 @@ const translations = {
       language: 'Langue',
       month: 'Mois',
       period: 'P\u00e9riode',
+      recordsCount: 'Entr\u00e9es',
+    },
+    categories: {
+      other: 'Autre',
     },
     auth: {
       phone: 'T\u00e9l\u00e9phone',
@@ -9389,6 +9413,10 @@ const translations = {
       language: 'Dil',
       month: 'Ay',
       period: 'D\u00f6nem',
+      recordsCount: 'Kay\u0131tlar',
+    },
+    categories: {
+      other: 'Di\u011fer',
     },
     auth: {
       phone: 'Telefon',
@@ -10931,6 +10959,10 @@ const translations = {
       language: 'J\u0119zyk',
       month: 'Miesi\u0105c',
       period: 'Okres',
+      recordsCount: 'Wpis\u00f3w',
+    },
+    categories: {
+      other: 'Inne',
     },
     auth: {
       phone: 'Telefon',

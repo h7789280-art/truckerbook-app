@@ -808,7 +808,7 @@ export function VehicleExpensesDetails({ userId, onBack, initialPeriod, initialC
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
             <SummaryCard label={t('overview.total')} value={fmt(total)} color="#ef4444" cs={cs} theme={theme} />
-            <SummaryCard label={t('excel.totalTrips') || 'Entries'} value={String(entries.length)} color="#f59e0b" cs="" theme={theme} />
+            <SummaryCard label={t('common.recordsCount') || 'Entries'} value={String(entries.length)} color="#f59e0b" cs="" theme={theme} />
           </div>
           <Donut segments={segments} theme={theme} t={t} cs={cs} title={t('details.categoriesChartTitle')} />
           <div style={{
@@ -902,7 +902,7 @@ export function PersonalExpensesDetails({ userId, onBack, initialPeriod, initial
         <>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
             <SummaryCard label={t('overview.total')} value={fmt(total)} color="#ef4444" cs={cs} theme={theme} />
-            <SummaryCard label={t('excel.totalTrips') || 'Entries'} value={String(bytExps.length)} color="#f59e0b" cs="" theme={theme} />
+            <SummaryCard label={t('common.recordsCount') || 'Entries'} value={String(bytExps.length)} color="#f59e0b" cs="" theme={theme} />
           </div>
           <Donut segments={segments} theme={theme} t={t} cs={cs} title={t('details.categoriesChartTitle')} />
           <LineChart
@@ -965,7 +965,7 @@ function categoryLabelForVexp(key, t) {
     case 'hotel': return t('overview.housingShort') || 'Motel'
     case 'toll': return t('excel.toll') || 'Toll'
     case 'platon': return 'Platon'
-    default: return key || (t('overview.otherShort') || 'Other')
+    default: return t('categories.other') || t('overview.otherShort') || 'Other'
   }
 }
 
@@ -990,7 +990,7 @@ function categoryLabelForByt(key, t) {
     case 'laundry': return t('byt.laundry') || 'Laundry'
     case 'hotel': return t('overview.housingShort') || 'Hotel'
     case 'personal': return t('overview.otherShort') || 'Personal'
-    default: return key || (t('overview.otherShort') || 'Other')
+    default: return t('categories.other') || t('overview.otherShort') || 'Other'
   }
 }
 

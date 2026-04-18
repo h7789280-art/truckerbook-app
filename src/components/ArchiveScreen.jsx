@@ -1,17 +1,17 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLanguage } from '../lib/i18n'
 import { setNavHighlight } from '../lib/navHighlight'
 
-function pluralizeDocs(n, t, lang) {
+function pluralizeKey(n, t, lang, keyBase) {
   try {
     const pr = new Intl.PluralRules(lang || 'en')
     const rule = pr.select(n)
-    const tryKey = 'archive.totalDocs_' + rule
+    const tryKey = keyBase + '_' + rule
     const val = t(tryKey)
     if (val && val !== tryKey) return val.replace('{n}', String(n))
   } catch {}
-  const fallback = t('archive.totalDocs_other') || t('archive.totalDocs') || 'total {n} documents'
+  const fallback = t(keyBase + '_other') || t(keyBase) || '{n}'
   return fallback.replace('{n}', String(n))
 }
 
@@ -106,6 +106,90 @@ function getLocaleFromLang(lang) {
   return map[lang] || 'en-US'
 }
 
+// -----------------------------------------------------------------------
+// Period filter helpers
+// -----------------------------------------------------------------------
+function todayIso() {
+  const d = new Date()
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+function periodRange(period, custom) {
+  // Returns { from: 'YYYY-MM-DD' | null, to: 'YYYY-MM-DD' | null }
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  if (period === 'month') {
+    const from = `${y}-${String(m + 1).padStart(2, '0')}-01`
+    const lastDay = new Date(y, m + 1, 0).getDate()
+    const to = `${y}-${String(m + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    return { from, to }
+  }
+  if (period === 'quarter') {
+    const q = Math.floor(m / 3)
+    const startMonth = q * 3
+    const endMonth = startMonth + 2
+    const from = `${y}-${String(startMonth + 1).padStart(2, '0')}-01`
+    const lastDay = new Date(y, endMonth + 1, 0).getDate()
+    const to = `${y}-${String(endMonth + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+    return { from, to }
+  }
+  if (period === 'year') {
+    return { from: `${y}-01-01`, to: `${y}-12-31` }
+  }
+  if (period === 'custom') {
+    return { from: custom?.from || null, to: custom?.to || null }
+  }
+  return { from: null, to: null }
+}
+
+function docInPeriod(doc, period, custom) {
+  if (period === 'all') return true
+  const dateStr = doc.document_date || (doc.scanned_at ? doc.scanned_at.slice(0, 10) : null)
+  if (!dateStr) return false
+  const { from, to } = periodRange(period, custom)
+  if (from && dateStr < from) return false
+  if (to && dateStr > to) return false
+  return true
+}
+
+function periodSlug(period, custom) {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth()
+  if (period === 'month') return `${y}-${String(m + 1).padStart(2, '0')}`
+  if (period === 'quarter') {
+    const q = Math.floor(m / 3) + 1
+    return `${y}-Q${q}`
+  }
+  if (period === 'year') return String(y)
+  if (period === 'custom') {
+    const from = custom?.from || 'start'
+    const to = custom?.to || 'end'
+    return `${from}_to_${to}`
+  }
+  return 'all-time'
+}
+
+function formatRange(iso1, iso2, locale) {
+  const a = formatShortDate(iso1, locale)
+  const b = formatShortDate(iso2, locale)
+  return { from: a, to: b }
+}
+
+function periodPdfText(period, custom, locale, t) {
+  if (period === 'all') return t('archive.allTime') || 'All time'
+  const { from, to } = periodRange(period, custom)
+  const tpl = t('archive.pdfPeriodRange') || 'From {start} to {end}'
+  return tpl.replace('{start}', formatShortDate(from, locale)).replace('{end}', formatShortDate(to, locale))
+}
+
+// -----------------------------------------------------------------------
+// Main screen
+// -----------------------------------------------------------------------
 export default function ArchiveScreen({ userId, onBack, onNavigate }) {
   const { t, lang } = useLanguage()
   const locale = getLocaleFromLang(lang)
@@ -113,7 +197,28 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
+  const [period, setPeriod] = useState('all')
+  const [customRange, setCustomRange] = useState({ from: '', to: '' })
+  const [showCustomModal, setShowCustomModal] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState(null)
+  const [showExportSheet, setShowExportSheet] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState({ done: 0, total: 0 })
+  const [exportDone, setExportDone] = useState(false)
+  const abortRef = useRef(null)
+
+  // Profile (for PDF cover)
+  const [ownerName, setOwnerName] = useState('')
+  useEffect(() => {
+    if (!userId) return
+    supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', userId)
+      .single()
+      .then(({ data }) => { setOwnerName(data?.name || '') })
+      .catch(() => {})
+  }, [userId])
 
   const load = useCallback(async () => {
     if (!userId) return
@@ -140,8 +245,11 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
 
   const filteredDocs = useMemo(() => {
     const pred = FILTER_PREDS[filter] || FILTER_PREDS.all
-    return docs.filter(d => pred(d.doc_type))
-  }, [docs, filter])
+    return docs.filter(d => pred(d.doc_type) && docInPeriod(d, period, customRange))
+  }, [docs, filter, period, customRange])
+
+  const filteredTotal = useMemo(() => filteredDocs.reduce((acc, d) => acc + (Number(d.amount) || 0), 0), [filteredDocs])
+  const filteredCurrency = useMemo(() => filteredDocs.find(d => d.currency)?.currency || 'USD', [filteredDocs])
 
   // Group filtered docs by month
   const groups = useMemo(() => {
@@ -170,7 +278,142 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
     { key: 'other', label: '\uD83D\uDCC4 ' + (t('archive.chipOther') || 'Other') },
   ]
 
+  const PERIOD_CHIPS = [
+    { key: 'all', label: t('archive.chipPeriodAll') || 'All time' },
+    { key: 'month', label: t('archive.chipPeriodMonth') || 'Month' },
+    { key: 'quarter', label: t('archive.chipPeriodQuarter') || 'Quarter' },
+    { key: 'year', label: t('archive.chipPeriodYear') || 'Year' },
+    { key: 'custom', label: t('archive.chipPeriodCustom') || 'Period...' },
+  ]
+
+  const activeFilterLabel = CHIPS.find(c => c.key === filter)?.label || ''
+  const activeChipMeta = CHIPS.find(c => c.key === filter) || CHIPS[0]
+  const filterTypeText = filter === 'all'
+    ? (t('archive.pdfAllTypes') || 'All documents')
+    : (t('archive.pdfOnlyType') || 'Only {type}').replace('{type}', activeChipMeta.label)
+
+  const filterSlug = (filter === 'all' ? 'all' : filter) + '_' + periodSlug(period, customRange)
+
+  const downloadLabel = pluralizeKey(filteredDocs.length, t, lang, 'archive.downloadBtn')
+
+  const docTypeLabelsForExport = {
+    receipt_fuel: t('archive.typeFuel') || 'Fuel receipt',
+    receipt_def: t('archive.typeDef') || 'DEF receipt',
+    receipt_hotel: t('archive.typeHotel') || 'Hotel receipt',
+    receipt_food: t('archive.typeFood') || 'Food receipt',
+    receipt_other: t('archive.typeOtherReceipt') || 'Other receipt',
+    part_invoice: t('archive.typePartInvoice') || 'Part invoice',
+    trip_rateconf: t('archive.typeRateconf') || 'Rate confirmation',
+    trip_bol: t('archive.typeBol') || 'BOL',
+    other: t('archive.typeOther') || 'Other',
+  }
+
+  const handlePeriodClick = (k) => {
+    if (k === 'custom') {
+      setShowCustomModal(true)
+    } else {
+      setPeriod(k)
+    }
+  }
+
+  const applyCustomRange = (from, to) => {
+    setCustomRange({ from, to })
+    setPeriod('custom')
+    setShowCustomModal(false)
+  }
+
+  const beginExport = async (format) => {
+    setShowExportSheet(false)
+    if (filteredDocs.length === 0) return
+    if (filteredDocs.length > 50) {
+      const tpl = t('archive.largeExportConfirm') || 'The archive contains {n} documents, it may take up to a minute. Continue?'
+      const ok = confirm(tpl.replace('{n}', String(filteredDocs.length)))
+      if (!ok) return
+    }
+    const controller = new AbortController()
+    abortRef.current = controller
+    setExporting(true)
+    setExportProgress({ done: 0, total: filteredDocs.length })
+    setExportDone(false)
+    try {
+      const mod = await import('../utils/archiveExport')
+      const labels = {
+        csvDate: t('archive.csvDate') || 'Date',
+        csvType: t('archive.csvType') || 'Type',
+        csvVendor: t('archive.csvVendor') || 'Vendor',
+        csvNumber: t('archive.csvNumber') || 'Number',
+        csvAmount: t('archive.csvAmount') || 'Amount',
+        csvCurrency: t('archive.csvCurrency') || 'Currency',
+        csvRetention: t('archive.csvRetention') || 'Keep until',
+        csvFile: t('archive.csvFile') || 'File',
+        docTypeLabels: docTypeLabelsForExport,
+        pdfTitle: t('archive.pdfTitle') || 'Document archive',
+        pdfPeriod: t('archive.pdfPeriod') || 'Period',
+        pdfType: t('archive.pdfType') || 'Type',
+        pdfTotalDocs: t('archive.pdfTotalDocs') || 'Total documents',
+        pdfTotalSum: t('archive.pdfTotalSum') || 'Total amount',
+        pdfOwner: t('archive.pdfOwner') || 'Owner',
+        pdfGeneratedAt: t('archive.pdfGeneratedAt') || 'Generated on',
+        pdfRegistry: t('archive.pdfRegistry') || 'Registry',
+        pdfDocNumber: t('archive.pdfDocNumber') || 'Document #{i}',
+        pdfRegistryTotal: t('archive.pdfRegistryTotal') || 'TOTAL: {n} documents for {total}',
+        pdfDisclaimer: t('archive.pdfDisclaimer') || 'Document generated automatically by TruckerBook. Keep this file for 3 years \u2014 IRS requirement for owner-operators.',
+        colNum: '#',
+        colDate: t('archive.date') || 'Date',
+        colType: t('archive.docType') || 'Type',
+        colVendor: t('archive.vendor') || 'Vendor',
+        colAmount: t('archive.amount') || 'Amount',
+        colNumber: t('archive.docNumber') || 'Number',
+      }
+      const meta = {
+        periodText: periodPdfText(period, customRange, locale, t),
+        typeText: filterTypeText,
+        ownerName: ownerName || '',
+      }
+      const onProgress = (done, total) => {
+        setExportProgress({ done, total })
+      }
+      const common = {
+        docs: filteredDocs,
+        filterSlug,
+        labels,
+        lang,
+        onProgress,
+        signal: controller.signal,
+      }
+      if (format === 'zip') {
+        await mod.exportArchiveZip(common)
+      } else {
+        await mod.exportArchivePdf({ ...common, meta })
+      }
+      setExportDone(true)
+      setTimeout(() => {
+        setExporting(false)
+        setExportDone(false)
+      }, 1800)
+    } catch (err) {
+      if (err?.name === 'AbortError') {
+        // user cancelled
+      } else {
+        console.error('[archive] export error:', err)
+        alert((t('common.error') || 'Error') + ': ' + (err?.message || ''))
+      }
+      setExporting(false)
+      setExportDone(false)
+    } finally {
+      abortRef.current = null
+    }
+  }
+
+  const cancelExport = () => {
+    if (abortRef.current) {
+      abortRef.current.abort()
+    }
+  }
+
   const totalCount = docs.length
+
+  const stickyBarVisible = filteredDocs.length > 0 && !selectedDoc && !loading
 
   return (
     <>
@@ -190,17 +433,22 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
           {'\uD83D\uDCC1 ' + (t('archive.title') || 'Document archive')}
         </div>
         <div style={{ fontSize: '13px', color: 'var(--dim)' }}>
-          {pluralizeDocs(totalCount, t, lang)}
+          {pluralizeKey(filteredDocs.length, t, lang, 'archive.totalDocs')}
+          {(filter !== 'all' || period !== 'all') && filteredDocs.length !== totalCount && (
+            <span style={{ color: 'var(--dim)', opacity: 0.7 }}>
+              {' / ' + totalCount}
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Filter chips */}
+      {/* Filter chips — type */}
       <div style={{
         display: 'flex',
         gap: '8px',
         overflowX: 'auto',
         paddingBottom: '8px',
-        marginBottom: '16px',
+        marginBottom: '8px',
         WebkitOverflowScrolling: 'touch',
         scrollbarWidth: 'none',
       }}>
@@ -229,6 +477,41 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
         })}
       </div>
 
+      {/* Filter chips — period */}
+      <div style={{
+        display: 'flex',
+        gap: '8px',
+        overflowX: 'auto',
+        paddingBottom: '8px',
+        marginBottom: '16px',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+      }}>
+        {PERIOD_CHIPS.map(chip => {
+          const active = period === chip.key
+          return (
+            <button
+              key={chip.key}
+              onClick={() => handlePeriodClick(chip.key)}
+              style={{
+                padding: '8px 14px',
+                borderRadius: '20px',
+                border: active ? 'none' : '1px solid var(--border)',
+                background: active ? '#3b82f6' : 'var(--card2)',
+                color: active ? '#fff' : 'var(--text)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {chip.label}
+            </button>
+          )
+        })}
+      </div>
+
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--dim)', fontSize: 14 }}>
           {t('common.loading') || 'Loading...'}
@@ -241,7 +524,12 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
           </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '20px',
+          paddingBottom: stickyBarVisible ? '80px' : '0',
+        }}>
           {groups.map(group => (
             <div key={group.key}>
               <div style={{
@@ -269,6 +557,62 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
         </div>
       )}
 
+      {/* Sticky download bar */}
+      {stickyBarVisible && (
+        <button
+          onClick={() => setShowExportSheet(true)}
+          style={{
+            position: 'fixed',
+            bottom: 'calc(72px + env(safe-area-inset-bottom, 0px) + 8px)',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            width: 'calc(100% - 32px)',
+            maxWidth: '448px',
+            padding: '14px 18px',
+            borderRadius: '14px',
+            border: 'none',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#fff',
+            fontSize: '15px',
+            fontWeight: 700,
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(245, 158, 11, 0.35)',
+            zIndex: 90,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
+        >
+          <span>{'\uD83D\uDCE5 ' + downloadLabel}</span>
+          <span style={{ opacity: 0.85 }}>{'\u00B7 ' + formatMoney(filteredTotal, filteredCurrency)}</span>
+        </button>
+      )}
+
+      {showCustomModal && (
+        <CustomPeriodModal
+          initialFrom={customRange.from || ''}
+          initialTo={customRange.to || todayIso()}
+          onApply={applyCustomRange}
+          onClose={() => setShowCustomModal(false)}
+        />
+      )}
+
+      {showExportSheet && (
+        <ExportBottomSheet
+          onClose={() => setShowExportSheet(false)}
+          onChoose={beginExport}
+        />
+      )}
+
+      {exporting && (
+        <ExportProgressOverlay
+          progress={exportProgress}
+          done={exportDone}
+          onCancel={cancelExport}
+        />
+      )}
+
       {selectedDoc && (
         <DocumentDetailModal
           doc={selectedDoc}
@@ -285,6 +629,329 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
   )
 }
 
+// -----------------------------------------------------------------------
+// Custom period modal
+// -----------------------------------------------------------------------
+function CustomPeriodModal({ initialFrom, initialTo, onApply, onClose }) {
+  const { t } = useLanguage()
+  const [from, setFrom] = useState(initialFrom || '')
+  const [to, setTo] = useState(initialTo || '')
+
+  const canApply = from && to && from <= to
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.7)',
+        zIndex: 1005,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '16px',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--card)',
+          borderRadius: '16px',
+          width: '100%',
+          maxWidth: '380px',
+          padding: '18px',
+        }}
+      >
+        <div style={{ fontSize: '16px', fontWeight: 700, color: 'var(--text)', marginBottom: '14px' }}>
+          {t('archive.customPeriodTitle') || 'Select period'}
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--dim)', fontWeight: 600 }}>
+              {t('archive.customPeriodFrom') || 'From'}
+            </span>
+            <input
+              type="date"
+              value={from}
+              onChange={e => setFrom(e.target.value)}
+              style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                background: 'var(--card2)',
+                color: 'var(--text)',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+              }}
+            />
+          </label>
+          <label style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <span style={{ fontSize: '12px', color: 'var(--dim)', fontWeight: 600 }}>
+              {t('archive.customPeriodTo') || 'To'}
+            </span>
+            <input
+              type="date"
+              value={to}
+              onChange={e => setTo(e.target.value)}
+              style={{
+                padding: '10px 12px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                background: 'var(--card2)',
+                color: 'var(--text)',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+              }}
+            />
+          </label>
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            onClick={onClose}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '10px',
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              color: 'var(--text)',
+              fontSize: '14px',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {t('common.cancel') || 'Cancel'}
+          </button>
+          <button
+            onClick={() => canApply && onApply(from, to)}
+            disabled={!canApply}
+            style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '10px',
+              border: 'none',
+              background: canApply ? '#f59e0b' : 'var(--border)',
+              color: '#fff',
+              fontSize: '14px',
+              fontWeight: 700,
+              cursor: canApply ? 'pointer' : 'not-allowed',
+              opacity: canApply ? 1 : 0.6,
+            }}
+          >
+            {t('archive.customPeriodApply') || 'Apply'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Export bottom sheet
+// -----------------------------------------------------------------------
+function ExportBottomSheet({ onClose, onChoose }) {
+  const { t } = useLanguage()
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.6)',
+        zIndex: 1005,
+        display: 'flex',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          background: 'var(--card)',
+          borderTopLeftRadius: '18px',
+          borderTopRightRadius: '18px',
+          width: '100%',
+          maxWidth: '480px',
+          padding: '18px 18px calc(18px + env(safe-area-inset-bottom, 0px))',
+          maxHeight: '80vh',
+          overflow: 'auto',
+        }}
+      >
+        <div style={{
+          width: '40px', height: '4px', background: 'var(--border)',
+          borderRadius: '2px', margin: '0 auto 14px',
+        }} />
+        <div style={{ fontSize: '17px', fontWeight: 700, color: 'var(--text)', marginBottom: '16px', textAlign: 'center' }}>
+          {t('archive.howDownload') || 'How to download?'}
+        </div>
+
+        <button
+          onClick={() => onChoose('zip')}
+          style={{
+            width: '100%',
+            padding: '14px 16px',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: 'var(--card2)',
+            color: 'var(--text)',
+            fontSize: '14px',
+            textAlign: 'left',
+            cursor: 'pointer',
+            marginBottom: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+          }}
+        >
+          <div style={{ fontSize: '15px', fontWeight: 700 }}>
+            {'\uD83D\uDCCA ' + (t('archive.formatZip') || 'Photo + table (ZIP)')}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+            {t('archive.formatZipDesc1') || 'Folder with JPEG + CSV'}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+            {t('archive.formatZipDesc2') || 'Convenient for Excel/Sheets'}
+          </div>
+        </button>
+
+        <button
+          onClick={() => onChoose('pdf')}
+          style={{
+            width: '100%',
+            padding: '14px 16px',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: 'var(--card2)',
+            color: 'var(--text)',
+            fontSize: '14px',
+            textAlign: 'left',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+          }}
+        >
+          <div style={{ fontSize: '15px', fontWeight: 700 }}>
+            {'\uD83D\uDCD5 ' + (t('archive.formatPdf') || 'PDF binder (1 file)')}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+            {t('archive.formatPdfDesc1') || 'Cover + registry + photos'}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+            {t('archive.formatPdfDesc2') || 'For accountant and IRS'}
+          </div>
+        </button>
+
+        <button
+          onClick={onClose}
+          style={{
+            width: '100%',
+            padding: '12px',
+            borderRadius: '10px',
+            border: 'none',
+            background: 'transparent',
+            color: 'var(--dim)',
+            fontSize: '14px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            marginTop: '14px',
+          }}
+        >
+          {t('common.cancel') || 'Cancel'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Export progress overlay
+// -----------------------------------------------------------------------
+function ExportProgressOverlay({ progress, done, onCancel }) {
+  const { t } = useLanguage()
+  const pct = progress.total > 0 ? Math.round((progress.done / progress.total) * 100) : 0
+  const progressText = (t('archive.progressPhotos') || '{x}/{y} photos')
+    .replace('{x}', String(progress.done))
+    .replace('{y}', String(progress.total))
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        inset: 0,
+        background: 'rgba(0,0,0,0.75)',
+        zIndex: 1100,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px',
+      }}
+    >
+      <div
+        style={{
+          background: 'var(--card)',
+          borderRadius: '16px',
+          width: '100%',
+          maxWidth: '340px',
+          padding: '24px 20px',
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ fontSize: '42px', marginBottom: '12px' }}>{done ? '\u2705' : '\uD83D\uDCE6'}</div>
+        <div style={{ fontSize: '15px', fontWeight: 700, color: 'var(--text)', marginBottom: '12px' }}>
+          {done
+            ? (t('archive.done') || 'Done, saved to Downloads')
+            : (t('archive.progressTitle') || 'Packaging archive...')}
+        </div>
+
+        {!done && (
+          <>
+            <div style={{
+              width: '100%',
+              height: '8px',
+              background: 'var(--card2)',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              marginBottom: '8px',
+            }}>
+              <div style={{
+                width: pct + '%',
+                height: '100%',
+                background: 'linear-gradient(90deg, #f59e0b, #d97706)',
+                transition: 'width 0.3s',
+              }} />
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--dim)', marginBottom: '16px' }}>
+              {progressText}
+            </div>
+            <button
+              onClick={onCancel}
+              style={{
+                padding: '10px 20px',
+                borderRadius: '10px',
+                border: '1px solid var(--border)',
+                background: 'transparent',
+                color: 'var(--text)',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {t('common.cancel') || 'Cancel'}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// -----------------------------------------------------------------------
+// Doc card (unchanged)
+// -----------------------------------------------------------------------
 function DocCard({ doc, onClick, locale }) {
   const icon = DOC_TYPE_ICON[doc.doc_type] || '\uD83D\uDCC4'
   const vendor = doc.vendor_name || ''

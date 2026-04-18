@@ -346,6 +346,7 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
         csvCurrency: t('archive.csvCurrency') || 'Currency',
         csvRetention: t('archive.csvRetention') || 'Keep until',
         csvFile: t('archive.csvFile') || 'File',
+        csvPhoto: t('archive.csvPhoto') || 'Photo',
         docTypeLabels: docTypeLabelsForExport,
         pdfTitle: t('archive.pdfTitle') || 'Document archive',
         pdfPeriod: t('archive.pdfPeriod') || 'Period',

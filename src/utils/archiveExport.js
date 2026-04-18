@@ -267,20 +267,34 @@ export async function exportArchiveZip({ docs, filterSlug, labels, lang, onProgr
 }
 
 // ---------------------------------------------------------------------------
-// Excel (XLSX) — single sheet matching index.csv columns
+// Excel (XLSX) — single sheet with embedded photos in the last column
 // ---------------------------------------------------------------------------
 //
-// Bold frozen header row, autoWidth columns. Photos are NOT embedded — this
-// format is for accountants/spreadsheets, the ZIP option already covers
-// "photos + table" use case.
+// Bold frozen header row, autoWidth columns. For every row whose document has
+// a photo we stream the image, shrink it to ~600px long edge JPEG, and embed
+// it anchored to the "Photo" column of that row. Rows with photos get 90pt
+// height; rows without a photo keep the default height. Photo downloads run
+// in parallel (max 10 concurrent); individual failures are logged and
+// skipped so one 404 doesn't break the whole export.
+async function mapWithConcurrency(items, limit, worker) {
+  const results = new Array(items.length)
+  let cursor = 0
+  const runners = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (cursor < items.length) {
+      const idx = cursor++
+      results[idx] = await worker(items[idx], idx)
+    }
+  })
+  await Promise.all(runners)
+  return results
+}
+
 export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onProgress, signal } = {}) {
   if (!docs || docs.length === 0) return null
   throwIfAborted(signal)
 
-  const XLSX = await import('xlsx')
+  const ExcelJS = (await import('exceljs')).default
   const locale = normalizeLocale(lang)
-  const total = docs.length
-  if (onProgress) onProgress(0, total)
 
   const headers = [
     labels.csvDate,
@@ -291,12 +305,10 @@ export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onPro
     labels.csvCurrency,
     labels.csvRetention,
     labels.csvFile,
+    labels.csvPhoto || 'Photo',
   ]
 
-  const rows = []
-  for (let i = 0; i < docs.length; i++) {
-    throwIfAborted(signal)
-    const d = docs[i]
+  const rows = docs.map((d) => {
     const datePart = formatDateForFile(d.document_date)
     const vendorPart = sanitizeSlug(d.vendor_name) || 'doc'
     const amountPart = d.amount != null && Number.isFinite(Number(d.amount))
@@ -306,7 +318,7 @@ export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onPro
     const fileName = d.photo_url
       ? [datePart, vendorPart, amountPart].filter(Boolean).join('_') + '.' + ext
       : ''
-    rows.push([
+    return [
       formatDateForDisplay(d.document_date, locale),
       labels.docTypeLabels[d.doc_type] || d.doc_type || '',
       d.vendor_name || '',
@@ -315,51 +327,73 @@ export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onPro
       d.currency || '',
       formatDateForDisplay(d.retention_until, locale),
       fileName,
-    ])
-    if (onProgress && (i % 25 === 0 || i === docs.length - 1)) {
-      onProgress(i + 1, total)
-    }
-  }
+      '',
+    ]
+  })
 
-  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+  const wb = new ExcelJS.Workbook()
+  const ws = wb.addWorksheet('Archive', {
+    views: [{ state: 'frozen', ySplit: 1 }],
+  })
 
-  // Bold header row (SheetJS community edition writes the `s` cell field; some
-  // viewers honor it, others ignore it. We still set it for parity with the
-  // user request — viewers that ignore it just render a normal header.)
-  for (let c = 0; c < headers.length; c++) {
-    const ref = XLSX.utils.encode_cell({ r: 0, c })
-    if (ws[ref]) {
-      ws[ref].s = { font: { bold: true } }
-    }
-  }
+  ws.addRow(headers)
+  const headerRow = ws.getRow(1)
+  headerRow.font = { bold: true }
 
-  // Autowidth: longest content in each column, capped 10..50
-  const colWidths = headers.map((h, c) => {
+  for (const row of rows) ws.addRow(row)
+
+  // Autowidth (capped 10..50). Photo column fixed at 18.
+  ws.columns = headers.map((h, c) => {
+    if (c === headers.length - 1) return { width: 18 }
     let max = String(h || '').length
     for (const row of rows) {
       const v = row[c]
       const len = v == null ? 0 : String(v).length
       if (len > max) max = len
     }
-    return { wch: Math.max(10, Math.min(max + 2, 50)) }
+    return { width: Math.max(10, Math.min(max + 2, 50)) }
   })
-  ws['!cols'] = colWidths
 
-  // Freeze first row
-  ws['!freeze'] = { xSplit: 0, ySplit: 1 }
-  ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
+  // Collect rows with photos and download them with bounded concurrency.
+  const photoTasks = []
+  docs.forEach((d, i) => {
+    if (d.photo_url) photoTasks.push({ url: d.photo_url, rowIdx: i, docId: d.id })
+  })
+  const totalPhotos = photoTasks.length
+  if (onProgress) onProgress(0, totalPhotos)
 
-  const wb = XLSX.utils.book_new()
-  XLSX.utils.book_append_sheet(wb, ws, 'Archive')
+  let loaded = 0
+  await mapWithConcurrency(photoTasks, 10, async (task) => {
+    throwIfAborted(signal)
+    try {
+      const blob = await fetchBlob(task.url, signal)
+      const { dataUrl } = await blobToSizedJpegDataUrl(blob, 600)
+      const imageId = wb.addImage({ base64: dataUrl, extension: 'jpeg' })
+      // Header is worksheet row 1. Data row N (0-based) sits at worksheet row
+      // N+2. exceljs tl.row is 0-based "line before row", so row N+2 starts
+      // at line N+1.
+      ws.addImage(imageId, {
+        tl: { col: 8, row: task.rowIdx + 1 },
+        ext: { width: 120, height: 120 },
+        editAs: 'oneCell',
+      })
+      ws.getRow(task.rowIdx + 2).height = 90
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err
+      console.warn('[archiveExport] xlsx photo skip', task.docId, err)
+    } finally {
+      loaded += 1
+      if (onProgress) onProgress(loaded, totalPhotos)
+    }
+  })
 
-  const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+  throwIfAborted(signal)
+  const arrayBuffer = await wb.xlsx.writeBuffer()
   const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   const blob = new Blob([arrayBuffer], { type: mime })
   const fname = 'archive_' + (filterSlug || 'export') + '.xlsx'
 
-  throwIfAborted(signal)
   const delivery = await shareOrDownload(blob, fname, mime)
-  if (onProgress) onProgress(total, total)
   return { fileName: fname, size: blob.size, ...delivery }
 }
 

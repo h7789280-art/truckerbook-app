@@ -627,6 +627,7 @@ const translations = {
       csvCurrency: '\u0412\u0430\u043b\u044e\u0442\u0430',
       csvRetention: '\u0425\u0440\u0430\u043d\u0438\u0442\u044c \u0434\u043e',
       csvFile: '\u0424\u0430\u0439\u043b',
+      csvPhoto: '\u0424\u043e\u0442\u043e',
     },
     dvir: {
       newInspection: '\u041d\u043e\u0432\u044b\u0439 \u043e\u0441\u043c\u043e\u0442\u0440',
@@ -2369,6 +2370,7 @@ const translations = {
       csvCurrency: 'Currency',
       csvRetention: 'Keep until',
       csvFile: 'File',
+      csvPhoto: 'Photo',
     },
     dvir: {
       newInspection: 'New inspection',
@@ -4115,6 +4117,7 @@ const translations = {
       csvCurrency: '\u0412\u0430\u043b\u044e\u0442\u0430',
       csvRetention: '\u0417\u0431\u0435\u0440\u0456\u0433\u0430\u0442\u0438 \u0434\u043e',
       csvFile: '\u0424\u0430\u0439\u043b',
+      csvPhoto: '\u0424\u043e\u0442\u043e',
     },
     dvir: {
       newInspection: '\u041d\u043e\u0432\u0438\u0439 \u043e\u0433\u043b\u044f\u0434',
@@ -5851,6 +5854,7 @@ const translations = {
       csvCurrency: 'Moneda',
       csvRetention: 'Guardar hasta',
       csvFile: 'Archivo',
+      csvPhoto: 'Foto',
     },
     dvir: {
       newInspection: 'Nueva inspecci\u00f3n',
@@ -7555,6 +7559,7 @@ const translations = {
       csvCurrency: 'W\u00e4hrung',
       csvRetention: 'Aufbewahren bis',
       csvFile: 'Datei',
+      csvPhoto: 'Foto',
     },
     dvir: {
       newInspection: 'Neue Inspektion',
@@ -9259,6 +9264,7 @@ const translations = {
       csvCurrency: 'Devise',
       csvRetention: 'Conserver jusqu\'au',
       csvFile: 'Fichier',
+      csvPhoto: 'Photo',
     },
     dvir: {
       newInspection: 'Nouvelle inspection',
@@ -10963,6 +10969,7 @@ const translations = {
       csvCurrency: 'Para birimi',
       csvRetention: 'Saklama tarihi',
       csvFile: 'Dosya',
+      csvPhoto: 'Foto\u011fraf',
     },
     dvir: {
       newInspection: 'Yeni muayene',
@@ -12671,6 +12678,7 @@ const translations = {
       csvCurrency: 'Waluta',
       csvRetention: 'Przechowywa\u0107 do',
       csvFile: 'Plik',
+      csvPhoto: 'Zdj\u0119cie',
     },
     dvir: {
       newInspection: 'Nowa inspekcja',

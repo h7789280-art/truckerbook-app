@@ -406,7 +406,8 @@ export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onPro
       // at line N+1.
       ws.addImage(imageId, {
         tl: { col: 8, row: task.rowIdx + 1 },
-        ext: { width: 120, height: 120 },
+        br: { col: 9, row: task.rowIdx + 2 },
+        editAs: 'oneCell',
       })
       ws.getRow(task.rowIdx + 2).height = 90
     } catch (err) {

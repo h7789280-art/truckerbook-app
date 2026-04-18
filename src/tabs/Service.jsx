@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { fetchServiceRecords, fetchInsurance, fetchVehicles, addServiceRecord, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument, fetchPartResources, addPartResource, updatePartResource, deletePartResource, fetchLatestOdometer } from '../lib/api'
+import { fetchServiceRecords, fetchInsurance, fetchVehicles, addServiceRecord, uploadVehiclePhoto, deleteVehiclePhoto, getTireRecords, getTireRecordsByVehicle, addTireRecord, updateTireRecord, deleteTireRecord, uploadDocument, getDocuments, deleteDocument, fetchPartResources, addPartResource, updatePartResource, deletePartResource, fetchLatestOdometer, uploadReceiptPhoto } from '../lib/api'
 import { PART_PRESETS, getPresetByCategory } from '../lib/partResourcePresets'
 import { calculatePartWear } from '../lib/partResourceCalc'
+import { scanPartInvoice } from '../lib/geminiPartInvoice'
 import DVIRInspection from '../components/DVIRInspection'
 import TrailerInspectionContent from '../components/TrailerInspection'
 import IncidentsContent from '../components/IncidentsSection'
@@ -3661,6 +3662,14 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   const [notes, setNotes] = useState(editing?.notes || '')
   const [saving, setSaving] = useState(false)
 
+  // Invoice scanning state
+  const [scanning, setScanning] = useState(false)
+  const [scanError, setScanError] = useState('')
+  const [invoiceFile, setInvoiceFile] = useState(null)
+  const [invoicePhotoUrl, setInvoicePhotoUrl] = useState(editing?.invoice_photo_url || null)
+  const cameraInputRef = useRef(null)
+  const galleryInputRef = useRef(null)
+
   const pickCategory = (cat) => {
     setCategory(cat)
     const p = getPresetByCategory(cat)
@@ -3670,6 +3679,50 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
     }
     setResourceMiles(p.miles != null ? String(p.miles) : '')
     setResourceMonths(p.months != null ? String(p.months) : '')
+  }
+
+  const handleScanInvoice = async (file) => {
+    if (!file) return
+    setScanning(true)
+    setScanError('')
+    try {
+      const result = await scanPartInvoice(file)
+      if (!result) {
+        setScanError(t('resources.scanError'))
+        // Keep the file so user can still attach it to the manual entry
+        setInvoiceFile(file)
+        return
+      }
+      if (result.part_category) {
+        pickCategory(result.part_category)
+      }
+      if (result.part_name) setPartName(result.part_name)
+      if (result.install_date) setInstalledDate(result.install_date)
+      if (result.odometer_miles != null) setInstalledOdometer(String(result.odometer_miles))
+      if (result.cost_total != null) setCost(String(result.cost_total))
+
+      const noteParts = []
+      if (result.shop_name) noteParts.push(result.shop_name)
+      if (result.invoice_number) noteParts.push('#' + result.invoice_number)
+      if (noteParts.length > 0) {
+        const scanNote = noteParts.join(', ')
+        setNotes(prev => prev && prev.trim() ? prev + '\n' + scanNote : scanNote)
+      }
+      setInvoiceFile(file)
+    } catch (err) {
+      console.error('scanPartInvoice failed:', err)
+      setScanError(t('resources.scanError'))
+      setInvoiceFile(file)
+    } finally {
+      setScanning(false)
+    }
+  }
+
+  const handleFileChange = (e) => {
+    const f = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!f) return
+    handleScanInvoice(f)
   }
 
   // Validation flags (recomputed on every render)
@@ -3698,15 +3751,30 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
     const costNum = cost === '' ? null : parseFloat(cost)
     setSaving(true)
     try {
+      // Upload a freshly-picked invoice photo to Storage (reuse 'receipts' bucket)
+      let photoUrl = invoicePhotoUrl
+      if (invoiceFile) {
+        try {
+          photoUrl = await uploadReceiptPhoto(userId, 'part_invoice', invoiceFile)
+        } catch (err) {
+          console.error('uploadReceiptPhoto (part invoice) failed:', err)
+          // Non-fatal: proceed without photo rather than blocking the save
+        }
+      }
+
+      const finalCost = (costNum != null && Number.isFinite(costNum)) ? costNum : null
+      const finalPartName = partName || t(getPresetByCategory(category).name_key)
+
       const payload = {
         category,
-        part_name: partName || t(getPresetByCategory(category).name_key),
+        part_name: finalPartName,
         installed_date: installedDate,
         installed_odometer: odoNum,
         resource_miles: (milesNum != null && Number.isFinite(milesNum)) ? milesNum : null,
         resource_months: (monthsNum != null && Number.isFinite(monthsNum)) ? monthsNum : null,
-        cost: (costNum != null && Number.isFinite(costNum)) ? costNum : null,
+        cost: finalCost,
         notes: notes || null,
+        invoice_photo_url: photoUrl || null,
       }
       if (isEdit) {
         await updatePartResource(editing.id, payload)
@@ -3717,6 +3785,24 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
           vehicle_id: vehicleId || null,
           status: 'active',
         })
+        // Mirror the cost into service_records so it shows up in P&L / expense reports.
+        // Only on new parts (not edits), only when cost > 0 — matches the "create expense
+        // entry" requirement. If this fails we don't block the part save.
+        if (finalCost != null && finalCost > 0) {
+          try {
+            await addServiceRecord({
+              vehicle_id: vehicleId || null,
+              category: 'parts',
+              name: finalPartName,
+              amount: finalCost,
+              odometer: odoNum,
+              date: installedDate,
+              receipt_url: photoUrl || null,
+            })
+          } catch (err) {
+            console.error('addServiceRecord from part failed:', err)
+          }
+        }
       }
       onSaved()
     } catch (e) {
@@ -3775,6 +3861,94 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
       </div>
 
       <div style={bodyStyle}>
+          {/* AI invoice scanner */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current?.click()}
+                disabled={scanning}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  borderRadius: 10,
+                  border: 'none',
+                  background: scanning ? 'var(--card2)' : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: scanning ? 'var(--dim)' : '#000',
+                  fontSize: 14,
+                  fontWeight: 700,
+                  cursor: scanning ? 'not-allowed' : 'pointer',
+                  opacity: scanning ? 0.7 : 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                }}
+              >
+                {scanning ? (
+                  <span>{t('resources.scanning')}</span>
+                ) : (
+                  <>
+                    <span style={{ fontSize: 18 }}>{'\uD83D\uDCF7'}</span>
+                    <span>{t('resources.scanInvoice')}</span>
+                  </>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current?.click()}
+                disabled={scanning}
+                title={t('resources.scanInvoice')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--card)',
+                  color: 'var(--text)',
+                  fontSize: 18,
+                  fontWeight: 600,
+                  cursor: scanning ? 'not-allowed' : 'pointer',
+                  opacity: scanning ? 0.5 : 1,
+                }}
+              >
+                {'\uD83D\uDDBC\uFE0F'}
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 6, textAlign: 'center' }}>
+              {t('resources.scanHint')}
+            </div>
+            {scanError && (
+              <div style={{ fontSize: 11, color: '#ef4444', marginTop: 6, fontWeight: 600, textAlign: 'center' }}>
+                {'\u26A0\uFE0F ' + scanError}
+              </div>
+            )}
+            {invoicePhotoUrl && !invoiceFile && (
+              <div style={{ fontSize: 11, color: 'var(--dim)', marginTop: 6, textAlign: 'center' }}>
+                {'\uD83D\uDCCE ' + (t('documents.photoAttached') || 'Invoice attached')}
+              </div>
+            )}
+            {invoiceFile && (
+              <div style={{ fontSize: 11, color: '#22c55e', marginTop: 6, fontWeight: 600, textAlign: 'center' }}>
+                {'\u2713 ' + invoiceFile.name}
+              </div>
+            )}
+          </div>
+
           {/* Category grid */}
           <div style={{ marginBottom: 14 }}>
             <div style={labelStyle}>{t('resources.category')}</div>

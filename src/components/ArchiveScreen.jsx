@@ -886,6 +886,17 @@ function ExportBottomSheet({ onClose, onChoose }) {
           </div>
         </button>
 
+        <div style={{
+          fontSize: '11px',
+          color: 'var(--dim)',
+          opacity: 0.7,
+          marginTop: '4px',
+          paddingLeft: '16px',
+          lineHeight: 1.4,
+        }}>
+          {t('archive.xlsxPhotoHint') || 'Photos visible when opened on a computer (Excel, Numbers, Google Sheets)'}
+        </div>
+
         <button
           onClick={onClose}
           style={{

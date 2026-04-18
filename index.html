@@ -20,6 +20,15 @@
         font-family: -apple-system, BlinkMacSystemFont, sans-serif;
         min-height: 100vh;
       }
+      @keyframes archive-nav-flash-kf {
+        0%   { box-shadow: 0 0 0 3px #f59e0b, 0 0 0 6px rgba(245,158,11,0.35); background-color: rgba(245,158,11,0.22); }
+        70%  { box-shadow: 0 0 0 3px #f59e0b88, 0 0 0 6px rgba(245,158,11,0.15); background-color: rgba(245,158,11,0.18); }
+        100% { box-shadow: 0 0 0 0 transparent, 0 0 0 0 transparent; background-color: transparent; }
+      }
+      .archive-nav-flash {
+        animation: archive-nav-flash-kf 2s ease-out;
+        border-radius: 12px;
+      }
     </style>
   </head>
   <body>

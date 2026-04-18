@@ -1,6 +1,19 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { supabase } from '../lib/supabase'
 import { useLanguage } from '../lib/i18n'
+import { setNavHighlight } from '../lib/navHighlight'
+
+function pluralizeDocs(n, t, lang) {
+  try {
+    const pr = new Intl.PluralRules(lang || 'en')
+    const rule = pr.select(n)
+    const tryKey = 'archive.totalDocs_' + rule
+    const val = t(tryKey)
+    if (val && val !== tryKey) return val.replace('{n}', String(n))
+  } catch {}
+  const fallback = t('archive.totalDocs_other') || t('archive.totalDocs') || 'total {n} documents'
+  return fallback.replace('{n}', String(n))
+}
 
 const cardStyle = {
   background: 'var(--card)',
@@ -177,7 +190,7 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
           {'\uD83D\uDCC1 ' + (t('archive.title') || 'Document archive')}
         </div>
         <div style={{ fontSize: '13px', color: 'var(--dim)' }}>
-          {(t('archive.totalDocs') || 'total {n} documents').replace('{n}', String(totalCount))}
+          {pluralizeDocs(totalCount, t, lang)}
         </div>
       </div>
 
@@ -395,7 +408,12 @@ function DocumentDetailModal({ doc, onClose, onDeleted, onNavigate, locale }) {
     if (!onNavigate || !doc.linked_table) return
     const target = LINK_TARGETS[doc.linked_table]
     if (!target) return
-    onNavigate(target.navTab, { highlightId: doc.linked_id })
+    setNavHighlight({
+      id: doc.linked_id,
+      date: doc.document_date || (doc.scanned_at ? doc.scanned_at.slice(0, 10) : null),
+      source: doc.linked_table,
+    })
+    onNavigate(target.navTab, { highlightId: doc.linked_id, highlightDate: doc.document_date })
     onClose?.()
   }
 
@@ -449,8 +467,37 @@ function DocumentDetailModal({ doc, onClose, onDeleted, onNavigate, locale }) {
             maxHeight: '92vh',
             overflow: 'auto',
             padding: '16px',
+            position: 'relative',
           }}
         >
+          {/* Close button (X) */}
+          <button
+            onClick={onClose}
+            aria-label={t('common.cancel') || 'Close'}
+            style={{
+              position: 'absolute',
+              top: '10px',
+              right: '10px',
+              width: '44px',
+              height: '44px',
+              borderRadius: '50%',
+              border: 'none',
+              background: 'rgba(0,0,0,0.6)',
+              color: '#fff',
+              fontSize: '22px',
+              fontWeight: 700,
+              lineHeight: 1,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 2,
+              boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+            }}
+          >
+            {'\u00D7'}
+          </button>
+
           {/* Photo */}
           {doc.photo_url && (
             <div

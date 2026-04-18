@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchBytExpenses, deleteBytExpense } from '../lib/api'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 import { exportToExcel, exportToPDF } from '../utils/export'
+import { consumeNavHighlight, flashHighlightElement, monthRangeForDate } from '../lib/navHighlight'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -71,8 +72,30 @@ export default function Byt({ userId, refreshKey }) {
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [expanded, setExpanded] = useState(false)
+  const [highlightedId, setHighlightedId] = useState(null)
   const exportRef = useRef(null)
   const filterRef = useRef(null)
+
+  useEffect(() => {
+    const h = consumeNavHighlight(['byt_expenses'])
+    if (!h || !h.id) return
+    const range = h.date ? monthRangeForDate(h.date) : null
+    if (range) {
+      setPeriod('custom')
+      setCustomFrom(range.from)
+      setCustomTo(range.to)
+    }
+    setFilter('all')
+    setExpanded(true)
+    setHighlightedId(h.id)
+  }, [])
+
+  useEffect(() => {
+    if (!highlightedId) return
+    flashHighlightElement(highlightedId)
+    const timer = setTimeout(() => setHighlightedId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [highlightedId])
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -555,9 +578,11 @@ export default function Byt({ userId, refreshKey }) {
           {displayList.map(entry => {
             const cat = getCat(entry.category)
             const isFree = entry.amount === 0
+            const isHighlighted = highlightedId && entry.id === highlightedId
             return (
               <div
                 key={entry.id}
+                data-highlight-id={entry.id}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -565,7 +590,7 @@ export default function Byt({ userId, refreshKey }) {
                   background: 'var(--card, #111827)',
                   borderRadius: '12px',
                   padding: '14px 16px',
-                  border: '1px solid var(--border, #1e2a3f)',
+                  border: isHighlighted ? '2px solid #f59e0b' : '1px solid var(--border, #1e2a3f)',
                 }}
               >
                 <span style={{

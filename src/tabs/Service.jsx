@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToExcel } from '../utils/export'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
+import { consumeNavHighlight, flashHighlightElement, monthRangeForDate } from '../lib/navHighlight'
 
 const ELD_COUNTRIES = ['US','CA','DE','FR','PL','GB','NL','BE','AT','CZ','SK','IT','ES','SE','DK','FI','NO','HU','RO','BG','HR','LT','LV','EE','SI','IE','PT','GR','LU']
 
@@ -454,6 +455,27 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
   const [customTo, setCustomTo] = useState('')
   const [showAddModal, setShowAddModal] = useState(false)
   const [showAllRecords, setShowAllRecords] = useState(false)
+  const [highlightedId, setHighlightedId] = useState(null)
+
+  useEffect(() => {
+    const h = consumeNavHighlight(['service_records'])
+    if (!h || !h.id) return
+    const range = h.date ? monthRangeForDate(h.date) : null
+    if (range) {
+      setPeriod('custom')
+      setCustomFrom(range.from)
+      setCustomTo(range.to)
+    }
+    setShowAllRecords(true)
+    setHighlightedId(h.id)
+  }, [])
+
+  useEffect(() => {
+    if (!highlightedId) return
+    flashHighlightElement(highlightedId)
+    const timer = setTimeout(() => setHighlightedId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [highlightedId])
 
   const isCompany = userRole === 'company'
   const isDriver = userRole === 'driver'
@@ -616,9 +638,11 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
           <div style={{ ...cardStyle, padding: 0, marginBottom: filteredRepairs.length > 3 ? '8px' : '16px' }}>
             {(showAllRecords ? filteredRepairs : filteredRepairs.slice(0, 3)).map((r, i) => {
               const cat = catMap[r.category] || catMap.repair
+              const isHighlighted = highlightedId && r.id === highlightedId
               return (
                 <div key={r.id || i}
-                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderTop: i > 0 ? '1px solid var(--border)' : 'none' }}>
+                  data-highlight-id={r.id}
+                  style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px', borderTop: i > 0 ? '1px solid var(--border)' : 'none', outline: isHighlighted ? '2px solid #f59e0b' : undefined, outlineOffset: '-2px' }}>
                   <div style={{ width: '40px', height: '40px', backgroundColor: 'var(--card2)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>
                     {cat.icon}
                   </div>
@@ -3301,6 +3325,21 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
   const [editPart, setEditPart] = useState(null)
   const [detailPart, setDetailPart] = useState(null)
   const [showHistory, setShowHistory] = useState(false)
+  const [highlightedId, setHighlightedId] = useState(null)
+
+  useEffect(() => {
+    const h = consumeNavHighlight(['part_resources'])
+    if (!h || !h.id) return
+    setShowHistory(true)
+    setHighlightedId(h.id)
+  }, [])
+
+  useEffect(() => {
+    if (!highlightedId || loading) return
+    flashHighlightElement(highlightedId)
+    const timer = setTimeout(() => setHighlightedId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [highlightedId, loading])
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -3374,7 +3413,7 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
           {withWear.map(p => (
-            <PartCard key={p.id} part={p} wear={p._wear} onClick={() => setDetailPart(p)} t={t} />
+            <PartCard key={p.id} part={p} wear={p._wear} onClick={() => setDetailPart(p)} t={t} highlightedId={highlightedId} />
           ))}
         </div>
       )}
@@ -3408,7 +3447,7 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
                   const startDate = p.installed_date ? new Date(p.installed_date).toLocaleDateString() : ''
                   const endDate = p.removed_date ? new Date(p.removed_date).toLocaleDateString() : ''
                   return (
-                    <div key={p.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div key={p.id} data-highlight-id={p.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'center', outline: highlightedId === p.id ? '2px solid #f59e0b' : undefined, outlineOffset: '-2px' }}>
                       <div style={{ fontSize: 22 }}>{preset.icon}</div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
@@ -3513,7 +3552,7 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
   )
 }
 
-function PartCard({ part, wear, onClick, t }) {
+function PartCard({ part, wear, onClick, t, highlightedId }) {
   const preset = getPresetByCategory(part.category)
   const percent = Math.min(wear.percent, 100)
   const color = wear.percent >= 90 ? '#ef4444' : (wear.percent >= 75 ? '#f59e0b' : '#22c55e')
@@ -3536,10 +3575,12 @@ function PartCard({ part, wear, onClick, t }) {
   const installDate = part.installed_date ? new Date(part.installed_date).toLocaleDateString() : ''
   const installOdo = part.installed_odometer != null ? part.installed_odometer.toLocaleString('en-US') : ''
 
+  const isHighlighted = highlightedId && part.id === highlightedId
   return (
     <div
       onClick={onClick}
-      style={{ ...cardStyle, cursor: 'pointer', padding: '14px 16px' }}
+      data-highlight-id={part.id}
+      style={{ ...cardStyle, cursor: 'pointer', padding: '14px 16px', outline: isHighlighted ? '2px solid #f59e0b' : undefined, outlineOffset: '2px' }}
     >
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
         <div style={{ fontSize: 28, flexShrink: 0 }}>{preset.icon}</div>

@@ -533,6 +533,10 @@ const translations = {
     archive: {
       title: '\u0410\u0440\u0445\u0438\u0432 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432',
       totalDocs: '\u0432\u0441\u0435\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432',
+      totalDocs_one: '\u0432\u0441\u0435\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442',
+      totalDocs_few: '\u0432\u0441\u0435\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430',
+      totalDocs_many: '\u0432\u0441\u0435\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u043e\u0432',
+      totalDocs_other: '\u0432\u0441\u0435\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430',
       chipAll: '\u0412\u0441\u0435',
       chipFuel: '\u0417\u0430\u043f\u0440\u0430\u0432\u043a\u0438',
       chipDef: 'DEF',
@@ -2224,6 +2228,8 @@ const translations = {
     archive: {
       title: 'Document archive',
       totalDocs: '{n} documents total',
+      totalDocs_one: '{n} document total',
+      totalDocs_other: '{n} documents total',
       chipAll: 'All',
       chipFuel: 'Fuel',
       chipDef: 'DEF',
@@ -3915,6 +3921,10 @@ const translations = {
     archive: {
       title: '\u0410\u0440\u0445\u0456\u0432 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0456\u0432',
       totalDocs: '\u0432\u0441\u044c\u043e\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0456\u0432',
+      totalDocs_one: '\u0432\u0441\u044c\u043e\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442',
+      totalDocs_few: '\u0432\u0441\u044c\u043e\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0438',
+      totalDocs_many: '\u0432\u0441\u044c\u043e\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0456\u0432',
+      totalDocs_other: '\u0432\u0441\u044c\u043e\u0433\u043e {n} \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u0430',
       chipAll: '\u0412\u0441\u0456',
       chipFuel: '\u0417\u0430\u043f\u0440\u0430\u0432\u043a\u0438',
       chipDef: 'DEF',
@@ -5600,6 +5610,8 @@ const translations = {
     archive: {
       title: 'Archivo de documentos',
       totalDocs: '{n} documentos en total',
+      totalDocs_one: '{n} documento en total',
+      totalDocs_other: '{n} documentos en total',
       chipAll: 'Todos',
       chipFuel: 'Combustible',
       chipDef: 'DEF',
@@ -7253,6 +7265,8 @@ const translations = {
     archive: {
       title: 'Dokumentenarchiv',
       totalDocs: '{n} Dokumente insgesamt',
+      totalDocs_one: '{n} Dokument insgesamt',
+      totalDocs_other: '{n} Dokumente insgesamt',
       chipAll: 'Alle',
       chipFuel: 'Kraftstoff',
       chipDef: 'DEF',
@@ -8906,6 +8920,8 @@ const translations = {
     archive: {
       title: 'Archives des documents',
       totalDocs: '{n} documents au total',
+      totalDocs_one: '{n} document au total',
+      totalDocs_other: '{n} documents au total',
       chipAll: 'Tous',
       chipFuel: 'Carburant',
       chipDef: 'DEF',
@@ -10559,6 +10575,8 @@ const translations = {
     archive: {
       title: 'Belge ar\u015fivi',
       totalDocs: 'toplam {n} belge',
+      totalDocs_one: 'toplam {n} belge',
+      totalDocs_other: 'toplam {n} belge',
       chipAll: 'T\u00fcm\u00fc',
       chipFuel: 'Yak\u0131t',
       chipDef: 'DEF',
@@ -12212,6 +12230,10 @@ const translations = {
     archive: {
       title: 'Archiwum dokument\u00f3w',
       totalDocs: '\u0142\u0105cznie {n} dokument\u00f3w',
+      totalDocs_one: '\u0142\u0105cznie {n} dokument',
+      totalDocs_few: '\u0142\u0105cznie {n} dokumenty',
+      totalDocs_many: '\u0142\u0105cznie {n} dokument\u00f3w',
+      totalDocs_other: '\u0142\u0105cznie {n} dokumentu',
       chipAll: 'Wszystkie',
       chipFuel: 'Paliwo',
       chipDef: 'DEF',

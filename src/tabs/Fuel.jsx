@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { fetchFuels, deleteFuel, fetchVehicleExpenses, deleteVehicleExpense } from '../lib/api'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToPDF, exportToExcelWithSummary, exportAllVehiclesExcel } from '../utils/export'
+import { consumeNavHighlight, flashHighlightElement, monthRangeForDate } from '../lib/navHighlight'
 
 function formatNumber(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -85,8 +86,31 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
   const [expanded, setExpanded] = useState(false)
+  const [highlightedId, setHighlightedId] = useState(null)
   const exportRef = useRef(null)
   const filterRef = useRef(null)
+
+  // Pick up navigation highlight intent from Archive screen (one-shot).
+  useEffect(() => {
+    const h = consumeNavHighlight(['fuel_entries', 'vehicle_expenses'])
+    if (!h || !h.id) return
+    const range = h.date ? monthRangeForDate(h.date) : null
+    if (range) {
+      setPeriod('custom')
+      setCustomFrom(range.from)
+      setCustomTo(range.to)
+    }
+    setFilter('all')
+    setExpanded(true)
+    setHighlightedId(h.id)
+  }, [])
+
+  useEffect(() => {
+    if (!highlightedId) return
+    flashHighlightElement(highlightedId)
+    const timer = setTimeout(() => setHighlightedId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [highlightedId])
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -812,9 +836,11 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {displayList.map(entry => {
             const cat = getCat(entry.category)
+            const isHighlighted = highlightedId && entry.id === highlightedId
             return (
               <div
                 key={`${entry.source}-${entry.id}`}
+                data-highlight-id={entry.id}
                 style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -822,7 +848,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
                   background: 'var(--card, #111827)',
                   borderRadius: '12px',
                   padding: '14px 16px',
-                  border: '1px solid var(--border, #1e2a3f)',
+                  border: isHighlighted ? '2px solid #f59e0b' : '1px solid var(--border, #1e2a3f)',
                 }}
               >
                 <span style={{

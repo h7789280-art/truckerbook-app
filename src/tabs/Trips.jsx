@@ -8,6 +8,7 @@ import { fetchDriverReportExportData, fetchFleetReportExportData } from '../lib/
 import { startTracking, stopTracking, isTracking as isGpsTracking } from '../lib/gpsTracker'
 import TripMap from '../components/TripMap'
 import { calculateTripStateMiles } from '../utils/iftaCalculator'
+import { consumeNavHighlight, flashHighlightElement, monthRangeForDate } from '../lib/navHighlight'
 
 function fmt(n) {
   if (n >= 1000) {
@@ -528,6 +529,26 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   const [periodFilter, setPeriodFilter] = useState('month')
   const [customFrom, setCustomFrom] = useState('')
   const [customTo, setCustomTo] = useState('')
+  const [highlightedId, setHighlightedId] = useState(null)
+
+  useEffect(() => {
+    const h = consumeNavHighlight(['trips'])
+    if (!h || !h.id) return
+    const range = h.date ? monthRangeForDate(h.date) : null
+    if (range) {
+      setPeriodFilter('custom')
+      setCustomFrom(range.from)
+      setCustomTo(range.to)
+    }
+    setHighlightedId(h.id)
+  }, [])
+
+  useEffect(() => {
+    if (!highlightedId) return
+    flashHighlightElement(highlightedId)
+    const timer = setTimeout(() => setHighlightedId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [highlightedId])
 
   const loadData = useCallback(async () => {
     if (!userId) return
@@ -886,7 +907,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   }, [isCompanyRole, companyTrips, vehicles, filterVehicleId])
 
   const renderTripCard = (trip, compact) => (
-    <div key={trip.id} style={{ padding: compact ? '8px 0' : '10px 0' }}>
+    <div key={trip.id} data-highlight-id={trip.id} style={{ padding: compact ? '8px 0' : '10px 0', outline: highlightedId === trip.id ? '2px solid #f59e0b' : 'none', outlineOffset: '2px', borderRadius: '10px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ flex: 1 }}>
           <div style={{ color: theme.text, fontSize: compact ? '14px' : '16px', fontWeight: 600 }}>
@@ -1218,7 +1239,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         </div>
       ) : (
         entries.map((trip) => (
-          <div key={trip.id} style={card}>
+          <div key={trip.id} data-highlight-id={trip.id} style={{ ...card, outline: highlightedId === trip.id ? '2px solid #f59e0b' : undefined, outlineOffset: '2px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div>
                 <div style={{ color: theme.text, fontSize: '16px', fontWeight: 600 }}>

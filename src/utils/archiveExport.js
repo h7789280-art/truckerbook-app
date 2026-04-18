@@ -355,9 +355,12 @@ export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onPro
   })
 
   // Collect rows with photos and download them with bounded concurrency.
+  // Documents store the public URL in `photo_url` (same field the PDF export
+  // uses successfully) — see ArchiveScreen / documentsArchive.js. If this is
+  // ever renamed, update the PDF export in lockstep.
   const photoTasks = []
   docs.forEach((d, i) => {
-    if (d.photo_url) photoTasks.push({ url: d.photo_url, rowIdx: i, docId: d.id })
+    if (d.photo_url) photoTasks.push({ url: d.photo_url, rowIdx: i, docId: d.id, field: 'photo_url' })
   })
   const totalPhotos = photoTasks.length
   if (onProgress) onProgress(0, totalPhotos)
@@ -366,16 +369,44 @@ export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onPro
   await mapWithConcurrency(photoTasks, 10, async (task) => {
     throwIfAborted(signal)
     try {
-      const blob = await fetchBlob(task.url, signal)
+      const resp = await fetch(task.url, { signal })
+      console.log('[archiveExport] xlsx fetch', task.docId, { field: task.field, status: resp.status, ok: resp.ok })
+      if (!resp.ok) {
+        console.warn('[archiveExport] xlsx photo fetch failed', task.docId, resp.status)
+        return
+      }
+      const mimeType = (resp.headers.get('content-type') || '').toLowerCase()
+      const blob = await resp.blob()
+      if (blob.size === 0) {
+        console.warn('[archiveExport] xlsx photo empty blob', task.docId, { mime: mimeType })
+        return
+      }
+      // Re-encode via canvas → JPEG (applies EXIF rotation, caps size).
       const { dataUrl } = await blobToSizedJpegDataUrl(blob, 600)
-      const imageId = wb.addImage({ base64: dataUrl, extension: 'jpeg' })
+      const commaIdx = dataUrl.indexOf(',')
+      const base64 = commaIdx >= 0 ? dataUrl.slice(commaIdx + 1) : ''
+      if (!base64) {
+        console.warn('[archiveExport] xlsx photo no base64 payload', task.docId)
+        return
+      }
+      const binary = atob(base64)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+      if (bytes.byteLength === 0) {
+        console.warn('[archiveExport] xlsx photo empty ArrayBuffer, skipping', task.docId)
+        return
+      }
+      console.log('[archiveExport] xlsx addImage', task.docId, { sourceMime: mimeType, bytes: bytes.byteLength })
+      // exceljs in the browser is more reliable with a raw buffer than base64.
+      // We always emit JPEG because blobToSizedJpegDataUrl re-encodes on a
+      // canvas, regardless of the source MIME (PNG/HEIC/WebP all become JPEG).
+      const imageId = wb.addImage({ buffer: bytes.buffer, extension: 'jpeg' })
       // Header is worksheet row 1. Data row N (0-based) sits at worksheet row
       // N+2. exceljs tl.row is 0-based "line before row", so row N+2 starts
       // at line N+1.
       ws.addImage(imageId, {
         tl: { col: 8, row: task.rowIdx + 1 },
         ext: { width: 120, height: 120 },
-        editAs: 'oneCell',
       })
       ws.getRow(task.rowIdx + 2).height = 90
     } catch (err) {

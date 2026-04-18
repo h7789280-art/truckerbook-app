@@ -3357,50 +3357,76 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
         </div>
       )}
 
-      {/* History accordion */}
-      {removed.length > 0 && (
-        <div style={{ ...cardStyle, padding: 0, marginBottom: 16 }}>
-          <button
-            onClick={() => setShowHistory(v => !v)}
-            style={{
-              width: '100%', padding: '14px 16px', background: 'transparent', border: 'none',
-              color: 'var(--text)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-            }}
-          >
-            <span>{t('resources.history')} ({removed.length})</span>
-            <span style={{ color: 'var(--dim)' }}>{showHistory ? '\u25B2' : '\u25BC'}</span>
-          </button>
-          {showHistory && (
-            <div style={{ borderTop: '1px solid var(--border)' }}>
-              {removed.map(p => {
-                const preset = getPresetByCategory(p.category)
-                const milesUsed = (p.removed_odometer || 0) - (p.installed_odometer || 0)
-                const startDate = p.installed_date ? new Date(p.installed_date).toLocaleDateString() : ''
-                const endDate = p.removed_date ? new Date(p.removed_date).toLocaleDateString() : ''
-                return (
-                  <div key={p.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'center' }}>
-                    <div style={{ fontSize: 22 }}>{preset.icon}</div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
-                        {p.part_name || t(preset.name_key)}
+      {/* History accordion — hide records with invalid (negative) mileage */}
+      {(() => {
+        const validRemoved = removed.filter(p => {
+          const diff = (p.removed_odometer || 0) - (p.installed_odometer || 0)
+          return diff >= 0
+        })
+        if (validRemoved.length === 0) return null
+        return (
+          <div style={{ ...cardStyle, padding: 0, marginBottom: 16 }}>
+            <button
+              onClick={() => setShowHistory(v => !v)}
+              style={{
+                width: '100%', padding: '14px 16px', background: 'transparent', border: 'none',
+                color: 'var(--text)', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}
+            >
+              <span>{t('resources.history')} ({validRemoved.length})</span>
+              <span style={{ color: 'var(--dim)' }}>{showHistory ? '\u25B2' : '\u25BC'}</span>
+            </button>
+            {showHistory && (
+              <div style={{ borderTop: '1px solid var(--border)' }}>
+                {validRemoved.map(p => {
+                  const preset = getPresetByCategory(p.category)
+                  const rawDiff = (p.removed_odometer || 0) - (p.installed_odometer || 0)
+                  const milesUsed = Math.max(0, rawDiff)
+                  const startDate = p.installed_date ? new Date(p.installed_date).toLocaleDateString() : ''
+                  const endDate = p.removed_date ? new Date(p.removed_date).toLocaleDateString() : ''
+                  return (
+                    <div key={p.id} style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'center' }}>
+                      <div style={{ fontSize: 22 }}>{preset.icon}</div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>
+                          {p.part_name || t(preset.name_key)}
+                        </div>
+                        <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>
+                          {startDate} {'\u2014'} {endDate} {'\u00B7'} {milesUsed.toLocaleString('en-US')} mi
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2 }}>
-                        {startDate} {'\u2014'} {endDate} {'\u00B7'} {milesUsed.toLocaleString('en-US')} mi
-                      </div>
+                      {p.cost != null && (
+                        <div style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'monospace' }}>
+                          {cs}{Math.round(p.cost).toLocaleString('en-US')}
+                        </div>
+                      )}
+                      <button
+                        onClick={async e => {
+                          e.stopPropagation()
+                          if (!confirm(t('resources.confirmDeleteHistory'))) return
+                          try {
+                            await deletePartResource(p.id)
+                            await loadData()
+                          } catch (err) { alert(err.message || String(err)) }
+                        }}
+                        style={{
+                          background: 'transparent', border: 'none', cursor: 'pointer',
+                          padding: '6px 8px', color: '#ef4444', fontSize: 18, lineHeight: 1,
+                          flexShrink: 0,
+                        }}
+                        aria-label={t('common.delete')}
+                      >
+                        {'\uD83D\uDDD1\uFE0F'}
+                      </button>
                     </div>
-                    {p.cost != null && (
-                      <div style={{ fontSize: 13, color: 'var(--text)', fontFamily: 'monospace' }}>
-                        {cs}{Math.round(p.cost).toLocaleString('en-US')}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
-      )}
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {/* Detail modal */}
       {detailPart && (
@@ -3418,6 +3444,10 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
             } catch (e) { alert(e.message || String(e)) }
           }}
           onReplace={async () => {
+            if (detailPart.installed_odometer != null && odo > 0 && odo < detailPart.installed_odometer) {
+              alert(t('resources.replaceErrorOdometer'))
+              return
+            }
             if (!confirm(t('resources.confirmReplace'))) return
             try {
               await updatePartResource(detailPart.id, {
@@ -3590,6 +3620,7 @@ function PartDetailModal({ part, currentOdometer, onClose, onEdit, onDelete, onR
 
 function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, onClose, onSaved, t }) {
   const isEdit = !!editing
+  const todayISO = new Date().toISOString().slice(0, 10)
   // Для режима "Добавить" — по умолчанию первая категория из PART_PRESETS ("oil" / Моторное масло)
   const defaultCategory = PART_PRESETS[0].category
   const initialCategory = editing?.category || preset?.category || defaultCategory
@@ -3641,11 +3672,27 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
     setResourceMonths(p.months != null ? String(p.months) : '')
   }
 
+  // Validation flags (recomputed on every render)
+  const parsedOdoForValidation = parseInt(installedOdometer, 10)
+  const hasOdoInput = installedOdometer !== '' && Number.isFinite(parsedOdoForValidation)
+  const hasCurrentOdo = typeof currentOdometer === 'number' && currentOdometer > 0
+  const dateError = !!(installedDate && installedDate > todayISO)
+  const odometerError = !!(hasCurrentOdo && hasOdoInput && parsedOdoForValidation > currentOdometer)
+  const hasValidationError = dateError || odometerError
+
   const handleSave = async () => {
     if (!category) return
     if (!installedDate) return
     const odoNum = parseInt(installedOdometer, 10)
     if (!Number.isFinite(odoNum) || odoNum < 0) return
+    if (dateError) {
+      alert(t('resources.dateFutureError'))
+      return
+    }
+    if (odometerError) {
+      alert(interpolate(t('resources.odometerExceedsError'), { n: currentOdometer.toLocaleString('en-US') }))
+      return
+    }
     const milesNum = resourceMiles === '' ? null : parseInt(resourceMiles, 10)
     const monthsNum = resourceMonths === '' ? null : parseInt(resourceMonths, 10)
     const costNum = cost === '' ? null : parseFloat(cost)
@@ -3760,11 +3807,34 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
             <div>
               <label style={labelStyle}>{t('resources.installedDate')}</label>
-              <input type="date" value={installedDate} onChange={e => setInstalledDate(e.target.value)} style={inputStyle} />
+              <input
+                type="date"
+                value={installedDate}
+                max={todayISO}
+                onChange={e => setInstalledDate(e.target.value)}
+                style={{ ...inputStyle, ...(dateError ? { borderColor: '#ef4444' } : {}) }}
+              />
+              {dateError && (
+                <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4, fontWeight: 600 }}>
+                  {'\u26A0\uFE0F ' + t('resources.dateFutureError')}
+                </div>
+              )}
             </div>
             <div>
               <label style={labelStyle}>{t('resources.installedOdometer')}</label>
-              <input type="number" inputMode="numeric" value={installedOdometer} onChange={e => setInstalledOdometer(e.target.value)} placeholder="0" style={inputStyle} />
+              <input
+                type="number"
+                inputMode="numeric"
+                value={installedOdometer}
+                onChange={e => setInstalledOdometer(e.target.value)}
+                placeholder="0"
+                style={{ ...inputStyle, ...(odometerError ? { borderColor: '#ef4444' } : {}) }}
+              />
+              {odometerError && (
+                <div style={{ fontSize: 11, color: '#ef4444', marginTop: 4, fontWeight: 600 }}>
+                  {'\u26A0\uFE0F ' + interpolate(t('resources.odometerExceedsError'), { n: currentOdometer.toLocaleString('en-US') })}
+                </div>
+              )}
             </div>
           </div>
 
@@ -3799,8 +3869,15 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !category || !installedDate}
-            style={{ flex: 1, padding: '12px', borderRadius: 10, border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000', fontSize: 14, fontWeight: 700, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1 }}
+            disabled={saving || !category || !installedDate || hasValidationError}
+            style={{
+              flex: 1, padding: '12px', borderRadius: 10, border: 'none',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000',
+              fontSize: 14, fontWeight: 700,
+              cursor: (saving || hasValidationError) ? 'not-allowed' : 'pointer',
+              opacity: (saving || hasValidationError) ? 0.5 : 1,
+              pointerEvents: hasValidationError ? 'none' : 'auto',
+            }}
           >
             {saving ? t('common.saving') : t('common.save')}
           </button>

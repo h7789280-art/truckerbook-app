@@ -505,13 +505,13 @@ function AppInner() {
     }
     switch (activeTab) {
       case 'expenses':
-        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} initialSubTab={expensesInitSubTab} initialCategory={expensesInitCategory} onBack={backFromReports ? handleBackFromExtra : undefined} />
+        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} initialSubTab={expensesInitSubTab} initialCategory={expensesInitCategory} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} />
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} />
       case 'service':
         return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} initialSubTab={serviceInitSubTab} onSubTabConsumed={() => setServiceInitSubTab(null)} />
       case 'documents':
-        return <DocsTab userId={userId} vehicleId={vehicleId} userRole={userRole} profile={profile} />
+        return <DocsTab userId={userId} vehicleId={vehicleId} userRole={userRole} profile={profile} onNavigate={handleExtraTabNav} />
       case 'jobs':
         return <Jobs refreshKey={0} profile={profile} />
       case 'news':

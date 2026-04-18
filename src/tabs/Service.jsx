@@ -8,6 +8,7 @@ import DVIRInspection from '../components/DVIRInspection'
 import TrailerInspectionContent from '../components/TrailerInspection'
 import IncidentsContent from '../components/IncidentsSection'
 import BookkeepingHome from '../components/BookkeepingHome'
+import ArchiveScreen from '../components/ArchiveScreen'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToExcel } from '../utils/export'
@@ -1999,7 +2000,7 @@ function BolSection({ userId, vehicleId, userRole }) {
 }
 
 /* ===== DOCS TAB ===== */
-export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, profile }) {
+export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, profile, onNavigate }) {
   const { t } = useLanguage()
   const [activeTile, setActiveTile] = useState(null)
   const isCompany = userRole === 'company'
@@ -2025,6 +2026,7 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, p
   )
 
   const TILES = [
+    { key: 'archive', icon: '\uD83D\uDCC1', label: t('service.tileArchive') },
     { key: 'documents', icon: '\uD83D\uDCC4', label: t('service.tileDocuments') },
     ...(showBookkeeping ? [{ key: 'bookkeeping', icon: '\uD83D\uDCBC', label: t('service.tileBookkeeping') }] : []),
     { key: 'bol', icon: '\uD83D\uDCCB', label: t('service.tileBol') },
@@ -2076,6 +2078,17 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, p
         userVehicles={vehicles}
         profile={profile}
         onBack={() => setActiveTile(null)}
+      />
+    )
+  }
+
+  // Archive: user-scoped, no vehicle selection needed
+  if (activeTile === 'archive') {
+    return (
+      <ArchiveScreen
+        userId={userId}
+        onBack={() => setActiveTile(null)}
+        onNavigate={onNavigate}
       />
     )
   }

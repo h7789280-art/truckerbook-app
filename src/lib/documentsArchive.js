@@ -85,6 +85,24 @@ export async function saveToArchive({
     }
     const userId = auth.user.id
 
+    // Auto-fill vehicle_id: caller may omit it. Fall back to the user's first
+    // active vehicle so owner_operators always get their sole truck attached.
+    let resolvedVehicleId = vehicleId || null
+    if (!resolvedVehicleId) {
+      try {
+        const { data: veh } = await supabase
+          .from('vehicles')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true })
+          .limit(1)
+        if (veh && veh.length > 0) resolvedVehicleId = veh[0].id
+      } catch (e) {
+        console.warn('[archive] vehicle auto-fill failed:', e)
+      }
+    }
+
     const docDate = ocrData?.date || null
     const ym = yearMonth(docDate)
 
@@ -118,7 +136,7 @@ export async function saveToArchive({
 
     const row = {
       user_id: userId,
-      vehicle_id: vehicleId || null,
+      vehicle_id: resolvedVehicleId || null,
       doc_type: docType,
       linked_table: linkedTable || null,
       linked_id: linkedId || null,

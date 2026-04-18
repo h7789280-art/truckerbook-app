@@ -1015,8 +1015,8 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         )}
       </div>
 
-      {/* Extra vehicles from vehicles table — only for owner_operator and company */}
-      {vehicles.length > 0 && (profile?.role === 'owner_operator' || profile?.role === 'company') && (
+      {/* Extra vehicles from vehicles table — only for company (fleet) */}
+      {vehicles.length > 0 && profile?.role === 'company' && (
         <div style={{ marginBottom: '12px' }}>
           <div style={{
             fontSize: '13px',
@@ -1269,7 +1269,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                 }}>
                   <span>{v.odometer ? v.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : ''}</span>
                   <span>{v.fuel_consumption ? v.fuel_consumption + ' \u043B/100\u043A\u043C' : ''}</span>
-                  {v.year && <span>{v.year} \u0433.</span>}
+                  {v.year && <span>{v.year + ' \u0433.'}</span>}
                 </div>
               )}
             </div>
@@ -1277,37 +1277,39 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         </div>
       )}
 
-      {/* Add vehicle button */}
-      <button
-        onClick={() => {
-          const limit = getVehicleLimit(profile?.plan)
-          if (vehicles.length >= limit) {
-            alert(getVehicleLimitMessage(profile?.plan))
-            return
-          }
-          setShowAddForm(true)
-        }}
-        style={{
-          width: '100%',
-          padding: '14px',
-          borderRadius: '12px',
-          border: 'none',
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-          color: '#fff',
-          fontSize: '16px',
-          fontWeight: 600,
-          cursor: 'pointer',
-          fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
-          marginBottom: '12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-        }}
-      >
-        <span style={{ fontSize: '20px' }}>+</span>
-        {'\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043C\u0430\u0448\u0438\u043D\u0443'}
-      </button>
+      {/* Add vehicle button — only for company (owner_operator has single vehicle, driver gets assigned one) */}
+      {profile?.role === 'company' && (
+        <button
+          onClick={() => {
+            const limit = getVehicleLimit(profile?.plan)
+            if (vehicles.length >= limit) {
+              alert(getVehicleLimitMessage(profile?.plan))
+              return
+            }
+            setShowAddForm(true)
+          }}
+          style={{
+            width: '100%',
+            padding: '14px',
+            borderRadius: '12px',
+            border: 'none',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+            color: '#fff',
+            fontSize: '16px',
+            fontWeight: 600,
+            cursor: 'pointer',
+            fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
+        >
+          <span style={{ fontSize: '20px' }}>+</span>
+          {'\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043C\u0430\u0448\u0438\u043D\u0443'}
+        </button>
+      )}
 
       {/* Logout button */}
       <button

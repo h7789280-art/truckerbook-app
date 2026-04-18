@@ -820,17 +820,25 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     if (r !== 'owner_operator') return
     try {
       const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
-      const [odo, parts] = await Promise.all([
+      const [odo, parts, profileRow, vehicleRow] = await Promise.all([
         fetchLatestOdometer(userId, vehicleId).catch(() => null),
         fetchPartResources(userId, 'active').catch(() => []),
+        vehicleId
+          ? Promise.resolve(null)
+          : supabase.from('profiles').select('odometer, odometer_updated_at').eq('id', userId).maybeSingle().then(r => r.data).catch(() => null),
+        vehicleId
+          ? supabase.from('vehicles').select('odometer, odometer_updated_at').eq('id', vehicleId).maybeSingle().then(r => r.data).catch(() => null)
+          : Promise.resolve(null),
       ])
-      const fallback = vehicleId
-        ? null
-        : (profile?.odometer != null ? Number(profile.odometer) : null)
-      setOwnerOdometer(odo != null ? odo : fallback)
-      // Pick "updated at" as the latest among trips/fuel/service evidence we can derive locally;
-      // fallback to profile.updated_at if unknown.
-      setOwnerOdometerUpdatedAt(profile?.updated_at || null)
+      const savedOdo = vehicleId
+        ? (vehicleRow?.odometer != null ? Number(vehicleRow.odometer) : null)
+        : (profileRow?.odometer != null ? Number(profileRow.odometer) : null)
+      const savedUpdatedAt = vehicleId
+        ? (vehicleRow?.odometer_updated_at || null)
+        : (profileRow?.odometer_updated_at || null)
+      // Prefer latest from trips/fuel; fall back to manually-saved odometer on the profile/vehicle.
+      setOwnerOdometer(odo != null ? odo : savedOdo)
+      setOwnerOdometerUpdatedAt(savedUpdatedAt)
       setOwnerOdometerLoaded(true)
       setOwnerParts(parts || [])
       setOwnerPartsLoaded(true)
@@ -839,7 +847,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       setOwnerOdometerLoaded(true)
       setOwnerPartsLoaded(true)
     }
-  }, [userId, profile?.role, profile?.odometer, profile?.updated_at, activeVehicleId])
+  }, [userId, profile?.role, activeVehicleId])
 
   useEffect(() => {
     loadOwnerOdometerAndParts()
@@ -855,13 +863,13 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       if (vehicleId) {
         const { error } = await supabase
           .from('vehicles')
-          .update({ odometer: n })
+          .update({ odometer: n, odometer_updated_at: nowIso })
           .eq('id', vehicleId)
         if (error) throw error
       } else {
         const { error } = await supabase
           .from('profiles')
-          .update({ odometer: n, updated_at: nowIso })
+          .update({ odometer: n, odometer_updated_at: nowIso })
           .eq('id', userId)
         if (error) throw error
       }
@@ -2171,7 +2179,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             <div style={{ fontSize: '22px', fontWeight: 700, color: theme.text, fontFamily: 'monospace', lineHeight: 1.1 }}>
               {ownerOdometer != null
                 ? `${formatNumber(Math.round(ownerOdometer))} ${unitSys === 'imperial' ? 'mi' : 'km'}`
-                : (ownerOdometerLoaded ? t('overview.odometerNoData') : '\u2014')}
+                : '\u2014'}
             </div>
             <div style={{ fontSize: '11px', color: theme.dim, marginTop: '3px' }}>
               {t('overview.odometerUpdated')}: {ownerOdometerUpdatedAt ? new Date(ownerOdometerUpdatedAt).toLocaleDateString() : '\u2014'}

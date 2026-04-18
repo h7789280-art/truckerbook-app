@@ -381,16 +381,25 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
         onProgress,
         signal: controller.signal,
       }
+      let result
       if (format === 'zip') {
-        await mod.exportArchiveZip(common)
+        result = await mod.exportArchiveZip(common)
       } else {
-        await mod.exportArchivePdf({ ...common, meta })
+        result = await mod.exportArchivePdf({ ...common, meta })
       }
-      setExportDone(true)
-      setTimeout(() => {
+      // Show the "Done" toast only on the fallback download path. When the user
+      // was handed the native share sheet (iOS/Android) or cancelled it, a toast
+      // on top of that interaction would be redundant or misleading.
+      if (result && result.downloaded) {
+        setExportDone(true)
+        setTimeout(() => {
+          setExporting(false)
+          setExportDone(false)
+        }, 1800)
+      } else {
         setExporting(false)
         setExportDone(false)
-      }, 1800)
+      }
     } catch (err) {
       if (err?.name === 'AbortError') {
         // user cancelled

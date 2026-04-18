@@ -116,7 +116,31 @@ function csvEscape(v) {
   return s
 }
 
-function triggerDownload(blob, filename) {
+// Hand the generated file to the user. On platforms that support the Web Share
+// API with files (iOS Safari, Android Chrome, PWAs), we open the native share
+// sheet — this is the only reliable way to let iOS users save a generated blob
+// to Files / mail it / AirDrop it, since <a download> on iOS just opens a blob:
+// URL in a new tab that's unreachable after tab close.
+//
+// Returns:
+//   { shared: true }                 — user was shown the share sheet and did not cancel
+//   { shared: false, cancelled }     — user dismissed the share sheet
+//   { shared: false, downloaded }    — fallback path (Android/desktop/old browsers)
+async function shareOrDownload(blob, filename, mimeType) {
+  const file = new File([blob], filename, { type: mimeType })
+
+  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: filename })
+      return { shared: true }
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        return { shared: false, cancelled: true }
+      }
+      console.warn('[archiveExport] share failed, falling back to download:', err)
+    }
+  }
+
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
@@ -127,6 +151,7 @@ function triggerDownload(blob, filename) {
     try { document.body.removeChild(a) } catch {}
     URL.revokeObjectURL(url)
   }, 500)
+  return { shared: false, downloaded: true }
 }
 
 // ---------------------------------------------------------------------------
@@ -227,8 +252,8 @@ export async function exportArchiveZip({ docs, filterSlug, labels, lang, onProgr
   throwIfAborted(signal)
   const content = await zip.generateAsync({ type: 'blob' })
   const fname = 'documents_' + (filterSlug || 'export') + '.zip'
-  triggerDownload(content, fname)
-  return { fileName: fname, size: content.size }
+  const delivery = await shareOrDownload(content, fname, 'application/zip')
+  return { fileName: fname, size: content.size, ...delivery }
 }
 
 // ---------------------------------------------------------------------------
@@ -443,6 +468,6 @@ export async function exportArchivePdf({ docs, filterSlug, labels, meta, lang, o
 
   const fname = 'archive_' + (filterSlug || 'export') + '.pdf'
   const blob = doc.output('blob')
-  triggerDownload(blob, fname)
-  return { fileName: fname, size: blob.size }
+  const delivery = await shareOrDownload(blob, fname, 'application/pdf')
+  return { fileName: fname, size: blob.size, ...delivery }
 }

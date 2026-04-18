@@ -141,7 +141,7 @@ async function shareOrDownload(blob, filename, mimeType) {
 
   if (isIOSDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], title: filename })
+      await navigator.share({ files: [file] })
       return { shared: true }
     } catch (err) {
       if (err && err.name === 'AbortError') {

@@ -536,36 +536,95 @@ function fuzzyMatch(a, b) {
   return (matches / longer.length) > 0.8
 }
 
+// Column metadata per table — duplicate detection needs to know which column
+// holds the human-readable description and which holds the money amount.
+// service_records uses cost+description, byt_expenses uses name+amount.
+const DUP_TABLE_META = {
+  vehicle_expenses: { descCol: 'description', amountCol: 'amount' },
+  byt_expenses: { descCol: 'name', amountCol: 'amount' },
+  service_records: { descCol: 'description', amountCol: 'cost' },
+}
+
 export async function checkDuplicateReceipt({ amount, date, description, userId, table }) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return []
   const uid = userId || user.id
 
-  const thirtyDaysAgo = new Date()
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-  const since = thirtyDaysAgo.toISOString().slice(0, 10)
-
   const tables = table ? [table] : ['vehicle_expenses', 'byt_expenses']
   const duplicates = []
 
   for (const tbl of tables) {
-    const descCol = tbl === 'byt_expenses' ? 'name' : 'description'
+    const meta = DUP_TABLE_META[tbl]
+    if (!meta) continue
+    const { descCol, amountCol } = meta
+    // Filter on the receipt date itself (not a rolling 30-day window) so that
+    // re-scanning an old receipt also catches the existing duplicate.
     const { data, error } = await supabase
       .from(tbl)
       .select('*')
       .eq('user_id', uid)
-      .gte('date', since)
-      .order('date', { ascending: false })
+      .eq('date', date)
     if (error || !data) continue
 
     for (const row of data) {
       let score = 0
-      if (parseFloat(row.amount) === parseFloat(amount)) score++
+      if (parseFloat(row[amountCol]) === parseFloat(amount)) score++
       if (row.date === date) score++
       if (fuzzyMatch(row[descCol], description)) score++
       if (score >= 2) {
-        duplicates.push({ ...row, _table: tbl, _descCol: descCol })
+        duplicates.push({
+          ...row,
+          _table: tbl,
+          _descCol: descCol,
+          // Normalise so the warning modal can read .amount regardless of source table.
+          amount: row[amountCol],
+        })
       }
+    }
+  }
+  return duplicates
+}
+
+// Trip duplicate detection: trips have no `date` column, so we look at
+// recently-created rows and match on origin + destination + distance + income.
+export async function checkDuplicateTrip({ origin, destination, distance, rate, userId }) {
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return []
+  const uid = userId || user.id
+
+  const sixtyDaysAgo = new Date()
+  sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60)
+  const since = sixtyDaysAgo.toISOString()
+
+  const { data, error } = await supabase
+    .from('trips')
+    .select('*')
+    .eq('user_id', uid)
+    .gte('created_at', since)
+    .order('created_at', { ascending: false })
+  if (error || !data) return []
+
+  const distNum = parseFloat(distance) || 0
+  const rateNum = parseFloat(rate) || 0
+  const duplicates = []
+
+  for (const row of data) {
+    let score = 0
+    if (rateNum > 0 && parseFloat(row.income) === rateNum) score++
+    if (distNum > 0 && parseFloat(row.distance_km) === distNum) score++
+    if (fuzzyMatch(row.origin, origin)) score++
+    if (fuzzyMatch(row.destination, destination)) score++
+    // Need a strong match: same money + same distance + same route.
+    if (score >= 3) {
+      duplicates.push({
+        ...row,
+        _table: 'trips',
+        _descCol: 'origin',
+        // Map fields onto the names the dup modal expects.
+        amount: row.income,
+        date: row.created_at ? row.created_at.slice(0, 10) : '',
+        description: `${row.origin || ''} \u2192 ${row.destination || ''}`,
+      })
     }
   }
   return duplicates

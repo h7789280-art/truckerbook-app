@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
-import { uploadReceiptPhoto, addServiceRecord } from '../lib/api'
+import { uploadReceiptPhoto, addServiceRecord, checkDuplicateReceipt } from '../lib/api'
 import { saveToArchive } from '../lib/documentsArchive'
 
 const REPAIR_CATEGORIES = ['labor', 'parts', 'diagnostics', 'towing', 'other']
@@ -34,6 +34,8 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
   )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [dupFound, setDupFound] = useState(null) // { duplicates, proceed }
+  const [checking, setChecking] = useState(false)
 
   const updateItem = (id, field, value) => {
     setItems(prev => prev.map(it => it.id === id ? { ...it, [field]: value } : it))
@@ -59,8 +61,13 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
     return cat
   }
 
-  const handleSave = async () => {
-    if (checkedItems.length === 0) return
+  // Build the description string the same way doSave persists it, so the
+  // duplicate check matches what's stored in service_records.description.
+  const buildItemDesc = (item) => shopName
+    ? `${item.description} [${catLabel(item.category)}] (${shopName})`
+    : `${item.description} [${catLabel(item.category)}]`
+
+  const doSave = async () => {
     setSaving(true)
     setError(null)
 
@@ -78,9 +85,7 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
       let savedCount = 0
       let firstServiceId = null
       for (const item of checkedItems) {
-        const desc = shopName
-          ? `${item.description} [${catLabel(item.category)}] (${shopName})`
-          : `${item.description} [${catLabel(item.category)}]`
+        const desc = buildItemDesc(item)
 
         const res = await addServiceRecord({
           vehicle_id: vehicleId || null,
@@ -124,6 +129,39 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
       setError(msg)
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleSave = async () => {
+    if (checkedItems.length === 0) return
+    setChecking(true)
+    setError(null)
+    try {
+      const allDups = []
+      for (const item of checkedItems) {
+        const desc = buildItemDesc(item)
+        const amt = parseFloat(item.amount) || 0
+        const dups = await checkDuplicateReceipt({
+          amount: amt,
+          date,
+          description: desc,
+          userId,
+          table: 'service_records',
+        })
+        if (dups.length > 0) allDups.push(...dups)
+      }
+      if (allDups.length > 0) {
+        const seen = new Set()
+        const unique = allDups.filter(d => { if (seen.has(d.id)) return false; seen.add(d.id); return true })
+        setDupFound({ duplicates: unique, proceed: () => { setDupFound(null); doSave() } })
+      } else {
+        doSave()
+      }
+    } catch (e) {
+      console.error('Repair duplicate check error:', e)
+      doSave()
+    } finally {
+      setChecking(false)
     }
   }
 
@@ -331,20 +369,83 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || checkedItems.length === 0}
+            disabled={saving || checking || checkedItems.length === 0}
             style={{
               flex: 2, padding: '14px 20px', borderRadius: 12,
               border: 'none',
-              background: saving ? theme.card2 : 'linear-gradient(135deg, #f59e0b, #d97706)',
-              color: '#fff', fontSize: 15, fontWeight: 700, cursor: saving ? 'wait' : 'pointer',
-              opacity: (saving || checkedItems.length === 0) ? 0.6 : 1,
+              background: (saving || checking) ? theme.card2 : 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#fff', fontSize: 15, fontWeight: 700, cursor: (saving || checking) ? 'wait' : 'pointer',
+              opacity: (saving || checking || checkedItems.length === 0) ? 0.6 : 1,
               fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
             }}
           >
-            {saving ? t('common.saving') : `\uD83D\uDCBE ${t('scan.saveAll')}`}
+            {checking ? t('scan.checkingDuplicates') : saving ? t('common.saving') : `\uD83D\uDCBE ${t('scan.saveAll')}`}
           </button>
         </div>
       </div>
+
+      {/* Duplicate warning modal */}
+      {dupFound && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', zIndex: 1002,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{
+            background: theme.card, borderRadius: 16, width: '100%', maxWidth: 380,
+            maxHeight: '80vh', overflow: 'auto', padding: 20,
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 12px', color: '#eab308', fontSize: 17, fontWeight: 700 }}>
+              {'\u26A0\uFE0F'} {t('scan.dupTitle')}
+            </h3>
+            <p style={{ color: theme.dim, fontSize: 13, margin: '0 0 12px' }}>
+              {t('scan.dupMessage')}
+            </p>
+
+            {dupFound.duplicates.map((dup, i) => (
+              <div key={dup.id || i} style={{
+                padding: 10, borderRadius: 10, background: theme.card2,
+                border: '1px solid ' + theme.border, marginBottom: 8,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ color: theme.dim, fontSize: 12 }}>{'\uD83D\uDCC5'} {dup.date}</span>
+                  <span style={{ color: '#ef4444', fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}>
+                    ${parseFloat(dup.amount).toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ color: theme.text, fontSize: 13 }}>
+                  {dup[dup._descCol] || dup.description || dup.name || ''}
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button
+                onClick={() => setDupFound(null)}
+                style={{
+                  flex: 1, padding: '12px 16px', borderRadius: 12,
+                  border: '1px solid ' + theme.border, background: theme.card2,
+                  color: theme.text, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={dupFound.proceed}
+                style={{
+                  flex: 1, padding: '12px 16px', borderRadius: 12,
+                  border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                {t('scan.dupSaveAnyway')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

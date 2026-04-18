@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
+import { checkDuplicateTrip } from '../lib/api'
 
 export default function TripConfirm({ data, onSave, onBack, onClose }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
+  const [dupFound, setDupFound] = useState(null)
+  const [checking, setChecking] = useState(false)
 
   const [originCity, setOriginCity] = useState(data.origin_city || '')
   const [originState, setOriginState] = useState(data.origin_state || '')
@@ -24,7 +27,7 @@ export default function TripConfirm({ data, onSave, onBack, onClose }) {
 
   const ratePerMile = miles && rate ? (parseFloat(rate) / parseFloat(miles)).toFixed(2) : ''
 
-  const handleSave = async () => {
+  const doSave = async () => {
     setSaving(true)
     setError(null)
     try {
@@ -40,6 +43,31 @@ export default function TripConfirm({ data, onSave, onBack, onClose }) {
     } catch (err) {
       setError(err.message || t('tripParse.saveError'))
       setSaving(false)
+    }
+  }
+
+  const handleSave = async () => {
+    setChecking(true)
+    setError(null)
+    try {
+      const origin = [originCity, originState].filter(Boolean).join(', ')
+      const destination = [destCity, destState].filter(Boolean).join(', ')
+      const dups = await checkDuplicateTrip({
+        origin,
+        destination,
+        distance: parseFloat(miles) || 0,
+        rate: parseFloat(rate) || 0,
+      })
+      if (dups.length > 0) {
+        setDupFound({ duplicates: dups, proceed: () => { setDupFound(null); doSave() } })
+      } else {
+        doSave()
+      }
+    } catch (e) {
+      console.error('Trip duplicate check error:', e)
+      doSave()
+    } finally {
+      setChecking(false)
     }
   }
 
@@ -256,8 +284,8 @@ export default function TripConfirm({ data, onSave, onBack, onClose }) {
         )}
 
         {/* Save */}
-        <button style={saveBtn} onClick={handleSave} disabled={saving}>
-          {saving ? '\u23F3' : '\uD83D\uDCBE'} {t('tripParse.saveTrip')}
+        <button style={saveBtn} onClick={handleSave} disabled={saving || checking}>
+          {checking ? ('\u23F3 ' + t('scan.checkingDuplicates')) : (saving ? '\u23F3' : '\uD83D\uDCBE') + ' ' + t('tripParse.saveTrip')}
         </button>
 
         {/* Back */}
@@ -265,6 +293,74 @@ export default function TripConfirm({ data, onSave, onBack, onClose }) {
           {t('common.back')}
         </button>
       </div>
+
+      {/* Duplicate warning modal */}
+      {dupFound && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', zIndex: 1002,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div style={{
+            background: theme.card, borderRadius: 16, width: '100%', maxWidth: 380,
+            maxHeight: '80vh', overflow: 'auto', padding: 20,
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 12px', color: '#eab308', fontSize: 17, fontWeight: 700 }}>
+              {'\u26A0\uFE0F'} {t('scan.dupTitle')}
+            </h3>
+            <p style={{ color: theme.dim, fontSize: 13, margin: '0 0 12px' }}>
+              {t('scan.dupMessage')}
+            </p>
+
+            {dupFound.duplicates.map((dup, i) => (
+              <div key={dup.id || i} style={{
+                padding: 10, borderRadius: 10, background: theme.card2,
+                border: '1px solid ' + theme.border, marginBottom: 8,
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                  <span style={{ color: theme.dim, fontSize: 12 }}>{'\uD83D\uDCC5'} {dup.date}</span>
+                  <span style={{ color: '#ef4444', fontSize: 14, fontWeight: 700, fontFamily: 'monospace' }}>
+                    ${parseFloat(dup.amount || 0).toFixed(2)}
+                  </span>
+                </div>
+                <div style={{ color: theme.text, fontSize: 13 }}>
+                  {dup.description || `${dup.origin || ''} \u2192 ${dup.destination || ''}`}
+                </div>
+                {dup.distance_km != null && (
+                  <div style={{ color: theme.dim, fontSize: 11, marginTop: 2 }}>
+                    {parseFloat(dup.distance_km).toFixed(0)} {t('tripParse.miles')}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
+              <button
+                onClick={() => setDupFound(null)}
+                style={{
+                  flex: 1, padding: '12px 16px', borderRadius: 12,
+                  border: '1px solid ' + theme.border, background: theme.card2,
+                  color: theme.text, fontSize: 14, fontWeight: 600, cursor: 'pointer',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={dupFound.proceed}
+                style={{
+                  flex: 1, padding: '12px 16px', borderRadius: 12,
+                  border: 'none', background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+                  fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+                }}
+              >
+                {t('scan.dupSaveAnyway')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -151,9 +151,16 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service({ userId, activeVehicleId, userRole, profile }) {
+export default function Service({ userId, activeVehicleId, userRole, profile, initialSubTab, onSubTabConsumed }) {
   const { t } = useLanguage()
-  const [activeTab, setActiveTab] = useState('service')
+  const [activeTab, setActiveTab] = useState(initialSubTab || 'service')
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab)
+      if (onSubTabConsumed) onSubTabConsumed()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSubTab])
   const [checkedItems, setCheckedItems] = useState({})
   const [repairs, setRepairs] = useState([])
   const [vehicles, setVehicles] = useState([])

@@ -3,7 +3,9 @@ import { useTheme } from '../lib/theme'
 import { supabase } from '../lib/supabase'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
-import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, fetchVehicleExpensesByDateRange, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData, getCompanyDrivers, deactivateDriver, reactivateDriver, reassignVehicle } from '../lib/api'
+import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, fetchVehicleExpensesByDateRange, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData, getCompanyDrivers, deactivateDriver, reactivateDriver, reassignVehicle, fetchPartResources, fetchLatestOdometer } from '../lib/api'
+import { calculatePartWear } from '../lib/partResourceCalc'
+import { getPresetByCategory } from '../lib/partResourcePresets'
 import { exportToExcel, exportFleetReportExcel, exportFleetReportPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
@@ -129,6 +131,18 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [dashDriverPay, setDashDriverPay] = useState(0)
   const [dashPersonalExp, setDashPersonalExp] = useState(0)
   const [dashChartData, setDashChartData] = useState([]) // [{label, fullLabel, income, expense}]
+
+  // Odometer card state (owner_operator only)
+  const [ownerOdometer, setOwnerOdometer] = useState(null)
+  const [ownerOdometerUpdatedAt, setOwnerOdometerUpdatedAt] = useState(null)
+  const [ownerOdometerLoaded, setOwnerOdometerLoaded] = useState(false)
+  const [odoModalOpen, setOdoModalOpen] = useState(false)
+  const [odoModalValue, setOdoModalValue] = useState('')
+  const [odoSaving, setOdoSaving] = useState(false)
+
+  // Parts Resource block state (owner_operator only)
+  const [ownerParts, setOwnerParts] = useState([])
+  const [ownerPartsLoaded, setOwnerPartsLoaded] = useState(false)
 
   // Close fleet export menu on outside click
   useEffect(() => {
@@ -798,6 +812,70 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   useEffect(() => {
     loadShiftAnalytics()
   }, [loadShiftAnalytics])
+
+  // Load odometer + part_resources for owner_operator (for Odometer card + Parts Resource block on Overview)
+  const loadOwnerOdometerAndParts = useCallback(async () => {
+    if (!userId) return
+    const r = profile?.role || 'owner_operator'
+    if (r !== 'owner_operator') return
+    try {
+      const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
+      const [odo, parts] = await Promise.all([
+        fetchLatestOdometer(userId, vehicleId).catch(() => null),
+        fetchPartResources(userId, 'active').catch(() => []),
+      ])
+      const fallback = vehicleId
+        ? null
+        : (profile?.odometer != null ? Number(profile.odometer) : null)
+      setOwnerOdometer(odo != null ? odo : fallback)
+      // Pick "updated at" as the latest among trips/fuel/service evidence we can derive locally;
+      // fallback to profile.updated_at if unknown.
+      setOwnerOdometerUpdatedAt(profile?.updated_at || null)
+      setOwnerOdometerLoaded(true)
+      setOwnerParts(parts || [])
+      setOwnerPartsLoaded(true)
+    } catch (err) {
+      console.error('loadOwnerOdometerAndParts error:', err)
+      setOwnerOdometerLoaded(true)
+      setOwnerPartsLoaded(true)
+    }
+  }, [userId, profile?.role, profile?.odometer, profile?.updated_at, activeVehicleId])
+
+  useEffect(() => {
+    loadOwnerOdometerAndParts()
+  }, [loadOwnerOdometerAndParts, refreshKey])
+
+  const handleSaveOdometer = async () => {
+    const n = parseInt(odoModalValue, 10)
+    if (!Number.isFinite(n) || n < 0) return
+    setOdoSaving(true)
+    try {
+      const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
+      const nowIso = new Date().toISOString()
+      if (vehicleId) {
+        const { error } = await supabase
+          .from('vehicles')
+          .update({ odometer: n })
+          .eq('id', vehicleId)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ odometer: n, updated_at: nowIso })
+          .eq('id', userId)
+        if (error) throw error
+      }
+      setOwnerOdometer(n)
+      setOwnerOdometerUpdatedAt(nowIso)
+      setOdoModalOpen(false)
+      setOdoModalValue('')
+    } catch (err) {
+      console.error('handleSaveOdometer error:', err)
+      alert(err.message || String(err))
+    } finally {
+      setOdoSaving(false)
+    }
+  }
 
   // Shift elapsed timer
   useEffect(() => {
@@ -2078,6 +2156,100 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         </div>
       )}
 
+      {/* Odometer card — owner_operator only */}
+      {role === 'owner_operator' && (
+        <div style={{ ...cardStyle, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{
+            width: '40px', height: '40px', borderRadius: '10px', flexShrink: 0,
+            background: 'rgba(245,158,11,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px',
+          }}>{'\uD83D\uDEE3\uFE0F'}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: '12px', color: theme.dim, marginBottom: '2px' }}>
+              {t('overview.odometerTitle')}
+            </div>
+            <div style={{ fontSize: '22px', fontWeight: 700, color: theme.text, fontFamily: 'monospace', lineHeight: 1.1 }}>
+              {ownerOdometer != null
+                ? `${formatNumber(Math.round(ownerOdometer))} ${unitSys === 'imperial' ? 'mi' : 'km'}`
+                : (ownerOdometerLoaded ? t('overview.odometerNoData') : '\u2014')}
+            </div>
+            <div style={{ fontSize: '11px', color: theme.dim, marginTop: '3px' }}>
+              {t('overview.odometerUpdated')}: {ownerOdometerUpdatedAt ? new Date(ownerOdometerUpdatedAt).toLocaleDateString() : '\u2014'}
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              setOdoModalValue(ownerOdometer != null ? String(Math.round(ownerOdometer)) : '')
+              setOdoModalOpen(true)
+            }}
+            style={{
+              flexShrink: 0,
+              padding: '8px 14px',
+              border: 'none',
+              borderRadius: '10px',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              color: '#fff',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            {t('overview.odometerUpdateBtn')}
+          </button>
+        </div>
+      )}
+
+      {/* Odometer update modal */}
+      {odoModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 1000, padding: '16px',
+        }} onClick={() => !odoSaving && setOdoModalOpen(false)}>
+          <div
+            style={{ background: theme.card, border: '1px solid ' + theme.border, borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '360px' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: theme.text }}>
+              {t('overview.odometerModalTitle')}
+            </div>
+            <label style={{ fontSize: '14px', color: theme.dim, display: 'block', marginBottom: '6px' }}>
+              {t('overview.currentOdometer')} ({unitSys === 'imperial' ? 'mi' : 'km'})
+            </label>
+            <input
+              type="number"
+              value={odoModalValue}
+              onChange={e => setOdoModalValue(e.target.value)}
+              autoFocus
+              style={{
+                width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid ' + theme.border,
+                background: theme.bg, color: theme.text, fontSize: '18px', fontFamily: 'monospace',
+                marginBottom: '16px', boxSizing: 'border-box',
+              }}
+            />
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={() => !odoSaving && setOdoModalOpen(false)}
+                style={{ flex: 1, padding: '12px', border: '1px solid ' + theme.border, borderRadius: '10px', background: 'transparent', color: theme.text, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                onClick={handleSaveOdometer}
+                disabled={odoSaving || !odoModalValue}
+                style={{
+                  flex: 1, padding: '12px', border: 'none', borderRadius: '10px',
+                  background: (odoSaving || !odoModalValue) ? theme.border : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff', fontSize: '14px', fontWeight: 700, cursor: (odoSaving || !odoModalValue) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {odoSaving ? t('common.saving') : t('common.save')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Shift blocks — hidden for company and job_seeker roles */}
       {role !== 'company' && role !== 'job_seeker' && (<>
 
@@ -2578,8 +2750,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     )
                   })()}
 
-                  {/* Income / Expense chart */}
-                  {dashChartData.length > 1 && (() => {
+                  {/* Income / Expense chart — driver only (owner_operator uses Parts Resource block after Trips) */}
+                  {role === 'driver' && dashChartData.length > 1 && (() => {
                     const chartW = 340, chartH = 180, padL = 10, padR = 10, padT = 20, padB = 30
                     const maxVal = Math.max(...dashChartData.map(m => m.income), ...dashChartData.map(m => m.expense), 1)
                     const getX = (i) => dashChartData.length <= 1 ? padL + (chartW - padL - padR) / 2 : padL + (i / (dashChartData.length - 1)) * (chartW - padL - padR)
@@ -2672,9 +2844,72 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           </div>
           )}
 
-          {/* Shift analytics — for owner_operator only (removed from driver Overview) */}
-          {role === 'owner_operator' && shiftAnalyticsCard}
-          {role === 'owner_operator' && driverStatsCard}
+          {/* Parts Resource block — owner_operator only (replaces income/expense chart) */}
+          {role === 'owner_operator' && (
+            <div style={{ ...cardStyle, marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text }}>
+                  {'\uD83D\uDD27'} {t('overview.partsResourceTitle')}
+                </div>
+                <span
+                  onClick={() => onExtraNav?.('service_resources')}
+                  style={{ color: '#f59e0b', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
+                >{t('overview.partsResourceAll')}</span>
+              </div>
+              {!ownerPartsLoaded ? (
+                <div style={{ textAlign: 'center', padding: '16px 0', color: theme.dim, fontSize: 13 }}>{t('common.loading')}</div>
+              ) : ownerParts.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '20px 12px', color: theme.dim, fontSize: 13, lineHeight: 1.5 }}>
+                  {t('overview.partsResourceEmpty')}
+                </div>
+              ) : (() => {
+                const odo = ownerOdometer || 0
+                const distUnit = unitSys === 'imperial' ? 'mi' : 'km'
+                const items = ownerParts
+                  .map(p => ({ p, wear: calculatePartWear(p, odo) }))
+                  .sort((a, b) => b.wear.percent - a.wear.percent)
+                  .slice(0, 5)
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {items.map(({ p, wear }) => {
+                      const preset = getPresetByCategory(p.category)
+                      const percent = Math.min(wear.percent, 100)
+                      const color = wear.percent >= 90 ? '#ef4444' : (wear.percent >= 75 ? '#f59e0b' : '#22c55e')
+                      const installDate = p.installed_date ? new Date(p.installed_date).toLocaleDateString() : ''
+                      const installOdo = p.installed_odometer != null ? formatNumber(p.installed_odometer) : ''
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => onExtraNav?.('service_resources')}
+                          style={{ background: theme.bg, borderRadius: '10px', padding: '12px', cursor: 'pointer' }}
+                        >
+                          <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '8px' }}>
+                            <div style={{ fontSize: '22px', flexShrink: 0 }}>{preset.icon}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '13px', fontWeight: 700, color: theme.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {p.part_name || t(preset.name_key)}
+                              </div>
+                              <div style={{ fontSize: '11px', color: theme.dim, marginTop: 2 }}>
+                                {installDate}{installOdo ? ' \u00B7 ' + installOdo + ' ' + distUnit : ''}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color, fontFamily: 'monospace', flexShrink: 0 }}>
+                              {Math.round(wear.percent)}%
+                            </div>
+                          </div>
+                          <div style={{ width: '100%', height: '6px', background: theme.border, borderRadius: '3px', overflow: 'hidden' }}>
+                            <div style={{ width: percent + '%', height: '100%', background: color, transition: 'width 300ms' }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+
+          {/* Shift analytics — removed from owner_operator Overview (FMCSA ELD is authoritative) */}
 
           {/* Quick links — for owner_operator, shown after stats */}
           {role === 'owner_operator' && ownerQuickLinksCard}

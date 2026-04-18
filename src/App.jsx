@@ -216,6 +216,7 @@ function AppInner() {
   const [expensesInitSubTab, setExpensesInitSubTab] = useState(null)
   const [expensesInitCategory, setExpensesInitCategory] = useState(null)
   const [reportDrillPayload, setReportDrillPayload] = useState(null)
+  const [serviceInitSubTab, setServiceInitSubTab] = useState(null)
 
   const handleExtraTabNav = useCallback((tab, payload) => {
     setNavStack((s) => [...s, activeTab])
@@ -231,6 +232,9 @@ function AppInner() {
       setExpensesInitSubTab('personal')
       setExpensesInitCategory(null)
       setActiveTab('expenses')
+    } else if (tab === 'service_resources') {
+      setServiceInitSubTab('resources')
+      setActiveTab('service')
     } else if (
       tab === 'business_pnl_report' ||
       tab === 'net_in_hand_report' ||
@@ -505,7 +509,7 @@ function AppInner() {
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} />
       case 'service':
-        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} />
+        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} initialSubTab={serviceInitSubTab} onSubTabConsumed={() => setServiceInitSubTab(null)} />
       case 'documents':
         return <DocsTab userId={userId} vehicleId={vehicleId} userRole={userRole} profile={profile} />
       case 'jobs':

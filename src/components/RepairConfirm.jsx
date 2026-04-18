@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { uploadReceiptPhoto, addServiceRecord } from '../lib/api'
+import { saveToArchive } from '../lib/documentsArchive'
 
 const REPAIR_CATEGORIES = ['labor', 'parts', 'diagnostics', 'towing', 'other']
 
@@ -75,12 +76,13 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
       }
 
       let savedCount = 0
+      let firstServiceId = null
       for (const item of checkedItems) {
         const desc = shopName
           ? `${item.description} [${catLabel(item.category)}] (${shopName})`
           : `${item.description} [${catLabel(item.category)}]`
 
-        await addServiceRecord({
+        const res = await addServiceRecord({
           vehicle_id: vehicleId || null,
           category: REPAIR_CAT_TO_SERVICE[item.category] || 'repair',
           name: desc,
@@ -90,7 +92,29 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
           date,
           receipt_url: receiptUrl,
         })
+        if (!firstServiceId && res?.[0]?.id) firstServiceId = res[0].id
         savedCount++
+      }
+
+      // Archive the repair invoice photo (best-effort, non-fatal).
+      if (savedCount > 0 && (file || receiptUrl)) {
+        try {
+          await saveToArchive({
+            docType: 'receipt_other',
+            photoFile: file,
+            photoUrl: receiptUrl || null,
+            ocrData: {
+              vendor: shopName || null,
+              amount: total,
+              date,
+            },
+            linkedTable: 'service_records',
+            linkedId: firstServiceId,
+            vehicleId: vehicleId || null,
+          })
+        } catch (archiveErr) {
+          console.error('[RepairConfirm] archive save failed (non-fatal):', archiveErr)
+        }
       }
 
       if (onSaved) onSaved(savedCount)

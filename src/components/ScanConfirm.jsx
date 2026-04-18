@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { uploadReceiptPhoto, addVehicleExpense, addBytExpense, checkDuplicateReceipt } from '../lib/api'
+import { saveToArchive, receiptDocType } from '../lib/documentsArchive'
 
 // AI category -> vehicle_expenses category (valid DB values: def, oil, parts, equipment, supplies, hotel, toll, other)
 const VEHICLE_CAT_MAP = {
@@ -127,6 +128,8 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
       }
 
       let savedCount = 0
+      let firstLinkedId = null
+      let firstLinkedTable = null
       const errors = []
       for (const item of checkedItems) {
         let desc = item.description
@@ -154,6 +157,10 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
             console.log('[ScanConfirm] BEFORE vehicle_expense INSERT:', JSON.stringify(itemData))
             const result = await addVehicleExpense(itemData)
             console.log('[ScanConfirm] AFTER vehicle_expense INSERT ok:', JSON.stringify(result))
+            if (!firstLinkedId && result?.[0]?.id) {
+              firstLinkedId = result[0].id
+              firstLinkedTable = 'vehicle_expenses'
+            }
           } else {
             const itemData = {
               category: item.category,
@@ -165,12 +172,40 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
             console.log('[ScanConfirm] BEFORE byt_expense INSERT:', JSON.stringify(itemData))
             const result = await addBytExpense(itemData)
             console.log('[ScanConfirm] AFTER byt_expense INSERT ok:', JSON.stringify(result))
+            if (!firstLinkedId && result?.[0]?.id) {
+              firstLinkedId = result[0].id
+              firstLinkedTable = 'byt_expenses'
+            }
           }
           savedCount++
         } catch (itemErr) {
           const msg = itemErr?.message || String(itemErr)
           console.error(`[ScanConfirm] FAILED to save "${desc}" ($${amt}):`, msg, itemErr)
           errors.push(`${desc}: ${msg}`)
+        }
+      }
+
+      // Register the scanned receipt in the unified documents archive.
+      // Best-effort — never blocks the save flow.
+      if (savedCount > 0 && (file || receiptUrl)) {
+        const firstChecked = checkedItems[0]
+        const docType = receiptDocType(firstChecked?.aiCategory)
+        try {
+          await saveToArchive({
+            docType,
+            photoFile: file,
+            photoUrl: receiptUrl || null,
+            ocrData: {
+              vendor: storeName || null,
+              amount: total,
+              date,
+            },
+            linkedTable: firstLinkedTable,
+            linkedId: firstLinkedId,
+            vehicleId: vehicleId || null,
+          })
+        } catch (archiveErr) {
+          console.error('[ScanConfirm] archive save failed (non-fatal):', archiveErr)
         }
       }
 

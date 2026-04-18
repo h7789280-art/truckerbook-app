@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { addTrip } from '../lib/api'
+import { saveToArchive } from '../lib/documentsArchive'
 import ScanConfirm from './ScanConfirm'
 import TripConfirm from './TripConfirm'
 import RepairConfirm from './RepairConfirm'
@@ -144,7 +145,7 @@ export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripS
     const origin = [tripData.origin_city, tripData.origin_state].filter(Boolean).join(', ')
     const destination = [tripData.destination_city, tripData.destination_state].filter(Boolean).join(', ')
 
-    await addTrip({
+    const savedTrips = await addTrip({
       from: origin,
       to: destination,
       distance: tripData.miles || 0,
@@ -152,6 +153,27 @@ export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripS
       rate: tripData.rate || 0,
       vehicle_id: vehicleId,
     })
+
+    // Archive the rate confirmation / BOL photo (best-effort, non-fatal).
+    if (file && savedTrips?.[0]?.id) {
+      try {
+        await saveToArchive({
+          docType: 'trip_rateconf',
+          photoFile: file,
+          ocrData: {
+            vendor: result?.broker || null,
+            amount: tripData.rate || null,
+            date: result?.pickup_date || null,
+            document_number: result?.load_number || null,
+          },
+          linkedTable: 'trips',
+          linkedId: savedTrips[0].id,
+          vehicleId: vehicleId || null,
+        })
+      } catch (archiveErr) {
+        console.error('[SmartScan] trip archive save failed (non-fatal):', archiveErr)
+      }
+    }
 
     if (onTripSaved) onTripSaved()
     onClose()

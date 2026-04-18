@@ -3,6 +3,7 @@ import { fetchServiceRecords, fetchInsurance, fetchVehicles, addServiceRecord, u
 import { PART_PRESETS, getPresetByCategory } from '../lib/partResourcePresets'
 import { calculatePartWear } from '../lib/partResourceCalc'
 import { scanPartInvoice } from '../lib/geminiPartInvoice'
+import { saveToArchive } from '../lib/documentsArchive'
 import DVIRInspection from '../components/DVIRInspection'
 import TrailerInspectionContent from '../components/TrailerInspection'
 import IncidentsContent from '../components/IncidentsSection'
@@ -3674,6 +3675,8 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   const [scanError, setScanError] = useState('')
   const [invoiceFile, setInvoiceFile] = useState(null)
   const [invoicePhotoUrl, setInvoicePhotoUrl] = useState(editing?.invoice_photo_url || null)
+  // Archive metadata captured from the most recent successful invoice scan.
+  const [scanMeta, setScanMeta] = useState(null)
   const cameraInputRef = useRef(null)
   const galleryInputRef = useRef(null)
 
@@ -3716,6 +3719,10 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
         setNotes(prev => prev && prev.trim() ? prev + '\n' + scanNote : scanNote)
       }
       setInvoiceFile(file)
+      setScanMeta({
+        shop_name: result.shop_name || null,
+        invoice_number: result.invoice_number || null,
+      })
     } catch (err) {
       console.error('scanPartInvoice failed:', err)
       setScanError(t('resources.scanError'))
@@ -3786,7 +3793,7 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
       if (isEdit) {
         await updatePartResource(editing.id, payload)
       } else {
-        await addPartResource({
+        const newPart = await addPartResource({
           ...payload,
           user_id: userId,
           vehicle_id: vehicleId || null,
@@ -3808,6 +3815,28 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
             })
           } catch (err) {
             console.error('addServiceRecord from part failed:', err)
+          }
+        }
+        // Register the scanned invoice in the unified documents archive.
+        // Best-effort — never blocks the part save.
+        if ((invoiceFile || photoUrl) && newPart?.id) {
+          try {
+            await saveToArchive({
+              docType: 'part_invoice',
+              photoFile: invoiceFile,
+              photoUrl: invoiceFile ? null : (photoUrl || null),
+              ocrData: {
+                vendor: scanMeta?.shop_name || null,
+                document_number: scanMeta?.invoice_number || null,
+                amount: finalCost,
+                date: installedDate,
+              },
+              linkedTable: 'part_resources',
+              linkedId: newPart.id,
+              vehicleId: vehicleId || null,
+            })
+          } catch (err) {
+            console.error('[PartFormModal] archive save failed (non-fatal):', err)
           }
         }
       }

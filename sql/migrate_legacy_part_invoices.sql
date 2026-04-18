@@ -19,11 +19,11 @@ SELECT
   invoice_photo_url,
   NULL,
   NULL,
-  install_date,
+  installed_date,
   cost,
   'USD',
   created_at,
-  (install_date + interval '3 years')::date
+  (installed_date + interval '3 years')::date
 FROM part_resources
 WHERE invoice_photo_url IS NOT NULL
   AND NOT EXISTS (

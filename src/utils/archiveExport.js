@@ -116,20 +116,30 @@ function csvEscape(v) {
   return s
 }
 
-// Hand the generated file to the user. On platforms that support the Web Share
-// API with files (iOS Safari, Android Chrome, PWAs), we open the native share
-// sheet — this is the only reliable way to let iOS users save a generated blob
-// to Files / mail it / AirDrop it, since <a download> on iOS just opens a blob:
-// URL in a new tab that's unreachable after tab close.
+// Hand the generated file to the user.
+//
+// On iOS Safari, <a download> opens the blob in a new tab that's unreachable
+// after close — the only reliable way to save is the Web Share API ("Save to
+// Files"). On Android/desktop, <a download> works fine and avoids dumping the
+// user into a share sheet where they might accidentally pick Telegram or mail.
 //
 // Returns:
 //   { shared: true }                 — user was shown the share sheet and did not cancel
 //   { shared: false, cancelled }     — user dismissed the share sheet
 //   { shared: false, downloaded }    — fallback path (Android/desktop/old browsers)
+function isIOSDevice() {
+  if (typeof navigator === 'undefined') return false
+  const ua = navigator.userAgent || ''
+  if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) return true
+  // iPadOS 13+ reports as Mac but exposes touch — treat as iOS so share sheet is used
+  if (ua.includes('Macintosh') && navigator.maxTouchPoints > 1) return true
+  return false
+}
+
 async function shareOrDownload(blob, filename, mimeType) {
   const file = new File([blob], filename, { type: mimeType })
 
-  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [file] })) {
+  if (isIOSDevice() && navigator.canShare && navigator.canShare({ files: [file] })) {
     try {
       await navigator.share({ files: [file], title: filename })
       return { shared: true }
@@ -254,6 +264,103 @@ export async function exportArchiveZip({ docs, filterSlug, labels, lang, onProgr
   const fname = 'documents_' + (filterSlug || 'export') + '.zip'
   const delivery = await shareOrDownload(content, fname, 'application/zip')
   return { fileName: fname, size: content.size, ...delivery }
+}
+
+// ---------------------------------------------------------------------------
+// Excel (XLSX) — single sheet matching index.csv columns
+// ---------------------------------------------------------------------------
+//
+// Bold frozen header row, autoWidth columns. Photos are NOT embedded — this
+// format is for accountants/spreadsheets, the ZIP option already covers
+// "photos + table" use case.
+export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onProgress, signal } = {}) {
+  if (!docs || docs.length === 0) return null
+  throwIfAborted(signal)
+
+  const XLSX = await import('xlsx')
+  const locale = normalizeLocale(lang)
+  const total = docs.length
+  if (onProgress) onProgress(0, total)
+
+  const headers = [
+    labels.csvDate,
+    labels.csvType,
+    labels.csvVendor,
+    labels.csvNumber,
+    labels.csvAmount,
+    labels.csvCurrency,
+    labels.csvRetention,
+    labels.csvFile,
+  ]
+
+  const rows = []
+  for (let i = 0; i < docs.length; i++) {
+    throwIfAborted(signal)
+    const d = docs[i]
+    const datePart = formatDateForFile(d.document_date)
+    const vendorPart = sanitizeSlug(d.vendor_name) || 'doc'
+    const amountPart = d.amount != null && Number.isFinite(Number(d.amount))
+      ? Number(d.amount).toFixed(2)
+      : ''
+    const ext = fileExtFromUrl(d.photo_url || '')
+    const fileName = d.photo_url
+      ? [datePart, vendorPart, amountPart].filter(Boolean).join('_') + '.' + ext
+      : ''
+    rows.push([
+      formatDateForDisplay(d.document_date, locale),
+      labels.docTypeLabels[d.doc_type] || d.doc_type || '',
+      d.vendor_name || '',
+      d.document_number || '',
+      d.amount != null ? Number(d.amount) : '',
+      d.currency || '',
+      formatDateForDisplay(d.retention_until, locale),
+      fileName,
+    ])
+    if (onProgress && (i % 25 === 0 || i === docs.length - 1)) {
+      onProgress(i + 1, total)
+    }
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
+
+  // Bold header row (SheetJS community edition writes the `s` cell field; some
+  // viewers honor it, others ignore it. We still set it for parity with the
+  // user request — viewers that ignore it just render a normal header.)
+  for (let c = 0; c < headers.length; c++) {
+    const ref = XLSX.utils.encode_cell({ r: 0, c })
+    if (ws[ref]) {
+      ws[ref].s = { font: { bold: true } }
+    }
+  }
+
+  // Autowidth: longest content in each column, capped 10..50
+  const colWidths = headers.map((h, c) => {
+    let max = String(h || '').length
+    for (const row of rows) {
+      const v = row[c]
+      const len = v == null ? 0 : String(v).length
+      if (len > max) max = len
+    }
+    return { wch: Math.max(10, Math.min(max + 2, 50)) }
+  })
+  ws['!cols'] = colWidths
+
+  // Freeze first row
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 }
+  ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Archive')
+
+  const arrayBuffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+  const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  const blob = new Blob([arrayBuffer], { type: mime })
+  const fname = 'archive_' + (filterSlug || 'export') + '.xlsx'
+
+  throwIfAborted(signal)
+  const delivery = await shareOrDownload(blob, fname, mime)
+  if (onProgress) onProgress(total, total)
+  return { fileName: fname, size: blob.size, ...delivery }
 }
 
 // ---------------------------------------------------------------------------

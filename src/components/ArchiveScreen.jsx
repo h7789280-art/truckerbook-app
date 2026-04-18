@@ -384,6 +384,8 @@ export default function ArchiveScreen({ userId, onBack, onNavigate }) {
       let result
       if (format === 'zip') {
         result = await mod.exportArchiveZip(common)
+      } else if (format === 'xlsx') {
+        result = await mod.exportArchiveExcel(common)
       } else {
         result = await mod.exportArchivePdf({ ...common, meta })
       }
@@ -816,7 +818,7 @@ function ExportBottomSheet({ onClose, onChoose }) {
           }}
         >
           <div style={{ fontSize: '15px', fontWeight: 700 }}>
-            {'\uD83D\uDCCA ' + (t('archive.formatZip') || 'Photo + table (ZIP)')}
+            {'\uD83D\uDDC2 ' + (t('archive.formatZip') || 'Photo + table (ZIP)')}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
             {t('archive.formatZipDesc1') || 'Folder with JPEG + CSV'}
@@ -838,6 +840,7 @@ function ExportBottomSheet({ onClose, onChoose }) {
             fontSize: '14px',
             textAlign: 'left',
             cursor: 'pointer',
+            marginBottom: '10px',
             display: 'flex',
             flexDirection: 'column',
             gap: '4px',
@@ -851,6 +854,34 @@ function ExportBottomSheet({ onClose, onChoose }) {
           </div>
           <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
             {t('archive.formatPdfDesc2') || 'For accountant and IRS'}
+          </div>
+        </button>
+
+        <button
+          onClick={() => onChoose('xlsx')}
+          style={{
+            width: '100%',
+            padding: '14px 16px',
+            borderRadius: '12px',
+            border: '1px solid var(--border)',
+            background: 'var(--card2)',
+            color: 'var(--text)',
+            fontSize: '14px',
+            textAlign: 'left',
+            cursor: 'pointer',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px',
+          }}
+        >
+          <div style={{ fontSize: '15px', fontWeight: 700 }}>
+            {'\uD83D\uDCCA ' + (t('archive.formatXlsx') || 'Excel spreadsheet')}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+            {t('archive.formatXlsxDesc1') || 'Single .xlsx file'}
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--dim)' }}>
+            {t('archive.formatXlsxDesc2') || 'Frozen header, ready for filtering'}
           </div>
         </button>
 

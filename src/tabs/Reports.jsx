@@ -232,16 +232,30 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     { header: `${labels.driverPay} (${cs})`, key: 'driverPay' },
   ]
 
+  const tripsGrandTotal = isOwner ? {
+    label: labels.total,
+    labelColKey: 'to',
+    sumKeys: ['distance', 'income', 'driverPay'],
+    totals: {
+      distance: String(tripsRows.reduce((s, r) => s + (Number(r.distance) || 0), 0)),
+      income: fmt(tripsRows.reduce((s, r) => s + (Number(r.income) || 0), 0)),
+      driverPay: fmt(tripsRows.reduce((s, r) => s + (Number(r.driverPay) || 0), 0)),
+    },
+  } : undefined
   const doTripsExcel = () => runExport('trips_excel', () => exportToExcel(
     tripsRows,
     tripsColumns,
     `trips_${getDateRange().start}_${getDateRange().end}.xlsx`,
+    tripsGrandTotal ? { grandTotal: tripsGrandTotal } : undefined,
   ))
   const doTripsPdf = () => runExport('trips_pdf', () => exportToPDF(
     tripsRows.map(r => ({ ...r, distance: String(r.distance), income: fmt(r.income), driverPay: fmt(r.driverPay) })),
     tripsColumns,
     labels.trips,
     `trips_${getDateRange().start}_${getDateRange().end}.pdf`,
+    undefined,
+    undefined,
+    tripsGrandTotal ? { grandTotal: tripsGrandTotal } : undefined,
   ))
 
   // Fuel
@@ -328,15 +342,27 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     { header: labels.description, key: 'description' },
     { header: `${labels.amount} (${cs})`, key: 'amount' },
   ]
+  const vExpGrandTotal = isOwner ? {
+    label: labels.total,
+    labelColKey: 'description',
+    sumKeys: ['amount'],
+    totals: {
+      amount: fmt(vExpRows.reduce((s, r) => s + (Number(r.amount) || 0), 0)),
+    },
+  } : undefined
   const doVExpExcel = () => runExport('vexp_excel', () => exportToExcel(
     vExpRows, vExpColumns,
     `vehicle_expenses_${getDateRange().start}_${getDateRange().end}.xlsx`,
+    vExpGrandTotal ? { grandTotal: vExpGrandTotal } : undefined,
   ))
   const doVExpPdf = () => runExport('vexp_pdf', () => exportToPDF(
     vExpRows.map(r => ({ ...r, amount: fmt(r.amount) })),
     vExpColumns,
     labels.vehicleExpenses,
     `vehicle_expenses_${getDateRange().start}_${getDateRange().end}.pdf`,
+    undefined,
+    undefined,
+    vExpGrandTotal ? { grandTotal: vExpGrandTotal } : undefined,
   ))
 
   // Personal expenses
@@ -347,15 +373,27 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     amount: e.amount || 0,
   }))
   const bytColumns = vExpColumns
+  const bytGrandTotal = isOwner ? {
+    label: labels.total,
+    labelColKey: 'description',
+    sumKeys: ['amount'],
+    totals: {
+      amount: fmt(bytRows.reduce((s, r) => s + (Number(r.amount) || 0), 0)),
+    },
+  } : undefined
   const doBytExcel = () => runExport('byt_excel', () => exportToExcel(
     bytRows, bytColumns,
     `personal_expenses_${getDateRange().start}_${getDateRange().end}.xlsx`,
+    bytGrandTotal ? { grandTotal: bytGrandTotal } : undefined,
   ))
   const doBytPdf = () => runExport('byt_pdf', () => exportToPDF(
     bytRows.map(r => ({ ...r, amount: fmt(r.amount) })),
     bytColumns,
     labels.personalExpenses,
     `personal_expenses_${getDateRange().start}_${getDateRange().end}.pdf`,
+    undefined,
+    undefined,
+    bytGrandTotal ? { grandTotal: bytGrandTotal } : undefined,
   ))
 
   // Salary card — reuse trips export with driverPay column
@@ -401,15 +439,29 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     { header: `${labels.expense} (${cs})`, key: 'expense' },
     { header: `${labels.profit} (${cs})`, key: 'profit' },
   ]
+  const pnlGrandTotal = isOwner ? {
+    label: labels.total,
+    labelColKey: 'date',
+    sumKeys: ['income', 'expense', 'profit'],
+    totals: {
+      income: fmt(pnlRows.reduce((s, r) => s + (Number(r.income) || 0), 0)),
+      expense: fmt(pnlRows.reduce((s, r) => s + (Number(r.expense) || 0), 0)),
+      profit: fmt(pnlRows.reduce((s, r) => s + (Number(r.profit) || 0), 0)),
+    },
+  } : undefined
   const doPnlExcel = () => runExport('pnl_excel', () => exportToExcel(
     pnlRows, pnlColumns,
     `pnl_${getDateRange().start}_${getDateRange().end}.xlsx`,
+    pnlGrandTotal ? { grandTotal: pnlGrandTotal } : undefined,
   ))
   const doPnlPdf = () => runExport('pnl_pdf', () => exportToPDF(
     pnlRows.map(r => ({ ...r, income: fmt(r.income), expense: fmt(r.expense), profit: fmt(r.profit) })),
     pnlColumns,
     labels.pnlReport,
     `pnl_${getDateRange().start}_${getDateRange().end}.pdf`,
+    undefined,
+    undefined,
+    pnlGrandTotal ? { grandTotal: pnlGrandTotal } : undefined,
   ))
 
   // Net in hand (owner_operator only) — summary rows

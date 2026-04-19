@@ -836,7 +836,19 @@ export default function FinanceDetails({ userId, profile, onBack }) {
       const vehicleInfo = profile?.brand ? (profile.brand + ' ' + (profile.model || '')) : ''
       const title = (profile?.full_name || profile?.name || '') + ' \u2014 ' + monthNames[month - 1] + ' ' + year
 
-      await exportToPDF(allRows, columns, title, `driver_report_${String(month).padStart(2, '0')}_${year}.pdf`, undefined, vehicleInfo)
+      const isOwnerOp = profile?.role === 'owner_operator'
+      const pdfOptions = isOwnerOp ? {
+        grandTotal: {
+          label: t('excel.total') || 'TOTAL',
+          labelColKey: 'description',
+          sumKeys: ['income', 'expense'],
+          totals: {
+            income: String(Math.round(allRows.reduce((s, r) => s + (Number(r.income) || 0), 0))),
+            expense: String(Math.round(allRows.reduce((s, r) => s + (Number(r.expense) || 0), 0))),
+          },
+        },
+      } : undefined
+      await exportToPDF(allRows, columns, title, `driver_report_${String(month).padStart(2, '0')}_${year}.pdf`, undefined, vehicleInfo, pdfOptions)
     } catch (err) {
       console.error('PDF export error:', err)
       alert(t('common.error') || 'Error')

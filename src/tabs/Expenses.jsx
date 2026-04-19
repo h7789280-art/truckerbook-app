@@ -137,7 +137,7 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
           initialCategory={initialCategory}
         />
       ) : (
-        <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} />
+        <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} userRole={userRole} />
       )}
     </div>
   )

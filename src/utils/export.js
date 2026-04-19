@@ -44,6 +44,18 @@ const styleFuelPerDistRow = (ws, rowNum, colCount) => {
   }
 }
 
+/** Convert 1-based column index to Excel column letter (1 -> A, 27 -> AA) */
+const colIndexToLetter = (idx) => {
+  let s = ''
+  let n = idx
+  while (n > 0) {
+    const rem = (n - 1) % 26
+    s = String.fromCharCode(65 + rem) + s
+    n = Math.floor((n - 1) / 26)
+  }
+  return s
+}
+
 /** Auto-fit column widths */
 const styledAutoWidth = (ws) => {
   if (!ws.columns || ws.columns.length === 0) return
@@ -74,8 +86,12 @@ const styledAltRows = (ws, startRow, endRow, colCount) => {
  * @param {Array<Object>} data
  * @param {Array<{header: string, key: string}>} columns
  * @param {string} filename
+ * @param {Object} [options]
+ * @param {{label: string, labelColKey?: string, sumKeys?: string[]}} [options.grandTotal]
+ *   opt-in TOTAL row: label placed in labelColKey column (or first column),
+ *   SUM(colN2:colN{last}) formulas added for each sumKeys column
  */
-export async function exportToExcel(data, columns, filename) {
+export async function exportToExcel(data, columns, filename, options) {
   const excelMod = await import('exceljs')
   const ExcelJS = excelMod.default || excelMod
   const fileSaverMod = await import('file-saver')
@@ -109,6 +125,28 @@ export async function exportToExcel(data, columns, filename) {
       }
     })
   })
+
+  // Optional grand-total row (opt-in; e.g. owner_operator reports)
+  if (options && options.grandTotal && data.length > 0) {
+    const gt = options.grandTotal
+    const totalVals = columns.map(() => '')
+    const labelIdx = columns.findIndex(c => c.key === gt.labelColKey)
+    totalVals[labelIdx >= 0 ? labelIdx : 0] = gt.label || 'TOTAL'
+    ws.addRow(totalVals)
+    const totalRowNum = ws.rowCount
+    const firstDataRow = 2
+    const lastDataRow = 1 + data.length
+    ;(gt.sumKeys || []).forEach(key => {
+      const colIdx = columns.findIndex(c => c.key === key)
+      if (colIdx >= 0) {
+        const colLetter = colIndexToLetter(colIdx + 1)
+        ws.getRow(totalRowNum).getCell(colIdx + 1).value = {
+          formula: `SUM(${colLetter}${firstDataRow}:${colLetter}${lastDataRow})`,
+        }
+      }
+    })
+    styleTotalRow(ws, totalRowNum, headers.length)
+  }
 
   styledAutoWidth(ws)
 
@@ -1000,6 +1038,7 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
 
   const fuelTotals = options && options.fuelTotals
   const tripsTotalRow = options && options.tripsTotalRow
+  const grandTotal = options && options.grandTotal
   const totalLabel = (options && options.totalLabel) || 'TOTAL'
   const averageLabel = (options && options.averageLabel) || 'avg'
 
@@ -1008,6 +1047,19 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
 
   // Build fuel totals rows for the table
   const footRows = []
+
+  // Optional generic grand-total row (opt-in; e.g. owner_operator reports)
+  if (grandTotal && data.length > 0) {
+    const totalVals = columns.map(() => '')
+    const labelIdx = columns.findIndex(c => c.key === grandTotal.labelColKey)
+    totalVals[labelIdx >= 0 ? labelIdx : 0] = grandTotal.label || totalLabel
+    const totals = grandTotal.totals || {}
+    Object.entries(totals).forEach(([key, val]) => {
+      const colIdx = columns.findIndex(c => c.key === key)
+      if (colIdx >= 0) totalVals[colIdx] = String(val)
+    })
+    footRows.push({ cells: totalVals, style: 'total' })
+  }
   if (fuelTotals && data.length > 0) {
     const amountIdx = columns.findIndex(c => c.key === 'amount')
     const volIdx = columns.findIndex(c => c.key === fuelTotals.volumeKey)

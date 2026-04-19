@@ -46,9 +46,10 @@ function getDateRange(period, customFrom, customTo) {
   return { from: null, to: null }
 }
 
-export default function Byt({ userId, refreshKey }) {
+export default function Byt({ userId, refreshKey, userRole }) {
   const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
+  const isOwnerOperator = userRole === 'owner_operator'
 
   const CATEGORIES = useMemo(() => [
     { key: 'all', icon: '', label: t('byt.all') },
@@ -166,8 +167,14 @@ export default function Byt({ userId, refreshKey }) {
     })
     const now2 = new Date()
     const ym = `${now2.getFullYear()}_${String(now2.getMonth() + 1).padStart(2, '0')}`
+    const grandTotal = isOwnerOperator ? {
+      label: t('excel.total') || 'TOTAL',
+      labelColKey: 'description',
+      sumKeys: ['amount'],
+      totals: { amount: String(rows.reduce((s, r) => s + (Number(r.amount) || 0), 0)) },
+    } : undefined
     if (format === 'excel') {
-      await exportToExcel(rows, columns, `personal_expenses_${ym}.xlsx`)
+      await exportToExcel(rows, columns, `personal_expenses_${ym}.xlsx`, grandTotal ? { grandTotal } : undefined)
     } else {
       // Build period-aware title
       const monthNames = t('expenses.monthNames')
@@ -187,7 +194,7 @@ export default function Byt({ userId, refreshKey }) {
       const pdfTitle = periodStr
         ? `${t('expenses.personalReport')} \u2014 ${periodStr}`
         : t('expenses.personalReport')
-      exportToPDF(rows, columns, pdfTitle, `personal_expenses_${ym}.pdf`, lang)
+      exportToPDF(rows, columns, pdfTitle, `personal_expenses_${ym}.pdf`, lang, undefined, grandTotal ? { grandTotal } : undefined)
     }
   }
 

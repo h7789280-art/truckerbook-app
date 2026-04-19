@@ -825,6 +825,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
       }
     } else {
       const isDriverWithPay = profile?.role === 'driver' && entries.some(e => e.driver_pay > 0)
+      const isOwnerOp = profile?.role === 'owner_operator'
       const columns = [
         { header: t('fuel.exportDate'), key: 'date' },
         { header: t('trips.from'), key: 'from' },
@@ -851,7 +852,19 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         }
         rows.push(totalRow)
       }
-      const pdfOptions = isDriverWithPay ? { tripsTotalRow: true, totalLabel: t('excel.total') || 'TOTAL' } : undefined
+      let pdfOptions = isDriverWithPay ? { tripsTotalRow: true, totalLabel: t('excel.total') || 'TOTAL' } : undefined
+      if (isOwnerOp && !isDriverWithPay) {
+        const totalDistance = entries.reduce((s, e) => s + (e.distance_km || 0), 0)
+        const totalIncome = entries.reduce((s, e) => s + (e.income || 0), 0)
+        pdfOptions = {
+          grandTotal: {
+            label: t('excel.total') || 'TOTAL',
+            labelColKey: 'to',
+            sumKeys: ['distance', 'income'],
+            totals: { distance: String(totalDistance), income: String(Math.round(totalIncome)) },
+          },
+        }
+      }
       exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`, lang, undefined, pdfOptions)
     }
   }

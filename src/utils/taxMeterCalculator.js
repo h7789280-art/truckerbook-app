@@ -24,20 +24,29 @@ function daysPassedInYear(currentDate) {
 }
 
 /**
- * Sum of trip income for the given calendar year.
- * @param {Array<{income?: number, created_at?: string}>} trips
+ * Sum of trip income for the given calendar year, up to `currentDate`.
+ *
+ * Filter precedence mirrors IFTA / Tax Package: prefer `date_start` (actual
+ * trip date), fall back to `created_at` only when date_start is null.
+ * This excludes ghost entries whose created_at landed in-year but whose
+ * actual trip date was outside the year or in the future.
+ *
+ * @param {Array<{income?: number, date_start?: string, created_at?: string}>} trips
  * @param {number} year
+ * @param {Date|string} [currentDate=new Date()]  Cut-off (exclusive upper bound, in ms)
  */
-export function calculateYTDGrossIncome(trips, year) {
+export function calculateYTDGrossIncome(trips, year, currentDate = new Date()) {
   if (!Array.isArray(trips)) return 0
   const yearStart = new Date(year, 0, 1).getTime()
   const yearEnd = new Date(year + 1, 0, 1).getTime()
+  const nowMs = toDate(currentDate).getTime()
   let sum = 0
   for (const t of trips) {
     if (!t) continue
-    if (t.created_at) {
-      const ts = new Date(t.created_at).getTime()
-      if (Number.isNaN(ts) || ts < yearStart || ts >= yearEnd) continue
+    const ref = t.date_start || t.created_at
+    if (ref) {
+      const ts = new Date(ref).getTime()
+      if (Number.isNaN(ts) || ts < yearStart || ts >= yearEnd || ts > nowMs) continue
     }
     sum += Number(t.income) || 0
   }
@@ -97,6 +106,21 @@ export function calculateAccruedTax({
   const projectedAnnualTax = tax.totalTax || 0
   const ytdAccruedTax = projectedAnnualTax * (days / 365)
 
+  // Debug trace so the user can verify mid-computation values in DevTools.
+  if (typeof console !== 'undefined' && console.log) {
+    console.log('[TaxMeter] calculateAccruedTax', {
+      ytdGross,
+      ytdExpenses,
+      ytdPerDiem,
+      depreciation: projectedDepreciation,
+      projectedAnnualGross: projectedGross,
+      projectedNetProfit,
+      projectedAnnualTax,
+      daysPassed: days,
+      ytdAccruedTax,
+    })
+  }
+
   return {
     daysPassed: days,
     projectedGross,
@@ -133,14 +157,23 @@ export function calculateSavingsBucket(ytdGross, withholdPct, quarterlyPaymentsY
  * Deadlines (standard, non-holiday-adjusted):
  *   Q1 = Apr 15, Q2 = Jun 15, Q3 = Sep 15, Q4 = Jan 15 of following year.
  *
+ * The quarterly amount uses IRS Safe Harbor: pay 90% of projected annual tax
+ * in four equal installments (or 110% of prior-year tax if prior AGI > $150k
+ * — that branch is not implemented here; caller can override via `safeHarborFactor`).
+ *
  * @param {Date|string} currentDate
  * @param {object} [opts]
- * @param {number} [opts.safeHarborTotal=0]   Projected annual tax (used as safe-harbor base)
+ * @param {number} [opts.safeHarborTotal=0]   Projected annual tax (safe-harbor base)
+ * @param {number} [opts.safeHarborFactor=0.9] 0.9 for standard, 1.1 for high-AGI filers
  * @param {Object.<number, number>} [opts.paidByQuarter={}]  { 1: paid, 2: paid, ... }
  * @returns {{quarter:string, qNum:number, year:number, dueDate:string, daysUntil:number, amount:number}|null}
  */
 export function getNextQuarterDeadline(currentDate = new Date(), opts = {}) {
-  const { safeHarborTotal = 0, paidByQuarter = {} } = opts
+  const {
+    safeHarborTotal = 0,
+    safeHarborFactor = 0.9,
+    paidByQuarter = {},
+  } = opts
   const today = toDate(currentDate)
   today.setHours(0, 0, 0, 0)
   const year = today.getFullYear()
@@ -158,7 +191,8 @@ export function getNextQuarterDeadline(currentDate = new Date(), opts = {}) {
   if (!next) return null
 
   const daysUntil = Math.ceil((next.due.getTime() - today.getTime()) / MS_PER_DAY)
-  const quarterlyInstallment = (Number(safeHarborTotal) || 0) / 4
+  const safeHarborAnnual = (Number(safeHarborTotal) || 0) * (Number(safeHarborFactor) || 0.9)
+  const quarterlyInstallment = safeHarborAnnual / 4
   const paidThisQ = Number(paidByQuarter[next.qNum]) || 0
   const amount = Math.max(quarterlyInstallment - paidThisQ, 0)
 

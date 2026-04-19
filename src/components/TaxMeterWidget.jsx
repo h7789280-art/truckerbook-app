@@ -130,7 +130,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
     )
 
     Promise.all([
-      supabase.from('trips').select('income, created_at').eq('user_id', userId)
+      supabase.from('trips').select('income, created_at, date_start').eq('user_id', userId)
         .gte('created_at', start + 'T00:00:00').lt('created_at', endPlusOne + 'T00:00:00'),
       supabase.from('fuel_entries').select('cost').eq('user_id', userId)
         .gte('date', start).lt('date', endPlusOne),
@@ -153,7 +153,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
         if (cancelled) return
         const [tripsRes, fuelRes, vehExpRes, serviceRes, depRes, settingsRes, paymentsRes, ...perDiems] = results
 
-        const gross = calculateYTDGrossIncome(tripsRes.data || [], year)
+        const gross = calculateYTDGrossIncome(tripsRes.data || [], year, today)
         const fuelCost = (fuelRes.data || []).reduce((s, r) => s + (Number(r.cost) || 0), 0)
         const vehExp = (vehExpRes.data || []).reduce((s, r) => s + (Number(r.amount) || 0), 0)
         const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (Number(r.cost) || 0), 0)

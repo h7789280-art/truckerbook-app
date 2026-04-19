@@ -1365,7 +1365,6 @@ const translations = {
       financeByPeriod: '\u0424\u0438\u043d\u0430\u043d\u0441\u044b \u043f\u043e \u043f\u0435\u0440\u0438\u043e\u0434\u0430\u043c',
       incomeChartLabel: '\u0414\u043e\u0445\u043e\u0434',
       vehicleExpenseChartLabel: '\u0420\u0430\u0441\u0445\u043e\u0434 \u043c\u0430\u0448\u0438\u043d\u044b',
-      personalExpenseChartLabel: '\u041b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b',
       categoriesChartTitle: '\u041f\u043e \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0438\u044f\u043c',
     },
     mySalary: {
@@ -3109,7 +3108,6 @@ const translations = {
       financeByPeriod: 'Finance by period',
       incomeChartLabel: 'Income',
       vehicleExpenseChartLabel: 'Vehicle expenses',
-      personalExpenseChartLabel: 'Personal expenses',
       categoriesChartTitle: 'By category',
     },
     mySalary: {
@@ -4856,7 +4854,6 @@ const translations = {
       financeByPeriod: '\u0424\u0456\u043d\u0430\u043d\u0441\u0438 \u0437\u0430 \u043f\u0435\u0440\u0456\u043e\u0434\u0430\u043c\u0438',
       incomeChartLabel: '\u0414\u043e\u0445\u0456\u0434',
       vehicleExpenseChartLabel: '\u0412\u0438\u0442\u0440\u0430\u0442\u0438 \u043d\u0430 \u043c\u0430\u0448\u0438\u043d\u0443',
-      personalExpenseChartLabel: '\u041e\u0441\u043e\u0431\u0438\u0441\u0442\u0456 \u0432\u0438\u0442\u0440\u0430\u0442\u0438',
       categoriesChartTitle: '\u0417\u0430 \u043a\u0430\u0442\u0435\u0433\u043e\u0440\u0456\u044f\u043c\u0438',
     },
     mySalary: {
@@ -6562,7 +6559,6 @@ const translations = {
       financeByPeriod: 'Finanzas por per\u00edodo',
       incomeChartLabel: 'Ingresos',
       vehicleExpenseChartLabel: 'Gastos del veh\u00edculo',
-      personalExpenseChartLabel: 'Gastos personales',
       categoriesChartTitle: 'Por categor\u00eda',
     },
     mySalary: {
@@ -8268,7 +8264,6 @@ const translations = {
       financeByPeriod: 'Finanzen nach Zeitraum',
       incomeChartLabel: 'Einnahmen',
       vehicleExpenseChartLabel: 'Fahrzeugkosten',
-      personalExpenseChartLabel: 'Pers\u00f6nliche Ausgaben',
       categoriesChartTitle: 'Nach Kategorie',
     },
     mySalary: {
@@ -9974,7 +9969,6 @@ const translations = {
       financeByPeriod: 'Finances par p\u00e9riode',
       incomeChartLabel: 'Revenus',
       vehicleExpenseChartLabel: 'D\u00e9penses v\u00e9hicule',
-      personalExpenseChartLabel: 'D\u00e9penses personnelles',
       categoriesChartTitle: 'Par cat\u00e9gorie',
     },
     mySalary: {
@@ -11680,7 +11674,6 @@ const translations = {
       financeByPeriod: 'D\u00f6neme g\u00f6re finans',
       incomeChartLabel: 'Gelir',
       vehicleExpenseChartLabel: 'Ara\u00e7 giderleri',
-      personalExpenseChartLabel: 'Ki\u015fisel giderler',
       categoriesChartTitle: 'Kategoriye g\u00f6re',
     },
     mySalary: {
@@ -13390,7 +13383,6 @@ const translations = {
       financeByPeriod: 'Finanse wed\u0142ug okresu',
       incomeChartLabel: 'Doch\u00f3d',
       vehicleExpenseChartLabel: 'Wydatki na pojazd',
-      personalExpenseChartLabel: 'Wydatki osobiste',
       categoriesChartTitle: 'Wed\u0142ug kategorii',
     },
     mySalary: {

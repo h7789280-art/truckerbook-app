@@ -638,13 +638,6 @@ export function NetInHandDetails({ userId, onBack, initialPeriod, initialCustomF
             {row('= ' + t('details.netToMe'), netToMe, netToMe >= 0 ? '#22c55e' : '#ef4444', true, true)}
           </div>
 
-          <LineChart
-            data={rows}
-            labels={[t('details.profitBusiness'), t('details.personalExpenseChartLabel')]}
-            colors={['#22c55e', '#ef4444']}
-            theme={theme} cs={cs}
-            title={`${t('details.profitBusiness')} / ${t('details.personalExpenseChartLabel')}`}
-          />
           <Donut segments={personalSegments} theme={theme} t={t} cs={cs} title={t('details.categoriesChartTitle')} />
           <PeriodTable
             rows={rows}
@@ -895,17 +888,6 @@ export function PersonalExpensesDetails({ userId, onBack, initialPeriod, initial
     .filter(([, v]) => v.value > 0)
     .map(([label, v]) => ({ label, value: v.value, color: v.color }))
 
-  const range = dateRangeFromPeriod(period, customFrom, customTo)
-  const bytGrp = groupByPeriod(period, range.start, range.end, bytExps, {
-    date: r => r.date, field: r => r.amount, series: 'personal',
-  })
-  const rows = Object.keys(bytGrp.map).sort().map(k => ({
-    key: k,
-    label: labelForKey(k, bytGrp.groupMode, t),
-    fullLabel: fullLabelForKey(k, bytGrp.groupMode, t),
-    personal: bytGrp.map[k]?.personal || 0,
-  }))
-
   return (
     <div style={{ padding: 16, maxWidth: 480, margin: '0 auto' }}>
       <Header title={t('reports.personalExpenses')} onBack={onBack} theme={theme} />
@@ -926,13 +908,6 @@ export function PersonalExpensesDetails({ userId, onBack, initialPeriod, initial
             <SummaryCard label={t('common.recordsCount') || 'Entries'} value={String(bytExps.length)} color="#f59e0b" cs="" theme={theme} />
           </div>
           <Donut segments={segments} theme={theme} t={t} cs={cs} title={t('details.categoriesChartTitle')} />
-          <LineChart
-            data={rows}
-            labels={[t('details.personalExpenseChartLabel')]}
-            colors={['#ef4444']}
-            theme={theme} cs={cs}
-            title={t('details.personalExpenseChartLabel')}
-          />
           <div style={{
             background: theme.card, borderRadius: 16,
             border: `1px solid ${theme.border}`, marginBottom: 10, overflow: 'hidden',

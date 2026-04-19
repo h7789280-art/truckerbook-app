@@ -9,6 +9,7 @@ import TaxSummaryTab from './TaxSummaryTab'
 import DepreciationTab from './DepreciationTab'
 import MileageLogTab from './MileageLogTab'
 import DeductionChecklistTab from './DeductionChecklistTab'
+import TaxPackageTab from './TaxPackageTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
@@ -29,8 +30,10 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const showDepreciation = isOwnerOrCompany
   const showMileageLog = isOwnerOrCompany
   const showDeductionChecklist = role === 'driver'
+  // Tax package (year-end CPA ZIP) — self-employed only: owner_operator or 1099 driver.
+  const showTaxPackage = role === 'owner_operator' || isDriver1099
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist' || activeSection === 'taxPackage') {
     return (
       <div>
         <button
@@ -51,6 +54,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'depreciation' && showDepreciation && <DepreciationTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'mileageLog' && showMileageLog && <MileageLogTab userId={userId} />}
         {activeSection === 'deductionChecklist' && showDeductionChecklist && <DeductionChecklistTab />}
+        {activeSection === 'taxPackage' && showTaxPackage && <TaxPackageTab userId={userId} role={role} profile={profile} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -109,6 +113,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\u2705',
       title: t('bookkeeping.deductionChecklistCard'),
       desc: t('bookkeeping.deductionChecklistDescription'),
+    }] : []),
+    ...(showTaxPackage ? [{
+      key: 'taxPackage',
+      icon: '\uD83D\uDCE6',
+      title: t('bookkeeping.taxPackageCard'),
+      desc: t('bookkeeping.taxPackageDescription'),
     }] : []),
   ]
 

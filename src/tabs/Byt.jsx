@@ -153,7 +153,7 @@ export default function Byt({ userId, refreshKey, userRole }) {
     const columns = [
       { header: t('fuel.exportDate'), key: 'date' },
       { header: t('fuel.exportCategory'), key: 'category' },
-      { header: t('fuel.exportDescription'), key: 'description' },
+      { header: t('fuel.exportDescriptionOnly'), key: 'description' },
       { header: `${t('fuel.exportAmount')} (${cs})`, key: 'amount' },
     ]
     const rows = periodEntries.map(e => {

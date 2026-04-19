@@ -12,6 +12,7 @@ import { readOdometerFromPhoto } from '../lib/geminiVision'
 import DispatchBoard from '../components/DispatchBoard'
 import FleetMap from '../components/FleetMap'
 import AIForecast from '../components/AIForecast'
+import TaxMeterWidget from '../components/TaxMeterWidget'
 import { scheduleHOSWarning, scheduleMaintenanceReminder, scheduleTrialExpiry } from '../lib/notifications'
 
 function getGreeting(name, t) {
@@ -2648,6 +2649,15 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                       </div>
                     )
                   })()}
+
+                  {/* Real-time Tax Meter — owner_operator only, after Personal block, before Reports */}
+                  {role === 'owner_operator' && (
+                    <TaxMeterWidget
+                      userId={userId}
+                      profile={profile}
+                      onOpenTaxSummary={() => onExtraNav?.('service')}
+                    />
+                  )}
 
                   {/* Reports button */}
                   <button

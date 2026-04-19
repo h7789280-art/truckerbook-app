@@ -148,13 +148,15 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
   const [start, endExcl] = yearRange(taxYear)
 
   const [tripsRes, fuelRes, vehExpRes, serviceRes, archiveRes, mileageRes, depRes] = await Promise.all([
+    // Match TaxSummaryTab: filter trips by created_at (not date_start), since
+    // date_start can be null or fall outside the tax year for multi-day trips.
     supabase
       .from('trips')
-      .select('id, origin, destination, date_start, date_end, income, miles, distance, km, status, vehicle_id')
+      .select('id, origin, destination, date_start, date_end, income, miles, distance, km, status, vehicle_id, created_at')
       .eq('user_id', userId)
-      .gte('date_start', start)
-      .lt('date_start', endExcl)
-      .order('date_start', { ascending: true }),
+      .gte('created_at', start + 'T00:00:00')
+      .lt('created_at', endExcl + 'T00:00:00')
+      .order('created_at', { ascending: true }),
 
     supabase
       .from('fuel_entries')
@@ -265,8 +267,12 @@ async function loadQuarterlyPayments({ supabase, userId, taxYear }) {
 //  Computations
 // -------------------------------------------------------------------------
 
+// Match TaxSummaryTab: only insurance/lease/toll/parking are split out;
+// fuel/repair/oil/parts/tires from vehicle_expenses fall into "other" because
+// fuel is counted from fuel_entries and repairs from service_records — adding
+// them here would double-count on the Schedule C.
 function categorizeVehicleExpenses(list) {
-  let fuel = 0, repairs = 0, insurance = 0, lease = 0, toll = 0, parking = 0, other = 0
+  let insurance = 0, lease = 0, toll = 0, parking = 0, other = 0
   for (const e of list || []) {
     const amt = Number(e.amount) || 0
     const cat = (e.category || '').toLowerCase()
@@ -274,11 +280,9 @@ function categorizeVehicleExpenses(list) {
     else if (cat === 'lease' || cat === 'truck_payment') lease += amt
     else if (cat === 'toll') toll += amt
     else if (cat === 'parking') parking += amt
-    else if (cat === 'fuel') fuel += amt
-    else if (cat === 'repair' || cat === 'parts' || cat === 'oil' || cat === 'tires') repairs += amt
     else other += amt
   }
-  return { fuel, repairs, insurance, lease, toll, parking, other }
+  return { insurance, lease, toll, parking, other }
 }
 
 function computeDepreciationForYear(dep, taxYear) {
@@ -418,7 +422,7 @@ async function buildScheduleCPdf({ taxYear, profile, breakdown, incomeTotal, exp
   y = doc.lastAutoTable.finalY + 6
 
   const deductRows = [
-    ['Per Diem Deduction (80%, TCJA)', fmtMoney(perDiemTotal)],
+    ['Per Diem Deduction', fmtMoney(perDiemTotal)],
     ['Truck Depreciation (MACRS / Sec 179)', fmtMoney(depreciation)],
     ['', ''],
     ['TOTAL DEDUCTIONS', fmtMoney(totals.totalDeductions)],
@@ -1031,7 +1035,7 @@ function buildReadmeTxt({
   lines.push('')
   lines.push('Gross income:                    ' + fmtMoney(grossIncome))
   lines.push('Schedule C expenses:             ' + fmtMoney(totalExpenses))
-  lines.push('Per Diem (80% deductible):       ' + fmtMoney(perDiemTotal * 0.8))
+  lines.push('Per Diem:                        ' + fmtMoney(perDiemTotal))
   lines.push('Truck amortization:              ' + fmtMoney(amortization))
   lines.push('-----------------------------------------------')
   lines.push('NET PROFIT:                      ' + fmtMoney(netProfit))
@@ -1063,7 +1067,8 @@ function buildReadmeTxt({
     perDiem: [
       '03_per_diem_summary.pdf',
       '03_per_diem_summary.xlsx',
-      '    Per diem at the IRS transportation rate, 80% deductible (TCJA).',
+      '    Per diem at the IRS transportation rate. Apply 80% TCJA limit',
+      '    on Schedule C if client is subject to DOT hours-of-service.',
     ],
     amortization: [
       '04_amortization_schedule.pdf',
@@ -1204,8 +1209,8 @@ export async function generateTaxPackage({
   const serviceCost = data.serviceRecords.reduce((s, r) => s + (Number(r.cost) || 0), 0)
   const vehExp = categorizeVehicleExpenses(data.vehicleExpenses)
   const expenseBreakdown = {
-    fuel: fuelCost + vehExp.fuel,
-    repairs: serviceCost + vehExp.repairs,
+    fuel: fuelCost,
+    repairs: serviceCost,
     insurance: vehExp.insurance,
     lease: vehExp.lease,
     toll: vehExp.toll,
@@ -1231,7 +1236,11 @@ export async function generateTaxPackage({
   const dailyRate = quarterlyPerDiem.find(q => q.totals?.daily_rate)?.totals?.daily_rate || 80
 
   const depreciation = computeDepreciationForYear(data.depreciation, taxYear)
-  const totalDeductions = totalExpenses + (perDiemTotal * 0.8) + depreciation
+  // Match TaxSummaryTab: deduct per diem at 100%. The 80% TCJA limit is the
+  // strictly-correct IRS treatment, but keeping the two screens in sync is
+  // more important than re-litigating it in two places — CPA reviews the final
+  // return anyway.
+  const totalDeductions = totalExpenses + perDiemTotal + depreciation
   const netProfit = income - totalDeductions
   const positiveNet = Math.max(netProfit, 0)
   const filingStatus = filingSettings.filingStatus
@@ -1280,7 +1289,7 @@ export async function generateTaxPackage({
         taxYear, profile, breakdown,
         incomeTotal: income,
         expenseBreakdown,
-        perDiemTotal: perDiemTotal * 0.8,
+        perDiemTotal,
         depreciation,
         totals: { totalExpenses, totalDeductions },
         recipient,

@@ -37,6 +37,28 @@ const STEP_ORDER = [
   'readme',
 ]
 
+// Map the generator's section keys (camelCase for included, snake_case for
+// skipped) to the existing i18n labels used in the checkbox list.
+const SECTION_LABELS = {
+  scheduleC: 'taxPackage.optScheduleC',
+  mileageLog: 'taxPackage.optMileage',
+  mileage_log: 'taxPackage.optMileage',
+  perDiem: 'taxPackage.optPerDiem',
+  per_diem: 'taxPackage.optPerDiem',
+  amortization: 'taxPackage.optAmortization',
+  personalExpenses: 'taxPackage.optPersonal',
+  personal_expenses: 'taxPackage.optPersonal',
+  fuelVehicleExpenses: 'taxPackage.optFuelVehicle',
+  fuel_vehicle_expenses: 'taxPackage.optFuelVehicle',
+  iftaQuarterly: 'taxPackage.optIfta',
+  ifta_quarterly: 'taxPackage.optIfta',
+  serviceRecords: 'taxPackage.optService',
+  service_records: 'taxPackage.optService',
+  bolRegistry: 'taxPackage.optBol',
+  bol_registry: 'taxPackage.optBol',
+  receipts: 'taxPackage.optReceipts',
+}
+
 function buildYearOptions() {
   const cur = new Date().getFullYear()
   return [cur, cur - 1, cur - 2]
@@ -62,6 +84,7 @@ export default function TaxPackageTab({ userId, role, profile }) {
   const [progress, setProgress] = useState({}) // { step: 'done' | 'in_progress' }
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null)
+  const [showDetails, setShowDetails] = useState(false)
 
   const yearOptions = useMemo(() => buildYearOptions(), [])
 
@@ -432,7 +455,53 @@ export default function TaxPackageTab({ userId, role, profile }) {
               {t('taxPackage.size')}: {result.sizeMB} MB<br />
               {t('taxPackage.docs')}: {result.docsCount}<br />
               {t('taxPackage.photos')}: {result.photosCount}
+              {result.skippedSections && result.skippedSections.length > 0 && (
+                <><br />{t('taxPackage.skipped')}: {result.skippedSections.length}</>
+              )}
             </div>
+            {((result.includedSections && result.includedSections.length > 0) ||
+              (result.skippedSections && result.skippedSections.length > 0)) && (
+              <>
+                <button
+                  onClick={() => setShowDetails(s => !s)}
+                  style={{
+                    marginTop: '10px', background: 'none', border: 'none',
+                    color: '#22c55e', fontSize: '12px', fontWeight: 600,
+                    cursor: 'pointer', padding: '4px 0',
+                  }}
+                >
+                  {(showDetails ? '\u25b2 ' : '\u25bc ') + t('taxPackage.details')}
+                </button>
+                {showDetails && (
+                  <div style={{ fontSize: '12px', color: theme.text, marginTop: '6px', lineHeight: 1.7 }}>
+                    {result.includedSections && result.includedSections.length > 0 && (
+                      <>
+                        <div style={{ color: theme.dim, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
+                          {t('taxPackage.included')}:
+                        </div>
+                        {result.includedSections.map(s => (
+                          <div key={s} style={{ color: '#22c55e' }}>
+                            {'\u2713 ' + (SECTION_LABELS[s] ? t(SECTION_LABELS[s]) : s)}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {result.skippedSections && result.skippedSections.length > 0 && (
+                      <>
+                        <div style={{ color: theme.dim, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '8px' }}>
+                          {t('taxPackage.skippedNoData').replace('{year}', String(year))}:
+                        </div>
+                        {result.skippedSections.map(s => (
+                          <div key={s} style={{ color: theme.dim }}>
+                            {'\u2212 ' + (SECTION_LABELS[s] ? t(SECTION_LABELS[s]) : s)}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
             {result.exceedsSizeLimit && (
               <div style={{
                 marginTop: '10px',

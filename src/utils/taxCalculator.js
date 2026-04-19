@@ -1,5 +1,6 @@
 // IRS Tax Calculator for self-employed truckers (Schedule C / Schedule SE)
 // 2026 tax year values per IRS Rev. Proc. 2025-32 and SSA wage base announcements.
+import { STATE_TAX_2026 } from './stateTaxData2026'
 
 // 2026 Social Security wage base (SS tax cap)
 const SS_WAGE_BASE = 184500
@@ -161,17 +162,152 @@ export function calculateIncomeTax(netIncome, deductibleHalfSE, filingStatus = '
 }
 
 /**
- * Full tax calculation combining SE + Income tax (2026).
+ * Calculate state income tax for 2026. Returns $0 for no-income-tax states.
+ *
+ * @param {object} params
+ * @param {string} params.state - 2-letter state code
+ * @param {string} params.filingStatus - 'single' | 'married_jointly' | ...
+ * @param {number} params.federalAGI - Federal adjusted gross income
+ * @param {number} params.federalTaxableIncome - Federal taxable income (AGI - fed standard deduction)
  */
-export function calculateTotalTax(netIncome, filingStatus = 'single') {
+export function calculateStateTax({ state, filingStatus = 'single', federalAGI = 0, federalTaxableIncome = 0 }) {
+  const stateData = STATE_TAX_2026[state]
+  const status = normalizeStatus(filingStatus)
+
+  if (!stateData || stateData.type === 'none') {
+    return {
+      stateCode: state || null,
+      stateName: stateData?.name || null,
+      type: 'none',
+      stateTax: 0,
+      effectiveRate: 0,
+      taxableBase: 0,
+      breakdown: [],
+    }
+  }
+
+  // Determine starting income base
+  let income = stateData.startingPoint === 'federal_taxable'
+    ? federalTaxableIncome
+    : federalAGI
+
+  // Apply state standard deduction
+  if (stateData.standardDeduction) {
+    const sd = stateData.standardDeduction[status] ?? stateData.standardDeduction.single
+    income -= sd
+  }
+  // Apply personal exemption
+  if (stateData.personalExemption) {
+    const pe = stateData.personalExemption[status] ?? stateData.personalExemption.single
+    income -= pe
+  }
+
+  income = Math.max(0, income)
+
+  // Zero-bracket (state tax starts at $X)
+  if (stateData.bracketStart != null) {
+    const bracketStart = status === 'married_jointly'
+      ? (stateData.bracketStartMFJ ?? stateData.bracketStart)
+      : stateData.bracketStart
+    income = Math.max(0, income - bracketStart)
+  }
+
+  if (stateData.type === 'flat') {
+    const tax = income * stateData.rate
+    return {
+      stateCode: state,
+      stateName: stateData.name,
+      type: 'flat',
+      stateTax: tax,
+      effectiveRate: stateData.rate,
+      taxableBase: income,
+      breakdown: [{
+        rate: stateData.rate,
+        from: 0,
+        to: income,
+        amount: tax,
+      }],
+    }
+  }
+
+  if (stateData.type === 'progressive') {
+    const brackets = stateData.brackets[status] || stateData.brackets.single
+    let tax = 0
+    const breakdown = []
+
+    for (let i = 0; i < brackets.length; i++) {
+      const current = brackets[i]
+      const next = brackets[i + 1]
+      const upperBound = next ? next.threshold : Infinity
+      const lowerBound = current.threshold
+
+      if (income > lowerBound) {
+        const topOfBracket = Math.min(income, upperBound)
+        const layer = topOfBracket - lowerBound
+        if (layer > 0) {
+          const amountInBracket = layer * current.rate
+          tax += amountInBracket
+          breakdown.push({
+            rate: current.rate,
+            from: lowerBound,
+            to: topOfBracket,
+            amount: amountInBracket,
+          })
+        }
+      }
+
+      if (income <= upperBound) break
+    }
+
+    return {
+      stateCode: state,
+      stateName: stateData.name,
+      type: 'progressive',
+      stateTax: tax,
+      effectiveRate: income > 0 ? tax / income : 0,
+      taxableBase: income,
+      breakdown,
+    }
+  }
+
+  return {
+    stateCode: state,
+    stateName: stateData.name,
+    type: stateData.type,
+    stateTax: 0,
+    effectiveRate: 0,
+    taxableBase: 0,
+    breakdown: [],
+  }
+}
+
+/**
+ * Full tax calculation combining SE + Income tax (2026).
+ * If `state` is provided, also computes state income tax.
+ */
+export function calculateTotalTax(netIncome, filingStatus = 'single', state = null) {
   const se = calculateSETax(netIncome, filingStatus)
   const income = calculateIncomeTax(netIncome, se.deductibleHalfSE, filingStatus)
-  const totalTax = se.totalSETax + income.incomeTax
+
+  let stateResult = null
+  if (state) {
+    stateResult = calculateStateTax({
+      state,
+      filingStatus,
+      federalAGI: income.agi,
+      federalTaxableIncome: income.taxableIncome,
+    })
+  }
+
+  const stateTax = stateResult?.stateTax || 0
+  const totalTax = se.totalSETax + income.incomeTax + stateTax
   const quarterlyPayment = totalTax / 4
 
   return {
     ...se,
     ...income,
+    stateResult,
+    stateTax,
     totalTax,
     quarterlyPayment,
   }

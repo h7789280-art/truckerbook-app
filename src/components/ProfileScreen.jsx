@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage, applyCountryDefaults, COUNTRY_DEFAULTS, ALL_CURRENCIES, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import BrandComboBox from './BrandComboBox'
+import { STATE_OPTIONS } from '../utils/stateTaxData2026'
 
 const FUEL_TYPES = [
   { value: 'diesel', label: '\u0414\u0438\u0437\u0435\u043B\u044C' },
@@ -237,6 +238,9 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   const [deleting, setDeleting] = useState(false)
   const [hosMode, setHosMode] = useState(profile?.hos_mode || 'cis')
   const [savingHos, setSavingHos] = useState(false)
+  const [stateOfResidence, setStateOfResidence] = useState(profile?.state_of_residence || 'TX')
+  const [savingState, setSavingState] = useState(false)
+  const [stateSavedFlash, setStateSavedFlash] = useState(false)
   const [country, setCountry] = useState(() => {
     try { return localStorage.getItem('truckerbook_country') || 'RU' } catch { return 'RU' }
   })
@@ -553,6 +557,26 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
     }
   }
 
+  const handleStateChange = async (newState) => {
+    if (newState === stateOfResidence || savingState) return
+    setSavingState(true)
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ state_of_residence: newState })
+        .eq('id', userId)
+      if (error) {
+        console.error('Update state_of_residence error:', error)
+        return
+      }
+      setStateOfResidence(newState)
+      setStateSavedFlash(true)
+      setTimeout(() => setStateSavedFlash(false), 1800)
+    } finally {
+      setSavingState(false)
+    }
+  }
+
   const cardStyle = {
     background: theme.card,
     border: '1px solid ' + theme.border,
@@ -849,6 +873,52 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
             ))}
           </div>
         </div>
+
+        {/* State of residence — owner_operator and driver_1099 only (Schedule C filers) */}
+        {(profile?.role === 'owner_operator' || (profile?.role === 'driver' && profile?.employment_type === '1099')) && (
+          <div style={{
+            padding: '12px 0',
+            borderBottom: '1px solid ' + theme.border,
+          }}>
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <span style={{ fontSize: '14px', color: theme.dim }}>{t('taxSummary.stateOfResidenceLabel')}</span>
+              <select
+                value={stateOfResidence}
+                onChange={(e) => handleStateChange(e.target.value)}
+                disabled={savingState}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  cursor: savingState ? 'not-allowed' : 'pointer',
+                  outline: 'none',
+                  minWidth: '180px',
+                }}
+              >
+                {STATE_OPTIONS.map(s => (
+                  <option key={s.code} value={s.code}>{s.code + ' \u2014 ' + s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ fontSize: '11px', color: theme.dim, marginTop: '6px', lineHeight: 1.4 }}>
+              {t('taxSummary.stateOfResidenceHint')}
+            </div>
+            {stateSavedFlash && (
+              <div style={{ color: '#22c55e', fontSize: '12px', fontWeight: 600, marginTop: '4px' }}>
+                {t('pay.saved') + ' \u2713'}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Pay settings — driver only */}

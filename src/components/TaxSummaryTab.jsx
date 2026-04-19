@@ -10,6 +10,7 @@ import {
   TAX_YEAR,
   SS_WAGE_BASE_2026,
 } from '../utils/taxCalculator'
+import { STATE_OPTIONS, STATE_TAX_2026, getStateName } from '../utils/stateTaxData2026'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -24,7 +25,7 @@ function yearDateRange(year) {
   return [`${year}-01-01`, `${year}-12-31`]
 }
 
-export default function TaxSummaryTab({ userId, role, userVehicles, employmentType }) {
+export default function TaxSummaryTab({ userId, role, userVehicles, employmentType, stateOfResidence }) {
   const { theme } = useTheme()
   const { t, lang } = useLanguage()
 
@@ -48,6 +49,12 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
 
   // Tax settings
   const [filingStatus, setFilingStatus] = useState('single')
+  // Session-only state override for what-if analysis. Defaults to profile value.
+  const [sessionState, setSessionState] = useState(stateOfResidence || 'TX')
+
+  useEffect(() => {
+    if (stateOfResidence) setSessionState(stateOfResidence)
+  }, [stateOfResidence])
 
   const yearOptions = useMemo(() => buildYearOptions(), [])
 
@@ -221,7 +228,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
   const totalDeductions = totalExpenses + perDiemTotal + depreciationNum
   const netProfit = income - totalDeductions
   const positiveNet = Math.max(netProfit, 0)
-  const taxResult = calculateTotalTax(positiveNet, filingStatus)
+  const taxResult = calculateTotalTax(positiveNet, filingStatus, sessionState)
   const {
     taxableSEIncome,
     ssTax,
@@ -234,8 +241,15 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     taxableIncome,
     incomeTax,
     effectiveRate,
+    stateResult,
+    stateTax,
     totalTax,
   } = taxResult
+
+  // What-if comparison: compute Texas tax (always $0) for the delta hint.
+  // Show hint only when current state actually has income tax.
+  const showStateSavingsHint = stateResult && stateResult.type !== 'none' && sessionState !== 'TX' && stateTax > 0
+  const stateOverridden = sessionState !== (stateOfResidence || 'TX')
 
   const expenseLines = [
     { key: 'fuel', label: t('taxSummary.fuel'), value: fuelExpenses },
@@ -263,6 +277,13 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     taxableIncome,
     incomeTax,
     effectiveRate,
+    stateCode: sessionState,
+    stateName: stateResult?.stateName || getStateName(sessionState),
+    stateType: stateResult?.type || 'none',
+    stateEffectiveRate: stateResult?.effectiveRate || 0,
+    stateTaxableBase: stateResult?.taxableBase || 0,
+    stateBreakdown: stateResult?.breakdown || [],
+    stateTax,
     totalTax,
   }
 
@@ -410,6 +431,28 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
             <option key={opt.value} value={opt.value}>{t('taxSummary.' + opt.labelKey)}</option>
           ))}
         </select>
+      </div>
+
+      {/* State dropdown — session-only override for what-if analysis */}
+      <div style={card}>
+        <label style={{
+          display: 'block', fontSize: '11px', fontWeight: 600, color: theme.dim,
+          textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px',
+        }}>
+          {t('taxSummary.stateLabel')}
+        </label>
+        <select
+          value={sessionState}
+          onChange={e => setSessionState(e.target.value)}
+          style={{ ...selectStyle, width: '100%' }}
+        >
+          {STATE_OPTIONS.map(s => (
+            <option key={s.code} value={s.code}>{s.code + ' \u2014 ' + s.name}</option>
+          ))}
+        </select>
+        <div style={{ fontSize: '11px', color: theme.dim, marginTop: '6px', lineHeight: 1.4 }}>
+          {stateOverridden ? t('taxSummary.stateOverriddenHint') : t('taxSummary.stateHint')}
+        </div>
       </div>
 
       {/* Loading */}
@@ -604,6 +647,65 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
             }}>${fmt(incomeTax)}</div>
           </div>
 
+          {/* STATE INCOME TAX */}
+          <div style={card}>
+            <div style={{
+              fontSize: '13px', fontWeight: 700, color: theme.text, marginBottom: '8px',
+              textTransform: 'uppercase', letterSpacing: '0.5px',
+            }}>
+              {t('taxSummary.stateTaxTitle')} ({stateResult?.stateName || sessionState})
+            </div>
+            {stateResult?.type === 'none' && (
+              <div style={{ fontSize: '13px', color: theme.dim, padding: '8px 0' }}>
+                {t('taxSummary.stateTaxNone').replace('{state}', stateResult?.stateName || sessionState)}
+              </div>
+            )}
+            {stateResult?.type === 'flat' && (
+              <div style={lineRow}>
+                <span style={{ color: theme.dim }}>
+                  {t('taxSummary.stateFlatRate').replace('{rate}', (stateResult.effectiveRate * 100).toFixed(2))}
+                </span>
+                <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(stateTax)}</span>
+              </div>
+            )}
+            {stateResult?.type === 'progressive' && stateResult.breakdown.map((b, i) => (
+              <div key={i} style={lineRow}>
+                <span style={{ color: theme.dim, fontSize: '11px' }}>
+                  {(b.rate * 100).toFixed(2) + '% \u00d7 $' + fmt(b.to - b.from)}
+                </span>
+                <span style={{ fontFamily: 'monospace', color: theme.text, fontSize: '12px' }}>${fmt(b.amount)}</span>
+              </div>
+            ))}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 0 4px', marginTop: '4px',
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: theme.text }}>
+                {t('taxSummary.totalStateTax')}
+              </span>
+              <span style={{
+                fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#f59e0b',
+              }}>${fmt(stateTax)}</span>
+            </div>
+          </div>
+
+          {/* State savings hint (what-if Texas comparison) */}
+          {showStateSavingsHint && (
+            <div style={{
+              background: 'rgba(59,130,246,0.06)',
+              border: '1px solid rgba(59,130,246,0.2)',
+              borderRadius: '12px',
+              padding: '12px',
+              fontSize: '12px',
+              color: theme.text,
+              lineHeight: 1.5,
+            }}>
+              {'\uD83D\uDCA1 ' + t('taxSummary.stateSavingsHint')
+                .replace('{amount}', fmt(stateTax))
+                .replace('{state}', stateResult?.stateName || sessionState)}
+            </div>
+          )}
+
           {/* Total estimated tax */}
           <div style={{
             ...card, textAlign: 'center',
@@ -665,6 +767,9 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
                 </div>
                 <div style={{ marginBottom: '6px' }}>
                   {t('taxSummary.notIncludedNote')}
+                </div>
+                <div style={{ marginBottom: '6px' }}>
+                  {t('taxSummary.stateDisclaimer')}
                 </div>
                 <div>{t('taxSummary.note')}</div>
               </div>

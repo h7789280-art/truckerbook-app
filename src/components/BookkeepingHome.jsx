@@ -45,7 +45,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'perDiem' && <PerDiemTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'deadlines' && showDeadlines && <DeadlinesTab userId={userId} />}
         {activeSection === 'estimatedTax' && showEstimatedTax && <EstimatedTaxTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
-        {activeSection === 'taxSummary' && showTaxSummary && <TaxSummaryTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
+        {activeSection === 'taxSummary' && showTaxSummary && <TaxSummaryTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} stateOfResidence={profile?.state_of_residence} />}
         {activeSection === 'depreciation' && showDepreciation && <DepreciationTab userId={userId} role={role} userVehicles={userVehicles} employmentType={profile?.employment_type} />}
         {activeSection === 'mileageLog' && showMileageLog && <MileageLogTab userId={userId} />}
         {activeSection === 'deductionChecklist' && showDeductionChecklist && <DeductionChecklistTab />}

@@ -483,14 +483,16 @@ export function exportTaxSummaryExcel({
   rows.push([])
 
   // Net profit = income - totalDeductions
-  const npRow = rows.length
   rows.push([L.netProfit, { t: 'n', v: netProfit, f: `B5-B${tdRow + 1}` }])
   rows.push([])
 
   rows.push([L.taxEstimates])
-  rows.push([`${L.seTax} (${seTaxRate}%)`, { t: 'n', v: seTax, f: `MAX(B${npRow + 1},0)*${seTaxRate / 100}` }])
+  // SE tax и Federal income tax считаются по IRS Schedule SE и прогрессивным
+  // скобкам — их нельзя выразить простой формулой вида =B23*0.153.
+  // Храним готовые значения, совпадающие с PDF (taxCalculator.calculateTotalTax).
+  rows.push([`${L.seTax} (${seTaxRate}%)`, seTax])
   const seRow = rows.length
-  rows.push([`${L.incomeTax} (${Number(incomeTaxRate).toFixed(1)}%)`, { t: 'n', v: incomeTax, f: `MAX(B${npRow + 1},0)*${incomeTaxRate / 100}` }])
+  rows.push([`${L.incomeTax} (${Number(incomeTaxRate).toFixed(1)}%)`, incomeTax])
   const itRow = rows.length
   rows.push([])
   rows.push([L.totalTax, { t: 'n', v: totalTax, f: `B${seRow}+B${itRow}` }])

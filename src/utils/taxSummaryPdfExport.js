@@ -3,6 +3,13 @@
  * CPA-ready annual tax summary with full IRS 2026 breakdown.
  */
 import * as XLSX from 'xlsx'
+import { renderPdfHeader, renderPdfFooter } from './pdfHeader.js'
+
+// Strip the legacy "TruckerBook — " prefix from localized titles;
+// the shared branded header already carries the wordmark.
+function stripBrand(s) {
+  return String(s || '').replace(/^TruckerBook\s*[\u2014\u2013-]\s*/, '')
+}
 
 const FILING_LABELS = {
   en: {
@@ -417,40 +424,27 @@ export async function generateTaxSummaryPdf({
   const marginR = 14
   const contentW = pageW - marginL - marginR
 
-  let y = 16
-
-  doc.setFillColor(245, 158, 11)
-  doc.rect(marginL, y - 2, contentW, 1, 'F')
-  y += 6
-
-  // Title
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor(20, 20, 20)
-  doc.text(L.title, marginL, y)
-  y += 7
-
-  doc.setFont('Roboto', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(100, 100, 100)
-  doc.text(L.subtitle, marginL, y)
-  y += 8
+  const drawHeader = () => renderPdfHeader(doc, {
+    title: stripBrand(L.title),
+    subtitle: L.subtitle,
+    year: `FY ${year}`,
+    font: 'Roboto',
+  })
+  let y = drawHeader()
 
   if (companyName) {
+    doc.setFont('Roboto', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(60, 60, 60)
     doc.text(companyName, marginL, y)
     y += 5
   }
+  doc.setFont('Roboto', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(60, 60, 60)
-  doc.text(`${L.taxYear}: ${year}`, marginL, y)
-  doc.text(`${L.generated}: ${new Date().toLocaleDateString('en-US')}`, pageW - marginR, y, { align: 'right' })
-  y += 5
   doc.text(`${L.filingStatus}: ${filingLabel}`, marginL, y)
-  y += 6
-
-  doc.setDrawColor(200, 200, 200)
-  doc.line(marginL, y, pageW - marginR, y)
-  y += 7
+  doc.text(`${L.generated}: ${new Date().toLocaleDateString('en-US')}`, pageW - marginR, y, { align: 'right' })
+  y += 8
 
   // GROSS INCOME
   doc.setFont('Roboto', 'bold')
@@ -534,7 +528,7 @@ export async function generateTaxSummaryPdf({
   // Page break check
   if (y > pageH - 80) {
     doc.addPage()
-    y = 16
+    y = drawHeader()
   }
 
   // SE TAX BREAKDOWN
@@ -575,7 +569,7 @@ export async function generateTaxSummaryPdf({
   // Page break check
   if (y > pageH - 70) {
     doc.addPage()
-    y = 16
+    y = drawHeader()
   }
 
   // AGI / Standard Deduction / Taxable Income
@@ -645,7 +639,7 @@ export async function generateTaxSummaryPdf({
 
   if (y > pageH - 40) {
     doc.addPage()
-    y = 16
+    y = drawHeader()
   }
 
   // DISCLAIMER
@@ -655,9 +649,7 @@ export async function generateTaxSummaryPdf({
   const disclaimerLines = doc.splitTextToSize(L.disclaimer, contentW)
   doc.text(disclaimerLines, marginL, y)
 
-  doc.setFontSize(8)
-  doc.setTextColor(160, 160, 160)
-  doc.text(L.footer, pageW / 2, pageH - 10, { align: 'center' })
+  renderPdfFooter(doc, { font: 'Roboto' })
 
   doc.save(`TruckerBook_Tax_Summary_${year}.pdf`)
 }

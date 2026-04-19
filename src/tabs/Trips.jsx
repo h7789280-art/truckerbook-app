@@ -865,7 +865,10 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
           },
         }
       }
-      exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`, lang, undefined, pdfOptions)
+      const finalPdfOptions = isOwnerOp
+        ? { ...(pdfOptions || {}), branded: true }
+        : pdfOptions
+      exportToPDF(rows, columns, t('trips.tripsHeader'), `trips_report_${ym}.pdf`, lang, undefined, finalPdfOptions)
     }
   }
 

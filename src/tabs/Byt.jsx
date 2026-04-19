@@ -194,7 +194,11 @@ export default function Byt({ userId, refreshKey, userRole }) {
       const pdfTitle = periodStr
         ? `${t('expenses.personalReport')} \u2014 ${periodStr}`
         : t('expenses.personalReport')
-      exportToPDF(rows, columns, pdfTitle, `personal_expenses_${ym}.pdf`, lang, undefined, grandTotal ? { grandTotal } : undefined)
+      const bytPdfOpts = {
+        ...(grandTotal ? { grandTotal } : {}),
+        ...(isOwnerOperator ? { branded: true, brandSubtitle: 'Non-deductible personal spending' } : {}),
+      }
+      exportToPDF(rows, columns, pdfTitle, `personal_expenses_${ym}.pdf`, lang, undefined, bytPdfOpts)
     }
   }
 

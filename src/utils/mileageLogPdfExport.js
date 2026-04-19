@@ -3,6 +3,11 @@
  * Generates an IRS-ready mileage log document.
  */
 import * as XLSX from 'xlsx'
+import { renderPdfHeader, renderPdfFooter } from './pdfHeader.js'
+
+function stripBrand(s) {
+  return String(s || '').replace(/^TruckerBook\s*[\u2014\u2013-]\s*/, '')
+}
 
 const PDF_LABELS = {
   en: {
@@ -68,17 +73,18 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
   const pageW = doc.internal.pageSize.getWidth()
   const margin = 14
 
-  // Header
-  doc.setFontSize(16)
-  doc.setFont('Roboto', 'bold')
-  doc.text(L.title, margin, 20)
-  doc.setFontSize(11)
-  doc.setFont('Roboto', 'normal')
-  doc.text(L.subtitle, margin, 27)
+  let headerY = renderPdfHeader(doc, {
+    title: stripBrand(L.title),
+    subtitle: L.subtitle,
+    year: periodLabel,
+    font: 'Roboto',
+  })
 
+  doc.setFont('Roboto', 'normal')
   doc.setFontSize(9)
-  doc.text(`${L.period}: ${periodLabel}`, margin, 35)
-  doc.text(`${L.generated}: ${new Date().toLocaleDateString()}`, pageW - margin, 35, { align: 'right' })
+  doc.setTextColor(60, 60, 60)
+  doc.text(`${L.period}: ${periodLabel}`, margin, headerY)
+  doc.text(`${L.generated}: ${new Date().toLocaleDateString()}`, pageW - margin, headerY, { align: 'right' })
 
   // Table
   const head = [[L.date, L.destination, L.purpose, L.miles]]
@@ -89,8 +95,15 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
     (e.miles || 0).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
   ])
 
+  const drawHeader = () => renderPdfHeader(doc, {
+    title: stripBrand(L.title),
+    subtitle: L.subtitle,
+    year: periodLabel,
+    font: 'Roboto',
+  })
+
   autoTable(doc, {
-    startY: 40,
+    startY: headerY + 6,
     head,
     body,
     styles: { fontSize: 8, cellPadding: 2, font: 'Roboto' },
@@ -99,12 +112,9 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
       0: { cellWidth: 25 },
       3: { halign: 'right', cellWidth: 20 },
     },
-    margin: { left: margin, right: margin },
+    margin: { left: margin, right: margin, top: 30 },
     didDrawPage: (data) => {
-      const pageNum = doc.internal.getNumberOfPages()
-      doc.setFontSize(7)
-      doc.setTextColor(130)
-      doc.text(`${L.footer}  |  ${L.page} ${pageNum}`, pageW / 2, doc.internal.pageSize.getHeight() - 8, { align: 'center' })
+      if (data.pageNumber > 1) drawHeader()
     },
   })
 
@@ -112,7 +122,7 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
   let y = doc.lastAutoTable.finalY + 12
   if (y > doc.internal.pageSize.getHeight() - 50) {
     doc.addPage()
-    y = 20
+    y = drawHeader() + 6
   }
 
   doc.setFontSize(10)
@@ -131,6 +141,8 @@ export async function generateMileageLogPdf(entries, summary, periodLabel, lang)
   doc.setTextColor(130)
   const disclaimerLines = doc.splitTextToSize(L.disclaimer, pageW - margin * 2)
   doc.text(disclaimerLines, margin, y)
+
+  renderPdfFooter(doc, { font: 'Roboto' })
 
   doc.save(`MileageLog_${periodLabel.replace(/\s/g, '_')}.pdf`)
 }

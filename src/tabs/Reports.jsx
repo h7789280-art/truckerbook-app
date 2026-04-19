@@ -254,8 +254,11 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     labels.trips,
     `trips_${getDateRange().start}_${getDateRange().end}.pdf`,
     undefined,
-    undefined,
-    tripsGrandTotal ? { grandTotal: tripsGrandTotal } : undefined,
+    periodLabel,
+    {
+      ...(tripsGrandTotal ? { grandTotal: tripsGrandTotal } : {}),
+      ...(isOwner ? { branded: true } : {}),
+    },
   ))
 
   // Fuel
@@ -321,6 +324,7 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
       },
       totalLabel: labels.total,
       averageLabel: 'avg',
+      ...(isOwner ? { branded: true, brandSubtitle: `Business expenses \u2014 Schedule C deductible \u00b7 ${periodLabel}` } : {}),
     },
   ))
 
@@ -361,8 +365,11 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     labels.vehicleExpenses,
     `vehicle_expenses_${getDateRange().start}_${getDateRange().end}.pdf`,
     undefined,
-    undefined,
-    vExpGrandTotal ? { grandTotal: vExpGrandTotal } : undefined,
+    periodLabel,
+    {
+      ...(vExpGrandTotal ? { grandTotal: vExpGrandTotal } : {}),
+      ...(isOwner ? { branded: true, brandSubtitle: `Business expenses \u2014 Schedule C deductible \u00b7 ${periodLabel}` } : {}),
+    },
   ))
 
   // Personal expenses
@@ -392,8 +399,11 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     labels.personalExpenses,
     `personal_expenses_${getDateRange().start}_${getDateRange().end}.pdf`,
     undefined,
-    undefined,
-    bytGrandTotal ? { grandTotal: bytGrandTotal } : undefined,
+    periodLabel,
+    {
+      ...(bytGrandTotal ? { grandTotal: bytGrandTotal } : {}),
+      ...(isOwner ? { branded: true, brandSubtitle: `Non-deductible personal spending \u00b7 ${periodLabel}` } : {}),
+    },
   ))
 
   // Salary card — reuse trips export with driverPay column
@@ -460,8 +470,11 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     labels.pnlReport,
     `pnl_${getDateRange().start}_${getDateRange().end}.pdf`,
     undefined,
-    undefined,
-    pnlGrandTotal ? { grandTotal: pnlGrandTotal } : undefined,
+    periodLabel,
+    {
+      ...(pnlGrandTotal ? { grandTotal: pnlGrandTotal } : {}),
+      ...(isOwner ? { branded: true, brandSubtitle: `Profit & Loss \u00b7 ${periodLabel}` } : {}),
+    },
   ))
 
   // Net in hand (owner_operator only) — summary rows
@@ -485,6 +498,9 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     netInHandColumns,
     t('reports.netInHand'),
     `net_in_hand_${getDateRange().start}_${getDateRange().end}.pdf`,
+    undefined,
+    periodLabel,
+    isOwner ? { branded: true, brandSubtitle: `Net profit after personal expenses \u00b7 ${periodLabel}` } : undefined,
   ))
 
   // ---- UI ----

@@ -1,3 +1,5 @@
+import { renderPdfHeader, renderPdfFooter } from './pdfHeader.js'
+
 // ====== Shared Excel styling constants & helpers (ExcelJS) ======
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }  // gray
 const HEADER_FONT = { bold: true, size: 11 }
@@ -1041,6 +1043,9 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
   const grandTotal = options && options.grandTotal
   const totalLabel = (options && options.totalLabel) || 'TOTAL'
   const averageLabel = (options && options.averageLabel) || 'avg'
+  const branded = !!(options && options.branded)
+  const brandYear = options && options.brandYear
+  const brandSubtitle = options && options.brandSubtitle
 
   const head = [columns.map(c => c.header)]
   const body = data.map(row => columns.map(c => String(row[c.key] ?? '')))
@@ -1120,17 +1125,28 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
   doc.addFont('Roboto-Bold.ttf', 'Roboto', 'bold')
   doc.setFont('Roboto', 'normal')
 
-  // Title
-  doc.setFontSize(16)
-  doc.text(title, 14, 15)
-  // Subtitle (vehicle name or period details)
-  let nextY = 22
-  if (subtitle) {
-    doc.setFontSize(11)
-    doc.setTextColor(80)
-    doc.text(subtitle, 14, 22)
-    doc.setTextColor(0)
-    nextY = 28
+  let nextY
+  const drawBrandedHeader = () => renderPdfHeader(doc, {
+    title,
+    subtitle: brandSubtitle || subtitle,
+    year: brandYear,
+    font: 'Roboto',
+  })
+  if (branded) {
+    nextY = drawBrandedHeader() - 2
+  } else {
+    // Title
+    doc.setFontSize(16)
+    doc.text(title, 14, 15)
+    // Subtitle (vehicle name or period details)
+    nextY = 22
+    if (subtitle) {
+      doc.setFontSize(11)
+      doc.setTextColor(80)
+      doc.text(subtitle, 14, 22)
+      doc.setTextColor(0)
+      nextY = 28
+    }
   }
 
   // Map footer row indices for custom styling
@@ -1151,7 +1167,7 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
     styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', font: 'Roboto' },
     headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [249, 250, 251] },
-    margin: { left: 14, right: 14 },
+    margin: { left: 14, right: 14, top: branded ? 30 : 14 },
     didParseCell: function (hookData) {
       if (hookData.section !== 'body') return
       const st = footerStyleMap[hookData.row.index]
@@ -1165,7 +1181,12 @@ export async function exportToPDF(data, columns, title, filename, locale, subtit
         hookData.cell.styles.font = 'Roboto'
       }
     },
+    didDrawPage: branded ? (data) => {
+      if (data.pageNumber > 1) drawBrandedHeader()
+    } : undefined,
   })
+
+  if (branded) renderPdfFooter(doc, { font: 'Roboto' })
 
   doc.save(filename || 'report.pdf')
 }

@@ -5,6 +5,11 @@
  * Generates a CPA-ready document with header, state breakdown table,
  * totals summary, and legal disclaimer.
  */
+import { renderPdfHeader, renderPdfFooter } from './pdfHeader.js'
+
+function stripBrand(s) {
+  return String(s || '').replace(/^TruckerBook\s*[\u2014\u2013-]\s*/, '')
+}
 
 const QUARTER_MONTHS = {
   1: { en: 'January 1 \u2014 March 31',   ru: '1 \u044f\u043d\u0432\u0430\u0440\u044f \u2014 31 \u043c\u0430\u0440\u0442\u0430',   uk: '1 \u0441\u0456\u0447\u043d\u044f \u2014 31 \u0431\u0435\u0440\u0435\u0437\u043d\u044f',   es: '1 de enero \u2014 31 de marzo',   de: '1. Januar \u2014 31. M\u00e4rz',   fr: '1 janvier \u2014 31 mars',   tr: '1 Ocak \u2014 31 Mart',   pl: '1 stycznia \u2014 31 marca' },
@@ -297,19 +302,15 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
   // ============================================================
   //  HEADER
   // ============================================================
-  let y = 16
+  const periodStr = getPeriodLabel(quarter, year, lang)
+  const yearLabel = `Q${quarter} ${year}`
 
-  // Orange accent line
-  doc.setFillColor(245, 158, 11)
-  doc.rect(marginL, y - 2, contentW, 1, 'F')
-  y += 6
-
-  // Title
-  doc.setFont('Roboto', 'bold')
-  doc.setFontSize(16)
-  doc.setTextColor(20, 20, 20)
-  doc.text(L.title, marginL, y)
-  y += 8
+  let y = renderPdfHeader(doc, {
+    title: stripBrand(L.title),
+    subtitle: periodStr,
+    year: yearLabel,
+    font: 'Roboto',
+  })
 
   // Company / user name
   if (companyName) {
@@ -323,7 +324,6 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
   // Meta info block
   doc.setFontSize(10)
   doc.setTextColor(100, 100, 100)
-  const periodStr = getPeriodLabel(quarter, year, lang)
   const vehicleStr = vehicleName || L.allVehicles
   const localeMap = { ru: 'ru-RU', en: 'en-US', uk: 'uk-UA', es: 'es-ES', de: 'de-DE', fr: 'fr-FR', tr: 'tr-TR', pl: 'pl-PL' }
   const generatedStr = new Date().toLocaleString(localeMap[lang] || 'en-US', {
@@ -331,7 +331,6 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
   })
 
   const meta = [
-    `${L.period}: ${periodStr}`,
     `${L.vehicle}: ${vehicleStr}`,
     `${L.generated}: ${generatedStr}`,
   ]
@@ -352,12 +351,6 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
     doc.setTextColor(34, 197, 94)
     doc.text(`${L.status}: ${L.final}`, marginL, y)
   }
-  y += 8
-
-  // Separator
-  doc.setDrawColor(200, 200, 200)
-  doc.setLineWidth(0.3)
-  doc.line(marginL, y, pageW - marginR, y)
   y += 6
 
   // ============================================================
@@ -437,7 +430,7 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
       1: { halign: 'center', cellWidth: 14 }, // Code
     },
     alternateRowStyles: { fillColor: [249, 250, 251] },
-    margin: { left: marginL, right: marginR },
+    margin: { left: marginL, right: marginR, top: 30 },
     // Color net_due cells for credit rows
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 8 && data.row.index < sortedStates.length) {
@@ -445,6 +438,17 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
         if (row && row.net_due != null && row.net_due < 0) {
           data.cell.styles.textColor = [34, 197, 94]
         }
+      }
+    },
+    didDrawPage: (data) => {
+      if (data.pageNumber > 1) {
+        drawWatermark()
+        renderPdfHeader(doc, {
+          title: stripBrand(L.title),
+          subtitle: periodStr,
+          year: yearLabel,
+          font: 'Roboto',
+        })
       }
     },
   })
@@ -458,7 +462,12 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
   if (y + 70 > pageH - 30) {
     doc.addPage()
     drawWatermark()
-    y = 20
+    y = renderPdfHeader(doc, {
+      title: stripBrand(L.title),
+      subtitle: periodStr,
+      year: yearLabel,
+      font: 'Roboto',
+    })
   }
 
   // Summary box background
@@ -542,7 +551,12 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
   if (y + 30 > pageH - 10) {
     doc.addPage()
     drawWatermark()
-    y = 20
+    y = renderPdfHeader(doc, {
+      title: stripBrand(L.title),
+      subtitle: periodStr,
+      year: yearLabel,
+      font: 'Roboto',
+    })
   }
 
   // Disclaimer
@@ -551,16 +565,8 @@ export async function generateIftaPdf({ report, quarter, year, vehicleName, comp
   doc.setTextColor(140, 140, 140)
   const disclaimerLines = doc.splitTextToSize(L.disclaimer, contentW)
   doc.text(disclaimerLines, marginL, y)
-  y += disclaimerLines.length * 3.5 + 4
 
-  // Footer line
-  doc.setDrawColor(220, 220, 220)
-  doc.line(marginL, y, pageW - marginR, y)
-  y += 4
-  doc.setFontSize(7)
-  doc.setTextColor(160, 160, 160)
-  doc.text(L.footer, marginL, y)
-  doc.text(`${L.page} 1`, pageW - marginR, y, { align: 'right' })
+  renderPdfFooter(doc, { font: 'Roboto' })
 
   // ============================================================
   //  SAVE

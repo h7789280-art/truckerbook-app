@@ -414,6 +414,10 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
       const fuelPerDistLabel = unitSys === 'imperial'
         ? t('fuel.exportFuelPerMile')
         : t('fuel.exportFuelPerKm')
+      const isOwnerOperator = userRole === 'owner_operator'
+      const brandSubtitle = pdfSubtitle
+        ? `Business expenses \u2014 Schedule C deductible \u00b7 ${pdfSubtitle}`
+        : 'Business expenses \u2014 Schedule C deductible'
       exportToPDF(rows, columns, pdfTitle, `fuel_report_${ym}.pdf`, lang, pdfSubtitle, {
         fuelTotals: {
           volumeKey: 'volume',
@@ -424,6 +428,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         },
         totalLabel: t('fuel.total'),
         averageLabel: t('fuel.exportAverage'),
+        ...(isOwnerOperator ? { branded: true, brandSubtitle } : {}),
       })
     }
   }

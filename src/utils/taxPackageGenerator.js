@@ -144,15 +144,25 @@ function wbToBlob(wb) {
 //  Data loaders
 // -------------------------------------------------------------------------
 
+// Convert kilometers to miles with one-decimal precision.
+// Matches MileageLogTab's `toMiles()` so trip-derived mileage lines up exactly.
+function kmToMiles(km) {
+  return Math.round((Number(km) || 0) * 0.621371 * 10) / 10
+}
+
 async function loadAnnualData({ supabase, userId, role, taxYear }) {
   const [start, endExcl] = yearRange(taxYear)
 
+  // Column lists below must reference ONLY columns that exist in Supabase.
+  // A typo here causes PostgREST to 400 and Supabase JS to resolve with
+  // { data: null, error: {...} } — which this file previously swallowed,
+  // producing empty sections in the generated package.
   const [tripsRes, fuelRes, vehExpRes, serviceRes, archiveRes, mileageRes, depRes] = await Promise.all([
-    // Match TaxSummaryTab: filter trips by created_at (not date_start), since
-    // date_start can be null or fall outside the tax year for multi-day trips.
+    // Filter trips by created_at (matches TaxSummaryTab + MileageLogTab),
+    // since date_start can be null or span multiple years.
     supabase
       .from('trips')
-      .select('id, origin, destination, date_start, date_end, income, miles, distance, km, status, vehicle_id, created_at')
+      .select('id, origin, destination, date_start, date_end, income, distance_km, deadhead_km, vehicle_id, created_at')
       .eq('user_id', userId)
       .gte('created_at', start + 'T00:00:00')
       .lt('created_at', endExcl + 'T00:00:00')
@@ -160,7 +170,7 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
 
     supabase
       .from('fuel_entries')
-      .select('id, date, cost, liters, station, location, state_code, vehicle_id')
+      .select('id, date, cost, liters, station, state, state_code, odometer, vehicle_id')
       .eq('user_id', userId)
       .gte('date', start)
       .lt('date', endExcl)
@@ -168,7 +178,7 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
 
     supabase
       .from('vehicle_expenses')
-      .select('id, date, amount, category, note, vehicle_id')
+      .select('id, date, amount, category, description, vehicle_id')
       .eq('user_id', userId)
       .gte('date', start)
       .lt('date', endExcl)
@@ -178,25 +188,27 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
 
     supabase
       .from('service_records')
-      .select('id, date, cost, title, description, odometer, vehicle_id')
+      .select('id, date, cost, category, description, service_station, odometer, vehicle_id')
       .eq('user_id', userId)
       .gte('date', start)
       .lt('date', endExcl)
       .order('date', { ascending: true }),
 
+    // Load the full archive for the user; filter by year in memory using
+    // document_date OR scanned_at as fallback. Some scans land without
+    // document_date (AI couldn't extract one) and were being dropped.
     supabase
       .from('documents_archive')
       .select('id, doc_type, photo_url, document_date, vendor_name, amount, currency, document_number, scanned_at')
       .eq('user_id', userId)
-      .gte('document_date', start)
-      .lt('document_date', endExcl)
-      .order('document_date', { ascending: true })
+      .order('document_date', { ascending: true, nullsFirst: false })
       .then(r => r)
       .catch(() => ({ data: [] })),
 
+    // Manual mileage entries — table name matches MileageLogTab.
     supabase
-      .from('mileage_entries')
-      .select('id, date, origin, destination, miles, business_purpose, purpose_label, odometer_start, odometer_end')
+      .from('mileage_log')
+      .select('id, date, origin, destination, miles, business_purpose')
       .eq('user_id', userId)
       .gte('date', start)
       .lt('date', endExcl)
@@ -215,9 +227,11 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
       .catch(() => ({ data: null })),
   ])
 
+  // Byt uses `name` (description field) — older code selected `note` which
+  // doesn't exist and returned empty.
   const bytExpRes = await supabase
     .from('byt_expenses')
-    .select('id, date, amount, category, note')
+    .select('id, date, amount, category, name')
     .eq('user_id', userId)
     .gte('date', start)
     .lt('date', endExcl)
@@ -225,13 +239,44 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
     .then(r => r)
     .catch(() => ({ data: [] }))
 
+  const trips = tripsRes.data || []
+  const manualMileage = mileageRes.data || []
+
+  // Combine trips + manual mileage into a single business-mile log, matching
+  // how MileageLogTab presents them on screen.
+  const tripMileage = trips.map(tr => ({
+    id: 'trip_' + tr.id,
+    date: (tr.created_at || '').slice(0, 10),
+    origin: tr.origin || '',
+    destination: tr.destination || '',
+    miles: kmToMiles(tr.distance_km),
+    business_purpose: (Number(tr.deadhead_km) || 0) > 0 ? 'Deadhead' : 'Delivery',
+  }))
+  const manualMileageRows = manualMileage.map(m => ({
+    id: 'manual_' + m.id,
+    date: m.date || '',
+    origin: m.origin || '',
+    destination: m.destination || '',
+    miles: Number(m.miles) || 0,
+    business_purpose: m.business_purpose || 'Other',
+  }))
+  const combinedMileage = [...tripMileage, ...manualMileageRows].sort(
+    (a, b) => (a.date || '').localeCompare(b.date || '')
+  )
+
+  const archiveAll = archiveRes.data || []
+  const archive = archiveAll.filter(d => {
+    const date = d.document_date || (d.scanned_at ? String(d.scanned_at).slice(0, 10) : null)
+    return date && date >= start && date < endExcl
+  })
+
   return {
-    trips: tripsRes.data || [],
+    trips,
     fuels: fuelRes.data || [],
     vehicleExpenses: vehExpRes.data || [],
     serviceRecords: serviceRes.data || [],
-    archive: archiveRes.data || [],
-    mileage: mileageRes.data || [],
+    archive,
+    mileage: combinedMileage,
     depreciation: depRes.data || null,
     bytExpenses: bytExpRes.data || [],
   }
@@ -786,7 +831,7 @@ function buildPersonalExpensesExcel({ bytExpenses }) {
     e.date || '',
     e.category || '',
     Number(e.amount) || 0,
-    e.note || '',
+    e.name || '',
   ])
   const ws = XLSX.utils.aoa_to_sheet([
     ['PERSONAL EXPENSES \u2014 Reference only. NOT deductible on Schedule C.'],
@@ -806,33 +851,32 @@ function buildFuelVehicleExpensesExcel({ fuels, vehicleExpenses, serviceRecords 
   const wb = XLSX.utils.book_new()
 
   if (fuels && fuels.length > 0) {
-    const fuelHeaders = ['Date', 'Station', 'Location', 'State', 'Gallons (approx)', 'Cost']
+    const fuelHeaders = ['Date', 'Station', 'State', 'Gallons (approx)', 'Cost']
     const fuelRows = fuels.map(f => [
       f.date || '',
       f.station || '',
-      f.location || '',
-      f.state_code || '',
+      f.state_code || f.state || '',
       ((Number(f.liters) || 0) / 3.78541).toFixed(3),
       Number(f.cost) || 0,
     ])
-    const fuelTotal = fuelRows.reduce((s, r) => s + r[5], 0)
+    const fuelTotal = fuelRows.reduce((s, r) => s + r[4], 0)
     const wsFuel = XLSX.utils.aoa_to_sheet([
       fuelHeaders,
       ...fuelRows,
       [],
-      ['', '', '', '', 'TOTAL', fuelTotal],
+      ['', '', '', 'TOTAL', fuelTotal],
     ])
-    wsFuel['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 24 }, { wch: 8 }, { wch: 14 }, { wch: 12 }]
+    wsFuel['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 8 }, { wch: 14 }, { wch: 12 }]
     XLSX.utils.book_append_sheet(wb, wsFuel, 'Fuel (Line 9)')
   }
 
   if (vehicleExpenses && vehicleExpenses.length > 0) {
-    const vExpHeaders = ['Date', 'Category', 'Amount', 'Notes']
+    const vExpHeaders = ['Date', 'Category', 'Amount', 'Description']
     const vExpRows = vehicleExpenses.map(e => [
       e.date || '',
       e.category || '',
       Number(e.amount) || 0,
-      e.note || '',
+      e.description || '',
     ])
     const byCat = {}
     for (const e of vehicleExpenses) {
@@ -851,22 +895,23 @@ function buildFuelVehicleExpensesExcel({ fuels, vehicleExpenses, serviceRecords 
   }
 
   if (serviceRecords && serviceRecords.length > 0) {
-    const sHeaders = ['Date', 'Title', 'Description', 'Odometer', 'Cost']
+    const sHeaders = ['Date', 'Category', 'Description', 'Shop', 'Odometer', 'Cost']
     const sRows = serviceRecords.map(s => [
       s.date || '',
-      s.title || '',
+      s.category || '',
       s.description || '',
+      s.service_station || '',
       s.odometer || '',
       Number(s.cost) || 0,
     ])
-    const sTotal = sRows.reduce((sum, r) => sum + r[4], 0)
+    const sTotal = sRows.reduce((sum, r) => sum + r[5], 0)
     const wsSvc = XLSX.utils.aoa_to_sheet([
       sHeaders,
       ...sRows,
       [],
-      ['', '', '', 'TOTAL', sTotal],
+      ['', '', '', '', 'TOTAL', sTotal],
     ])
-    wsSvc['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 36 }, { wch: 12 }, { wch: 12 }]
+    wsSvc['!cols'] = [{ wch: 12 }, { wch: 16 }, { wch: 36 }, { wch: 22 }, { wch: 12 }, { wch: 12 }]
     XLSX.utils.book_append_sheet(wb, wsSvc, 'Repairs (Line 21)')
   }
 
@@ -958,13 +1003,19 @@ async function buildServiceRecordsPdf({ taxYear, serviceRecords }) {
 
   autoTable(doc, {
     startY: y + 4,
-    head: [['Date', 'Title / Description', 'Odometer', 'Cost']],
-    body: serviceRecords.map(r => [
-      r.date || '',
-      (r.title || '') + (r.description ? '  \u2014  ' + r.description : ''),
-      r.odometer != null ? String(r.odometer) : '',
-      fmtMoney(r.cost),
-    ]),
+    head: [['Date', 'Category / Description', 'Odometer', 'Cost']],
+    body: serviceRecords.map(r => {
+      const parts = []
+      if (r.category) parts.push(r.category)
+      if (r.description) parts.push(r.description)
+      if (r.service_station) parts.push('(' + r.service_station + ')')
+      return [
+        r.date || '',
+        parts.join('  \u2014  '),
+        r.odometer != null && r.odometer !== '' ? String(r.odometer) : '',
+        fmtMoney(r.cost),
+      ]
+    }),
     styles: { fontSize: 8, cellPadding: 2, font: 'Roboto' },
     headStyles: { fillColor: [245, 158, 11], textColor: 255, fontStyle: 'bold' },
     columnStyles: { 0: { cellWidth: 22 }, 2: { cellWidth: 24, halign: 'right' }, 3: { halign: 'right', cellWidth: 26 } },

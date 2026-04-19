@@ -16,11 +16,14 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const [activeSection, setActiveSection] = useState(null)
 
   const isOwnerOrCompany = role === 'owner_operator' || role === 'company'
+  const isDriver1099 = role === 'driver' && profile?.employment_type === '1099'
   // Drivers only see Per Diem, Estimated Tax, and Deduction Checklist
   const showIfta = isOwnerOrCompany
   const showDeadlines = isOwnerOrCompany
   const showEstimatedTax = isOwnerOrCompany || role === 'driver'
-  const showTaxSummary = isOwnerOrCompany
+  // Schedule C (Tax Summary) — owner_operator always, driver only if 1099. Hidden for company
+  // (company files 1120/1120-S/1065, not Schedule C) and for W-2 drivers.
+  const showTaxSummary = role === 'owner_operator' || isDriver1099
   const showDepreciation = isOwnerOrCompany
   const showMileageLog = isOwnerOrCompany
   const showDeductionChecklist = role === 'driver'

@@ -1,13 +1,18 @@
-// Annual Tax Summary (Schedule C) — yearly income/expense report for owner-operators
+// Annual Tax Summary (Schedule C) — yearly income/expense report for owner-operators and 1099 drivers
 import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { calculatePerDiem } from '../utils/perDiemCalculator'
-import { calculateTotalTax } from '../utils/taxCalculator'
+import {
+  calculateTotalTax,
+  FILING_STATUS_OPTIONS,
+  TAX_YEAR,
+  SS_WAGE_BASE_2026,
+} from '../utils/taxCalculator'
 
 function fmt(n) {
-  return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function buildYearOptions() {
@@ -65,6 +70,17 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
       })
       .catch(() => {})
   }, [userId])
+
+  // Persist filing status on change
+  const handleFilingStatusChange = async (newStatus) => {
+    setFilingStatus(newStatus)
+    if (!userId) return
+    try {
+      await supabase
+        .from('estimated_tax_settings')
+        .upsert({ user_id: userId, filing_status: newStatus }, { onConflict: 'user_id' })
+    } catch { /* ignore — UI keeps local state */ }
+  }
 
   // Load depreciation from vehicle_depreciation table
   useEffect(() => {
@@ -199,14 +215,27 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     return () => { cancelled = true }
   }, [userId, role, year])
 
-  // Calculations — IRS-accurate
+  // Calculations — IRS-accurate 2026
   const depreciationNum = Number(depreciation) || 0
   const totalExpenses = fuelExpenses + repairsExpenses + insuranceExpenses + leaseExpenses + tollExpenses + parkingExpenses + otherExpenses
   const totalDeductions = totalExpenses + perDiemTotal + depreciationNum
   const netProfit = income - totalDeductions
   const positiveNet = Math.max(netProfit, 0)
   const taxResult = calculateTotalTax(positiveNet, filingStatus)
-  const { totalSETax: seTax, incomeTax, totalTax, effectiveRate } = taxResult
+  const {
+    taxableSEIncome,
+    ssTax,
+    medicareTax,
+    additionalMedicare,
+    totalSETax: seTax,
+    deductibleHalfSE,
+    agi,
+    standardDeduction,
+    taxableIncome,
+    incomeTax,
+    effectiveRate,
+    totalTax,
+  } = taxResult
 
   const expenseLines = [
     { key: 'fuel', label: t('taxSummary.fuel'), value: fuelExpenses },
@@ -217,6 +246,25 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     { key: 'parking', label: t('taxSummary.parking'), value: parkingExpenses },
     { key: 'other', label: t('taxSummary.otherExpenses'), value: otherExpenses },
   ]
+
+  const taxBreakdown = {
+    year: TAX_YEAR,
+    filingStatus,
+    netProfit,
+    taxableSEIncome,
+    ssWageBase: SS_WAGE_BASE_2026,
+    ssTax,
+    medicareTax,
+    additionalMedicare,
+    seTax,
+    deductibleHalfSE,
+    agi,
+    standardDeduction,
+    taxableIncome,
+    incomeTax,
+    effectiveRate,
+    totalTax,
+  }
 
   // Export PDF
   const handleExportPdf = async () => {
@@ -232,13 +280,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
         depreciation: depreciationNum,
         totalExpenses,
         totalDeductions,
-        netProfit,
-        seTax,
-        seTaxRate: 15.3,
-        incomeTax,
-        incomeTaxRate: effectiveRate,
-        totalTax,
-        filingStatus,
+        breakdown: taxBreakdown,
         language: lang,
         companyName: null,
       })
@@ -264,13 +306,7 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
         depreciation: depreciationNum,
         totalExpenses,
         totalDeductions,
-        netProfit,
-        seTax,
-        seTaxRate: 15.3,
-        incomeTax,
-        incomeTaxRate: effectiveRate,
-        totalTax,
-        filingStatus,
+        breakdown: taxBreakdown,
         language: lang,
       })
       setToast({ text: 'Excel \u2713', type: 'success' })
@@ -298,7 +334,16 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     fontWeight: 600,
   }
 
-  // W-2 driver stub
+  const lineRow = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '6px 0',
+    borderBottom: '1px dashed ' + theme.border,
+    fontSize: '12px',
+  }
+
+  // W-2 driver safety stub (this tab should be hidden by BookkeepingHome for w2)
   if (role === 'driver' && employmentType === 'w2') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -346,6 +391,25 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Filing status dropdown */}
+      <div style={card}>
+        <label style={{
+          display: 'block', fontSize: '11px', fontWeight: 600, color: theme.dim,
+          textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px',
+        }}>
+          {t('taxSummary.filingStatus')}
+        </label>
+        <select
+          value={filingStatus}
+          onChange={e => handleFilingStatusChange(e.target.value)}
+          style={{ ...selectStyle, width: '100%' }}
+        >
+          {FILING_STATUS_OPTIONS.map(opt => (
+            <option key={opt.value} value={opt.value}>{t('taxSummary.' + opt.labelKey)}</option>
+          ))}
+        </select>
       </div>
 
       {/* Loading */}
@@ -403,7 +467,6 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
                 }}>${fmt(line.value)}</span>
               </div>
             ))}
-            {/* Total expenses */}
             <div style={{
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '10px 0 0',
@@ -460,26 +523,85 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
             </div>
           </div>
 
-          {/* Tax breakdown */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <div style={{ ...card, textAlign: 'center' }}>
-              <div style={{
-                color: theme.dim, fontSize: '9px', textTransform: 'uppercase',
-                letterSpacing: '0.5px', marginBottom: '4px',
-              }}>{t('taxSummary.seTax')}</div>
-              <div style={{
-                color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
-              }}>${fmt(seTax)}</div>
+          {/* SE TAX BREAKDOWN */}
+          <div style={card}>
+            <div style={{
+              fontSize: '13px', fontWeight: 700, color: theme.text, marginBottom: '8px',
+              textTransform: 'uppercase', letterSpacing: '0.5px',
+            }}>
+              {t('taxSummary.seTaxBreakdown')}
             </div>
-            <div style={{ ...card, textAlign: 'center' }}>
-              <div style={{
-                color: theme.dim, fontSize: '9px', textTransform: 'uppercase',
-                letterSpacing: '0.5px', marginBottom: '4px',
-              }}>{t('taxSummary.incomeTax')} ({effectiveRate.toFixed(1)}%)</div>
-              <div style={{
-                color: '#f59e0b', fontSize: '17px', fontWeight: 700, fontFamily: 'monospace',
-              }}>${fmt(incomeTax)}</div>
+            <div style={lineRow}>
+              <span style={{ color: theme.dim }}>{t('taxSummary.seEarnings')}</span>
+              <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(taxableSEIncome)}</span>
             </div>
+            <div style={lineRow}>
+              <span style={{ color: theme.dim }}>{t('taxSummary.ssTax')}</span>
+              <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(ssTax)}</span>
+            </div>
+            <div style={lineRow}>
+              <span style={{ color: theme.dim }}>{t('taxSummary.medicareTax')}</span>
+              <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(medicareTax)}</span>
+            </div>
+            <div style={lineRow}>
+              <span style={{ color: theme.dim }}>{t('taxSummary.additionalMedicare')}</span>
+              <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(additionalMedicare)}</span>
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 0 4px', marginTop: '4px',
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: theme.text }}>
+                {t('taxSummary.totalSeTax')}
+              </span>
+              <span style={{
+                fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: '#f59e0b',
+              }}>${fmt(seTax)}</span>
+            </div>
+          </div>
+
+          {/* AGI / Standard deduction / Taxable income */}
+          <div style={card}>
+            <div style={{
+              fontSize: '13px', fontWeight: 700, color: theme.text, marginBottom: '8px',
+              textTransform: 'uppercase', letterSpacing: '0.5px',
+            }}>
+              {t('taxSummary.taxableIncomeCalc')}
+            </div>
+            <div style={lineRow}>
+              <span style={{ color: theme.dim }}>{t('taxSummary.deductibleHalfSE')}</span>
+              <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(deductibleHalfSE)}</span>
+            </div>
+            <div style={lineRow}>
+              <span style={{ color: theme.dim }}>{t('taxSummary.agi')}</span>
+              <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(agi)}</span>
+            </div>
+            <div style={lineRow}>
+              <span style={{ color: theme.dim }}>{t('taxSummary.standardDeduction')}</span>
+              <span style={{ fontFamily: 'monospace', color: theme.text }}>${fmt(standardDeduction)}</span>
+            </div>
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 0 4px', marginTop: '4px',
+            }}>
+              <span style={{ fontSize: '13px', fontWeight: 700, color: theme.text }}>
+                {t('taxSummary.taxableIncome')}
+              </span>
+              <span style={{
+                fontSize: '15px', fontWeight: 700, fontFamily: 'monospace', color: theme.text,
+              }}>${fmt(taxableIncome)}</span>
+            </div>
+          </div>
+
+          {/* Federal income tax */}
+          <div style={{ ...card, textAlign: 'center' }}>
+            <div style={{
+              color: theme.dim, fontSize: '10px', textTransform: 'uppercase',
+              letterSpacing: '0.5px', marginBottom: '4px',
+            }}>{t('taxSummary.incomeTax')} ({effectiveRate.toFixed(1)}%)</div>
+            <div style={{
+              color: '#f59e0b', fontSize: '20px', fontWeight: 700, fontFamily: 'monospace',
+            }}>${fmt(incomeTax)}</div>
           </div>
 
           {/* Total estimated tax */}
@@ -529,13 +651,25 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
             </button>
           </div>
 
-          {/* Info note */}
-          <div style={{
-            fontSize: '11px', color: theme.dim, lineHeight: '1.5',
-            padding: '8px 4px', textAlign: 'center',
-          }}>
-            {t('taxSummary.note')}
-          </div>
+          {/* Filing-status context + scope note */}
+          {(() => {
+            const fsOpt = FILING_STATUS_OPTIONS.find(o => o.value === filingStatus)
+            const fsLabel = t('taxSummary.' + (fsOpt?.labelKey || 'filingSingle'))
+            return (
+              <div style={{
+                fontSize: '11px', color: theme.dim, lineHeight: '1.6',
+                padding: '10px 4px',
+              }}>
+                <div style={{ marginBottom: '6px' }}>
+                  {t('taxSummary.contextNote').replace('{status}', fsLabel)}
+                </div>
+                <div style={{ marginBottom: '6px' }}>
+                  {t('taxSummary.notIncludedNote')}
+                </div>
+                <div>{t('taxSummary.note')}</div>
+              </div>
+            )
+          })()}
         </>
       )}
     </div>

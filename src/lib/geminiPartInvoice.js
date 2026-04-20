@@ -1,5 +1,6 @@
 /**
- * AI parts-invoice scanner via Google Gemini Vision API.
+ * AI parts-invoice scanner routed through /api/gemini serverless proxy
+ * so the Gemini API key never ships in the client bundle. See api/gemini.js.
  * Used by the parts-resource flow (owner_operator) to auto-fill PartFormModal.
  *
  * Returns a normalized object:
@@ -14,6 +15,8 @@
  *   }
  * or null when the scan failed entirely (network/parse error).
  */
+
+import { supabase } from './supabase'
 
 // Exact category keys from src/lib/partResourcePresets.js — DO NOT invent new ones.
 // Gemini is instructed to use one of these English tokens, then we map to app keys.
@@ -159,9 +162,10 @@ function normalizeStr(v) {
 }
 
 export async function scanPartInvoice(imageFile) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) {
-    console.error('VITE_GEMINI_API_KEY is not set')
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+  if (!accessToken) {
+    console.warn('scanPartInvoice: no session')
     return null
   }
 
@@ -194,24 +198,34 @@ export async function scanPartInvoice(imageFile) {
       '{"part_category":"engine_oil","part_name":"Shell Rotella T6 5W-40","install_date":"2026-04-15","odometer_miles":325400,"cost_total":189.99,"shop_name":"Pilot Travel Center","invoice_number":"INV-2341"}',
     ].join('\n')
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { inlineData: { mimeType, data: base64 } },
-              { text: promptText },
-            ],
-          }],
-        }),
-      }
-    )
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + accessToken,
+      },
+      body: JSON.stringify({
+        action: 'generate',
+        prompt: promptText,
+        image: {
+          mimeType,
+          data: base64,
+        },
+      }),
+    })
 
     if (!response.ok) {
-      console.error('Gemini invoice scan error:', response.status)
+      if (response.status === 401) {
+        console.warn('scanPartInvoice: unauthorized')
+      } else if (response.status === 429) {
+        console.warn('scanPartInvoice: rate limited')
+      } else if (response.status === 413) {
+        console.error('scanPartInvoice: image too large')
+      } else if (response.status === 503) {
+        console.warn('scanPartInvoice: service unavailable')
+      } else {
+        console.error('scanPartInvoice: Gemini proxy error', response.status)
+      }
       return null
     }
 

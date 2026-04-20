@@ -10,6 +10,7 @@ import DepreciationTab from './DepreciationTab'
 import MileageLogTab from './MileageLogTab'
 import DeductionChecklistTab from './DeductionChecklistTab'
 import TaxPackageTab from './TaxPackageTab'
+import SepIraCalculatorTab from './tax/SepIraCalculatorTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
@@ -32,8 +33,10 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const showDeductionChecklist = role === 'driver'
   // Tax package (year-end CPA ZIP) — self-employed only: owner_operator or 1099 driver.
   const showTaxPackage = role === 'owner_operator' || isDriver1099
+  // SEP-IRA Retirement Calculator — owner_operator only.
+  const showSepIra = role === 'owner_operator'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist' || activeSection === 'taxPackage') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist' || activeSection === 'taxPackage' || activeSection === 'sepIra') {
     return (
       <div>
         <button
@@ -55,6 +58,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'mileageLog' && showMileageLog && <MileageLogTab userId={userId} />}
         {activeSection === 'deductionChecklist' && showDeductionChecklist && <DeductionChecklistTab />}
         {activeSection === 'taxPackage' && showTaxPackage && <TaxPackageTab userId={userId} role={role} profile={profile} />}
+        {activeSection === 'sepIra' && showSepIra && <SepIraCalculatorTab userId={userId} role={role} profile={profile} stateOfResidence={profile?.state_of_residence} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -119,6 +123,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83D\uDCE6',
       title: t('bookkeeping.taxPackageCard'),
       desc: t('bookkeeping.taxPackageDescription'),
+    }] : []),
+    ...(showSepIra ? [{
+      key: 'sepIra',
+      icon: '\uD83C\uDFE6',
+      title: t('bookkeeping.sepIraCard'),
+      desc: t('bookkeeping.sepIraDescription'),
     }] : []),
   ]
 

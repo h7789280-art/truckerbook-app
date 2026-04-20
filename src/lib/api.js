@@ -2500,3 +2500,71 @@ export async function fetchLatestOdometer(userId, vehicleId) {
   }
 }
 
+// --- SEP-IRA contributions (retirement savings for owner-operators) ---
+
+export async function fetchSepIraContributions(userId, year) {
+  if (!userId) return []
+  let q = supabase
+    .from('sep_ira_contributions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('contribution_date', { ascending: false })
+  if (year != null) q = q.eq('tax_year', year)
+  const { data, error } = await q
+  if (error) {
+    console.error('fetchSepIraContributions error:', error)
+    throw error
+  }
+  return data || []
+}
+
+export async function addSepIraContribution(userId, contribution) {
+  if (!userId) throw new Error('userId required')
+  const amount = Number(contribution.amount) || 0
+  const row = {
+    user_id: userId,
+    tax_year: parseInt(contribution.tax_year, 10) || new Date().getFullYear(),
+    amount,
+    contribution_date: contribution.contribution_date || new Date().toISOString().slice(0, 10),
+    broker_name: contribution.broker_name || null,
+    notes: contribution.notes || null,
+  }
+  const { data, error } = await supabase
+    .from('sep_ira_contributions')
+    .insert(row)
+    .select()
+    .single()
+  if (error) {
+    console.error('addSepIraContribution error:', error)
+    throw error
+  }
+  return data
+}
+
+export async function updateSepIraContribution(id, updates) {
+  if (!id) throw new Error('id required')
+  const payload = { ...updates, updated_at: new Date().toISOString() }
+  const { data, error } = await supabase
+    .from('sep_ira_contributions')
+    .update(payload)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) {
+    console.error('updateSepIraContribution error:', error)
+    throw error
+  }
+  return data
+}
+
+export async function deleteSepIraContribution(id) {
+  if (!id) throw new Error('id required')
+  const { error } = await supabase
+    .from('sep_ira_contributions')
+    .delete()
+    .eq('id', id)
+  if (error) {
+    console.error('deleteSepIraContribution error:', error)
+    throw error
+  }
+}

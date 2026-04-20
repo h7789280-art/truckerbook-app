@@ -239,6 +239,15 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
     .then(r => r)
     .catch(() => ({ data: [] }))
 
+  const sepIraRes = await supabase
+    .from('sep_ira_contributions')
+    .select('id, tax_year, amount, contribution_date, broker_name, notes')
+    .eq('user_id', userId)
+    .eq('tax_year', taxYear)
+    .order('contribution_date', { ascending: true })
+    .then(r => r)
+    .catch(() => ({ data: [] }))
+
   const trips = tripsRes.data || []
   const manualMileage = mileageRes.data || []
 
@@ -279,6 +288,7 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
     mileage: combinedMileage,
     depreciation: depRes.data || null,
     bytExpenses: bytExpRes.data || [],
+    sepIraContributions: sepIraRes.data || [],
   }
 }
 
@@ -1053,6 +1063,33 @@ function buildBolRegistryExcel({ archive }) {
   return wbToBlob(wb)
 }
 
+// CSV for CPA: SEP-IRA contributions — feeds Schedule 1, Line 16
+// (Self-employed SEP, SIMPLE, and qualified plans deduction).
+function buildSepIraContributionsCsv({ taxYear, contributions }) {
+  const rows = contributions || []
+  if (rows.length === 0) return null
+
+  const escape = (v) => {
+    if (v == null) return ''
+    const s = String(v)
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"'
+    return s
+  }
+
+  const lines = ['Date,Amount,Broker,Notes,Tax Year']
+  for (const r of rows) {
+    lines.push([
+      escape(r.contribution_date || ''),
+      escape((Number(r.amount) || 0).toFixed(2)),
+      escape(r.broker_name || ''),
+      escape(r.notes || ''),
+      escape(r.tax_year != null ? r.tax_year : taxYear),
+    ].join(','))
+  }
+  // BOM so Excel opens UTF-8 correctly.
+  return new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+}
+
 function buildReadmeTxt({
   taxYear, profile, recipient, filingStatus, stateCode, stateName,
   grossIncome, totalExpenses, perDiemTotal, amortization, netProfit,
@@ -1506,6 +1543,24 @@ export async function generateTaxPackage({
       console.warn('[taxPackage] bol failed', err)
     }
     report('bolRegistry', 'done')
+  }
+
+  // --- SEP-IRA contributions CSV (Schedule 1, Line 16) ---
+  if (options.sepIraContributions !== false) {
+    try {
+      const blob = buildSepIraContributionsCsv({
+        taxYear,
+        contributions: data.sepIraContributions,
+      })
+      if (blob) {
+        zip.file('sep_ira_contributions_' + taxYear + '.csv', blob)
+        includedSections.push('sepIraContributions')
+      } else {
+        skippedSections.push('sep_ira_contributions')
+      }
+    } catch (err) {
+      console.warn('[taxPackage] sepIraContributions failed', err)
+    }
   }
 
   // --- 10. Receipt photos ---

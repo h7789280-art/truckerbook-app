@@ -113,6 +113,7 @@ export default async function handler(req, res) {
     generationConfig,
     model: clientModel,
     image,
+    media,
   } = req.body || {}
 
   if (action !== 'generate') {
@@ -122,31 +123,56 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing prompt (string required)' })
   }
 
-  // Optional image input (vision).
-  // Shape: { mimeType: "image/jpeg", data: "<base64 без data:..., префикса>" }
-  let imagePart = null
-  if (image !== undefined && image !== null) {
-    if (typeof image !== 'object' || typeof image.mimeType !== 'string' || typeof image.data !== 'string') {
-      return res.status(400).json({ error: 'Invalid image (expected { mimeType, data })' })
+  // Optional media input (vision / audio / binary).
+  // Shape: { mimeType: "image/jpeg" | "audio/webm" | "application/octet-stream", data: "<base64 без data:..., префикса>" }
+  // Backwards compat: legacy `image` field is accepted when `media` is absent.
+  // If both are present, `media` wins.
+  let mediaPart = null
+  let effectiveMedia = null
+  if (media !== undefined && media !== null) {
+    if (image !== undefined && image !== null) {
+      console.warn('Both media and image provided; using media and ignoring image')
     }
-    if (!image.mimeType.startsWith('image/')) {
-      return res.status(400).json({ error: 'image.mimeType must start with "image/"' })
+    effectiveMedia = media
+  } else if (image !== undefined && image !== null) {
+    effectiveMedia = image
+  }
+
+  if (effectiveMedia !== null) {
+    if (
+      typeof effectiveMedia !== 'object' ||
+      typeof effectiveMedia.mimeType !== 'string' ||
+      typeof effectiveMedia.data !== 'string'
+    ) {
+      return res.status(400).json({ error: 'Invalid media (expected { mimeType, data })' })
     }
-    if (image.data.length === 0) {
-      return res.status(400).json({ error: 'image.data must be a non-empty base64 string' })
+    if (effectiveMedia.data.length === 0) {
+      return res.status(400).json({ error: 'media.data must be a non-empty base64 string' })
     }
-    // 4 MB limit on decoded bytes (Vercel payload cap is 4.5 MB, leave headroom for JSON framing)
-    const approxBytes = Math.ceil(image.data.length * 0.75)
-    if (approxBytes > 4 * 1024 * 1024) {
-      return res.status(413).json({ error: 'Image too large', maxBytes: 4 * 1024 * 1024 })
+
+    const mimeType = effectiveMedia.mimeType
+    let maxBytes
+    if (mimeType.startsWith('image/')) {
+      // 4 MB for images (Vercel payload cap 4.5 MB, leave headroom for JSON framing)
+      maxBytes = 4 * 1024 * 1024
+    } else if (mimeType.startsWith('audio/') || mimeType === 'application/octet-stream') {
+      maxBytes = 10 * 1024 * 1024
+    } else {
+      return res.status(400).json({ error: `Unsupported media type: ${mimeType}` })
     }
-    imagePart = { inline_data: { mime_type: image.mimeType, data: image.data } }
+
+    const approxBytes = Math.ceil(effectiveMedia.data.length * 0.75)
+    if (approxBytes > maxBytes) {
+      return res.status(413).json({ error: 'Media too large', maxBytes })
+    }
+
+    mediaPart = { inline_data: { mime_type: mimeType, data: effectiveMedia.data } }
   }
 
   const model = clientModel || process.env.GEMINI_MODEL || DEFAULT_MODEL
 
   const parts = [{ text: prompt }]
-  if (imagePart) parts.push(imagePart)
+  if (mediaPart) parts.push(mediaPart)
 
   const body = {
     contents: [{ role: 'user', parts }],

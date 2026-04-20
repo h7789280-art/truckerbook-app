@@ -11,6 +11,7 @@ import MileageLogTab from './MileageLogTab'
 import DeductionChecklistTab from './DeductionChecklistTab'
 import TaxPackageTab from './TaxPackageTab'
 import SepIraCalculatorTab from './tax/SepIraCalculatorTab'
+import DeductionAuditTab from './tax/DeductionAuditTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
   const { theme } = useTheme()
@@ -35,8 +36,10 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const showTaxPackage = role === 'owner_operator' || isDriver1099
   // SEP-IRA Retirement Calculator — owner_operator only.
   const showSepIra = role === 'owner_operator'
+  // AI Deduction Audit — owner_operator only.
+  const showDeductionAudit = role === 'owner_operator'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist' || activeSection === 'taxPackage' || activeSection === 'sepIra') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist' || activeSection === 'taxPackage' || activeSection === 'sepIra' || activeSection === 'deductionAudit') {
     return (
       <div>
         <button
@@ -59,6 +62,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'deductionChecklist' && showDeductionChecklist && <DeductionChecklistTab />}
         {activeSection === 'taxPackage' && showTaxPackage && <TaxPackageTab userId={userId} role={role} profile={profile} />}
         {activeSection === 'sepIra' && showSepIra && <SepIraCalculatorTab userId={userId} role={role} profile={profile} stateOfResidence={profile?.state_of_residence} />}
+        {activeSection === 'deductionAudit' && showDeductionAudit && <DeductionAuditTab userId={userId} role={role} profile={profile} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
           color: theme.dim, lineHeight: '1.5', textAlign: 'center',
@@ -129,6 +133,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83C\uDFE6',
       title: t('bookkeeping.sepIraCard'),
       desc: t('bookkeeping.sepIraDescription'),
+    }] : []),
+    ...(showDeductionAudit ? [{
+      key: 'deductionAudit',
+      icon: '\uD83E\uDD16',
+      title: t('bookkeeping.deductionAuditCard'),
+      desc: t('bookkeeping.deductionAuditDescription'),
     }] : []),
   ]
 

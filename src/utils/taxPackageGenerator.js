@@ -248,6 +248,20 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
     .then(r => r)
     .catch(() => ({ data: [] }))
 
+  // Deduction-audit decisions landing inside the tax year — accepted + rejected
+  // items so the CPA can audit what Gemini flagged and what the taxpayer
+  // decided. Snoozed items are excluded (no decision yet).
+  const deductionAuditRes = await supabase
+    .from('deduction_audit_suggestions')
+    .select('id, original_description, original_amount, original_date, suggested_category, suggested_schedule_c_line, status, user_action_date, confidence_score, reasoning')
+    .eq('user_id', userId)
+    .in('status', ['accepted', 'rejected'])
+    .gte('original_date', start)
+    .lt('original_date', endExcl)
+    .order('user_action_date', { ascending: true })
+    .then(r => r)
+    .catch(() => ({ data: [] }))
+
   const trips = tripsRes.data || []
   const manualMileage = mileageRes.data || []
 
@@ -289,6 +303,7 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
     depreciation: depRes.data || null,
     bytExpenses: bytExpRes.data || [],
     sepIraContributions: sepIraRes.data || [],
+    deductionAuditDecisions: deductionAuditRes.data || [],
   }
 }
 
@@ -1063,6 +1078,40 @@ function buildBolRegistryExcel({ archive }) {
   return wbToBlob(wb)
 }
 
+// CSV for CPA: AI Deduction Audit decision log. Documents which personal
+// entries were migrated into Schedule C and the reasoning behind each
+// decision — the CPA can retrace why a business deduction came from a
+// personal ledger row.
+function buildDeductionAuditLogCsv({ taxYear, decisions }) {
+  const rows = decisions || []
+  if (rows.length === 0) return null
+
+  const escape = (v) => {
+    if (v == null) return ''
+    const s = String(v)
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"'
+    return s
+  }
+
+  const lines = ['Date,Description,Amount,Original Category,Moved To Category,Schedule C Line,Decision,Decision Date,Confidence,Reasoning']
+  for (const r of rows) {
+    lines.push([
+      escape(r.original_date || ''),
+      escape(r.original_description || ''),
+      escape((Number(r.original_amount) || 0).toFixed(2)),
+      escape('personal'),
+      escape(r.status === 'accepted' ? (r.suggested_category || '') : ''),
+      escape(r.status === 'accepted' ? (r.suggested_schedule_c_line || '') : ''),
+      escape(r.status),
+      escape(r.user_action_date ? String(r.user_action_date).slice(0, 10) : ''),
+      escape(r.confidence_score != null ? Number(r.confidence_score).toFixed(2) : ''),
+      escape(r.reasoning || ''),
+    ].join(','))
+  }
+  void taxYear
+  return new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' })
+}
+
 // CSV for CPA: SEP-IRA contributions — feeds Schedule 1, Line 16
 // (Self-employed SEP, SIMPLE, and qualified plans deduction).
 function buildSepIraContributionsCsv({ taxYear, contributions }) {
@@ -1560,6 +1609,24 @@ export async function generateTaxPackage({
       }
     } catch (err) {
       console.warn('[taxPackage] sepIraContributions failed', err)
+    }
+  }
+
+  // --- AI deduction audit decision log ---
+  if (options.deductionAuditLog !== false) {
+    try {
+      const blob = buildDeductionAuditLogCsv({
+        taxYear,
+        decisions: data.deductionAuditDecisions,
+      })
+      if (blob) {
+        zip.file('deduction_audit_log_' + taxYear + '.csv', blob)
+        includedSections.push('deductionAuditLog')
+      } else {
+        skippedSections.push('deduction_audit_log')
+      }
+    } catch (err) {
+      console.warn('[taxPackage] deductionAuditLog failed', err)
     }
   }
 

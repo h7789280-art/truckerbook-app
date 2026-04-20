@@ -2568,3 +2568,426 @@ export async function deleteSepIraContribution(id) {
     throw error
   }
 }
+
+// --- AI Deduction Audit (feature G) ---
+// Gemini scans byt_expenses and flags entries that look like legitimate
+// Schedule C deductions. User accepts → mirror row inserted into
+// vehicle_expenses with chosen Schedule C category. Original byt row is
+// NEVER deleted (audit trail).
+
+import {
+  buildAuditPrompt,
+  parseAuditResponse,
+  SCHEDULE_C_CATEGORIES,
+  SCHEDULE_C_CATEGORY_TO_EXPENSE,
+  scheduleCLineFor,
+} from '../utils/deductionAuditPrompts'
+import { calculateTotalTax } from '../utils/taxCalculator'
+
+const AUDIT_BATCH_SIZE = 50
+const AUDIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes between runs per user
+const SNOOZE_DAYS = 30
+
+function isAuditApiAvailable() {
+  return !!import.meta.env.VITE_GEMINI_API_KEY
+}
+
+async function callGeminiAudit(systemPrompt, userText) {
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
+  const model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash'
+  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY is not set')
+
+  const response = await fetch(
+    'https://generativelanguage.googleapis.com/v1beta/models/'
+      + encodeURIComponent(model) + ':generateContent?key=' + apiKey,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: [{ role: 'user', parts: [{ text: userText }] }],
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: 'application/json',
+        },
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    const errText = await response.text().catch(() => '')
+    throw new Error('Gemini API error ' + response.status + ': ' + errText.slice(0, 200))
+  }
+
+  const data = await response.json()
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+  return parseAuditResponse(text)
+}
+
+// Estimate marginal tax rate for a user given their Schedule C inputs.
+// We query trips/fuel_entries/vehicle_expenses/service_records for the
+// current year and run the standard taxCalculator to recover the top
+// bracket rate, then add 15.3% SE tax as an approximation for the
+// business-income marginal cost.
+async function estimateMarginalRate(userId, filingStatus) {
+  try {
+    const now = new Date()
+    const year = now.getFullYear()
+    const start = year + '-01-01'
+    const endPlusOne = (year + 1) + '-01-01'
+
+    const [tripsRes, fuelRes, vehExpRes, serviceRes] = await Promise.all([
+      supabase.from('trips').select('income').eq('user_id', userId)
+        .gte('created_at', start + 'T00:00:00').lt('created_at', endPlusOne + 'T00:00:00'),
+      supabase.from('fuel_entries').select('cost').eq('user_id', userId)
+        .gte('date', start).lt('date', endPlusOne),
+      supabase.from('vehicle_expenses').select('amount').eq('user_id', userId)
+        .gte('date', start).lt('date', endPlusOne).then(r => r).catch(() => ({ data: [] })),
+      supabase.from('service_records').select('cost').eq('user_id', userId)
+        .gte('date', start).lt('date', endPlusOne),
+    ])
+
+    const income = (tripsRes.data || []).reduce((s, r) => s + (r.income || 0), 0)
+    const fuel = (fuelRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
+    const vehExp = (vehExpRes.data || []).reduce((s, r) => s + (r.amount || 0), 0)
+    const service = (serviceRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
+    const netProfit = Math.max(income - fuel - vehExp - service, 0)
+
+    const result = calculateTotalTax(netProfit, filingStatus || 'single')
+    // Find the top bracket the user falls into.
+    const brackets = result?.bracketBreakdown || []
+    const topRate = brackets.length > 0
+      ? brackets[brackets.length - 1].rate / 100
+      : 0.22
+    // 15.3% SE tax applies until SS wage base; add it to the marginal.
+    const marginal = topRate + 0.153
+    return Math.min(marginal, 0.52)
+  } catch {
+    // Fallback if anything blows up — 32% is a reasonable default for the
+    // high-income owner-operator target user.
+    return 0.32
+  }
+}
+
+async function getLastAuditRun(userId) {
+  const { data } = await supabase
+    .from('deduction_audit_runs')
+    .select('id, run_date, total_scanned, total_found, total_potential_savings, status')
+    .eq('user_id', userId)
+    .order('run_date', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data || null
+}
+
+export async function fetchLastAuditRun(userId) {
+  if (!userId) return null
+  return getLastAuditRun(userId)
+}
+
+export async function fetchAuditSuggestions(userId, status = 'pending') {
+  if (!userId) return []
+  let q = supabase
+    .from('deduction_audit_suggestions')
+    .select('*')
+    .eq('user_id', userId)
+    .order('confidence_score', { ascending: false })
+    .order('created_at', { ascending: false })
+  if (status) q = q.eq('status', status)
+  const { data, error } = await q
+  if (error) {
+    console.error('fetchAuditSuggestions error:', error)
+    throw error
+  }
+  // Auto-wake snoozed entries that are past their cooldown.
+  if (status === 'pending') {
+    const cutoff = new Date(Date.now() - SNOOZE_DAYS * 24 * 60 * 60 * 1000).toISOString()
+    await supabase
+      .from('deduction_audit_suggestions')
+      .update({ status: 'pending', user_action_date: null })
+      .eq('user_id', userId)
+      .eq('status', 'snoozed')
+      .lt('user_action_date', cutoff)
+  }
+  return data || []
+}
+
+export async function fetchAuditHistoryCounts(userId) {
+  if (!userId) return { accepted: 0, rejected: 0, snoozed: 0 }
+  const { data } = await supabase
+    .from('deduction_audit_suggestions')
+    .select('status')
+    .eq('user_id', userId)
+    .in('status', ['accepted', 'rejected', 'snoozed'])
+  const counts = { accepted: 0, rejected: 0, snoozed: 0 }
+  for (const r of (data || [])) {
+    if (counts[r.status] != null) counts[r.status] += 1
+  }
+  return counts
+}
+
+export async function fetchAuditDecisionLog(userId, year) {
+  if (!userId) return []
+  let q = supabase
+    .from('deduction_audit_suggestions')
+    .select('*')
+    .eq('user_id', userId)
+    .in('status', ['accepted', 'rejected'])
+    .order('user_action_date', { ascending: false })
+  if (year != null) {
+    const start = year + '-01-01'
+    const endExcl = (year + 1) + '-01-01'
+    q = q.gte('original_date', start).lt('original_date', endExcl)
+  }
+  const { data, error } = await q
+  if (error) throw error
+  return data || []
+}
+
+// Rate limit: 1 audit per 5 minutes per user.
+export async function canRunAudit(userId) {
+  const last = await getLastAuditRun(userId)
+  if (!last || !last.run_date) return { ok: true }
+  const delta = Date.now() - new Date(last.run_date).getTime()
+  if (delta < AUDIT_COOLDOWN_MS) {
+    return {
+      ok: false,
+      waitSeconds: Math.ceil((AUDIT_COOLDOWN_MS - delta) / 1000),
+    }
+  }
+  return { ok: true }
+}
+
+export async function runDeductionAudit(userId, profile) {
+  if (!userId) throw new Error('userId required')
+  if (!isAuditApiAvailable()) {
+    throw new Error('VITE_GEMINI_API_KEY is not set')
+  }
+
+  const limit = await canRunAudit(userId)
+  if (!limit.ok) {
+    const err = new Error('Rate limited')
+    err.code = 'RATE_LIMITED'
+    err.waitSeconds = limit.waitSeconds
+    throw err
+  }
+
+  // 12-month window ending today.
+  const end = new Date()
+  const start = new Date(end)
+  start.setFullYear(start.getFullYear() - 1)
+  const startStr = start.toISOString().slice(0, 10)
+  const endStr = end.toISOString().slice(0, 10)
+
+  // Open a "running" run so duplicate clicks collide on the cooldown.
+  const runInsert = await supabase
+    .from('deduction_audit_runs')
+    .insert({
+      user_id: userId,
+      scan_period_start: startStr,
+      scan_period_end: endStr,
+      total_scanned: 0,
+      total_found: 0,
+      total_potential_savings: 0,
+      status: 'running',
+    })
+    .select()
+    .single()
+
+  if (runInsert.error) {
+    console.error('runDeductionAudit insert error:', runInsert.error)
+    throw runInsert.error
+  }
+  const runId = runInsert.data.id
+
+  try {
+    // 1. Pull byt_expenses for the window, skipping any items that already
+    // have a pending/accepted suggestion so we don't double-flag.
+    const { data: bytRows, error: bytErr } = await supabase
+      .from('byt_expenses')
+      .select('id, date, amount, category, name')
+      .eq('user_id', userId)
+      .gte('date', startStr)
+      .lte('date', endStr)
+      .order('date', { ascending: false })
+    if (bytErr) throw bytErr
+
+    const alreadyScanned = new Set()
+    const { data: existingSuggestions } = await supabase
+      .from('deduction_audit_suggestions')
+      .select('source_id, status')
+      .eq('user_id', userId)
+      .in('status', ['pending', 'accepted', 'snoozed'])
+    for (const s of (existingSuggestions || [])) alreadyScanned.add(s.source_id)
+
+    const toScan = (bytRows || [])
+      .filter(r => !alreadyScanned.has(r.id))
+      .map(r => ({
+        id: r.id,
+        description: r.name || '',
+        amount: Number(r.amount) || 0,
+        date: r.date,
+        category: r.category,
+      }))
+
+    const totalScanned = toScan.length
+    if (totalScanned === 0) {
+      await supabase
+        .from('deduction_audit_runs')
+        .update({
+          total_scanned: 0,
+          total_found: 0,
+          total_potential_savings: 0,
+          status: 'completed',
+        })
+        .eq('id', runId)
+      return { runId, totalScanned: 0, totalFound: 0, totalSavings: 0 }
+    }
+
+    // 2. Marginal rate once per run.
+    let filingStatus = 'single'
+    try {
+      const { data: s } = await supabase
+        .from('estimated_tax_settings')
+        .select('filing_status')
+        .eq('user_id', userId)
+        .maybeSingle()
+      if (s?.filing_status) filingStatus = s.filing_status
+    } catch { /* default */ }
+
+    const marginalRate = await estimateMarginalRate(userId, filingStatus)
+
+    // 3. Batch through Gemini.
+    const allSuggestions = []
+    for (let i = 0; i < toScan.length; i += AUDIT_BATCH_SIZE) {
+      const batch = toScan.slice(i, i + AUDIT_BATCH_SIZE)
+      const { systemPrompt, userText } = buildAuditPrompt(batch, profile || {})
+      const parsed = await callGeminiAudit(systemPrompt, userText)
+      const byId = new Map(batch.map(b => [b.id, b]))
+      for (const sug of parsed.suggestions) {
+        const source = byId.get(sug.source_id)
+        if (!source) continue
+        if (typeof sug.confidence !== 'number' || sug.confidence < 0.7) continue
+        const businessPct = Number(sug.estimated_business_percentage) || 100
+        const bizAmount = source.amount * (businessPct / 100)
+        const savings = +(bizAmount * marginalRate).toFixed(2)
+        allSuggestions.push({
+          audit_run_id: runId,
+          user_id: userId,
+          source_table: 'byt_expenses',
+          source_id: source.id,
+          original_description: source.description,
+          original_amount: source.amount,
+          original_date: source.date,
+          suggested_category: sug.suggested_category,
+          suggested_schedule_c_line: sug.schedule_c_line || scheduleCLineFor(sug.suggested_category),
+          confidence_score: Math.min(Math.max(sug.confidence, 0), 1),
+          reasoning: (sug.reasoning || '').toString().slice(0, 1000),
+          estimated_tax_savings: savings,
+          status: 'pending',
+        })
+      }
+    }
+
+    // 4. Insert suggestions.
+    if (allSuggestions.length > 0) {
+      const { error: insertErr } = await supabase
+        .from('deduction_audit_suggestions')
+        .insert(allSuggestions)
+      if (insertErr) {
+        console.error('audit suggestions insert failed:', insertErr)
+        throw insertErr
+      }
+    }
+
+    const totalSavings = allSuggestions.reduce((s, r) => s + (Number(r.estimated_tax_savings) || 0), 0)
+
+    await supabase
+      .from('deduction_audit_runs')
+      .update({
+        total_scanned: totalScanned,
+        total_found: allSuggestions.length,
+        total_potential_savings: +totalSavings.toFixed(2),
+        status: 'completed',
+      })
+      .eq('id', runId)
+
+    return {
+      runId,
+      totalScanned,
+      totalFound: allSuggestions.length,
+      totalSavings: +totalSavings.toFixed(2),
+    }
+  } catch (err) {
+    await supabase
+      .from('deduction_audit_runs')
+      .update({ status: 'failed', error_message: (err && err.message) ? err.message.slice(0, 500) : 'error' })
+      .eq('id', runId)
+    throw err
+  }
+}
+
+export async function acceptSuggestion(suggestionId, chosenCategory) {
+  if (!suggestionId) throw new Error('suggestionId required')
+
+  const { data: sug, error: sugErr } = await supabase
+    .from('deduction_audit_suggestions')
+    .select('*')
+    .eq('id', suggestionId)
+    .single()
+  if (sugErr) throw sugErr
+
+  const finalCategory = chosenCategory || sug.suggested_category
+  const expenseCategory = SCHEDULE_C_CATEGORY_TO_EXPENSE[finalCategory] || 'other'
+  const lineLabel = scheduleCLineFor(finalCategory)
+
+  const { data: inserted, error: insertErr } = await supabase
+    .from('vehicle_expenses')
+    .insert({
+      user_id: sug.user_id,
+      vehicle_id: null,
+      category: expenseCategory,
+      description: (sug.original_description || '')
+        + ' [moved from personal — ' + lineLabel + ']',
+      amount: Number(sug.original_amount) || 0,
+      date: sug.original_date,
+    })
+    .select()
+    .single()
+  if (insertErr) throw insertErr
+
+  const { error: updErr } = await supabase
+    .from('deduction_audit_suggestions')
+    .update({
+      status: 'accepted',
+      user_action_date: new Date().toISOString(),
+      suggested_category: finalCategory,
+      suggested_schedule_c_line: lineLabel,
+      accepted_expense_id: inserted.id,
+    })
+    .eq('id', suggestionId)
+  if (updErr) throw updErr
+
+  return inserted
+}
+
+export async function rejectSuggestion(suggestionId) {
+  if (!suggestionId) throw new Error('suggestionId required')
+  const { error } = await supabase
+    .from('deduction_audit_suggestions')
+    .update({ status: 'rejected', user_action_date: new Date().toISOString() })
+    .eq('id', suggestionId)
+  if (error) throw error
+}
+
+export async function snoozeSuggestion(suggestionId) {
+  if (!suggestionId) throw new Error('suggestionId required')
+  const { error } = await supabase
+    .from('deduction_audit_suggestions')
+    .update({ status: 'snoozed', user_action_date: new Date().toISOString() })
+    .eq('id', suggestionId)
+  if (error) throw error
+}
+
+export { SCHEDULE_C_CATEGORIES as DEDUCTION_AUDIT_CATEGORIES, isAuditApiAvailable }
+

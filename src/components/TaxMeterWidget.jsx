@@ -201,7 +201,8 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
     : coverage < 0.8 ? EMOJI.warning : null
 
   const nextQ = getNextQuarterDeadline(today, {
-    safeHarborTotal: accrued.projectedAnnualTax,
+    ytdAccruedTax: accrued.ytdAccruedTax,
+    ytdGross,
     paidByQuarter,
   })
 

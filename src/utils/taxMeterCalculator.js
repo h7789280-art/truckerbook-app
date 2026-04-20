@@ -63,23 +63,22 @@ export function projectAnnualFromYTD(ytdAmount, currentDate = new Date()) {
 }
 
 /**
- * Project net profit to annual and compute accrued tax.
+ * Accrued tax on YTD figures — treats current YTD as if the year ended today.
  *
- * Gross, operating expenses, and per diem are projected linearly
- * (they scale with activity). Depreciation is already a full-year deduction
- * for the current tax year, so it is NOT projected.
- *
- * At days = 365 the projection is an identity, so `ytdAccruedTax` equals
- * `projectedAnnualTax` — matching Tax Summary exactly at year-end.
+ * Computes net profit directly from YTD inputs (no annual projection) and
+ * runs it through the IRS calculator. This matches Tax Summary's approach
+ * and avoids the distortion that linear proration caused when trip dates
+ * cluster in one part of the year (test data, seasonal hauls, etc.).
  *
  * @param {object} p
- * @param {number} p.ytdGross            YTD gross income (trips)
- * @param {number} p.ytdExpenses         YTD Schedule C expenses (fuel + repairs + vehicle)
- * @param {number} p.ytdPerDiem          YTD per diem total
- * @param {number} p.depreciation        Full-year depreciation / amortization
- * @param {string} p.filingStatus        IRS filing status
- * @param {string|null} p.state          2-letter state code (null = skip state tax)
- * @param {Date|string} p.currentDate    Reference date (default: now)
+ * @param {number} p.ytdGross          YTD gross income (trips)
+ * @param {number} p.ytdExpenses       YTD Schedule C expenses (fuel + repairs + vehicle)
+ * @param {number} p.ytdPerDiem        YTD per diem total
+ * @param {number} p.depreciation      Depreciation / amortization (full-year for current year)
+ * @param {string} p.filingStatus      IRS filing status
+ * @param {string|null} p.state        2-letter state code (null = skip state tax)
+ * @param {Date|string} p.currentDate  Reference date (default: now)
+ * @param {number} [p.year]            Tax year (defaults to currentDate's year)
  */
 export function calculateAccruedTax({
   ytdGross = 0,
@@ -89,46 +88,44 @@ export function calculateAccruedTax({
   filingStatus = 'single',
   state = null,
   currentDate = new Date(),
+  year,
 } = {}) {
   const days = daysPassedInYear(currentDate)
-  const scale = 365 / days
+  const resolvedYear = year || toDate(currentDate).getFullYear()
 
-  const projectedGross = ytdGross * scale
-  const projectedExpenses = ytdExpenses * scale
-  const projectedPerDiem = ytdPerDiem * scale
-  const projectedDepreciation = Number(depreciation) || 0
-  const projectedNetProfit = Math.max(
-    projectedGross - projectedExpenses - projectedPerDiem - projectedDepreciation,
-    0
-  )
+  const gross = Number(ytdGross) || 0
+  const expenses = Number(ytdExpenses) || 0
+  const perDiem = Number(ytdPerDiem) || 0
+  const dep = Number(depreciation) || 0
+  const netProfit = Math.max(gross - expenses - perDiem - dep, 0)
 
-  const tax = calculateTotalTax(projectedNetProfit, filingStatus, state)
-  const projectedAnnualTax = tax.totalTax || 0
-  const ytdAccruedTax = projectedAnnualTax * (days / 365)
+  const tax = calculateTotalTax(netProfit, filingStatus, state, resolvedYear)
+  const seTax = tax.totalSETax || 0
+  const federalTax = tax.incomeTax || 0
+  const stateTax = tax.stateTax || 0
+  const ytdAccruedTax = tax.totalTax || 0
 
-  // Debug trace so the user can verify mid-computation values in DevTools.
   if (typeof console !== 'undefined' && console.log) {
-    console.log('[TaxMeter] calculateAccruedTax', {
-      ytdGross,
-      ytdExpenses,
-      ytdPerDiem,
-      depreciation: projectedDepreciation,
-      projectedAnnualGross: projectedGross,
-      projectedNetProfit,
-      projectedAnnualTax,
-      daysPassed: days,
+    console.log('[TaxMeter]', {
+      ytdGross: gross,
+      ytdExpenses: expenses,
+      ytdPerDiem: perDiem,
+      depreciation: dep,
+      netProfit,
+      seTax,
+      federalTax,
+      stateTax,
       ytdAccruedTax,
+      daysPassed: days,
     })
   }
 
   return {
     daysPassed: days,
-    projectedGross,
-    projectedExpenses,
-    projectedPerDiem,
-    projectedDepreciation,
-    projectedNetProfit,
-    projectedAnnualTax,
+    netProfit,
+    seTax,
+    federalTax,
+    stateTax,
     ytdAccruedTax,
   }
 }
@@ -157,26 +154,35 @@ export function calculateSavingsBucket(ytdGross, withholdPct, quarterlyPaymentsY
  * Deadlines (standard, non-holiday-adjusted):
  *   Q1 = Apr 15, Q2 = Jun 15, Q3 = Sep 15, Q4 = Jan 15 of following year.
  *
- * The quarterly amount uses IRS Safe Harbor: pay 90% of projected annual tax
- * in four equal installments (or 110% of prior-year tax if prior AGI > $150k
- * — that branch is not implemented here; caller can override via `safeHarborFactor`).
+ * Quarterly amount = Safe Harbor (default 90%) of projected annual tax / 4,
+ * minus anything already paid for that quarter.
+ *
+ * Projection rule:
+ *   projectedAnnualTax = ytdAccruedTax × (365 / daysPassed)
+ *   — unless the caller's data looks test/seasonal (high gross collapsed
+ *   into a short window), in which case linear proration would explode the
+ *   estimate. Heuristic: ytdGross > $200k within the first 180 days → use
+ *   ytdAccruedTax directly as the annual base.
  *
  * @param {Date|string} currentDate
  * @param {object} [opts]
- * @param {number} [opts.safeHarborTotal=0]   Projected annual tax (safe-harbor base)
- * @param {number} [opts.safeHarborFactor=0.9] 0.9 for standard, 1.1 for high-AGI filers
+ * @param {number} [opts.ytdAccruedTax=0]      Tax accrued on YTD net profit
+ * @param {number} [opts.ytdGross=0]           YTD gross (for seasonal-data heuristic)
+ * @param {number} [opts.safeHarborFactor=0.9] 0.9 standard, 1.1 for high-AGI filers
  * @param {Object.<number, number>} [opts.paidByQuarter={}]  { 1: paid, 2: paid, ... }
  * @returns {{quarter:string, qNum:number, year:number, dueDate:string, daysUntil:number, amount:number}|null}
  */
 export function getNextQuarterDeadline(currentDate = new Date(), opts = {}) {
   const {
-    safeHarborTotal = 0,
+    ytdAccruedTax = 0,
+    ytdGross = 0,
     safeHarborFactor = 0.9,
     paidByQuarter = {},
   } = opts
   const today = toDate(currentDate)
   today.setHours(0, 0, 0, 0)
   const year = today.getFullYear()
+  const days = daysPassedInYear(today)
 
   const candidates = [
     { quarter: 'Q1', qNum: 1, year, due: new Date(year, 3, 15) },
@@ -191,7 +197,13 @@ export function getNextQuarterDeadline(currentDate = new Date(), opts = {}) {
   if (!next) return null
 
   const daysUntil = Math.ceil((next.due.getTime() - today.getTime()) / MS_PER_DAY)
-  const safeHarborAnnual = (Number(safeHarborTotal) || 0) * (Number(safeHarborFactor) || 0.9)
+
+  const accrued = Number(ytdAccruedTax) || 0
+  const gross = Number(ytdGross) || 0
+  const isSeasonal = gross > 200000 && days < 180
+  const projectedAnnualTax = isSeasonal ? accrued : accrued * (365 / Math.max(days, 1))
+
+  const safeHarborAnnual = projectedAnnualTax * (Number(safeHarborFactor) || 0.9)
   const quarterlyInstallment = safeHarborAnnual / 4
   const paidThisQ = Number(paidByQuarter[next.qNum]) || 0
   const amount = Math.max(quarterlyInstallment - paidThisQ, 0)

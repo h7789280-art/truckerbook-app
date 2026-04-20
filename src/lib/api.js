@@ -2416,6 +2416,30 @@ const isSaneOdometer = (v) => {
 
 export async function fetchLatestOdometer(userId, vehicleId) {
   try {
+    // 1. Primary source: profiles.odometer (or vehicles.odometer if vehicleId).
+    //    Reflects the value the user explicitly set via "Обновить одометр" UI.
+    let profilesValue = null
+    if (vehicleId) {
+      const { data: veh } = await supabase
+        .from('vehicles')
+        .select('odometer')
+        .eq('id', vehicleId)
+        .maybeSingle()
+      if (veh && isSaneOdometer(veh.odometer)) {
+        profilesValue = Number(veh.odometer)
+      }
+    } else {
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('odometer')
+        .eq('id', userId)
+        .maybeSingle()
+      if (prof && isSaneOdometer(prof.odometer)) {
+        profilesValue = Number(prof.odometer)
+      }
+    }
+
+    // 2. Fallback: shifts.odometer_end (last 90 days)
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
     let shiftsQ = supabase
       .from('shifts')
@@ -2429,8 +2453,9 @@ export async function fetchLatestOdometer(userId, vehicleId) {
     const { data: shifts } = await shiftsQ
     const shiftRaw = shifts && shifts[0] ? Number(shifts[0].odometer_end) : null
     const firstSaneShift = (shifts || []).find(s => isSaneOdometer(s.odometer_end))
-    const shiftOdo = firstSaneShift ? Number(firstSaneShift.odometer_end) : null
+    const shiftsValue = firstSaneShift ? Number(firstSaneShift.odometer_end) : null
 
+    // 3. Fallback: fuel_entries.odometer (last 90 days)
     const sinceDate = since.slice(0, 10)
     let fuelQ = supabase
       .from('fuel_entries')
@@ -2441,48 +2466,30 @@ export async function fetchLatestOdometer(userId, vehicleId) {
       .limit(20)
     if (vehicleId) fuelQ = fuelQ.eq('vehicle_id', vehicleId)
     const { data: fuels } = await fuelQ
-    const fuelRaw = fuels && fuels[0] ? Number(fuels[0].odometer) : null
     const firstSaneFuel = (fuels || []).find(f => isSaneOdometer(f.odometer))
-    const fuelOdo = firstSaneFuel ? Number(firstSaneFuel.odometer) : null
+    const fuelValue = firstSaneFuel ? Number(firstSaneFuel.odometer) : null
 
-    const candidates = [shiftOdo, fuelOdo].filter(v => isSaneOdometer(v))
-    let result = candidates.length ? Math.max(...candidates) : null
-    let source = shiftOdo != null && result === shiftOdo ? 'shifts' : (fuelOdo != null && result === fuelOdo ? 'fuel_entries' : null)
-
-    if (result == null) {
-      if (vehicleId) {
-        const { data: veh } = await supabase
-          .from('vehicles')
-          .select('odometer')
-          .eq('id', vehicleId)
-          .maybeSingle()
-        if (veh && isSaneOdometer(veh.odometer)) {
-          result = Number(veh.odometer)
-          source = 'vehicles'
-        }
-      } else {
-        const { data: prof } = await supabase
-          .from('profiles')
-          .select('odometer')
-          .eq('id', userId)
-          .maybeSingle()
-        if (prof && isSaneOdometer(prof.odometer)) {
-          result = Number(prof.odometer)
-          source = 'profiles'
-        }
-      }
+    let result = null
+    let source = 'none'
+    if (profilesValue != null) {
+      result = profilesValue
+      source = 'profiles'
+    } else if (shiftsValue != null) {
+      result = shiftsValue
+      source = 'shifts'
+    } else if (fuelValue != null) {
+      result = fuelValue
+      source = 'fuel_entries'
     }
 
     // eslint-disable-next-line no-console
     console.log('[fetchLatestOdometer]', {
       source,
       finalValue: result,
-      shiftRaw,
-      shiftOdo,
-      fuelRaw,
-      fuelOdo,
+      profilesValue,
+      shiftsValue,
+      fuelValue,
       skippedInsaneShift: shiftRaw != null && !isSaneOdometer(shiftRaw),
-      skippedInsaneFuel: fuelRaw != null && !isSaneOdometer(fuelRaw),
     })
 
     return result

@@ -14,6 +14,7 @@ function getCachedForecast(vehicleId) {
     const raw = localStorage.getItem(getCacheKey(vehicleId))
     if (!raw) return null
     const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed.text !== 'string' || !parsed.text.trim()) return null
     if (Date.now() - parsed.timestamp < CACHE_TTL) return parsed
     return null
   } catch {
@@ -21,11 +22,13 @@ function getCachedForecast(vehicleId) {
   }
 }
 
-function saveForecast(vehicleId, text) {
+function saveForecast(vehicleId, text, limitedMonths) {
+  if (!text || !String(text).trim()) return
   try {
     localStorage.setItem(getCacheKey(vehicleId), JSON.stringify({
       text,
       timestamp: Date.now(),
+      limitedMonths: limitedMonths || 0,
     }))
   } catch { /* ignore */ }
 }
@@ -33,67 +36,88 @@ function saveForecast(vehicleId, text) {
 async function fetchExpenseData(userId, vehicleId) {
   const now = new Date()
   const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1)
-  const since = threeMonthsAgo.toISOString()
+  const sinceDate = threeMonthsAgo.toISOString().slice(0, 10)
 
-  const filters = (q) => {
-    q = q.gte('created_at', since)
-    if (vehicleId) q = q.eq('vehicle_id', vehicleId)
-    return q
-  }
+  const applyVehicle = (q) => (vehicleId ? q.eq('vehicle_id', vehicleId) : q)
 
   const [fuelRes, bytRes, serviceRes] = await Promise.all([
-    filters(supabase.from('fuel_entries').select('cost, created_at').eq('user_id', userId)),
-    supabase.from('byt_expenses').select('amount, category, created_at').eq('user_id', userId).gte('created_at', since),
-    filters(supabase.from('service_records').select('cost, created_at').eq('user_id', userId)),
+    applyVehicle(supabase.from('fuel_entries').select('cost, date').eq('user_id', userId).gte('date', sinceDate)),
+    supabase.from('byt_expenses').select('amount, category, date').eq('user_id', userId).gte('date', sinceDate),
+    applyVehicle(supabase.from('service_records').select('cost, date').eq('user_id', userId).gte('date', sinceDate)),
   ])
 
   const months = {}
 
   const addToMonth = (dateStr, category, amount) => {
+    if (!dateStr) return
     const d = new Date(dateStr)
+    if (isNaN(d.getTime())) return
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     if (!months[key]) months[key] = {}
     if (!months[key][category]) months[key][category] = 0
-    months[key][category] += (amount || 0)
+    months[key][category] += (Number(amount) || 0)
   }
 
   if (fuelRes.data) {
-    fuelRes.data.forEach(r => addToMonth(r.created_at, 'fuel', r.cost))
+    fuelRes.data.forEach(r => addToMonth(r.date, 'fuel', r.cost))
   }
   if (bytRes.data) {
-    bytRes.data.forEach(r => addToMonth(r.created_at, r.category || 'byt', r.amount))
+    bytRes.data.forEach(r => addToMonth(r.date, r.category || 'byt', r.amount))
   }
   if (serviceRes.data) {
-    serviceRes.data.forEach(r => addToMonth(r.created_at, 'service', r.cost))
+    serviceRes.data.forEach(r => addToMonth(r.date, 'service', r.cost))
   }
 
   return months
 }
 
-async function requestGeminiForecast(data, lang) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) throw new Error('No Gemini API key')
+async function requestGeminiForecast(data, lang, monthCount) {
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+  if (!accessToken) {
+    const e = new Error('Unauthorized')
+    e.code = 'UNAUTHORIZED'
+    throw e
+  }
 
   const langMap = { ru: 'Russian', en: 'English', uk: 'Ukrainian', es: 'Spanish', de: 'German', fr: 'French', tr: 'Turkish', pl: 'Polish' }
   const language = langMap[lang] || 'English'
 
-  const prompt = `You are a financial analyst for a trucking business. Based on the expense data below, provide a brief forecast for next month. Include: 1) Expected total expenses 2) Which category will likely increase 3) One money-saving tip. Keep it under 100 words. Respond in ${language} language. Data: ${JSON.stringify(data)}`
+  const partialNote = monthCount < 3
+    ? ` Based on ${monthCount} month(s) of data (partial history, may be less accurate).`
+    : ''
 
-  const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-      }),
-    }
-  )
+  const prompt = `You are a financial analyst for a trucking business. Based on the expense data below, provide a brief forecast for next month. Include: 1) Expected total expenses 2) Which category will likely increase 3) One money-saving tip. Keep it under 100 words. Respond in ${language} language.${partialNote} Data: ${JSON.stringify(data)}`
 
-  if (!res.ok) throw new Error(`Gemini API error: ${res.status}`)
+  const res = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + accessToken,
+    },
+    body: JSON.stringify({
+      action: 'generate',
+      prompt,
+      generationConfig: { temperature: 0.7 },
+    }),
+  })
+
+  if (!res.ok) {
+    const err = new Error(`Gemini proxy error ${res.status}`)
+    if (res.status === 401) err.code = 'UNAUTHORIZED'
+    else if (res.status === 429) err.code = 'RATE_LIMITED'
+    else if (res.status === 503) err.code = 'UNAVAILABLE'
+    else err.code = 'NETWORK'
+    throw err
+  }
+
   const json = await res.json()
   const text = json?.candidates?.[0]?.content?.parts?.[0]?.text
-  if (!text) throw new Error('Empty Gemini response')
+  if (!text) {
+    const e = new Error('Empty Gemini response')
+    e.code = 'NETWORK'
+    throw e
+  }
   return text
 }
 
@@ -102,6 +126,7 @@ export default function AIForecast({ userId, activeVehicleId }) {
   const { t, lang } = useLanguage()
   const [forecast, setForecast] = useState(null)
   const [updatedAt, setUpdatedAt] = useState(null)
+  const [limitedMonths, setLimitedMonths] = useState(0)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
 
@@ -111,6 +136,7 @@ export default function AIForecast({ userId, activeVehicleId }) {
       if (cached) {
         setForecast(cached.text)
         setUpdatedAt(new Date(cached.timestamp))
+        setLimitedMonths(cached.limitedMonths || 0)
         setError(null)
         return
       }
@@ -120,20 +146,29 @@ export default function AIForecast({ userId, activeVehicleId }) {
     setError(null)
     try {
       const data = await fetchExpenseData(userId, activeVehicleId)
-      if (Object.keys(data).length < 3) {
+      const monthCount = Object.keys(data).length
+
+      if (monthCount === 0) {
         setError('noData')
         setForecast(null)
+        setLimitedMonths(0)
         setLoading(false)
         return
       }
 
-      const text = await requestGeminiForecast(data, lang)
+      const text = await requestGeminiForecast(data, lang, monthCount)
+      const effectiveLimited = monthCount < 3 ? monthCount : 0
       setForecast(text)
       setUpdatedAt(new Date())
-      saveForecast(activeVehicleId, text)
+      setLimitedMonths(effectiveLimited)
+      saveForecast(activeVehicleId, text, effectiveLimited)
     } catch (e) {
       console.error('AI Forecast error:', e)
-      setError('error')
+      if (e?.code === 'UNAUTHORIZED') setError('authRequired')
+      else if (e?.code === 'RATE_LIMITED') setError('rateLimit')
+      else if (e?.code === 'UNAVAILABLE') setError('aiUnavailable')
+      else setError('error')
+      setForecast(null)
     } finally {
       setLoading(false)
     }
@@ -150,6 +185,21 @@ export default function AIForecast({ userId, activeVehicleId }) {
     marginBottom: '12px',
     border: `1px solid ${theme.border}`,
   }
+
+  const errorMessage = (() => {
+    if (error === 'noData') return t('forecast.noData')
+    if (error === 'authRequired') return t('forecast.authRequired')
+    if (error === 'rateLimit') return t('forecast.rateLimit')
+    if (error === 'aiUnavailable') return t('forecast.aiUnavailable')
+    if (error === 'error') return t('common.error')
+    return null
+  })()
+
+  const errorColor = error === 'noData' ? theme.dim : '#ef4444'
+
+  const disclaimer = limitedMonths > 0
+    ? t('forecast.limitedDisclaimer').replace('{months}', String(limitedMonths))
+    : null
 
   return (
     <div style={cardStyle}>
@@ -195,20 +245,28 @@ export default function AIForecast({ userId, activeVehicleId }) {
         </div>
       )}
 
-      {!loading && error === 'noData' && (
-        <div style={{ fontSize: '13px', color: theme.dim, lineHeight: 1.5 }}>
-          {t('forecast.noData')}
-        </div>
-      )}
-
-      {!loading && error === 'error' && (
-        <div style={{ fontSize: '13px', color: '#ef4444', lineHeight: 1.5 }}>
-          {t('common.error')}
+      {!loading && errorMessage && (
+        <div style={{ fontSize: '13px', color: errorColor, lineHeight: 1.5 }}>
+          {errorMessage}
         </div>
       )}
 
       {!loading && !error && forecast && (
         <>
+          {disclaimer && (
+            <div style={{
+              fontSize: '12px',
+              color: '#f59e0b',
+              lineHeight: 1.4,
+              marginBottom: '10px',
+              padding: '8px 10px',
+              background: 'rgba(245, 158, 11, 0.1)',
+              borderRadius: '8px',
+              border: '1px solid rgba(245, 158, 11, 0.25)',
+            }}>
+              {'\u26a0\ufe0f '}{disclaimer}
+            </div>
+          )}
           <div style={{ fontSize: '13px', color: theme.text, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
             {forecast}
           </div>

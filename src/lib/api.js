@@ -267,7 +267,7 @@ export async function fetchInsurance(userId) {
     .from('insurance')
     .select('*')
     .eq('user_id', userId)
-    .order('date_to', { ascending: true })
+    .order('created_at', { ascending: false })
   if (error) throw error
   return data || []
 }
@@ -280,11 +280,11 @@ export async function getActiveShift(userId) {
     .select('*')
     .eq('user_id', userId)
     .eq('status', 'active')
+    .order('started_at', { ascending: false })
     .limit(1)
-    .single()
-  if (error && error.code === 'PGRST116') return null
+    .maybeSingle()
   if (error) throw error
-  return data
+  return data || null
 }
 
 export async function uploadOdometerPhoto(userId, file) {
@@ -2404,34 +2404,36 @@ export async function deletePartResource(id) {
   if (error) throw error
 }
 
-// Find the latest known odometer for a vehicle from trips or fuel entries (last 90 days),
+// Find the latest known odometer for a vehicle from shifts or fuel entries (last 90 days),
 // falling back to vehicles.odometer for the given vehicle if no recent movement is recorded.
 export async function fetchLatestOdometer(userId, vehicleId) {
   try {
-    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-    let tripsQ = supabase
-      .from('trips')
-      .select('odometer_end, date')
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+    let shiftsQ = supabase
+      .from('shifts')
+      .select('odometer_end, started_at')
       .eq('user_id', userId)
-      .gte('date', since)
-      .order('date', { ascending: false })
+      .not('odometer_end', 'is', null)
+      .gte('started_at', since)
+      .order('started_at', { ascending: false })
       .limit(1)
-    if (vehicleId) tripsQ = tripsQ.eq('vehicle_id', vehicleId)
-    const { data: trips } = await tripsQ
-    const tripOdo = trips && trips[0] && trips[0].odometer_end ? Number(trips[0].odometer_end) : null
+    if (vehicleId) shiftsQ = shiftsQ.eq('vehicle_id', vehicleId)
+    const { data: shifts } = await shiftsQ
+    const shiftOdo = shifts && shifts[0] && shifts[0].odometer_end ? Number(shifts[0].odometer_end) : null
 
+    const sinceDate = since.slice(0, 10)
     let fuelQ = supabase
       .from('fuel_entries')
       .select('odometer, date')
       .eq('user_id', userId)
-      .gte('date', since)
+      .gte('date', sinceDate)
       .order('date', { ascending: false })
       .limit(1)
     if (vehicleId) fuelQ = fuelQ.eq('vehicle_id', vehicleId)
     const { data: fuels } = await fuelQ
     const fuelOdo = fuels && fuels[0] && fuels[0].odometer ? Number(fuels[0].odometer) : null
 
-    const candidates = [tripOdo, fuelOdo].filter(v => v && !isNaN(v))
+    const candidates = [shiftOdo, fuelOdo].filter(v => v && !isNaN(v))
     let result = candidates.length ? Math.max(...candidates) : null
 
     if (result == null && vehicleId) {
@@ -2445,8 +2447,6 @@ export async function fetchLatestOdometer(userId, vehicleId) {
       }
     }
 
-    // eslint-disable-next-line no-console
-    console.log('[fetchLatestOdometer]', { userId, vehicleId, tripOdo, fuelOdo, result })
     return result
   } catch (err) {
     // eslint-disable-next-line no-console

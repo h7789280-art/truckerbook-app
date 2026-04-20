@@ -42,7 +42,7 @@ async function fetchExpenseData(userId, vehicleId) {
   }
 
   const [fuelRes, bytRes, serviceRes] = await Promise.all([
-    filters(supabase.from('fuel_entries').select('amount, created_at').eq('user_id', userId)),
+    filters(supabase.from('fuel_entries').select('cost, created_at').eq('user_id', userId)),
     supabase.from('byt_expenses').select('amount, category, created_at').eq('user_id', userId).gte('created_at', since),
     filters(supabase.from('service_records').select('cost, created_at').eq('user_id', userId)),
   ])
@@ -58,7 +58,7 @@ async function fetchExpenseData(userId, vehicleId) {
   }
 
   if (fuelRes.data) {
-    fuelRes.data.forEach(r => addToMonth(r.created_at, 'fuel', r.amount))
+    fuelRes.data.forEach(r => addToMonth(r.created_at, 'fuel', r.cost))
   }
   if (bytRes.data) {
     bytRes.data.forEach(r => addToMonth(r.created_at, r.category || 'byt', r.amount))

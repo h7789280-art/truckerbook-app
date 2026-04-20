@@ -112,6 +112,7 @@ export default async function handler(req, res) {
     systemInstruction,
     generationConfig,
     model: clientModel,
+    image,
   } = req.body || {}
 
   if (action !== 'generate') {
@@ -121,10 +122,34 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Missing prompt (string required)' })
   }
 
+  // Optional image input (vision).
+  // Shape: { mimeType: "image/jpeg", data: "<base64 без data:..., префикса>" }
+  let imagePart = null
+  if (image !== undefined && image !== null) {
+    if (typeof image !== 'object' || typeof image.mimeType !== 'string' || typeof image.data !== 'string') {
+      return res.status(400).json({ error: 'Invalid image (expected { mimeType, data })' })
+    }
+    if (!image.mimeType.startsWith('image/')) {
+      return res.status(400).json({ error: 'image.mimeType must start with "image/"' })
+    }
+    if (image.data.length === 0) {
+      return res.status(400).json({ error: 'image.data must be a non-empty base64 string' })
+    }
+    // 4 MB limit on decoded bytes (Vercel payload cap is 4.5 MB, leave headroom for JSON framing)
+    const approxBytes = Math.ceil(image.data.length * 0.75)
+    if (approxBytes > 4 * 1024 * 1024) {
+      return res.status(413).json({ error: 'Image too large', maxBytes: 4 * 1024 * 1024 })
+    }
+    imagePart = { inline_data: { mime_type: image.mimeType, data: image.data } }
+  }
+
   const model = clientModel || process.env.GEMINI_MODEL || DEFAULT_MODEL
 
+  const parts = [{ text: prompt }]
+  if (imagePart) parts.push(imagePart)
+
   const body = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    contents: [{ role: 'user', parts }],
   }
   if (systemInstruction && typeof systemInstruction === 'string') {
     body.systemInstruction = { parts: [{ text: systemInstruction }] }

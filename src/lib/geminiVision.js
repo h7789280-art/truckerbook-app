@@ -1,6 +1,10 @@
 /**
- * AI odometer reading via Google Gemini Vision API
+ * AI odometer reading via Gemini Vision.
+ * Routed through /api/gemini serverless proxy so the Gemini API key
+ * never ships in the client bundle. See api/gemini.js.
  */
+
+import { supabase } from './supabase'
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -15,9 +19,10 @@ function fileToBase64(file) {
 }
 
 export async function readOdometerFromPhoto(imageFile) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) {
-    console.error('VITE_GEMINI_API_KEY is not set')
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+  if (!accessToken) {
+    // No session — fail quietly (same contract as old "no API key" path).
     return null
   }
 
@@ -25,31 +30,35 @@ export async function readOdometerFromPhoto(imageFile) {
     const base64 = await fileToBase64(imageFile)
     const mimeType = imageFile.type || 'image/jpeg'
 
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              {
-                inlineData: {
-                  mimeType,
-                  data: base64,
-                },
-              },
-              {
-                text: 'This is a photo of a vehicle odometer. Read the number shown on the odometer display. Return ONLY the numeric value, digits only, no spaces, no units, no text. If you cannot read it, return ERROR.',
-              },
-            ],
-          }],
-        }),
-      }
-    )
+    const response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + accessToken,
+      },
+      body: JSON.stringify({
+        action: 'generate',
+        prompt:
+          'This is a photo of a vehicle odometer. Read the number shown on the odometer display. Return ONLY the numeric value, digits only, no spaces, no units, no text. If you cannot read it, return ERROR.',
+        image: {
+          mimeType,
+          data: base64,
+        },
+      }),
+    })
 
     if (!response.ok) {
-      console.error('Gemini API error:', response.status)
+      if (response.status === 401) {
+        console.warn('readOdometerFromPhoto: unauthorized')
+      } else if (response.status === 429) {
+        console.warn('readOdometerFromPhoto: rate limited')
+      } else if (response.status === 413) {
+        console.error('readOdometerFromPhoto: image too large')
+      } else if (response.status === 503) {
+        console.warn('readOdometerFromPhoto: service unavailable')
+      } else {
+        console.error('readOdometerFromPhoto: Gemini proxy error', response.status)
+      }
       return null
     }
 
@@ -60,7 +69,6 @@ export async function readOdometerFromPhoto(imageFile) {
       return null
     }
 
-    // Remove separators (spaces, commas, dots used as thousand separators)
     const cleaned = text.replace(/[\s,._\-]/g, '')
     const num = parseInt(cleaned, 10)
 

@@ -1076,15 +1076,19 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 
 Серверный прокси `api/gemini.js` создан, работает в production. Vercel env: `GEMINI_API_KEY` (без `VITE_`), `GEMINI_MODEL=gemini-2.5-flash`, `SUPABASE_SERVICE_ROLE_KEY`. JWT валидация через service_role, rate limit 20 req/60s на user_id, retry 2x при 503. CORS preflight.
 
-**ЗАЩИЩЕНО (2 из 6):**
+`api/gemini.js` поддерживает vision через опциональное поле `image: { mimeType, data }` (base64 без префикса `data:...;base64,`). Лимит 4 MB на декодированные байты (413 Payload Too Large). Шаблон миграции одинаков для всех vision-функций.
+
+**ЗАЩИЩЕНО (3 из 6):**
 - ✅ `runDeductionAudit` (`src/lib/api.js:2595-2650`) — фича G
 - ✅ `AIForecast` (`src/components/AIForecast.jsx`) — полный рерайт + фиксы (кэш не хранит ошибки, группировка по `date` а не `created_at`, limited-прогноз для 1-2 месяцев)
+- ✅ `geminiVision` (`src/lib/geminiVision.js`, функция `readOdometerFromPhoto`) — OCR одометра при старте/конце смены
 
-**ОСТАЛОСЬ (4 из 6, ключ всё ещё в `VITE_GEMINI_API_KEY`):**
-- ⏳ `geminiVision` — сканирование чеков (приоритет 1)
-- ⏳ `voiceInput` — голосовой ввод (приоритет 2)
-- ⏳ `geminiPartInvoice` — парсинг счетов запчастей
-- ⏳ `tachographParser` — парсинг тахографа
+**ОСТАЛОСЬ (3 из 6, ключ всё ещё в `VITE_GEMINI_API_KEY`):**
+- ⏳ `geminiPartInvoice` — парсинг счетов запчастей (vision)
+- ⏳ `voiceInput` — голосовой ввод (audio)
+- ⏳ `tachographParser` — парсинг тахографа (vision)
+
+**Примечание:** В проекте также есть отдельные серверные endpoints для чеков — `api/scan-receipt.js`, `api/smart-scan.js`, `api/parse-trip.js` — они уже безопасны и миграции не требуют.
 
 После миграции всех 6 — удалить `VITE_GEMINI_API_KEY` и `VITE_GEMINI_MODEL` из Vercel env.
 

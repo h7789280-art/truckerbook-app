@@ -1020,6 +1020,63 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 
 -----
 
+## ЗАКРЫТЫЕ ФИЧИ для owner_operator (не трогать)
+
+### ✅ Real-time Tax Meter виджет на экране ОБЗОР (2026-04-20)
+
+**Коммиты:** 6679c72, 6690d58, 38ee761
+
+- Три строки в одной карточке:
+  - Накоплено налога (YTD)
+  - Отложено (%) — текущая ставка откладывания
+  - Следующий квартал с дедлайном
+- Настройка withhold % через иконку ⚙️ (slider 15–40%, дефолт 25%), поле `profiles.tax_withhold_pct`
+- Safe Harbor формула: `projectedAnnualTax × 0.9 / 4 − paid`
+- Сезонная эвристика: если `ytdGross > $200k` за `< 180 дней`, проекция не применяется (защита от тестовых/сезонных данных)
+- Цветовая логика дедлайна: зелёный `> 14 дней`, жёлтый `7–14`, красный `< 7`
+- Рендерится только для `role === 'owner_operator'`
+- Верифицировано на эталонных данных (MFJ, TX, Net $527,409.50):
+  - Accrued $144,594.97
+  - Savings 25% = $138,440.50
+  - Q2 2026 к 06-15 = $32,534
+
+**Файлы:**
+- `src/utils/taxMeterCalculator.js`
+- `src/components/TaxMeterWidget.jsx`
+- `supabase/migrations/20260419_add_tax_withhold_pct.sql`
+- Интеграция в `Overview.jsx` (между блоком ЛИЧНОЕ и кнопкой Отчёты)
+
+### ✅ Supabase REST API column name fixes (2026-04-20)
+
+**Коммит:** 0da8846
+
+Исправлены 400/406 ошибки в DevTools Network на таблицах `insurance`, `shifts`, `trips`, `fuel_entries`.
+
+**Карта изменений:**
+- `api.js`: `insurance.order('date_to')` → `.order('created_at', desc)`
+- `api.js`: `shifts.single()` → `.maybeSingle()` (нет активной смены → 406 больше не возникает)
+- `api.js`: `fetchLatestOdometer` переключён с `trips` на `shifts` (odometer_end живёт в `shifts`, не в `trips`)
+- `AIForecast.jsx`: `fuel_entries.amount` → `fuel_entries.cost`
+
+**Файлы:** `src/lib/api.js`, `src/components/AIForecast.jsx`
+
+-----
+
+## ВАЖНЫЕ НАХОДКИ О СХЕМЕ БД
+
+- Одометр грузовика хранится в таблице `shifts` (колонки `odometer_start`, `odometer_end`), **НЕ** в `trips`. При запросе последнего одометра использовать `shifts` с фильтром `status IN ('active', 'completed')` и `not('odometer_end', 'is', null)`.
+- В таблице `fuel_entries` сумма заправки — колонка `cost`, а не `amount`.
+- В таблице `insurance` нет колонки `date_to`, сортировать по `created_at`.
+
+-----
+
+## СЛЕДУЮЩИЕ ЗАДАЧИ
+
+- **G — AI Deduction Audit.** Сканирует `personal_expenses` + `transactions` за 12 мес через Gemini, находит потенциально deductible траты, предлагает "Переместить в Schedule C". 2–3 дня.
+- **H — SEP-IRA Retirement Calculator.** Считает макс взнос (25% Net Profit, cap $69k), показывает экономию налога (~$19k на эталонных данных). 1 день.
+
+-----
+
 ## ПОМНИ
 
 - **Один файл = одна задача.** Не лезь в другие файлы.

@@ -1070,6 +1070,26 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 
 -----
 
+## МИГРАЦИЯ GEMINI НА СЕРВЕРНЫЙ ПРОКСИ
+
+### Миграция Gemini API на /api/gemini (безопасность)
+
+Серверный прокси `api/gemini.js` создан, работает в production. Vercel env: `GEMINI_API_KEY` (без `VITE_`), `GEMINI_MODEL=gemini-2.5-flash`, `SUPABASE_SERVICE_ROLE_KEY`. JWT валидация через service_role, rate limit 20 req/60s на user_id, retry 2x при 503. CORS preflight.
+
+**ЗАЩИЩЕНО (2 из 6):**
+- ✅ `runDeductionAudit` (`src/lib/api.js:2595-2650`) — фича G
+- ✅ `AIForecast` (`src/components/AIForecast.jsx`) — полный рерайт + фиксы (кэш не хранит ошибки, группировка по `date` а не `created_at`, limited-прогноз для 1-2 месяцев)
+
+**ОСТАЛОСЬ (4 из 6, ключ всё ещё в `VITE_GEMINI_API_KEY`):**
+- ⏳ `geminiVision` — сканирование чеков (приоритет 1)
+- ⏳ `voiceInput` — голосовой ввод (приоритет 2)
+- ⏳ `geminiPartInvoice` — парсинг счетов запчастей
+- ⏳ `tachographParser` — парсинг тахографа
+
+После миграции всех 6 — удалить `VITE_GEMINI_API_KEY` и `VITE_GEMINI_MODEL` из Vercel env.
+
+-----
+
 ## СЛЕДУЮЩИЕ ЗАДАЧИ
 
 - **G — AI Deduction Audit.** Сканирует `personal_expenses` + `transactions` за 12 мес через Gemini, находит потенциально deductible траты, предлагает "Переместить в Schedule C". 2–3 дня.
@@ -1084,4 +1104,5 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 - **Кириллица в коде = баги.** Используй i18n или Unicode escape.
 - **Supabase URL и ключи** — только через `.env`, НИКОГДА не хардкодь в коммит.
 - **После ВСЕХ изменений:** `git add -A && git commit -m "описание" && git push`
-- **Спроси, если не уверен.** Лучше уточнить, чем сломать. 
+- **Спроси, если не уверен.** Лучше уточнить, чем сломать.
+- **Миграция Gemini:** использовать шаблон из `runDeductionAudit` и `AIForecast` — `fetch('/api/gemini')` с `Authorization: Bearer <session.access_token>`, body `{ action, prompt, generationConfig }`.

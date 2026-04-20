@@ -2593,30 +2593,53 @@ function isAuditApiAvailable() {
 }
 
 async function callGeminiAudit(systemPrompt, userText) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  const model = import.meta.env.VITE_GEMINI_MODEL || 'gemini-2.5-flash'
-  if (!apiKey) throw new Error('VITE_GEMINI_API_KEY is not set')
+  // Routed through /api/gemini serverless proxy so the Gemini API key
+  // never ships in the client bundle. See api/gemini.js.
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+  if (!accessToken) {
+    const e = new Error('\u041d\u0443\u0436\u043d\u0430 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u0430\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u044f')
+    e.code = 'UNAUTHORIZED'
+    throw e
+  }
 
-  const response = await fetch(
-    'https://generativelanguage.googleapis.com/v1beta/models/'
-      + encodeURIComponent(model) + ':generateContent?key=' + apiKey,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts: [{ text: userText }] }],
-        generationConfig: {
-          temperature: 0.2,
-          responseMimeType: 'application/json',
-        },
-      }),
-    }
-  )
+  const response = await fetch('/api/gemini', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + accessToken,
+    },
+    body: JSON.stringify({
+      action: 'generate',
+      prompt: userText,
+      systemInstruction: systemPrompt,
+      generationConfig: {
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+      },
+    }),
+  })
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '')
-    throw new Error('Gemini API error ' + response.status + ': ' + errText.slice(0, 200))
+    if (response.status === 401) {
+      const e = new Error('\u041d\u0443\u0436\u043d\u0430 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u0430\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u044f')
+      e.code = 'UNAUTHORIZED'
+      throw e
+    }
+    if (response.status === 429) {
+      const retryAfter = response.headers.get('Retry-After') || ''
+      const e = new Error('\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432, \u043f\u043e\u0434\u043e\u0436\u0434\u0438\u0442\u0435')
+      e.code = 'RATE_LIMITED'
+      if (retryAfter) e.retryAfter = Number(retryAfter)
+      throw e
+    }
+    if (response.status === 503) {
+      const e = new Error('AI \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d')
+      e.code = 'UNAVAILABLE'
+      throw e
+    }
+    throw new Error('Gemini proxy error ' + response.status + ': ' + errText.slice(0, 200))
   }
 
   const data = await response.json()

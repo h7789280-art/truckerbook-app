@@ -14,7 +14,6 @@ import {
   acceptSuggestion,
   rejectSuggestion,
   snoozeSuggestion,
-  isAuditApiAvailable,
   DEDUCTION_AUDIT_CATEGORIES,
 } from '../../lib/api'
 
@@ -78,8 +77,6 @@ export default function DeductionAuditTab({ userId, role, profile }) {
   const [confirmSuggestion, setConfirmSuggestion] = useState(null)
   const [confirmCategory, setConfirmCategory] = useState(null)
   const [fadingOut, setFadingOut] = useState(new Set())
-
-  const apiAvailable = isAuditApiAvailable()
 
   const reload = useCallback(async () => {
     if (!userId) return
@@ -205,20 +202,6 @@ export default function DeductionAuditTab({ userId, role, profile }) {
         <div style={{ fontSize: '40px', marginBottom: '10px' }}>{'\uD83E\uDD16'}</div>
         <div style={{ fontSize: '14px', color: theme.dim }}>
           {t('deductionAudit.ownerOperatorOnly')}
-        </div>
-      </div>
-    )
-  }
-
-  if (!apiAvailable) {
-    return (
-      <div style={{ ...card, textAlign: 'center', padding: '24px 16px' }}>
-        <div style={{ fontSize: '40px', marginBottom: '10px' }}>{'\uD83E\uDD16'}</div>
-        <div style={{ fontSize: '14px', color: theme.text, fontWeight: 600, marginBottom: '6px' }}>
-          {t('deductionAudit.title')}
-        </div>
-        <div style={{ fontSize: '13px', color: theme.dim, lineHeight: 1.5 }}>
-          {t('deductionAudit.apiUnavailable')}
         </div>
       </div>
     )

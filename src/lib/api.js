@@ -2588,10 +2588,6 @@ const AUDIT_BATCH_SIZE = 50
 const AUDIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes between runs per user
 const SNOOZE_DAYS = 30
 
-function isAuditApiAvailable() {
-  return !!import.meta.env.VITE_GEMINI_API_KEY
-}
-
 async function callGeminiAudit(systemPrompt, userText) {
   // Routed through /api/gemini serverless proxy so the Gemini API key
   // never ships in the client bundle. See api/gemini.js.
@@ -2783,9 +2779,6 @@ export async function canRunAudit(userId) {
 
 export async function runDeductionAudit(userId, profile) {
   if (!userId) throw new Error('userId required')
-  if (!isAuditApiAvailable()) {
-    throw new Error('VITE_GEMINI_API_KEY is not set')
-  }
 
   const limit = await canRunAudit(userId)
   if (!limit.ok) {
@@ -3012,5 +3005,5 @@ export async function snoozeSuggestion(suggestionId) {
   if (error) throw error
 }
 
-export { SCHEDULE_C_CATEGORIES as DEDUCTION_AUDIT_CATEGORIES, isAuditApiAvailable }
+export { SCHEDULE_C_CATEGORIES as DEDUCTION_AUDIT_CATEGORIES }
 

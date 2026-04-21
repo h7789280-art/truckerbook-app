@@ -2,21 +2,23 @@
 // Keeps GEMINI_API_KEY server-side so it never ships in the client bundle.
 // Validates the caller using a Supabase JWT (Authorization: Bearer <token>).
 // In-memory rate limit: 20 requests / 60s per user_id (per instance).
+//
+// Multi-model fallback chain: Pro -> Flash -> Flash-Lite, each model with
+// its own retry budget. Worst-case total budget stays under Vercel 60s.
 
 import { createClient } from '@supabase/supabase-js'
 
-const DEFAULT_MODEL = 'gemini-2.5-flash'
-const FALLBACK_MODEL = 'gemini-2.5-flash'
-const PRO_MODEL = 'gemini-2.5-pro'
+// Ordered fallback chain. Each model has its own attempt budget and timeout.
+// Worst case: 2*12 + 2*10 + 2*8 + 5 small backoffs ~= 63s, paired with
+// maxDuration=60 in vercel.json the function will hard-stop on last attempt.
+const MODEL_CHAIN = [
+  { id: 'gemini-2.5-pro',        maxAttempts: 2, timeoutMs: 12000 },
+  { id: 'gemini-2.5-flash',      maxAttempts: 2, timeoutMs: 10000 },
+  { id: 'gemini-2.5-flash-lite', maxAttempts: 2, timeoutMs: 8000  },
+]
 
-// Aggressive retry on transient Google errors. 4 retries => 5 attempts total.
-// Backoff: 500ms, 1s, 2s, 4s + 0-200ms jitter. Total ~7.5-8.3s.
-const MAX_RETRIES = 4
-const BASE_DELAY_MS = 500
-const RETRY_STATUSES = new Set([429, 500, 502, 503, 504])
-
-// Per-call timeout. Kept low so retries fit inside Vercel 60s function budget.
-const GEMINI_CALL_TIMEOUT_MS = 15000
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
+const BASE_DELAY_MS = 800
 
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const RATE_LIMIT_MAX = 20
@@ -27,14 +29,11 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-function computeBackoff(attempt) {
-  return BASE_DELAY_MS * Math.pow(2, attempt) + Math.floor(Math.random() * 200)
-}
-
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Expose-Headers', 'X-Model-Used')
   res.setHeader('Access-Control-Max-Age', '86400')
 }
 
@@ -76,83 +75,84 @@ async function authenticate(req) {
   return { userId: data.user.id }
 }
 
-async function callGemini(apiKey, model, body) {
+function buildGeminiUrl(apiKey, modelId) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${apiKey}`
+}
+
+async function fetchWithTimeout(url, body, timeoutMs) {
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), GEMINI_CALL_TIMEOUT_MS)
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify(body),
-      }
-    )
-    return response
+    return await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify(body),
+    })
   } finally {
-    clearTimeout(timeout)
+    clearTimeout(timer)
   }
 }
 
-// Runs up to MAX_RETRIES+1 attempts against a single model.
-// Returns { kind: 'ok', response } | { kind: 'permanent', response, errText }
-//       | { kind: 'retryable_exhausted', lastStatus, errText } | { kind: 'network_exhausted', err }
-async function callGeminiWithRetry(apiKey, model, body) {
-  let lastStatus = null
-  let lastErrText = ''
-  let lastNetworkErr = null
+// Runs the full model chain. Each model gets maxAttempts tries on retryable
+// errors. On any permanent error (non-retryable 4xx) we short-circuit with
+// `permanent: true`. Reference equality on `model` is intentional: we iterate
+// the exact MODEL_CHAIN objects with for..of.
+async function callGeminiWithChain(apiKey, body) {
+  const errors = []
+  const lastModel = MODEL_CHAIN[MODEL_CHAIN.length - 1]
 
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    const attemptNum = attempt + 1
-    const totalAttempts = MAX_RETRIES + 1
-    try {
-      const response = await callGemini(apiKey, model, body)
+  for (const model of MODEL_CHAIN) {
+    for (let attempt = 1; attempt <= model.maxAttempts; attempt++) {
+      const startTime = Date.now()
+      try {
+        console.log(`[gemini-proxy] model=${model.id} attempt=${attempt}/${model.maxAttempts}`)
 
-      if (response.ok) {
-        console.log(`[gemini-proxy] success model=${model} attempts=${attemptNum}`)
-        return { kind: 'ok', response }
-      }
-
-      const errText = await response.text().catch(() => '')
-      console.warn(
-        `[gemini-proxy] attempt=${attemptNum}/${totalAttempts} status=${response.status} model=${model}`
-      )
-
-      if (!RETRY_STATUSES.has(response.status)) {
-        // Permanent error — caller should surface as-is.
-        return { kind: 'permanent', response, errText }
-      }
-
-      lastStatus = response.status
-      lastErrText = errText
-
-      if (attempt < MAX_RETRIES) {
-        const delay = computeBackoff(attempt)
-        console.log(
-          `[gemini-proxy] attempt=${attemptNum}/${totalAttempts} retrying after ${Math.round(delay)}ms`
+        const response = await fetchWithTimeout(
+          buildGeminiUrl(apiKey, model.id),
+          body,
+          model.timeoutMs
         )
-        await sleep(delay)
-      }
-    } catch (err) {
-      lastNetworkErr = err
-      console.warn(
-        `[gemini-proxy] attempt=${attemptNum}/${totalAttempts} network_error model=${model}: ${err.message}`
-      )
-      if (attempt < MAX_RETRIES) {
-        const delay = computeBackoff(attempt)
-        console.log(
-          `[gemini-proxy] attempt=${attemptNum}/${totalAttempts} retrying after ${Math.round(delay)}ms`
-        )
-        await sleep(delay)
+
+        if (response.ok) {
+          const duration = Date.now() - startTime
+          console.log(`[gemini-proxy] SUCCESS model=${model.id} attempt=${attempt} duration=${duration}ms`)
+          return { kind: 'ok', response, modelUsed: model.id }
+        }
+
+        // Non-retryable 4xx — skip remaining attempts and models.
+        if (!RETRYABLE_STATUSES.has(response.status)) {
+          const errText = await response.text().catch(() => '')
+          console.log(`[gemini-proxy] PERMANENT model=${model.id} status=${response.status}`)
+          return { kind: 'permanent', status: response.status, errText, modelUsed: model.id }
+        }
+
+        const errText = await response.text().catch(() => '')
+        errors.push({ model: model.id, attempt, status: response.status, body: errText.slice(0, 200) })
+        console.log(`[gemini-proxy] RETRY model=${model.id} attempt=${attempt} status=${response.status}`)
+
+        const isLastAttempt = attempt === model.maxAttempts && model === lastModel
+        if (!isLastAttempt) {
+          const delay = BASE_DELAY_MS * Math.pow(1.8, attempt - 1) + Math.random() * 300
+          await sleep(delay)
+        }
+      } catch (err) {
+        const message = err && err.message ? err.message : String(err)
+        errors.push({ model: model.id, attempt, error: message })
+        console.log(`[gemini-proxy] EXCEPTION model=${model.id} attempt=${attempt} error=${message}`)
+
+        const isLastAttempt = attempt === model.maxAttempts && model === lastModel
+        if (!isLastAttempt) {
+          await sleep(BASE_DELAY_MS)
+        }
       }
     }
+
+    console.log(`[gemini-proxy] FALLBACK from ${model.id} — all attempts exhausted`)
   }
 
-  if (lastStatus !== null) {
-    return { kind: 'retryable_exhausted', lastStatus, errText: lastErrText }
-  }
-  return { kind: 'network_exhausted', err: lastNetworkErr }
+  console.log(`[gemini-proxy] FINAL_FAILURE all_models_exhausted errors=${JSON.stringify(errors)}`)
+  return { kind: 'final_failure', errors }
 }
 
 export default async function handler(req, res) {
@@ -189,7 +189,6 @@ export default async function handler(req, res) {
     prompt,
     systemInstruction,
     generationConfig,
-    model: clientModel,
     image,
     media,
   } = req.body || {}
@@ -252,8 +251,6 @@ export default async function handler(req, res) {
     mediaPart = { inline_data: { mime_type: mimeType, data: effectiveMedia.data } }
   }
 
-  const initialModel = clientModel || process.env.GEMINI_MODEL || DEFAULT_MODEL
-
   const parts = [{ text: prompt }]
   if (mediaPart) parts.push(mediaPart)
 
@@ -267,14 +264,15 @@ export default async function handler(req, res) {
     body.generationConfig = generationConfig
   }
 
-  const result = await callGeminiWithRetry(apiKey, initialModel, body)
+  const result = await callGeminiWithChain(apiKey, body)
 
   if (result.kind === 'ok') {
     try {
       const data = await result.response.json()
+      res.setHeader('X-Model-Used', result.modelUsed)
       return res.status(200).json(data)
     } catch (err) {
-      console.error(`[gemini-proxy] response parse failed model=${initialModel}: ${err.message}`)
+      console.error(`[gemini-proxy] response parse failed model=${result.modelUsed}: ${err.message}`)
       return res.status(502).json({
         error: 'Gemini response parse failed',
         retryable: true,
@@ -284,82 +282,29 @@ export default async function handler(req, res) {
   }
 
   if (result.kind === 'permanent') {
-    console.warn(
-      `[gemini-proxy] permanent_error model=${initialModel} status=${result.response.status}`
-    )
-    return res.status(result.response.status).json({
-      error: `Gemini error ${result.response.status}`,
+    return res.status(result.status).json({
+      error: 'permanent',
       retryable: false,
+      status: result.status,
       details: (result.errText || '').slice(0, 300),
+      modelUsed: result.modelUsed,
     })
   }
 
-  // Retryable failures exhausted on initial model. Try the fallback (Pro -> Flash) once.
-  if (initialModel === PRO_MODEL && FALLBACK_MODEL !== PRO_MODEL) {
-    console.log(
-      `[gemini-proxy] falling_back from=${initialModel} to=${FALLBACK_MODEL}`
-    )
-    const fallback = await callGeminiWithRetry(apiKey, FALLBACK_MODEL, body)
-
-    if (fallback.kind === 'ok') {
-      try {
-        const data = await fallback.response.json()
-        return res.status(200).json(data)
-      } catch (err) {
-        console.error(
-          `[gemini-proxy] fallback response parse failed model=${FALLBACK_MODEL}: ${err.message}`
-        )
-        return res.status(502).json({
-          error: 'Gemini response parse failed',
-          retryable: true,
-          details: err.message,
-        })
-      }
-    }
-
-    if (fallback.kind === 'permanent') {
-      console.warn(
-        `[gemini-proxy] fallback permanent_error model=${FALLBACK_MODEL} status=${fallback.response.status}`
-      )
-      return res.status(fallback.response.status).json({
-        error: `Gemini error ${fallback.response.status}`,
-        retryable: false,
-        details: (fallback.errText || '').slice(0, 300),
-      })
-    }
-
-    console.error(
-      `[gemini-proxy] final_failure model=${FALLBACK_MODEL} attempts=${MAX_RETRIES + 1} (after fallback)`
-    )
-    return res.status(503).json({
-      error: 'temporarily_unavailable',
-      retryable: true,
-      details:
-        fallback.kind === 'retryable_exhausted'
-          ? `Gemini ${fallback.lastStatus}`
-          : (fallback.err && fallback.err.message) || 'Gemini request failed',
-    })
-  }
-
-  // No fallback available (caller wasn't on Pro). Surface retryable 503.
-  console.error(
-    `[gemini-proxy] final_failure model=${initialModel} attempts=${MAX_RETRIES + 1}`
-  )
-
-  if (result.kind === 'retryable_exhausted' && result.lastStatus === 429) {
-    return res.status(429).json({
-      error: 'Gemini rate limited',
-      retryable: true,
-      details: (result.errText || '').slice(0, 300),
-    })
-  }
+  // final_failure
+  const attempted = MODEL_CHAIN.map((m) => m.id)
+  const lastError = result.errors.length > 0
+    ? result.errors[result.errors.length - 1]
+    : null
+  const lastErrorText = lastError
+    ? (lastError.status ? `${lastError.model} status=${lastError.status}` : `${lastError.model} error=${lastError.error}`)
+    : 'unknown'
 
   return res.status(503).json({
-    error: 'temporarily_unavailable',
+    error: 'all_models_unavailable',
     retryable: true,
-    details:
-      result.kind === 'retryable_exhausted'
-        ? `Gemini ${result.lastStatus}`
-        : (result.err && result.err.message) || 'Gemini request failed',
+    attempted,
+    lastError: lastErrorText,
+    details: result.errors.slice(-3),
   })
 }

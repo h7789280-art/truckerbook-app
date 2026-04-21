@@ -2587,7 +2587,10 @@ import { calculateTotalTax } from '../utils/taxCalculator'
 const AUDIT_BATCH_SIZE = 50
 const AUDIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes between runs per user
 const SNOOZE_DAYS = 30
-const GEMINI_CLIENT_TIMEOUT_MS = 45000
+// Server chain worst case is ~63s (Pro 2x + Flash 2x + Flash-Lite 2x with
+// per-model timeouts and backoffs). 65s client budget gives the proxy a
+// small cushion before we abort.
+const GEMINI_CLIENT_TIMEOUT_MS = 65000
 
 async function callGeminiAudit(systemPrompt, userText) {
   // Routed through /api/gemini serverless proxy so the Gemini API key
@@ -2675,6 +2678,11 @@ async function callGeminiAudit(systemPrompt, userText) {
       fallbackErr.status = response.status
     }
     throw fallbackErr
+  }
+
+  const modelUsed = response.headers.get('X-Model-Used')
+  if (modelUsed) {
+    console.log('[audit] completed via', modelUsed)
   }
 
   const data = await response.json()

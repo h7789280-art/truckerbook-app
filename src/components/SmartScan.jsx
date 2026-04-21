@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { addTrip } from '../lib/api'
 import { saveToArchive } from '../lib/documentsArchive'
+import { supabase } from '../lib/supabase'
 import ScanConfirm from './ScanConfirm'
 import TripConfirm from './TripConfirm'
 import RepairConfirm from './RepairConfirm'
@@ -107,16 +108,44 @@ export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripS
         body.text = text.trim()
       }
 
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData?.session?.access_token
+      if (!accessToken) {
+        setError('Session expired, please sign in again')
+        setScanning(false)
+        return
+      }
+
       const resp = await fetch('/api/smart-scan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + accessToken,
+        },
         body: JSON.stringify(body),
       })
 
-      const data = await resp.json()
+      if (resp.status === 429) {
+        const retryAfter = resp.headers.get('Retry-After') || '60'
+        console.warn('smart-scan: rate limited, retry after', retryAfter, 's')
+        setError('\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 ' + retryAfter + ' \u0441\u0435\u043a\u0443\u043d\u0434.')
+        setScanning(false)
+        return
+      }
+      if (resp.status === 401) {
+        setError('Session expired, please sign in again')
+        setScanning(false)
+        return
+      }
+
+      const data = await resp.json().catch(() => ({}))
 
       if (!resp.ok || (data.doc_type === 'unknown')) {
-        setError(data.error || t('smartScan.unknownType'))
+        if (resp.status >= 500) {
+          setError(data.error || 'Service temporarily unavailable')
+        } else {
+          setError(data.error || t('smartScan.unknownType'))
+        }
         setScanning(false)
         return
       }

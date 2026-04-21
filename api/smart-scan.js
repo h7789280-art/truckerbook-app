@@ -1,3 +1,6 @@
+// POST /api/smart-scan — requires `Authorization: Bearer <supabase-jwt>` and is rate-limited per user.
+import { setCorsHeaders, handleOptions, validateJwt, checkRateLimit } from './_security.js'
+
 const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro']
 const MAX_RETRIES = 3
 const RETRY_DELAY_MS = 2000
@@ -103,9 +106,16 @@ IMPORTANT RULES:
 - For repair invoices: separate labor from parts, include diagnostics and towing if present`
 
 export default async function handler(req, res) {
+  setCorsHeaders(res)
+  if (handleOptions(req, res)) return
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+
+  const auth = await validateJwt(req, res)
+  if (!auth) return
+  if (!checkRateLimit(auth.userId, res)) return
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {

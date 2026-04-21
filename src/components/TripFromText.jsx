@@ -2,6 +2,7 @@ import { useState, useRef } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { addTrip } from '../lib/api'
+import { supabase } from '../lib/supabase'
 import TripConfirm from './TripConfirm'
 
 function compressForScan(file, maxSize = 1024 * 1024, quality = 0.7) {
@@ -96,15 +97,44 @@ export default function TripFromText({ onClose, userId, vehicleId, onTripSaved }
         body.image = base64
       }
 
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData?.session?.access_token
+      if (!accessToken) {
+        setError('Session expired, please sign in again')
+        setParsing(false)
+        return
+      }
+
       const resp = await fetch('/api/parse-trip', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + accessToken,
+        },
         body: JSON.stringify(body),
       })
-      const data = await resp.json()
+
+      if (resp.status === 429) {
+        const retryAfter = resp.headers.get('Retry-After') || '60'
+        console.warn('parse-trip: rate limited, retry after', retryAfter, 's')
+        setError('\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 ' + retryAfter + ' \u0441\u0435\u043a\u0443\u043d\u0434.')
+        setParsing(false)
+        return
+      }
+      if (resp.status === 401) {
+        setError('Session expired, please sign in again')
+        setParsing(false)
+        return
+      }
+
+      const data = await resp.json().catch(() => ({}))
 
       if (!resp.ok || data.error) {
-        setError(data.error || t('tripParse.parseError'))
+        if (resp.status >= 500) {
+          setError(data.error || 'Service temporarily unavailable')
+        } else {
+          setError(data.error || t('tripParse.parseError'))
+        }
         setParsing(false)
         return
       }

@@ -2587,10 +2587,9 @@ import { calculateTotalTax } from '../utils/taxCalculator'
 const AUDIT_BATCH_SIZE = 50
 const AUDIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes between runs per user
 const SNOOZE_DAYS = 30
-// Server chain worst case is ~63s (Pro 2x + Flash 2x + Flash-Lite 2x with
-// per-model timeouts and backoffs). 65s client budget gives the proxy a
-// small cushion before we abort.
-const GEMINI_CLIENT_TIMEOUT_MS = 65000
+// Server uses parallel race on Hobby plan (10s Vercel limit, 9s internal budget).
+// 11s client timeout = Vercel cap + 1s network buffer.
+const GEMINI_CLIENT_TIMEOUT_MS = 11000
 
 async function callGeminiAudit(systemPrompt, userText) {
   // Routed through /api/gemini serverless proxy so the Gemini API key
@@ -2603,8 +2602,6 @@ async function callGeminiAudit(systemPrompt, userText) {
     throw e
   }
 
-  // Client-side safety timeout. Server retries add up to ~8s of backoff;
-  // 45s caps total wait when upstream is wedged.
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), GEMINI_CLIENT_TIMEOUT_MS)
 

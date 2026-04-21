@@ -12,6 +12,18 @@
 
 -----
 
+## 🔒 БЕЗОПАСНОСТЬ
+
+> 📋 **См. [SECURITY.md](./SECURITY.md)** — полный чеклист безопасности с 4 уровнями приоритета. Claude Code должен читать оба файла (CLAUDE.md + SECURITY.md) перед каждой сессией.
+
+**Ключевые правила:**
+- Все новые API-эндпоинты — JWT + rate-limit по шаблону `api/gemini.js` (через `api/_security.js`)
+- Все новые Supabase-таблицы — RLS политики с `auth.uid() = user_id`
+- Никогда не использовать `SUPABASE_SERVICE_ROLE_KEY` в клиентском коде
+- Никакие ключи не должны попадать в git commits или клиентский бандл
+
+-----
+
 ## О проекте
 
 **TruckerBook** — PWA-приложение для дальнобойщиков и транспортных компаний.
@@ -1070,34 +1082,61 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 
 -----
 
-## МИГРАЦИЯ GEMINI НА СЕРВЕРНЫЙ ПРОКСИ
+## ✅ МИГРАЦИЯ GEMINI API (6/6 завершена 2026-04-21)
 
-### Миграция Gemini API на /api/gemini (безопасность)
+Все вызовы Gemini идут через серверный прокси `/api/gemini` с JWT-валидацией и rate-limit (20 req / 60 сек per user_id). `VITE_GEMINI_API_KEY` больше не используется в клиентском коде.
 
-Серверный прокси `api/gemini.js` создан, работает в production. Vercel env: `GEMINI_API_KEY` (без `VITE_`), `GEMINI_MODEL=gemini-2.5-flash`, `SUPABASE_SERVICE_ROLE_KEY`. JWT валидация через service_role, rate limit 20 req/60s на user_id, retry 2x при 503. CORS preflight.
+Серверный прокси `api/gemini.js` работает в production. Vercel env: `GEMINI_API_KEY` (без `VITE_`), `GEMINI_MODEL=gemini-2.5-flash`, `SUPABASE_SERVICE_ROLE_KEY`. JWT валидация через service_role, rate limit 20 req/60s на user_id, retry 2x при 503. CORS preflight. Поддерживает text, vision (`image`), audio и octet-stream (`media: { mimeType, data }`). Лимит 4 MB на декодированные байты (413 Payload Too Large).
 
-`api/gemini.js` поддерживает vision через опциональное поле `image: { mimeType, data }` (base64 без префикса `data:...;base64,`). Лимит 4 MB на декодированные байты (413 Payload Too Large). Шаблон миграции одинаков для всех vision-функций.
+### Мигрированные функции (6/6)
 
-**ЗАЩИЩЕНО (3 из 6):**
-- ✅ `runDeductionAudit` (`src/lib/api.js:2595-2650`) — фича G
-- ✅ `AIForecast` (`src/components/AIForecast.jsx`) — полный рерайт + фиксы (кэш не хранит ошибки, группировка по `date` а не `created_at`, limited-прогноз для 1-2 месяцев)
-- ✅ `geminiVision` (`src/lib/geminiVision.js`, функция `readOdometerFromPhoto`) — OCR одометра при старте/конце смены
+| Функция | Файл | Тип | Коммит |
+|---|---|---|---|
+| `runDeductionAudit` | `src/lib/api.js:2606` | text | `3d71464` |
+| `AIForecast.loadForecast` | `src/components/AIForecast.jsx:92` | text | `3341ff8` |
+| `readOdometerFromPhoto` | `src/lib/geminiVision.js:33` | vision | `26a0239` |
+| `scanPartInvoice` | `src/lib/geminiPartInvoice.js` | vision | `73ccbd6` |
+| `parseExpenseFromVoice` | `src/lib/voiceInput.js` | audio/webm | `e39dbd3` |
+| `parseTachographFile` | `src/lib/tachographParser.js` | octet-stream | `05117b4` |
 
-**ОСТАЛОСЬ (3 из 6, ключ всё ещё в `VITE_GEMINI_API_KEY`):**
-- ⏳ `geminiPartInvoice` — парсинг счетов запчастей (vision)
-- ⏳ `voiceInput` — голосовой ввод (audio)
-- ⏳ `tachographParser` — парсинг тахографа (vision)
+### Защищённые scan-эндпоинты (JWT + rate-limit добавлены 2026-04-21)
 
-**Примечание:** В проекте также есть отдельные серверные endpoints для чеков — `api/scan-receipt.js`, `api/smart-scan.js`, `api/parse-trip.js` — они уже безопасны и миграции не требуют.
+- `api/scan-receipt.js` — вызывается из `ScanReceipt.jsx:98`
+- `api/smart-scan.js` — вызывается из `SmartScan.jsx:110`
+- `api/parse-trip.js` — вызывается из `TripFromText.jsx:99`
+- Общий rate-limit через `api/_security.js` (20 req/60s per user_id на всю группу scan-*)
 
-После миграции всех 6 — удалить `VITE_GEMINI_API_KEY` и `VITE_GEMINI_MODEL` из Vercel env.
+### Шаблон миграции (для новых AI-функций)
+
+Код клиентского вызова → см. `src/lib/voiceInput.js` или `src/lib/geminiPartInvoice.js` как reference. Шаблон: `fetch('/api/gemini')` с `Authorization: Bearer <session.access_token>`, body `{ action, prompt, generationConfig, media?: { mimeType, data } }`.
+
+**НЕ ТРОГАТЬ** эти файлы без понимания шаблона — нарушение сломает защиту квоты Gemini и может допустить утечку ключей.
+
+**Следующий шаг:** удалить `VITE_GEMINI_API_KEY` и `VITE_GEMINI_MODEL` из Vercel env, сделать redeploy (см. SECURITY.md → Критично).
 
 -----
 
-## СЛЕДУЮЩИЕ ЗАДАЧИ
+## СЛЕДУЮЩИЕ ЗАДАЧИ (обновлено 2026-04-21)
 
-- **G — AI Deduction Audit.** Сканирует `personal_expenses` + `transactions` за 12 мес через Gemini, находит потенциально deductible траты, предлагает "Переместить в Schedule C". 2–3 дня.
-- **H — SEP-IRA Retirement Calculator.** Считает макс взнос (25% Net Profit, cap $69k), показывает экономию налога (~$19k на эталонных данных). 1 день.
+### Критично (до публичного запуска, см. SECURITY.md)
+- [ ] Ротация ключей `GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `N8N_API_KEY`, `GOOGLE_API_KEY` (все пометить Sensitive в Vercel)
+- [ ] Удалить `VITE_GEMINI_API_KEY` и `VITE_GEMINI_MODEL` из Vercel env
+- [ ] Redeploy после удаления
+- [ ] Проверить RLS политики на всех таблицах Supabase
+- [ ] Curl-тесты защищённых эндпоинтов на проде
+
+### Важно (в течение 2 недель)
+- [ ] Upstash Redis для распределённого rate-limit (сейчас in-memory Map)
+- [ ] Логирование 401/429/413 событий в Vercel Logs
+- [ ] Content Security Policy в `vercel.json`
+- [ ] 2FA на все админские аккаунты (GitHub, Vercel, Supabase, Google Cloud, email)
+
+### Продуктовое развитие (не безопасность)
+- [ ] IFTA Nominatim → GeoJSON (перед онбордингом 20+ машин)
+- [ ] `driver_1099` tax features
+- [ ] `company` role (1120/1120-S/1065)
+- [ ] Pre-filled Schedule C/SE IRS PDF
+- [ ] 1099-NEC client/broker CRM
 
 -----
 
@@ -1109,4 +1148,5 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 - **Supabase URL и ключи** — только через `.env`, НИКОГДА не хардкодь в коммит.
 - **После ВСЕХ изменений:** `git add -A && git commit -m "описание" && git push`
 - **Спроси, если не уверен.** Лучше уточнить, чем сломать.
-- **Миграция Gemini:** использовать шаблон из `runDeductionAudit` и `AIForecast` — `fetch('/api/gemini')` с `Authorization: Bearer <session.access_token>`, body `{ action, prompt, generationConfig }`.
+- **Новые AI-вызовы:** только через `/api/gemini` — шаблон см. в `voiceInput.js` / `geminiPartInvoice.js`. Никаких прямых вызовов Gemini из клиента.
+- **Безопасность:** каждый новый API-эндпоинт должен проходить JWT + rate-limit (см. SECURITY.md).

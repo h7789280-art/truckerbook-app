@@ -1,8 +1,12 @@
 /**
  * Tachograph .ddd file parser
  * Supports EU digital tachograph card data (simplified parsing)
- * Falls back to Gemini AI for complex/unrecognized formats
+ * Falls back to Gemini AI (via /api/gemini serverless proxy) for
+ * complex/unrecognized formats. The Gemini API key never ships in
+ * the client bundle. See api/gemini.js.
  */
+
+import { supabase } from './supabase'
 
 const ACTIVITY_TYPES = {
   0: 'available',
@@ -157,47 +161,76 @@ function tryBinaryParse(buffer) {
 }
 
 /**
- * Fallback: send file to Gemini for AI-based extraction
+ * Convert ArrayBuffer to base64 in O(n) using chunked String.fromCharCode.
+ * Avoids O(n^2) string concatenation from reduce() which freezes the browser
+ * on multi-MB .ddd files.
+ */
+function bufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer)
+  const CHUNK = 8192
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK))
+  }
+  return btoa(binary)
+}
+
+/**
+ * Fallback: send file to Gemini (via /api/gemini proxy) for AI-based extraction.
+ * Throws user-friendly Error messages — TachographViewer.jsx renders err.message.
  */
 async function parseWithGemini(buffer) {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY
-  if (!apiKey) {
-    throw new Error('VITE_GEMINI_API_KEY not configured')
+  const { data: sessionData } = await supabase.auth.getSession()
+  const accessToken = sessionData?.session?.access_token
+  if (!accessToken) {
+    throw new Error('Authentication required. Please sign in again.')
   }
 
-  const base64 = btoa(
-    new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-  )
+  const base64 = bufferToBase64(buffer)
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
-    {
+  const prompt = 'This is a binary .ddd tachograph file from an EU digital tachograph card. Extract the following data and return ONLY valid JSON (no markdown, no explanation):\n{\n  "driverName": "driver full name",\n  "cardNumber": "card number",\n  "totalDriving": "Xh Ym",\n  "totalRest": "Xh Ym",\n  "totalWork": "Xh Ym",\n  "activities": [{"type": "driving|rest|work|available", "start": "HH:MM", "end": "HH:MM", "duration": minutes_as_number}]\n}\nIf you cannot extract a field, use "Unknown" for strings or 0 for numbers. Return at least estimated values based on the binary data patterns.'
+
+  let response
+  try {
+    response = await fetch('/api/gemini', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + accessToken,
+      },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            {
-              inline_data: {
-                mime_type: 'application/octet-stream',
-                data: base64,
-              },
-            },
-            {
-              text: 'This is a binary .ddd tachograph file from an EU digital tachograph card. Extract the following data and return ONLY valid JSON (no markdown, no explanation):\n{\n  "driverName": "driver full name",\n  "cardNumber": "card number",\n  "totalDriving": "Xh Ym",\n  "totalRest": "Xh Ym",\n  "totalWork": "Xh Ym",\n  "activities": [{"type": "driving|rest|work|available", "start": "HH:MM", "end": "HH:MM", "duration": minutes_as_number}]\n}\nIf you cannot extract a field, use "Unknown" for strings or 0 for numbers. Return at least estimated values based on the binary data patterns.',
-            },
-          ],
-        }],
+        action: 'generate',
+        prompt,
+        media: {
+          mimeType: 'application/octet-stream',
+          data: base64,
+        },
         generationConfig: {
           temperature: 0.1,
           maxOutputTokens: 4096,
         },
       }),
-    }
-  )
+    })
+  } catch (e) {
+    console.error('parseTachographFile: network error', e)
+    throw new Error('Tachograph parsing service temporarily unavailable.')
+  }
 
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`)
+    if (response.status === 401) {
+      console.warn('parseTachographFile: unauthorized')
+      throw new Error('Authentication required. Please sign in again.')
+    }
+    if (response.status === 413) {
+      console.error('parseTachographFile: file too large')
+      throw new Error('Tachograph file too large (max 10 MB).')
+    }
+    if (response.status === 429) {
+      console.warn('parseTachographFile: rate limited')
+      throw new Error('Too many requests. Please wait a minute.')
+    }
+    console.error('parseTachographFile: Gemini proxy error', response.status)
+    throw new Error('Tachograph parsing service temporarily unavailable.')
   }
 
   const data = await response.json()

@@ -196,13 +196,13 @@ export function compareStrategies({
         : 0
     ), 0)
 
-    // NOL carryforward (year 1): portion of the deduction that exceeds taxable income.
-    // Section 179 is already income-limited (so always 0). Bonus Depreciation is NOT
-    // income-limited and can create an NOL that carries to future years under §172.
-    let nolYear1 = 0
-    if (strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS) {
-      nolYear1 = Math.max(year1 - income, 0)
-    }
+    // NOL carryforward (year 1): any year-1 deduction that exceeds taxable income flows
+    // through Schedule C as a loss and becomes an NOL under IRC §172 (80% usage limit
+    // in future years). Section 179 itself is income-limited and cannot create an NOL,
+    // but the MACRS component of any strategy (including the Section 179 strategy where
+    // income caps §179 below the full amount) is NOT income-limited. Apply the same
+    // year1 - income test uniformly to all four strategies.
+    const nolYear1 = Math.max(year1 - income, 0)
 
     // Unused Section 179 (income-limited): carries forward to future years.
     const section179Requested = (strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS)

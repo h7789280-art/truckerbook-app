@@ -14,7 +14,7 @@ import {
   SECTION_179_2026,
   STRATEGY,
   ASSET_CLASS,
-} from './macrs-constants'
+} from './macrs-constants.js'
 
 // Legacy Section 179 year-1 cap used by records saved before the OBBBA/2026 update.
 // Kept ONLY for back-compat reading of rows that predate the strategy migration.
@@ -122,19 +122,25 @@ export function buildStrategySchedule({
  * Compare all four strategies side-by-side.
  * Returns an array ordered by ALL_STRATEGIES.
  *
+ * The Section 179 strategy row applies the IRC §179(b)(3) income limitation:
+ * the year-1 Section 179 deduction is capped at max(0, taxableIncome). Any
+ * unused Section 179 carries forward; it does NOT flow into MACRS or bonus.
+ * Bonus Depreciation has no income limitation, so it can create a Net
+ * Operating Loss (NOL) that carries forward under IRC §172 (80% limit).
+ *
  * @param {object} params
  * @param {string} params.assetClass
  * @param {number} params.costBasis
  * @param {number} [params.salvageValue=0]
- * @param {number} [params.section179Amount=0] - Amount to test in S179 / S179+Bonus options.
+ * @param {number} [params.section179Amount=0] - Requested S179 amount (subject to income limit).
  * @param {number} [params.bonusRate=0]         - Applicable bonus rate for the placed-in-service date.
  * @param {Date|string} params.placedInServiceDate
  * @param {number} [params.businessUsePct=100]
  * @param {(netProfit:number)=>{ totalTax:number }} params.taxOfNet
  *        Callable that returns total tax (federal + SE + state) for a given net profit.
  *        Used to compute accurate savings (delta between tax on net-before-deduction vs net-after).
- * @param {number} params.netProfitBeforeDeduction - Estimated Schedule C net profit BEFORE the deduction applies.
- * @returns {Array<{ key:string, year1:number, totalOverLife:number, year1TaxSavings:number, year3TaxSavings:number, year3Cumulative:number, note?:string }>}
+ * @param {number} params.netProfitBeforeDeduction - Estimated Schedule C net profit BEFORE the deduction.
+ *        Also used as the IRC §179(b)(3) income ceiling for the Section 179 strategy.
  */
 export function compareStrategies({
   assetClass,
@@ -154,85 +160,129 @@ export function compareStrategies({
     STRATEGY.BONUS_ONLY,
   ]
 
+  const income = Math.max(Number(netProfitBeforeDeduction) || 0, 0)
+  const businessFraction = Math.max(Math.min(Number(businessUsePct) || 100, 100), 0) / 100
+  const depreciableBasis = Math.max(Number(costBasis) || 0, 0) * businessFraction
+
   return strategies.map(strategy => {
-    const { schedule, year1, totalOverLife } = buildStrategySchedule({
+    // IRC §179(b)(3): Section 179 deduction cannot exceed taxable business income.
+    // Cap the S179 amount we pass into the schedule builder for strategies that use it.
+    let effectiveS179 = 0
+    if (strategy === STRATEGY.SECTION_179) {
+      effectiveS179 = Math.min(Math.max(Number(section179Amount) || 0, 0), income, depreciableBasis)
+    } else if (strategy === STRATEGY.SECTION_179_BONUS) {
+      effectiveS179 = Math.min(Math.max(Number(section179Amount) || 0, 0), income, depreciableBasis)
+    }
+
+    const effectiveBonus = (strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS)
+      ? (Number(bonusRate) || 0)
+      : 0
+
+    const { schedule, year1, totalOverLife, section179Applied } = buildStrategySchedule({
       strategy,
       assetClass,
       costBasis,
       salvageValue,
-      section179Amount: strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS
-        ? section179Amount
-        : 0,
-      bonusRate: strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS
-        ? bonusRate
-        : 0,
+      section179Amount: effectiveS179,
+      bonusRate: effectiveBonus,
       placedInServiceDate,
       businessUsePct,
     })
 
-    const year3Cumulative = schedule.slice(0, 3).reduce((s, r) => s + r.deduction, 0)
+    // Year-1 MACRS portion = whatever is left after S179/Bonus one-time writedowns.
+    const year1MACRS = Math.max(year1 - (section179Applied || 0) - (
+      strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS
+        ? Math.max(depreciableBasis - (section179Applied || 0), 0) * effectiveBonus
+        : 0
+    ), 0)
 
-    // Tax savings = tax(net) - tax(net - deduction). Business-use portion of depreciation
-    // reduces Schedule C net, which lowers federal + SE + state tax simultaneously.
-    // Year-3 cumulative is modeled as "if you took this deduction all in one year" — honest
-    // approximation since we don't know future years' net profit. Good for ranking strategies.
+    // NOL carryforward (year 1): portion of the deduction that exceeds taxable income.
+    // Section 179 is already income-limited (so always 0). Bonus Depreciation is NOT
+    // income-limited and can create an NOL that carries to future years under §172.
+    let nolYear1 = 0
+    if (strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS) {
+      nolYear1 = Math.max(year1 - income, 0)
+    }
+
+    // Unused Section 179 (income-limited): carries forward to future years.
+    const section179Requested = (strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS)
+      ? Math.min(Math.max(Number(section179Amount) || 0, 0), depreciableBasis)
+      : 0
+    const section179Carryforward = Math.max(section179Requested - (section179Applied || 0), 0)
+
+    // Tax savings = tax(net) - tax(net - year1_deduction), ignoring any NOL carried to future years.
+    // "year1 savings without NOL" is honest: the NOL only helps in future years.
     let year1TaxSavings = 0
-    let year3TaxSavings = 0
+    let totalTaxSavings = 0
     if (typeof taxOfNet === 'function' && Number.isFinite(netProfitBeforeDeduction)) {
-      const net = Math.max(Number(netProfitBeforeDeduction) || 0, 0)
-      const baseTax = taxOfNet(net).totalTax
-      const afterY1 = taxOfNet(Math.max(net - year1, 0)).totalTax
+      const baseTax = taxOfNet(income).totalTax
+      const afterY1 = taxOfNet(Math.max(income - year1, 0)).totalTax
       year1TaxSavings = Math.max(baseTax - afterY1, 0)
-      const afterY3 = taxOfNet(Math.max(net - year3Cumulative, 0)).totalTax
-      year3TaxSavings = Math.max(baseTax - afterY3, 0)
+      // Full-life savings: if you could deploy the whole lifetime deduction against income of this year.
+      // Honest approximation that lets the user compare strategies on equal footing.
+      const afterFull = taxOfNet(Math.max(income - totalOverLife, 0)).totalTax
+      totalTaxSavings = Math.max(baseTax - afterFull, 0)
     }
 
     return {
       key: strategy,
       year1,
+      year1MACRS,
       totalOverLife,
       year1TaxSavings,
-      year3Cumulative,
-      year3TaxSavings,
+      totalTaxSavings,
+      nolYear1,
+      section179Applied: section179Applied || 0,
+      section179Carryforward,
       schedule,
     }
   })
 }
 
 /**
- * Recommend the best strategy for the user's situation.
- * - Simple heuristic (honest about its limits):
- *   - Asset cost > taxable income → Standard MACRS (spread over years).
- *   - Asset cost ≤ taxable income AND placed in service after Jan 19, 2025 → Section 179.
- *   - Section 179 > 2026 max → clamp and still recommend Section 179.
+ * Recommend the best depreciation strategy for the user's situation.
+ *
+ * Logic (honest about its limits — NOT financial advice):
+ *   - Business use <50% → Standard MACRS (Section 179 unavailable, ADS-style SL only).
+ *   - Taxable income ≥ depreciable basis → Section 179 only (simplest: Form 4562 Part I).
+ *   - 0 < income < basis → Section 179 + Bonus (S179 covers to income ceiling, Bonus writes down
+ *     the rest creating an NOL).
+ *   - Income ≤ 0 → Bonus only (Section 179 blocked by IRC §179(b)(3) income limitation;
+ *     Bonus creates an NOL under §172 that carries to future years).
+ *
+ * depreciableBasis = costBasis × (businessUsePct / 100)
  */
 export function recommendStrategy({
   costBasis,
   estimatedTaxableIncome,
-  placedInServiceDate,
+  placedInServiceDate: _placedInServiceDate,
   businessUsePct = 100,
 }) {
-  if (businessUsePct < SECTION_179_2026.businessUseMinPct) {
+  const businessPct = Number(businessUsePct) || 0
+  if (businessPct < SECTION_179_2026.businessUseMinPct) {
     return {
       key: STRATEGY.STANDARD_MACRS,
       reasonKey: 'recommendReason_businessUseTooLow',
     }
   }
-  const cost = Number(costBasis) || 0
+
+  const cost = Math.max(Number(costBasis) || 0, 0)
   const income = Number(estimatedTaxableIncome) || 0
-  const bonus = getBonusRate(placedInServiceDate)
-  if (cost > income && income > 0) {
+  const depreciableBasis = cost * (Math.min(businessPct, 100) / 100)
+
+  if (income <= 0) {
     return {
-      key: STRATEGY.STANDARD_MACRS,
-      reasonKey: 'recommendReason_spreadOverYears',
+      key: STRATEGY.BONUS_ONLY,
+      reasonKey: 'recommendReason_bonusForNoIncome',
     }
   }
-  if (bonus >= 1.00) {
+  if (income >= depreciableBasis) {
     return {
       key: STRATEGY.SECTION_179,
-      reasonKey: 'recommendReason_s179Simple',
+      reasonKey: 'recommendReason_s179FullyCovered',
     }
   }
+  // 0 < income < basis
   return {
     key: STRATEGY.SECTION_179_BONUS,
     reasonKey: 'recommendReason_combineS179Bonus',

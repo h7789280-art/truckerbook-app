@@ -22,7 +22,6 @@ import {
   compareStrategies,
   recommendStrategy,
   needsMidQuarterConvention,
-  checkSection179Eligibility,
 } from '../lib/tax/depreciationCalculator'
 
 const LEGACY_SECTION_179_LIMIT = 1160000
@@ -376,7 +375,11 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState(null)
   const [loadedId, setLoadedId] = useState(null)
-  const [showForm3115Banner, setShowForm3115Banner] = useState(false)
+  // Asset classification snapshot loaded from DB. Form 3115 banner only fires when
+  // this exists (i.e. asset was previously saved) AND the user changes the class —
+  // IRS requires Form 3115 to switch methods on an already-placed-in-service asset.
+  // On initial entry (no loaded record) we never show the banner.
+  const [previousAssetClass, setPreviousAssetClass] = useState(null)
 
   const currentYear = new Date().getFullYear()
   const placedInServiceDate = purchaseDate ? new Date(purchaseDate + 'T00:00:00Z') : null
@@ -422,6 +425,13 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
         if (data.asset_class) {
           setAssetClass(data.asset_class)
           setAssetClassTouched(true)
+          setPreviousAssetClass(data.asset_class)
+        } else if (data.depreciation_type) {
+          // Legacy record — infer the class that was previously in force from the method.
+          const inferred = data.depreciation_type === 'macrs3'
+            ? ASSET_CLASS.SEMI_TRACTOR_OTR
+            : ASSET_CLASS.LIGHT_TRUCK
+          setPreviousAssetClass(inferred)
         }
         if (data.gvwr_lbs != null) setGvwr(String(data.gvwr_lbs))
         if (data.vehicle_type) setVehicleType(data.vehicle_type)
@@ -430,19 +440,14 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
         if (data.estimated_taxable_income != null) setEstimatedTaxableIncome(String(data.estimated_taxable_income))
         if (data.strategy) setStrategy(data.strategy)
         if (data.section_179_amount != null) setSection179Amount(String(data.section_179_amount))
-
-        // Form 3115 banner: show if this is a legacy record (no strategy yet) but might
-        // benefit from reclassification. Existing asset — user cannot just change method.
-        const hasLegacyMethod = !data.strategy && data.depreciation_type
-        const placedYearsAgo = data.purchase_date
-          ? currentYear - new Date(data.purchase_date).getUTCFullYear()
-          : 0
-        if (hasLegacyMethod && placedYearsAgo >= 1) {
-          setShowForm3115Banner(true)
-        }
       })
       .catch(() => {})
-  }, [userId, currentYear])
+  }, [userId])
+
+  // Form 3115 banner visibility — only when user changes classification on an already-saved asset.
+  // IRC §446 + Rev. Proc. 2015-13: switching depreciation methods on a placed-in-service asset is
+  // a change in accounting method and requires Form 3115. Initial entry is NOT a method change.
+  const showForm3115Banner = Boolean(previousAssetClass) && previousAssetClass !== assetClass
 
   // Auto-dismiss toast.
   useEffect(() => {
@@ -508,19 +513,24 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
   }), [priceNum, taxableIncomeNum, placedInServiceDate, businessUseNum])
 
   // Active strategy schedule (what the user has selected).
+  // IRC §179(b)(3): Section 179 cannot exceed taxable business income for the year.
+  // We cap it here so the schedule UI reflects what is actually deductible in Year 1.
   const activeSchedule = useMemo(() => {
     if (priceNum <= 0 || !purchaseDate) return { schedule: [], year1: 0, totalOverLife: 0 }
+    const s179ForStrategy = (strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS)
+      ? s179IncomeLimited
+      : 0
     return buildStrategySchedule({
       strategy,
       assetClass,
       costBasis: priceNum,
       salvageValue: salvageNum,
-      section179Amount: strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS ? s179Effective : 0,
+      section179Amount: s179ForStrategy,
       bonusRate: strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS ? autoBonusRate : 0,
       placedInServiceDate,
       businessUsePct: businessUseNum,
     })
-  }, [strategy, assetClass, priceNum, purchaseDate, salvageNum, s179Effective, autoBonusRate, placedInServiceDate, businessUseNum])
+  }, [strategy, assetClass, priceNum, purchaseDate, salvageNum, s179IncomeLimited, autoBonusRate, placedInServiceDate, businessUseNum])
 
   const deductedToDate = activeSchedule.schedule
     .filter(r => r.year < currentYear)
@@ -555,7 +565,10 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
         depreciation_type: legacyType,
         asset_class: assetClass,
         strategy,
-        section_179_amount: strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS ? s179Effective : 0,
+        // Persist the income-limited amount — this is what the user can actually deduct
+        // in year 1 under IRC §179(b)(3). Any excess is a Section 179 carryforward, which
+        // downstream tools track separately (not in this row).
+        section_179_amount: strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS ? s179IncomeLimited : 0,
         bonus_rate: strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS ? autoBonusRate : 0,
         business_use_pct: businessUseNum,
         gvwr_lbs: Number(gvwr) || null,
@@ -843,7 +856,7 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
         <div style={card}>
           <div style={sectionTitle}>{t('depreciation.compareTitle')}</div>
           <div style={{
-            display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr',
+            display: 'grid', gridTemplateColumns: '1.5fr 0.9fr 0.9fr 0.9fr',
             gap: '4px', padding: '8px 0',
             borderBottom: '2px solid ' + theme.border,
           }}>
@@ -854,22 +867,38 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
               {t('depreciation.compareYear1')}
             </div>
             <div style={{ fontSize: '10px', fontWeight: 700, color: theme.dim, textAlign: 'right' }}>
-              {t('depreciation.compareYear1Savings')}
+              {t('depreciation.compareYear1SavingsNoNol')}
+            </div>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: theme.dim, textAlign: 'right' }}>
+              {t('depreciation.compareNolCarryforward')}
             </div>
           </div>
           {comparison.map(item => {
             const isRecommended = recommended.key === item.key
             const isActive = strategy === item.key
+            // Show Section 179 breakdown when the deduction was income-limited.
+            const showS179Breakdown = item.key === STRATEGY.SECTION_179
+              && item.year1MACRS > 0
+              && (item.section179Applied === 0 || item.section179Applied < s179Input)
             return (
               <div key={item.key} style={{
-                display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr',
+                display: 'grid', gridTemplateColumns: '1.5fr 0.9fr 0.9fr 0.9fr',
                 gap: '4px', padding: '10px 0',
                 borderBottom: '1px solid ' + theme.border,
                 background: isActive ? 'rgba(245,158,11,0.08)' : 'transparent',
               }}>
-                <div style={{ fontSize: '12px', color: theme.text, fontWeight: isRecommended ? 700 : 400 }}>
-                  {t('depreciation.' + STRATEGY_LABELS[item.key].titleKey)}
-                  {isRecommended && <span style={{ color: '#22c55e', marginLeft: '6px' }}>★</span>}
+                <div>
+                  <div style={{ fontSize: '12px', color: theme.text, fontWeight: isRecommended ? 700 : 400 }}>
+                    {t('depreciation.' + STRATEGY_LABELS[item.key].titleKey)}
+                    {isRecommended && <span style={{ color: '#22c55e', marginLeft: '6px' }}>★</span>}
+                  </div>
+                  {showS179Breakdown && (
+                    <div style={{ fontSize: '10px', color: theme.dim, marginTop: '3px', lineHeight: '1.35' }}>
+                      {'Section 179: $' + fmtInt(item.section179Applied)}
+                      {item.section179Applied === 0 ? ' (' + t('depreciation.compareNoIncome') + ')' : ''}
+                      {' + MACRS: $' + fmtInt(item.year1MACRS)}
+                    </div>
+                  )}
                 </div>
                 <div style={{ fontSize: '12px', fontFamily: 'monospace', textAlign: 'right', color: '#ef4444' }}>
                   ${fmtInt(item.year1)}
@@ -877,22 +906,31 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
                 <div style={{ fontSize: '12px', fontFamily: 'monospace', textAlign: 'right', color: '#22c55e' }}>
                   ${fmtInt(item.year1TaxSavings)}
                 </div>
+                <div style={{ fontSize: '12px', fontFamily: 'monospace', textAlign: 'right', color: item.nolYear1 > 0 ? '#f59e0b' : theme.dim }}>
+                  {item.nolYear1 > 0 ? '$' + fmtInt(item.nolYear1) : '—'}
+                </div>
               </div>
             )
           })}
           <div style={{
-            display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr',
+            display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr',
             gap: '4px', padding: '8px 0',
             borderTop: '2px solid ' + theme.border,
             marginTop: '6px',
           }}>
             <div style={{ fontSize: '10px', fontWeight: 700, color: theme.dim }}>
-              {t('depreciation.compareY3Cumulative')} / {t('depreciation.compareY3Savings')}
+              {t('depreciation.compareStrategy')}
+            </div>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: theme.dim, textAlign: 'right' }}>
+              {t('depreciation.compareLifeCumulative')}
+            </div>
+            <div style={{ fontSize: '10px', fontWeight: 700, color: theme.dim, textAlign: 'right' }}>
+              {t('depreciation.compareLifeSavings')}
             </div>
           </div>
           {comparison.map(item => (
-            <div key={'y3-' + item.key} style={{
-              display: 'grid', gridTemplateColumns: '1.4fr 1fr 1fr',
+            <div key={'life-' + item.key} style={{
+              display: 'grid', gridTemplateColumns: '1.5fr 1fr 1fr',
               gap: '4px', padding: '6px 0',
               borderBottom: '1px solid ' + theme.border,
             }}>
@@ -900,13 +938,16 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
                 {t('depreciation.' + STRATEGY_LABELS[item.key].titleKey)}
               </div>
               <div style={{ fontSize: '11px', fontFamily: 'monospace', textAlign: 'right', color: theme.text }}>
-                ${fmtInt(item.year3Cumulative)}
+                ${fmtInt(item.totalOverLife)}
               </div>
               <div style={{ fontSize: '11px', fontFamily: 'monospace', textAlign: 'right', color: '#22c55e' }}>
-                ${fmtInt(item.year3TaxSavings)}
+                ${fmtInt(item.totalTaxSavings)}
               </div>
             </div>
           ))}
+          <div style={{ fontSize: '10px', color: theme.dim, marginTop: '8px', lineHeight: '1.45' }}>
+            {t('depreciation.compareLifeHint')}
+          </div>
         </div>
       )}
 
@@ -989,6 +1030,12 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
               </div>
             )
           })}
+          <div style={{ fontSize: '10px', color: theme.dim, marginTop: '10px', lineHeight: '1.45' }}>
+            {t('depreciation.scheduleFootnote')}
+          </div>
+          <div style={{ fontSize: '10px', color: theme.dim, marginTop: '4px', lineHeight: '1.45' }}>
+            {t('depreciation.midQuarterFootnote')}
+          </div>
         </div>
       )}
 
@@ -1003,6 +1050,7 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
       {/* Disclaimer + trade-in note */}
       <div style={{ ...card, fontSize: '11px', color: theme.dim, lineHeight: '1.5' }}>
         <div style={{ marginBottom: '8px' }}>{t('depreciation.warnTradeIn')}</div>
+        <div style={{ marginBottom: '8px' }}>{t('depreciation.disclaimerNolVsCarryforward')}</div>
         <div>{'⚠ '}{t('depreciation.disclaimer')}</div>
       </div>
 

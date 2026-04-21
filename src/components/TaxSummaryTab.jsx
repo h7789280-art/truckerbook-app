@@ -11,6 +11,7 @@ import {
   SS_WAGE_BASE_2026,
 } from '../utils/taxCalculator'
 import { STATE_OPTIONS, STATE_TAX_2026, getStateName } from '../utils/stateTaxData2026'
+import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -94,33 +95,14 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     if (!userId) return
     supabase
       .from('vehicle_depreciation')
-      .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation')
+      .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return
-        const price = Number(data.purchase_price) || 0
-        const salvage = Number(data.salvage_value) || 0
-        const prior = Number(data.prior_depreciation) || 0
-        const basis = Math.max(price - salvage, 0)
-        const purchaseYear = data.purchase_date ? new Date(data.purchase_date).getFullYear() : year
-
-        if (data.depreciation_type === 'section179') {
-          const ded = Math.max(Math.min(basis, 1160000) - prior, 0)
-          setDepreciation(purchaseYear === year ? ded : 0)
-        } else {
-          const rates = data.depreciation_type === 'macrs7'
-            ? [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
-            : [20, 32, 19.2, 11.52, 11.52, 5.76]
-          const idx = year - purchaseYear
-          if (idx >= 0 && idx < rates.length) {
-            setDepreciation(basis * (rates[idx] / 100))
-          } else {
-            setDepreciation(0)
-          }
-        }
+        setDepreciation(getCurrentYearDeduction(data, year))
       })
       .catch(() => {})
   }, [userId, year])

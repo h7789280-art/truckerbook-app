@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { calculatePerDiem } from '../utils/perDiemCalculator'
 import { calculateTotalTax } from '../utils/taxCalculator'
 import { sendNotification, isPermissionGranted, requestPermission } from '../lib/notifications'
+import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -135,7 +136,7 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
         .gte('date', start).lt('date', endPlusOne).then(r => r).catch(() => ({ data: [] })),
       supabase.from('service_records').select('cost').eq('user_id', userId)
         .gte('date', start).lt('date', endPlusOne),
-      supabase.from('vehicle_depreciation').select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation')
+      supabase.from('vehicle_depreciation').select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
         .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
         .then(r => r).catch(() => ({ data: null })),
       ...perDiemPromises,
@@ -149,24 +150,9 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
         const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
         const perDiem = perDiems.reduce((s, r) => s + (r?.totals?.total_amount || 0), 0)
 
-        let depreciation = 0
-        const d = depRes.data
-        if (d) {
-          const price = Number(d.purchase_price) || 0
-          const salvage = Number(d.salvage_value) || 0
-          const prior = Number(d.prior_depreciation) || 0
-          const basis = Math.max(price - salvage, 0)
-          const purchaseYear = d.purchase_date ? new Date(d.purchase_date).getFullYear() : taxYear
-          if (d.depreciation_type === 'section179') {
-            depreciation = purchaseYear === taxYear ? Math.max(Math.min(basis, 1160000) - prior, 0) : 0
-          } else {
-            const rates = d.depreciation_type === 'macrs7'
-              ? [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
-              : [20, 32, 19.2, 11.52, 11.52, 5.76]
-            const idx = taxYear - purchaseYear
-            if (idx >= 0 && idx < rates.length) depreciation = basis * (rates[idx] / 100)
-          }
-        }
+        // Shared helper: handles both legacy depreciation_type records and new
+        // strategy-based records (asset_class + strategy + section_179_amount + bonus_rate).
+        const depreciation = getCurrentYearDeduction(depRes.data, taxYear)
 
         const netProfit = Math.max(income - fuelCost - vehExp - serviceCost - perDiem - depreciation, 0)
         const result = calculateTotalTax(netProfit, filingStatus, stateCode)

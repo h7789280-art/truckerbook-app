@@ -13,6 +13,7 @@ import {
   calculateSavingsBucket,
   getNextQuarterDeadline,
 } from '../utils/taxMeterCalculator'
+import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
 
 const GOLD = '#f59e0b'
 const GREEN = '#22c55e'
@@ -70,22 +71,10 @@ function daysLeftColor(days) {
   return RED
 }
 
+// Uses shared helper that handles both legacy (depreciation_type) and new
+// strategy-based records (asset_class + strategy + section_179_amount + bonus_rate).
 function computeDepreciation(row, year) {
-  if (!row) return 0
-  const price = Number(row.purchase_price) || 0
-  const salvage = Number(row.salvage_value) || 0
-  const prior = Number(row.prior_depreciation) || 0
-  const basis = Math.max(price - salvage, 0)
-  const purchaseYear = row.purchase_date ? new Date(row.purchase_date).getFullYear() : year
-  if (row.depreciation_type === 'section179') {
-    return purchaseYear === year ? Math.max(Math.min(basis, 1160000) - prior, 0) : 0
-  }
-  const rates = row.depreciation_type === 'macrs7'
-    ? [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
-    : [20, 32, 19.2, 11.52, 11.52, 5.76]
-  const idx = year - purchaseYear
-  if (idx >= 0 && idx < rates.length) return basis * (rates[idx] / 100)
-  return 0
+  return getCurrentYearDeduction(row, year)
 }
 
 export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
@@ -139,7 +128,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
       supabase.from('service_records').select('cost').eq('user_id', userId)
         .gte('date', start).lt('date', endPlusOne),
       supabase.from('vehicle_depreciation')
-        .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation')
+        .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
         .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
         .then(r => r).catch(() => ({ data: null })),
       supabase.from('estimated_tax_settings').select('filing_status').eq('user_id', userId).maybeSingle()

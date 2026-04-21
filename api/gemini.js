@@ -2,25 +2,31 @@
 // Keeps GEMINI_API_KEY server-side so it never ships in the client bundle.
 // Validates the caller using a Supabase JWT (Authorization: Bearer <token>).
 // In-memory rate limit: 20 requests / 60s per user_id (per instance).
+//
+// Parallel race strategy for Vercel Hobby plan (10s hard limit):
+// fire Flash + Flash-Lite in parallel, first successful response wins,
+// losers get aborted. Pro excluded — too slow (often 6-8s) to fit budget.
 
 import { createClient } from '@supabase/supabase-js'
 
-const DEFAULT_MODEL = 'gemini-2.5-flash'
-const MAX_RETRIES = 2
-const RETRY_DELAY_MS = 2000
+const RACE_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
+
+const FIRST_RACE_TIMEOUT_MS = 7000
+const RETRY_RACE_TIMEOUT_MS = 2000
+const TOTAL_BUDGET_MS = 9000 // 1s buffer under Vercel 10s Hobby limit
+
+const RETRYABLE_STATUSES = new Set([429, 500, 502, 503, 504])
+
 const RATE_LIMIT_WINDOW_MS = 60 * 1000
 const RATE_LIMIT_MAX = 20
 
 const rateLimitMap = new Map()
 
-function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms))
-}
-
 function setCors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  res.setHeader('Access-Control-Expose-Headers', 'X-Model-Used')
   res.setHeader('Access-Control-Max-Age', '86400')
 }
 
@@ -62,34 +68,91 @@ async function authenticate(req) {
   return { userId: data.user.id }
 }
 
-async function callGemini(apiKey, model, body) {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 60000)
+function buildGeminiUrl(apiKey, modelId) {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}:generateContent?key=${apiKey}`
+}
+
+async function fetchModel(apiKey, modelId, body, controller, timeoutMs) {
+  const timer = setTimeout(() => {
+    try { controller.abort() } catch {}
+  }, timeoutMs)
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify(body),
-      }
-    )
-    return response
+    return await fetch(buildGeminiUrl(apiKey, modelId), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: controller.signal,
+      body: JSON.stringify(body),
+    })
   } finally {
-    clearTimeout(timeout)
+    clearTimeout(timer)
+  }
+}
+
+// Fires all models simultaneously. Returns the first successful response.
+// On failure, returns { success: false, permanent?, status?, errText? }.
+// `errors` array is appended for observability across multiple races.
+async function raceModels(apiKey, body, modelIds, timeoutMs, errors) {
+  const controllers = modelIds.map(() => new AbortController())
+
+  const requests = modelIds.map((modelId, idx) => {
+    const ctrl = controllers[idx]
+    return fetchModel(apiKey, modelId, body, ctrl, timeoutMs)
+      .then(async (response) => {
+        if (response.ok) {
+          const data = await response.json()
+          return { modelUsed: modelId, data }
+        }
+        const errText = await response.text().catch(() => '')
+        errors.push({ model: modelId, status: response.status, body: errText.slice(0, 200) })
+        const permanent = !RETRYABLE_STATUSES.has(response.status)
+          && response.status >= 400
+          && response.status < 500
+        const err = new Error(`${modelId} status=${response.status}`)
+        err.status = response.status
+        err.permanent = permanent
+        err.errText = errText
+        err.modelUsed = modelId
+        throw err
+      })
+      .catch((err) => {
+        if (!err.status) {
+          const isAbort = err && (err.name === 'AbortError' || err.code === 20)
+          errors.push({ model: modelId, error: isAbort ? 'aborted/timeout' : (err.message || String(err)) })
+        }
+        throw err
+      })
+  })
+
+  try {
+    const winner = await Promise.any(requests)
+    // Cancel losers so we don't burn Gemini quota on unused responses.
+    controllers.forEach((c, idx) => {
+      if (modelIds[idx] !== winner.modelUsed) {
+        try { c.abort() } catch {}
+      }
+    })
+    return { success: true, ...winner }
+  } catch (aggregateErr) {
+    const individual = aggregateErr && aggregateErr.errors ? aggregateErr.errors : []
+    const permanentErr = individual.find((e) => e && e.permanent)
+    if (permanentErr) {
+      return {
+        success: false,
+        permanent: true,
+        status: permanentErr.status,
+        errText: permanentErr.errText,
+        modelUsed: permanentErr.modelUsed,
+      }
+    }
+    return { success: false }
   }
 }
 
 export default async function handler(req, res) {
   setCors(res)
 
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end()
-  }
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' })
-  }
+  if (req.method === 'OPTIONS') return res.status(204).end()
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const apiKey = process.env.GEMINI_API_KEY
   if (!apiKey) {
@@ -103,7 +166,11 @@ export default async function handler(req, res) {
   const limit = checkRateLimit(auth.userId)
   if (!limit.ok) {
     res.setHeader('Retry-After', String(limit.retryAfter))
-    return res.status(429).json({ error: 'Too many requests', retryAfter: limit.retryAfter })
+    return res.status(429).json({
+      error: 'Too many requests',
+      retryable: true,
+      retryAfter: limit.retryAfter,
+    })
   }
 
   const {
@@ -111,22 +178,17 @@ export default async function handler(req, res) {
     prompt,
     systemInstruction,
     generationConfig,
-    model: clientModel,
     image,
     media,
   } = req.body || {}
 
   if (action !== 'generate') {
-    return res.status(400).json({ error: `Unsupported action: ${action}` })
+    return res.status(400).json({ error: `Unsupported action: ${action}`, retryable: false })
   }
   if (!prompt || typeof prompt !== 'string') {
-    return res.status(400).json({ error: 'Missing prompt (string required)' })
+    return res.status(400).json({ error: 'Missing prompt (string required)', retryable: false })
   }
 
-  // Optional media input (vision / audio / binary).
-  // Shape: { mimeType: "image/jpeg" | "audio/webm" | "application/octet-stream", data: "<base64 без data:..., префикса>" }
-  // Backwards compat: legacy `image` field is accepted when `media` is absent.
-  // If both are present, `media` wins.
   let mediaPart = null
   let effectiveMedia = null
   if (media !== undefined && media !== null) {
@@ -144,10 +206,16 @@ export default async function handler(req, res) {
       typeof effectiveMedia.mimeType !== 'string' ||
       typeof effectiveMedia.data !== 'string'
     ) {
-      return res.status(400).json({ error: 'Invalid media (expected { mimeType, data })' })
+      return res.status(400).json({
+        error: 'Invalid media (expected { mimeType, data })',
+        retryable: false,
+      })
     }
     if (effectiveMedia.data.length === 0) {
-      return res.status(400).json({ error: 'media.data must be a non-empty base64 string' })
+      return res.status(400).json({
+        error: 'media.data must be a non-empty base64 string',
+        retryable: false,
+      })
     }
 
     const mimeType = effectiveMedia.mimeType
@@ -158,18 +226,19 @@ export default async function handler(req, res) {
     } else if (mimeType.startsWith('audio/') || mimeType === 'application/octet-stream') {
       maxBytes = 10 * 1024 * 1024
     } else {
-      return res.status(400).json({ error: `Unsupported media type: ${mimeType}` })
+      return res.status(400).json({
+        error: `Unsupported media type: ${mimeType}`,
+        retryable: false,
+      })
     }
 
     const approxBytes = Math.ceil(effectiveMedia.data.length * 0.75)
     if (approxBytes > maxBytes) {
-      return res.status(413).json({ error: 'Media too large', maxBytes })
+      return res.status(413).json({ error: 'Media too large', retryable: false, maxBytes })
     }
 
     mediaPart = { inline_data: { mime_type: mimeType, data: effectiveMedia.data } }
   }
-
-  const model = clientModel || process.env.GEMINI_MODEL || DEFAULT_MODEL
 
   const parts = [{ text: prompt }]
   if (mediaPart) parts.push(mediaPart)
@@ -184,42 +253,65 @@ export default async function handler(req, res) {
     body.generationConfig = generationConfig
   }
 
-  for (let attempt = 1; attempt <= MAX_RETRIES + 1; attempt++) {
-    try {
-      const response = await callGemini(apiKey, model, body)
+  const startTime = Date.now()
+  const errors = []
 
-      if (response.ok) {
-        const data = await response.json()
-        return res.status(200).json(data)
-      }
+  try {
+    const first = await raceModels(apiKey, body, RACE_MODELS, FIRST_RACE_TIMEOUT_MS, errors)
 
-      const errText = await response.text().catch(() => '')
-      console.warn(`Gemini ${response.status} (attempt ${attempt}): ${errText.slice(0, 200)}`)
-
-      if (response.status === 429) {
-        const retryAfter = response.headers.get('Retry-After') || '30'
-        res.setHeader('Retry-After', retryAfter)
-        return res.status(429).json({ error: 'Gemini rate limited', retryAfter })
-      }
-
-      if (response.status === 503 && attempt <= MAX_RETRIES) {
-        await sleep(RETRY_DELAY_MS)
-        continue
-      }
-
-      return res.status(response.status === 503 ? 503 : 500).json({
-        error: `Gemini error ${response.status}`,
-        details: errText.slice(0, 300),
-      })
-    } catch (err) {
-      console.error(`Gemini request failed (attempt ${attempt}):`, err.message)
-      if (attempt <= MAX_RETRIES) {
-        await sleep(RETRY_DELAY_MS)
-        continue
-      }
-      return res.status(500).json({ error: 'Gemini request failed', details: err.message })
+    if (first.success) {
+      console.log(`[gemini-proxy] SUCCESS model=${first.modelUsed} duration=${Date.now() - startTime}ms race=1`)
+      res.setHeader('X-Model-Used', first.modelUsed)
+      return res.status(200).json(first.data)
     }
-  }
 
-  return res.status(500).json({ error: 'Unexpected proxy state' })
+    if (first.permanent) {
+      console.log(`[gemini-proxy] PERMANENT status=${first.status} duration=${Date.now() - startTime}ms`)
+      return res.status(first.status).json({
+        error: 'permanent',
+        retryable: false,
+        status: first.status,
+        details: (first.errText || '').slice(0, 300),
+        modelUsed: first.modelUsed,
+      })
+    }
+
+    const elapsed = Date.now() - startTime
+    const remainingBudget = TOTAL_BUDGET_MS - elapsed
+
+    if (remainingBudget > RETRY_RACE_TIMEOUT_MS) {
+      const retryTimeout = Math.min(RETRY_RACE_TIMEOUT_MS, remainingBudget - 500)
+      console.log(`[gemini-proxy] RETRY_RACE starting elapsed=${elapsed}ms remaining=${remainingBudget}ms timeout=${retryTimeout}ms`)
+      const retry = await raceModels(apiKey, body, RACE_MODELS, retryTimeout, errors)
+
+      if (retry.success) {
+        console.log(`[gemini-proxy] SUCCESS_RETRY model=${retry.modelUsed} total_duration=${Date.now() - startTime}ms`)
+        res.setHeader('X-Model-Used', retry.modelUsed)
+        return res.status(200).json(retry.data)
+      }
+
+      if (retry.permanent) {
+        console.log(`[gemini-proxy] PERMANENT_RETRY status=${retry.status} duration=${Date.now() - startTime}ms`)
+        return res.status(retry.status).json({
+          error: 'permanent',
+          retryable: false,
+          status: retry.status,
+          details: (retry.errText || '').slice(0, 300),
+          modelUsed: retry.modelUsed,
+        })
+      }
+    }
+
+    console.log(`[gemini-proxy] FINAL_FAILURE duration=${Date.now() - startTime}ms errors=${JSON.stringify(errors.slice(-6))}`)
+    return res.status(503).json({
+      error: 'all_models_unavailable',
+      retryable: true,
+      attempted: RACE_MODELS,
+      details: errors.slice(-3),
+    })
+  } catch (err) {
+    const message = err && err.message ? err.message : String(err)
+    console.log(`[gemini-proxy] EXCEPTION ${message} duration=${Date.now() - startTime}ms`)
+    return res.status(500).json({ error: 'internal', retryable: true, details: message })
+  }
 }

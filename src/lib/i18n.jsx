@@ -1689,6 +1689,9 @@ const translations = {
       confirmTitle: '\u041f\u0435\u0440\u0435\u043d\u0435\u0441\u0442\u0438 ${amount} \u0432 Schedule C?',
       confirmMove: '\u041f\u043e\u0434\u0442\u0432\u0435\u0440\u0434\u0438\u0442\u044c',
       disclaimer: 'AI \u043f\u0440\u0435\u0434\u043b\u0430\u0433\u0430\u0435\u0442 \u2014 \u0432\u044b \u0440\u0435\u0448\u0430\u0435\u0442\u0435. \u041f\u0435\u0440\u0435\u0434 \u043f\u043e\u0434\u0430\u0447\u0435\u0439 \u0434\u0435\u043a\u043b\u0430\u0440\u0430\u0446\u0438\u0438 \u043f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0441 CPA.',
+      errorTemporary: 'AI \u043f\u0435\u0440\u0435\u0433\u0440\u0443\u0436\u0435\u043d, \u043f\u043e\u043f\u0440\u043e\u0431\u0443\u0439 \u0447\u0435\u0440\u0435\u0437 \u043c\u0438\u043d\u0443\u0442\u0443',
+      errorPermanent: '\u041f\u0440\u043e\u0438\u0437\u043e\u0448\u043b\u0430 \u043e\u0448\u0438\u0431\u043a\u0430. \u0421\u043e\u043e\u0431\u0449\u0438\u0442\u0435 \u0440\u0430\u0437\u0440\u0430\u0431\u043e\u0442\u0447\u0438\u043a\u0430\u043c \u0447\u0435\u0440\u0435\u0437 thumbs down.',
+      retryButton: '\u041f\u043e\u043f\u0440\u043e\u0431\u043e\u0432\u0430\u0442\u044c \u0435\u0449\u0451 \u0440\u0430\u0437',
     },
     deductionChecklist: {
       title: '\u0427\u0435\u043a-\u043b\u0438\u0441\u0442 \u0432\u044b\u0447\u0435\u0442\u043e\u0432 1099',
@@ -3683,6 +3686,9 @@ const translations = {
       confirmTitle: 'Move ${amount} to Schedule C?',
       confirmMove: 'Confirm',
       disclaimer: 'AI suggests \u2014 you decide. Review with your CPA before filing.',
+      errorTemporary: 'AI is overloaded, try again in a minute',
+      errorPermanent: 'Something went wrong. Please report via thumbs down.',
+      retryButton: 'Try again',
     },
     deductionChecklist: {
       title: '1099 Deduction Checklist',

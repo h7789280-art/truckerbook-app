@@ -68,7 +68,6 @@ export default function DeductionAuditTab({ userId, role, profile }) {
 
   const [loading, setLoading] = useState(true)
   const [running, setRunning] = useState(false)
-  const [error, setError] = useState(null)
   const [lastRun, setLastRun] = useState(null)
   const [suggestions, setSuggestions] = useState([])
   const [historyCounts, setHistoryCounts] = useState({ accepted: 0, rejected: 0, snoozed: 0 })
@@ -77,6 +76,10 @@ export default function DeductionAuditTab({ userId, role, profile }) {
   const [confirmSuggestion, setConfirmSuggestion] = useState(null)
   const [confirmCategory, setConfirmCategory] = useState(null)
   const [fadingOut, setFadingOut] = useState(new Set())
+  // Session-level audit result. Keeps success_empty and error states distinct
+  // so the "all clean" UI never renders concurrently with an error.
+  // status: 'idle' | 'success_empty' | 'success_with_findings' | 'error_temporary' | 'error_permanent'
+  const [runResult, setRunResult] = useState({ status: 'idle' })
 
   const reload = useCallback(async () => {
     if (!userId) return
@@ -90,7 +93,8 @@ export default function DeductionAuditTab({ userId, role, profile }) {
       setSuggestions(pending)
       setHistoryCounts(counts)
     } catch (err) {
-      setError(err.message || 'Error')
+      // Reload-level failure is transient (DB fetch). Surface via toast only.
+      setToast({ type: 'error', text: err.message || 'Error' })
     } finally {
       setLoading(false)
     }
@@ -105,23 +109,35 @@ export default function DeductionAuditTab({ userId, role, profile }) {
   }, [toast])
 
   const handleRun = async () => {
+    if (running) return // duplicate-request guard
     setRunning(true)
-    setError(null)
+    setRunResult({ status: 'idle' })
     try {
-      await runDeductionAudit(userId, profile)
+      const result = await runDeductionAudit(userId, profile)
       await reload()
+      const next = Number(result && result.totalFound) > 0
+        ? { status: 'success_with_findings' }
+        : { status: 'success_empty' }
+      setRunResult(next)
       setToast({ type: 'success', text: t('deductionAudit.runComplete') })
     } catch (err) {
-      if (err.code === 'RATE_LIMITED') {
+      if (err && err.code === 'RATE_LIMITED' && err.waitSeconds != null) {
+        // In-app audit cooldown (5 min between runs).
         const mins = Math.ceil((err.waitSeconds || 300) / 60)
-        setToast({
-          type: 'error',
-          text: interpolate(t('deductionAudit.rateLimited'), { mins }),
-        })
+        const msg = interpolate(t('deductionAudit.rateLimited'), { mins })
+        setRunResult({ status: 'error_temporary', message: msg })
+        setToast({ type: 'error', text: msg })
+      } else if (err && (err.code === 'UNAVAILABLE' || err.code === 'RATE_LIMITED' || err.retryable === true)) {
+        setRunResult({ status: 'error_temporary', message: t('deductionAudit.errorTemporary') })
+        setToast({ type: 'error', text: t('deductionAudit.errorTemporary') })
       } else {
-        setToast({ type: 'error', text: t('deductionAudit.runFailed') })
-        setError(err.message || 'Error')
+        // Permanent — unauthorized, bad request, unknown codes, etc.
+        setRunResult({ status: 'error_permanent', message: t('deductionAudit.errorPermanent') })
+        setToast({ type: 'error', text: t('deductionAudit.errorPermanent') })
       }
+      // Refresh lastRun so stale completed-empty state doesn't linger and
+      // cause the "all clean" UI to render concurrently with the error.
+      reload().catch(() => {})
     } finally {
       setRunning(false)
     }
@@ -311,11 +327,38 @@ export default function DeductionAuditTab({ userId, role, profile }) {
             )}
           </div>
 
-          {error && (
+          {runResult.status === 'error_temporary' && (
             <div style={{
               background: '#ef444422', border: '1px solid #ef444466',
-              borderRadius: '12px', padding: '12px', color: RED, fontSize: '13px',
-            }}>{error}</div>
+              borderRadius: '12px', padding: '14px',
+              display: 'flex', flexDirection: 'column', gap: '10px',
+            }}>
+              <div style={{ color: RED, fontSize: '13px', fontWeight: 600 }}>
+                {'⚠️ '}{runResult.message}
+              </div>
+              <button
+                onClick={handleRun}
+                disabled={running}
+                style={{
+                  padding: '10px 14px', borderRadius: '8px', border: 'none',
+                  background: running ? GREY : ORANGE, color: '#fff',
+                  fontWeight: 700, fontSize: '13px',
+                  cursor: running ? 'default' : 'pointer',
+                  opacity: running ? 0.7 : 1,
+                }}
+              >
+                {'🔄 '}{t('deductionAudit.retryButton')}
+              </button>
+            </div>
+          )}
+
+          {runResult.status === 'error_permanent' && (
+            <div style={{
+              background: '#ef444422', border: '1px solid #ef444466',
+              borderRadius: '12px', padding: '14px', color: RED, fontSize: '13px',
+            }}>
+              {'✗ '}{runResult.message}
+            </div>
           )}
 
           {/* Suggestions list */}
@@ -425,7 +468,10 @@ export default function DeductionAuditTab({ userId, role, profile }) {
             </div>
           )}
 
-          {suggestions.length === 0 && lastRun && lastRun.status === 'completed' && lastRun.total_found === 0 && (
+          {suggestions.length === 0
+            && lastRun && lastRun.status === 'completed' && lastRun.total_found === 0
+            && runResult.status !== 'error_temporary'
+            && runResult.status !== 'error_permanent' && (
             <div style={{ ...card, textAlign: 'center', padding: '24px 16px' }}>
               <div style={{ fontSize: '32px', marginBottom: '8px' }}>{'\uD83C\uDF89'}</div>
               <div style={{ fontSize: '13px', color: theme.text, lineHeight: 1.5 }}>

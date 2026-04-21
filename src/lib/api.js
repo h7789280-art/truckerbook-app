@@ -2587,6 +2587,7 @@ import { calculateTotalTax } from '../utils/taxCalculator'
 const AUDIT_BATCH_SIZE = 50
 const AUDIT_COOLDOWN_MS = 5 * 60 * 1000 // 5 minutes between runs per user
 const SNOOZE_DAYS = 30
+const GEMINI_CLIENT_TIMEOUT_MS = 45000
 
 async function callGeminiAudit(systemPrompt, userText) {
   // Routed through /api/gemini serverless proxy so the Gemini API key
@@ -2599,25 +2600,49 @@ async function callGeminiAudit(systemPrompt, userText) {
     throw e
   }
 
-  const response = await fetch('/api/gemini', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: 'Bearer ' + accessToken,
-    },
-    body: JSON.stringify({
-      action: 'generate',
-      prompt: userText,
-      systemInstruction: systemPrompt,
-      generationConfig: {
-        temperature: 0.2,
-        responseMimeType: 'application/json',
+  // Client-side safety timeout. Server retries add up to ~8s of backoff;
+  // 45s caps total wait when upstream is wedged.
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), GEMINI_CLIENT_TIMEOUT_MS)
+
+  let response
+  try {
+    response = await fetch('/api/gemini', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + accessToken,
       },
-    }),
-  })
+      signal: controller.signal,
+      body: JSON.stringify({
+        action: 'generate',
+        prompt: userText,
+        systemInstruction: systemPrompt,
+        generationConfig: {
+          temperature: 0.2,
+          responseMimeType: 'application/json',
+        },
+      }),
+    })
+  } catch (err) {
+    clearTimeout(timeoutId)
+    if (err && err.name === 'AbortError') {
+      const e = new Error('Gemini client timeout')
+      e.code = 'UNAVAILABLE'
+      e.retryable = true
+      throw e
+    }
+    throw err
+  }
+  clearTimeout(timeoutId)
 
   if (!response.ok) {
     const errText = await response.text().catch(() => '')
+    let errBody = null
+    try { errBody = errText ? JSON.parse(errText) : null } catch { errBody = null }
+    const retryableFlag = errBody && typeof errBody.retryable === 'boolean'
+      ? errBody.retryable
+      : null
     if (response.status === 401) {
       const e = new Error('\u041d\u0443\u0436\u043d\u0430 \u043f\u043e\u0432\u0442\u043e\u0440\u043d\u0430\u044f \u0430\u0432\u0442\u043e\u0440\u0438\u0437\u0430\u0446\u0438\u044f')
       e.code = 'UNAUTHORIZED'
@@ -2627,15 +2652,29 @@ async function callGeminiAudit(systemPrompt, userText) {
       const retryAfter = response.headers.get('Retry-After') || ''
       const e = new Error('\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432, \u043f\u043e\u0434\u043e\u0436\u0434\u0438\u0442\u0435')
       e.code = 'RATE_LIMITED'
+      e.retryable = true
       if (retryAfter) e.retryAfter = Number(retryAfter)
       throw e
     }
-    if (response.status === 503) {
+    if (response.status === 503 || response.status === 502 || response.status === 504) {
       const e = new Error('AI \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d')
       e.code = 'UNAVAILABLE'
+      e.retryable = true
       throw e
     }
-    throw new Error('Gemini proxy error ' + response.status + ': ' + errText.slice(0, 200))
+    // Fall back on the proxy's retryable flag when available; otherwise
+    // treat 5xx as temporary and non-429 4xx as permanent.
+    const isServerError = response.status >= 500
+    const fallbackErr = new Error('Gemini proxy error ' + response.status + ': ' + errText.slice(0, 200))
+    if (retryableFlag === true || (retryableFlag === null && isServerError)) {
+      fallbackErr.code = 'UNAVAILABLE'
+      fallbackErr.retryable = true
+    } else {
+      fallbackErr.code = 'PERMANENT'
+      fallbackErr.retryable = false
+      fallbackErr.status = response.status
+    }
+    throw fallbackErr
   }
 
   const data = await response.json()

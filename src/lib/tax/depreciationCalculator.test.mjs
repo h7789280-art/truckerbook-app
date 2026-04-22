@@ -378,6 +378,109 @@ console.log('\n=== Calculator UI contract: sync + userOverride + slider (Scenari
   assertEq(big, 2_560_000, 'Slider: 2026 cap caps the max at $2,560,000 even when income and basis allow more')
 }
 
+console.log('\n=== Tax savings (income cap per strategy + effective rate) ===\n')
+
+// A flat 17% tax-of-net makes the expected savings easy to hand-verify.
+const flat17 = (net) => ({ totalTax: Math.max(net, 0) * 0.17 })
+
+// Test 1: at basis=$125k / income=$50k, MACRS year-1 deduction ($41,663) lives INSIDE
+// the income cap — so it's the only strategy whose savings stay below §50k × rate.
+// §179 / §179+Bonus / Bonus all saturate at income, producing identical year-1 savings.
+// This is the behavior the bug report called for (MACRS < §179/Bonus).
+const savingsY1 = compareStrategies({
+  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
+  costBasis: 125000,
+  section179Amount: 125000,
+  bonusRate: 1.0,
+  placedInServiceDate: '2026-03-15',
+  businessUsePct: 100,
+  taxOfNet: flat17,
+  netProfitBeforeDeduction: 50000,
+})
+const Y1_std = savingsY1.find(r => r.key === STRATEGY.STANDARD_MACRS)
+const Y1_s179 = savingsY1.find(r => r.key === STRATEGY.SECTION_179)
+const Y1_s179b = savingsY1.find(r => r.key === STRATEGY.SECTION_179_BONUS)
+const Y1_bonus = savingsY1.find(r => r.key === STRATEGY.BONUS_ONLY)
+
+assertNear(Y1_std.year1TaxSavings, 125000 * 0.3333 * 0.17, 0.5,
+  'Y1 savings (MACRS): min($41,663, $50k) × 0.17 = ~$7,083')
+assertNear(Y1_s179.year1TaxSavings, 50000 * 0.17, 0.5,
+  'Y1 savings (§179): capped by income $50k → $8,500')
+assertNear(Y1_s179b.year1TaxSavings, 50000 * 0.17, 0.5,
+  'Y1 savings (§179+Bonus): capped by income $50k → $8,500')
+assertNear(Y1_bonus.year1TaxSavings, 50000 * 0.17, 0.5,
+  'Y1 savings (Bonus only): capped by income $50k → $8,500')
+// The headline acceptance: MACRS strategies produce smaller Y1 savings than §179/Bonus.
+if (Y1_std.year1TaxSavings < Y1_s179.year1TaxSavings &&
+    Y1_std.year1TaxSavings < Y1_s179b.year1TaxSavings &&
+    Y1_std.year1TaxSavings < Y1_bonus.year1TaxSavings) {
+  passes++
+  console.log('  ok  Y1 savings: MACRS < §179 / §179+Bonus / Bonus')
+} else {
+  failures++
+  console.error('  FAIL Y1 savings: expected MACRS < §179/Bonus, got ',
+    Y1_std.year1TaxSavings, Y1_s179.year1TaxSavings, Y1_s179b.year1TaxSavings, Y1_bonus.year1TaxSavings)
+}
+
+// Test 2: lifetime savings. MACRS spreads the deduction over 4 tax years, so each
+// year captures another min(yearDeduction, income)×rate slice. §179+Bonus and Bonus
+// collapse to a single row, capped at Y1 income. So MACRS lifetime > §179+Bonus /
+// Bonus lifetime whenever basis > income (there's more value to be had from the tail).
+// We ignore NOL carryforward (IRC §172 80%) for MVP — noted in the UI disclaimer.
+const macrsLifetimeExpected = 0.17 * (
+  Math.min(125000 * 0.3333, 50000) +
+  Math.min(125000 * 0.4445, 50000) +
+  Math.min(125000 * 0.1481, 50000) +
+  Math.min(125000 * 0.0741, 50000)
+)
+assertNear(Y1_std.totalTaxSavings, macrsLifetimeExpected, 1,
+  'Lifetime savings (MACRS) sums 4 capped years ~$20,305')
+assertNear(Y1_s179b.totalTaxSavings, 50000 * 0.17, 0.5,
+  'Lifetime savings (§179+Bonus): single Y1 row, capped at $50k × 0.17 = $8,500')
+assertNear(Y1_bonus.totalTaxSavings, 50000 * 0.17, 0.5,
+  'Lifetime savings (Bonus only): single Y1 row, capped at $50k × 0.17 = $8,500')
+// Acceptance: MACRS lifetime > §179+Bonus lifetime (because income-cap at each year adds up).
+if (Y1_std.totalTaxSavings > Y1_s179b.totalTaxSavings &&
+    Y1_std.totalTaxSavings > Y1_bonus.totalTaxSavings) {
+  passes++
+  console.log('  ok  Lifetime savings: MACRS > §179+Bonus / Bonus')
+} else {
+  failures++
+  console.error('  FAIL Lifetime savings: expected MACRS > §179+Bonus / Bonus, got ',
+    Y1_std.totalTaxSavings, Y1_s179b.totalTaxSavings, Y1_bonus.totalTaxSavings)
+}
+
+// Test 3: savings scale linearly with the effective tax rate implied by taxOfNet.
+// The new formula uses baseTax/income as the effective rate, so if we swap the tax
+// function from 17% to 27% and hold everything else fixed, savings should scale by
+// 27/17. This is the property the DepreciationTab UI hint relies on — it reports
+// the same effective rate that compareStrategies uses to translate a capped
+// deduction dollar into a savings dollar.
+const flat27 = (net) => ({ totalTax: Math.max(net, 0) * 0.27 })
+const savingsHigh = compareStrategies({
+  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
+  costBasis: 125000,
+  section179Amount: 125000,
+  bonusRate: 1.0,
+  placedInServiceDate: '2026-03-15',
+  businessUsePct: 100,
+  taxOfNet: flat27,
+  netProfitBeforeDeduction: 50000,
+})
+const H_std = savingsHigh.find(r => r.key === STRATEGY.STANDARD_MACRS)
+const H_bonus = savingsHigh.find(r => r.key === STRATEGY.BONUS_ONLY)
+// At 27% rate: MACRS Y1 = $41,663 × 0.27 = $11,249 (not income-capped, y1 < income).
+assertNear(H_std.year1TaxSavings, 125000 * 0.3333 * 0.27, 0.5,
+  'Y1 savings (MACRS) at 27% rate = ~$11,249')
+// Bonus Y1 = $125k, capped at income $50k × 0.27 = $13,500.
+assertNear(H_bonus.year1TaxSavings, 50000 * 0.27, 0.5,
+  'Y1 savings (Bonus) at 27% rate = ~$13,500 (capped by income)')
+// Scaling invariant: savings at 27% / savings at 17% ≈ 27/17 for BOTH strategies.
+const ratioStd = H_std.year1TaxSavings / Y1_std.year1TaxSavings
+const ratioBonus = H_bonus.year1TaxSavings / Y1_bonus.year1TaxSavings
+assertNear(ratioStd, 27 / 17, 0.01, 'Y1 savings scales linearly with effective rate (MACRS)')
+assertNear(ratioBonus, 27 / 17, 0.01, 'Y1 savings scales linearly with effective rate (Bonus)')
+
 if (failures === 0) {
   console.log('\n✓ ALL ' + passes + ' ASSERTIONS PASSED')
   process.exit(0)

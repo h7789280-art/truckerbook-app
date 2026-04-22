@@ -8,6 +8,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { calculateTotalTax } from '../utils/taxCalculator'
+import { STATE_TAX_2026 } from '../utils/stateTaxData2026'
 import {
   ASSET_CLASS,
   ASSET_CLASS_TO_RECOVERY_PERIOD,
@@ -28,6 +29,13 @@ import {
 const LEGACY_SECTION_179_LIMIT = 1160000
 const MACRS_5 = [20, 32, 19.2, 11.52, 11.52, 5.76]
 const MACRS_7 = [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
+
+const FILING_SHORT = {
+  single: 'Single',
+  married_jointly: 'MFJ',
+  married_separately: 'MFS',
+  head_of_household: 'HoH',
+}
 
 function fmt(n) {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -502,13 +510,20 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
     (net) => calculateTotalTax(Math.max(net, 0), filingStatus, stateOfResidence || null)
   ), [filingStatus, stateOfResidence])
 
-  // User's current marginal federal rate (highest bracket entered on estimated taxable income).
-  const marginalFederalRate = useMemo(() => {
+  // Effective tax rate (federal + SE + state) on the user's entered net profit.
+  // This is what the depreciation calculator actually uses to translate a deduction
+  // dollar into savings — surfacing it here so the hint under the income field
+  // matches the math in the comparison table. Replaces the old "marginal federal
+  // bracket %" display, which confused users by pairing a bracket number with the
+  // "filing status" label, as if the two were related.
+  const effectiveRate = useMemo(() => {
     if (taxableIncomeNum <= 0) return 0
     const res = taxOfNet(taxableIncomeNum)
-    const last = res.bracketBreakdown?.[res.bracketBreakdown.length - 1]
-    return last ? last.rate : 0
+    return res.totalTax > 0 ? res.totalTax / taxableIncomeNum : 0
   }, [taxableIncomeNum, taxOfNet])
+
+  const stateName = stateOfResidence ? (STATE_TAX_2026[stateOfResidence]?.name || stateOfResidence) : null
+  const filingShort = FILING_SHORT[filingStatus] || filingStatus
 
   // Comparison of all 4 strategies.
   const comparison = useMemo(() => {
@@ -763,8 +778,8 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
               onChange={e => { setEstimatedTaxableIncome(e.target.value); setUserOverride(false) }} placeholder="0" style={inputStyle} />
             <div style={hintStyle}>
               {t('depreciation.taxableIncomeHint')}
-              {marginalFederalRate > 0 && (
-                <> — {Math.round(marginalFederalRate)}% {t('depreciation.filingStatusLabel').toLowerCase()}</>
+              {effectiveRate > 0 && (
+                <>. {t('depreciation.effectiveRateLabel')}: {Math.round(effectiveRate * 100)}% (federal + SE + state, {filingShort}{stateName ? ' ' + stateName : ''})</>
               )}
             </div>
           </div>

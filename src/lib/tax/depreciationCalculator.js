@@ -210,18 +210,32 @@ export function compareStrategies({
       : 0
     const section179Carryforward = Math.max(section179Requested - (section179Applied || 0), 0)
 
-    // Tax savings = tax(net) - tax(net - year1_deduction), ignoring any NOL carried to future years.
-    // "year1 savings without NOL" is honest: the NOL only helps in future years.
+    // Tax savings model (year 1 and lifetime): apply an income cap to each scheduled
+    // year's deduction separately, then multiply by the current-year effective tax rate
+    // (federal + SE + state, derived from taxOfNet on the pre-deduction income).
+    //
+    // Why not a two-tax-call tax(income) - tax(income - year1)? When year1 >> income for
+    // every strategy (basis of $500k, income of $50k), all four collapse to tax(income),
+    // masking the difference. The min(deduction, income) × rate form keeps MACRS (whose
+    // year-1 deduction may fit INSIDE income) distinguishable from §179/Bonus (which
+    // saturate at income). Excess above the cap becomes an NOL — tracked separately in
+    // nolYear1 and surfaced with a disclaimer; it's NOT double-counted here.
+    //
+    // Lifetime: sum the same capped formula across each scheduled year (Standard MACRS
+    // and Section 179 still have a MACRS tail — those extra years matter when annual
+    // income caps the deduction). For §179+Bonus / Bonus-only the schedule collapses to
+    // year 1, so lifetime savings == year-1 savings, with NOL carryforward upside noted
+    // in the UI disclaimer (§172 80% rule intentionally ignored for the MVP).
     let year1TaxSavings = 0
     let totalTaxSavings = 0
     if (typeof taxOfNet === 'function' && Number.isFinite(netProfitBeforeDeduction)) {
       const baseTax = taxOfNet(income).totalTax
-      const afterY1 = taxOfNet(Math.max(income - year1, 0)).totalTax
-      year1TaxSavings = Math.max(baseTax - afterY1, 0)
-      // Full-life savings: if you could deploy the whole lifetime deduction against income of this year.
-      // Honest approximation that lets the user compare strategies on equal footing.
-      const afterFull = taxOfNet(Math.max(income - totalOverLife, 0)).totalTax
-      totalTaxSavings = Math.max(baseTax - afterFull, 0)
+      const effectiveRate = income > 0 ? baseTax / income : 0
+      year1TaxSavings = Math.min(year1, income) * effectiveRate
+      totalTaxSavings = schedule.reduce(
+        (sum, r) => sum + Math.min(r.deduction, income) * effectiveRate,
+        0,
+      )
     }
 
     return {

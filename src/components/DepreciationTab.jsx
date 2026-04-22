@@ -21,7 +21,7 @@ import {
 import {
   buildStrategySchedule,
   compareStrategies,
-  recommendStrategy,
+  recommendStrategyLegacy as recommendStrategy,
   needsMidQuarterConvention,
   getMaxSection179Slider,
 } from '../lib/tax/depreciationCalculator'
@@ -560,6 +560,20 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
     if (strategy !== recommended.key) setStrategy(recommended.key)
   }, [recommended?.key, userOverride, priceNum, strategy])
 
+  // Auto-sync §179 slider on active-strategy / basis / income change (SPEC "Auto-sync"):
+  //   Only §179 / §179 + Bonus → slider = min(basis, $2.56M, max(0, income))
+  //   Standard MACRS / Only Bonus → slider = 0
+  useEffect(() => {
+    if (priceNum <= 0) return
+    const usesS179 = strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS
+    if (usesS179) {
+      const synced = Math.min(priceNum, SECTION_179_2026.maxDeduction, Math.max(taxableIncomeNum, 0))
+      setSection179Amount(String(synced))
+    } else {
+      setSection179Amount('0')
+    }
+  }, [strategy, priceNum, taxableIncomeNum])
+
   // Active strategy schedule (what the user has selected).
   // IRC §179(b)(3): Section 179 cannot exceed taxable business income for the year.
   // We cap it here so the schedule UI reflects what is actually deductible in Year 1.
@@ -959,7 +973,11 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
                   {showS179Breakdown && (
                     <div style={{ fontSize: '10px', color: theme.dim, marginTop: '3px', lineHeight: '1.35' }}>
                       {'Section 179: $' + fmtInt(item.section179Applied)}
-                      {item.section179Applied === 0 ? ' (' + t('depreciation.compareNoIncome') + ')' : ''}
+                      {item.section179Applied === 0
+                        ? (taxableIncomeNum === 0
+                            ? ' (' + t('depreciation.compareNoIncome') + ')'
+                            : ' (' + t('depreciation.compareSliderZero') + ')')
+                        : ''}
                       {' + MACRS: $' + fmtInt(item.year1MACRS)}
                     </div>
                   )}
@@ -1047,14 +1065,18 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
 
       {/* Current-year callout */}
       {activeSchedule.schedule.length > 0 && currentYearDeduction > 0 && (() => {
-        // §179 breakdown shows for the pure Section 179 strategy in year 1 so the
-        // user can see how the deduction splits between §179 (income-limited) and
-        // MACRS (residual). Reuses the same string format as the comparison table.
+        // §179 breakdown for the pure Section 179 strategy in year 1 — splits the
+        // year-1 deduction into its §179 and MACRS components. Zero-§179 case carries
+        // a reason: "no income" when income=0 (IRC §179(b)(3) blocks it entirely),
+        // otherwise "slider = 0" when the user explicitly zeroed the slider.
         const purchaseYear = placedInServiceDate ? placedInServiceDate.getUTCFullYear() : currentYear
         const isYear1 = currentYear === purchaseYear
         const s179Applied = activeSchedule.section179Applied || 0
         const year1MACRS = Math.max(currentYearDeduction - s179Applied, 0)
         const showS179Breakdown = strategy === STRATEGY.SECTION_179 && isYear1
+        const zeroReason = s179Applied === 0
+          ? (taxableIncomeNum === 0 ? t('depreciation.compareNoIncome') : t('depreciation.compareSliderZero'))
+          : null
         return (
           <div style={{
             ...card, textAlign: 'center',
@@ -1070,7 +1092,7 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
             {showS179Breakdown && (
               <div style={{ fontSize: '11px', color: theme.dim, marginTop: '6px', lineHeight: '1.4' }}>
                 {'Section 179: $' + fmtInt(s179Applied)}
-                {s179Applied === 0 ? ' (' + t('depreciation.compareNoIncome') + ')' : ''}
+                {zeroReason ? ' (' + zeroReason + ')' : ''}
                 {' + MACRS: $' + fmtInt(year1MACRS)}
               </div>
             )}

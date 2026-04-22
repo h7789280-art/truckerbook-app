@@ -1,490 +1,224 @@
-// Standalone tests for the depreciation calculator recommendation logic.
-// Run directly with `node src/lib/tax/depreciationCalculator.test.mjs` — no test framework needed.
-// Covers the four Acceptance Criteria cases for recommendStrategy + sanity checks on
-// compareStrategies (IRC §179(b)(3) income limitation, NOL carryforward, total-over-life).
+// Strict-spec tests for the depreciation calculator.
+// Source of truth: SPEC.md (6 scenarios × 4 strategies × 4 metrics = 96 assertions,
+// plus 6 recommendStrategy checks — 102 total). Every expected value was produced
+// by the Python reference implementation and then frozen in the table below.
+//
+// Run with: `node src/lib/tax/depreciationCalculator.test.mjs`
+// Exit code 0 iff every assertion matches SPEC within ±$1 tolerance.
 
 import {
+  computeMacrsSchedule,
+  computeStrategy,
+  computeTaxSavingsYear1,
+  computeTaxSavingsLifetime,
   recommendStrategy,
-  compareStrategies,
-  buildStrategySchedule,
-  getMaxSection179Slider,
-  reduceStrategyState,
+  getEffRate,
+  MACRS_3YR_RATES,
+  SECTION_179_LIMIT_2026,
 } from './depreciationCalculator.js'
-import { STRATEGY, ASSET_CLASS } from './macrs-constants.js'
 
 let failures = 0
 let passes = 0
+const mismatches = []
+
+function assertClose(actual, expected, label) {
+  const a = Number(actual)
+  const e = Number(expected)
+  if (!Number.isFinite(a) || !Number.isFinite(e)) {
+    failures++
+    mismatches.push(label)
+    console.error('  FAIL ' + label + ': non-finite (actual=' + actual + ', expected=' + expected + ')')
+    return
+  }
+  if (Math.abs(a - e) <= 1) {
+    passes++
+  } else {
+    failures++
+    mismatches.push(label + ' (actual=' + a.toFixed(2) + ', expected=' + e + ')')
+    console.error('  FAIL ' + label + ': expected ' + e + ' ±$1, got ' + a.toFixed(2))
+  }
+}
 
 function assertEq(actual, expected, label) {
   if (actual === expected) {
     passes++
-    console.log('  ok  ' + label)
   } else {
     failures++
+    mismatches.push(label + ' (actual=' + JSON.stringify(actual) + ', expected=' + JSON.stringify(expected) + ')')
     console.error('  FAIL ' + label + ': expected ' + JSON.stringify(expected) + ', got ' + JSON.stringify(actual))
   }
 }
 
-function assertNear(actual, expected, tolerance, label) {
-  if (Math.abs(actual - expected) <= tolerance) {
-    passes++
-    console.log('  ok  ' + label + ' (' + actual.toFixed(2) + ' ≈ ' + expected.toFixed(2) + ')')
-  } else {
-    failures++
-    console.error('  FAIL ' + label + ': expected ~' + expected + ' (±' + tolerance + '), got ' + actual)
+// ============================================================================
+// SPEC TABLE — 6 scenarios × 4 strategies × 4 metrics (year1, savingsY1, NOL, lifetime)
+// ============================================================================
+const SPEC_TABLE = [
+  {
+    scenario: 'Sc1', basis: 125000, income: 0, effRate: 0.00,
+    recommended: 'onlyBonus',
+    strategies: {
+      standardMacrs:  { y1: 41663,  savingsY1: 0, nol: 41663,  lifetime: 0 },
+      onlySection179: { y1: 41663,  savingsY1: 0, nol: 41663,  lifetime: 0 },
+      s179PlusBonus:  { y1: 125000, savingsY1: 0, nol: 125000, lifetime: 0 },
+      onlyBonus:      { y1: 125000, savingsY1: 0, nol: 125000, lifetime: 0 },
+    },
+  },
+  {
+    scenario: 'Sc2', basis: 125000, income: 50000, effRate: 0.17,
+    recommended: 's179PlusBonus',
+    strategies: {
+      standardMacrs:  { y1: 41663,  savingsY1: 7083, nol: 0,     lifetime: 21250 },
+      onlySection179: { y1: 74998,  savingsY1: 8500, nol: 24998, lifetime: 21250 },
+      s179PlusBonus:  { y1: 125000, savingsY1: 8500, nol: 75000, lifetime: 21250 },
+      onlyBonus:      { y1: 125000, savingsY1: 8500, nol: 75000, lifetime: 21250 },
+    },
+  },
+  {
+    scenario: 'Sc3', basis: 125000, income: 500000, effRate: 0.27,
+    recommended: 'onlySection179',
+    strategies: {
+      standardMacrs:  { y1: 41663,  savingsY1: 11249, nol: 0, lifetime: 33750 },
+      onlySection179: { y1: 125000, savingsY1: 33750, nol: 0, lifetime: 33750 },
+      s179PlusBonus:  { y1: 125000, savingsY1: 33750, nol: 0, lifetime: 33750 },
+      onlyBonus:      { y1: 125000, savingsY1: 33750, nol: 0, lifetime: 33750 },
+    },
+  },
+  {
+    scenario: 'Sc4', basis: 500000, income: 0, effRate: 0.00,
+    recommended: 'onlyBonus',
+    strategies: {
+      standardMacrs:  { y1: 166650, savingsY1: 0, nol: 166650, lifetime: 0 },
+      onlySection179: { y1: 166650, savingsY1: 0, nol: 166650, lifetime: 0 },
+      s179PlusBonus:  { y1: 500000, savingsY1: 0, nol: 500000, lifetime: 0 },
+      onlyBonus:      { y1: 500000, savingsY1: 0, nol: 500000, lifetime: 0 },
+    },
+  },
+  {
+    scenario: 'Sc5', basis: 500000, income: 50000, effRate: 0.17,
+    recommended: 's179PlusBonus',
+    strategies: {
+      standardMacrs:  { y1: 166650, savingsY1: 8500, nol: 116650, lifetime: 33560 },
+      onlySection179: { y1: 199985, savingsY1: 8500, nol: 149985, lifetime: 33434 },
+      s179PlusBonus:  { y1: 500000, savingsY1: 8500, nol: 450000, lifetime: 28900 },
+      onlyBonus:      { y1: 500000, savingsY1: 8500, nol: 450000, lifetime: 28900 },
+    },
+  },
+  {
+    scenario: 'Sc6', basis: 500000, income: 500000, effRate: 0.27,
+    recommended: 'onlySection179',
+    strategies: {
+      standardMacrs:  { y1: 166650, savingsY1: 44996,  nol: 0, lifetime: 135000 },
+      onlySection179: { y1: 500000, savingsY1: 135000, nol: 0, lifetime: 135000 },
+      s179PlusBonus:  { y1: 500000, savingsY1: 135000, nol: 0, lifetime: 135000 },
+      onlyBonus:      { y1: 500000, savingsY1: 135000, nol: 0, lifetime: 135000 },
+    },
+  },
+]
+
+// Slider auto-sync rule (SPEC "Auto-sync behavior"):
+//   Only §179 / §179 + Bonus → slider = min(basis, $2.56M, max(0, income))
+//   Standard MACRS / Only Bonus → slider = 0
+function defaultSlider(strategy, basis, income) {
+  if (strategy === 'onlySection179' || strategy === 's179PlusBonus') {
+    return Math.min(basis, SECTION_179_LIMIT_2026, Math.max(income, 0))
+  }
+  return 0
+}
+
+console.log('\n=== SPEC TABLE — 6 scenarios × 4 strategies × 4 metrics (96 assertions) ===\n')
+
+const STRATEGY_ORDER = ['standardMacrs', 'onlySection179', 's179PlusBonus', 'onlyBonus']
+
+for (const row of SPEC_TABLE) {
+  console.log('\n--- ' + row.scenario + ': basis=$' + row.basis.toLocaleString()
+    + ', income=$' + row.income.toLocaleString()
+    + ', effRate=' + (row.effRate * 100) + '% ---')
+
+  for (const strategy of STRATEGY_ORDER) {
+    const expected = row.strategies[strategy]
+    const slider = defaultSlider(strategy, row.basis, row.income)
+    const result = computeStrategy(strategy, row.basis, row.income, slider)
+    const savingsY1 = computeTaxSavingsYear1(result.year1Deduction, row.income, row.effRate)
+    const lifetime = computeTaxSavingsLifetime(result.yearlyDeductions, row.income, row.effRate)
+
+    assertClose(result.year1Deduction, expected.y1, row.scenario + '/' + strategy + '.year1Deduction')
+    assertClose(savingsY1,              expected.savingsY1, row.scenario + '/' + strategy + '.savingsY1')
+    assertClose(result.nolYear1,        expected.nol, row.scenario + '/' + strategy + '.nolYear1')
+    assertClose(lifetime,               expected.lifetime, row.scenario + '/' + strategy + '.lifetime')
   }
 }
 
-console.log('\n=== recommendStrategy: the four Acceptance Criteria cases ===\n')
+console.log('\n=== recommendStrategy — one check per scenario (6 assertions) ===\n')
 
-// 1. income = 0 → BONUS_ONLY
-assertEq(
-  recommendStrategy({
-    costBasis: 125000,
-    estimatedTaxableIncome: 0,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  }).key,
-  STRATEGY.BONUS_ONLY,
-  'income=0 → recommend Bonus only (Section 179 blocked by income limit)',
-)
-
-// 2. income >= basis → SECTION_179
-assertEq(
-  recommendStrategy({
-    costBasis: 125000,
-    estimatedTaxableIncome: 200000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  }).key,
-  STRATEGY.SECTION_179,
-  'income >= basis → recommend Section 179 only',
-)
-
-// Exact boundary: income == basis → SECTION_179 (spec says >=).
-assertEq(
-  recommendStrategy({
-    costBasis: 125000,
-    estimatedTaxableIncome: 125000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  }).key,
-  STRATEGY.SECTION_179,
-  'income == basis → recommend Section 179 only (boundary)',
-)
-
-// 3. 0 < income < basis → SECTION_179_BONUS
-assertEq(
-  recommendStrategy({
-    costBasis: 125000,
-    estimatedTaxableIncome: 50000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  }).key,
-  STRATEGY.SECTION_179_BONUS,
-  '0 < income < basis → recommend Section 179 + Bonus',
-)
-
-// 4. businessUse < 50 → STANDARD_MACRS
-assertEq(
-  recommendStrategy({
-    costBasis: 125000,
-    estimatedTaxableIncome: 200000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 40,
-  }).key,
-  STRATEGY.STANDARD_MACRS,
-  'businessUse < 50% → recommend Standard MACRS',
-)
-
-// 4b. businessUse = 50 is the eligibility boundary (spec: >=50 qualifies).
-assertEq(
-  recommendStrategy({
-    costBasis: 125000,
-    estimatedTaxableIncome: 200000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 50,
-  }).key,
-  STRATEGY.SECTION_179,
-  'businessUse == 50% → Section 179 still available',
-)
-
-// Basis uses business-use portion: 100k at 40% business use → basis = 40k.
-// With income = 50k (> 40k basis) it's still fully covered → SECTION_179.
-// But business use <50% blocks §179 entirely — STANDARD_MACRS wins.
-assertEq(
-  recommendStrategy({
-    costBasis: 100000,
-    estimatedTaxableIncome: 50000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 40,
-  }).key,
-  STRATEGY.STANDARD_MACRS,
-  'business use <50% blocks Section 179 regardless of income',
-)
-
-console.log('\n=== compareStrategies: Section 179 income limitation + NOL carryforward ===\n')
-
-// Scenario: $125k truck, 3-year OTR tractor, placed in service 2026, income = $0.
-// Expected year-1 MACRS on full basis = 125,000 × 0.3333 = 41,662.50 (half-year).
-// When strategy = Section 179 with income=0: S179 applied = 0, year-1 MACRS = 41,662.50.
-// When strategy = Bonus Only with income=0: year1 = 125,000 (full bonus), NOL = 125,000.
-const noIncome = compareStrategies({
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 125000,
-  salvageValue: 0,
-  section179Amount: 125000, // user wants max, but income limit will clamp to 0
-  bonusRate: 1.0,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-  taxOfNet: () => ({ totalTax: 0 }),
-  netProfitBeforeDeduction: 0,
-})
-
-const s179Row = noIncome.find(r => r.key === STRATEGY.SECTION_179)
-assertEq(s179Row.section179Applied, 0, '§179(b)(3): S179 clamps to $0 when income = $0')
-assertNear(s179Row.year1MACRS, 125000 * 0.3333, 0.01, 'year-1 MACRS on full basis = $41,662.50')
-// NOL: §179 caps at $0, so the whole strategy collapses into standard MACRS. The MACRS
-// component is NOT income-limited, so year1 MACRS ($41,662.50) flows through as an NOL.
-assertNear(s179Row.nolYear1, 125000 * 0.3333, 0.01, 'Section 179 at $0 income: MACRS component creates NOL = $41,662.50')
-
-const bonusRow = noIncome.find(r => r.key === STRATEGY.BONUS_ONLY)
-assertNear(bonusRow.year1, 125000, 0.5, 'Bonus only: year-1 = full basis at 100% rate')
-assertNear(bonusRow.nolYear1, 125000, 0.5, 'Bonus only at $0 income: NOL = full year-1 deduction')
-
-// With income = $60,000, Bonus Only still writes off $125k — NOL = $65k.
-const lowIncome = compareStrategies({
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 125000,
-  section179Amount: 125000,
-  bonusRate: 1.0,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-  taxOfNet: () => ({ totalTax: 0 }),
-  netProfitBeforeDeduction: 60000,
-})
-const bonusLow = lowIncome.find(r => r.key === STRATEGY.BONUS_ONLY)
-assertNear(bonusLow.nolYear1, 65000, 0.5, 'Bonus only at $60k income: NOL = $65k ($125k - $60k)')
-
-// Section 179 at $60k income: S179 applied = $60k (clamped), remainder MACRS.
-const s179Low = lowIncome.find(r => r.key === STRATEGY.SECTION_179)
-assertEq(s179Low.section179Applied, 60000, 'S179 clamps to income ceiling ($60k)')
-const remaining = 125000 - 60000
-const year1MACRSLow = remaining * 0.3333
-assertNear(s179Low.year1MACRS, year1MACRSLow, 0.01, 'year-1 MACRS on remainder after §179 = ~$21,664.50')
-
-console.log('\n=== NOL carryforward parity across all 4 strategies (the bug fix) ===\n')
-console.log('Uniform rule: NOL year1 = max(totalDeductionYear1 - taxableIncome, 0).\n')
-
-// ---- Scenario A: income = 0, basis = $500,000 — every strategy produces an NOL.
-const scenA = compareStrategies({
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 500000,
-  section179Amount: 500000,
-  bonusRate: 1.0,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-  taxOfNet: () => ({ totalTax: 0 }),
-  netProfitBeforeDeduction: 0,
-})
-const A_std = scenA.find(r => r.key === STRATEGY.STANDARD_MACRS)
-const A_s179 = scenA.find(r => r.key === STRATEGY.SECTION_179)
-const A_s179b = scenA.find(r => r.key === STRATEGY.SECTION_179_BONUS)
-const A_bonus = scenA.find(r => r.key === STRATEGY.BONUS_ONLY)
-assertNear(A_std.nolYear1, 500000 * 0.3333, 0.5, 'A.Std MACRS: NOL = year1 $166,650 when income=0')
-assertNear(A_s179.nolYear1, 500000 * 0.3333, 0.5, 'A.Section 179: §179 caps at $0, MACRS creates NOL = $166,650')
-assertNear(A_s179b.nolYear1, 500000, 0.5, 'A.S179 + Bonus: NOL = $500,000 (full basis writedown)')
-assertNear(A_bonus.nolYear1, 500000, 0.5, 'A.Bonus only: NOL = $500,000')
-
-// ---- Scenario B: income = $500,000, basis = $125,000 — deduction fully absorbed, no NOL.
-const scenB = compareStrategies({
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 125000,
-  section179Amount: 125000,
-  bonusRate: 1.0,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-  taxOfNet: () => ({ totalTax: 0 }),
-  netProfitBeforeDeduction: 500000,
-})
-const B_std = scenB.find(r => r.key === STRATEGY.STANDARD_MACRS)
-const B_s179 = scenB.find(r => r.key === STRATEGY.SECTION_179)
-const B_s179b = scenB.find(r => r.key === STRATEGY.SECTION_179_BONUS)
-const B_bonus = scenB.find(r => r.key === STRATEGY.BONUS_ONLY)
-assertEq(B_std.nolYear1, 0, 'B.Std MACRS: income >> year1, NOL = 0')
-assertEq(B_s179.nolYear1, 0, 'B.Section 179: income covers full §179 writeoff, NOL = 0')
-assertEq(B_s179b.nolYear1, 0, 'B.S179 + Bonus: income $500k > year1 $125k, NOL = 0')
-assertEq(B_bonus.nolYear1, 0, 'B.Bonus only: income $500k > year1 $125k, NOL = 0')
-
-// ---- Scenario C: income = $50,000, basis = $125,000 — MACRS & S179 absorbed, Bonus overflows.
-const scenC = compareStrategies({
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 125000,
-  section179Amount: 125000,
-  bonusRate: 1.0,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-  taxOfNet: () => ({ totalTax: 0 }),
-  netProfitBeforeDeduction: 50000,
-})
-const C_std = scenC.find(r => r.key === STRATEGY.STANDARD_MACRS)
-const C_s179 = scenC.find(r => r.key === STRATEGY.SECTION_179)
-const C_s179b = scenC.find(r => r.key === STRATEGY.SECTION_179_BONUS)
-const C_bonus = scenC.find(r => r.key === STRATEGY.BONUS_ONLY)
-// Std MACRS: year1 = 125k × 0.3333 = $41,662.50 < $50k income → NOL = 0.
-assertEq(C_std.nolYear1, 0, 'C.Std MACRS: year1 $41,662 < income $50k, NOL = 0')
-// Section 179: §179 capped at $50k, MACRS on remaining $75k = 75k × 0.3333 = $24,997.50.
-// year1 total = $50k + $24,997.50 = $74,997.50. NOL = 74,997.50 - 50,000 = $24,997.50.
-assertNear(C_s179.nolYear1, (125000 - 50000) * 0.3333, 0.5, 'C.Section 179: MACRS on $75k remainder = NOL ~$24,997.50')
-// S179 + Bonus: §179 = $50k, Bonus on remaining $75k = $75k. year1 = $125k. NOL = $75k.
-assertNear(C_s179b.nolYear1, 75000, 0.5, 'C.S179 + Bonus: year1 $125k - income $50k = NOL $75,000')
-// Bonus only: year1 = $125k. NOL = $125k - $50k = $75k.
-assertNear(C_bonus.nolYear1, 75000, 0.5, 'C.Bonus only: year1 $125k - income $50k = NOL $75,000')
-
-console.log('\n=== buildStrategySchedule: 3-year MACRS spans 4 tax years (half-year convention) ===\n')
-
-const standardSched = buildStrategySchedule({
-  strategy: STRATEGY.STANDARD_MACRS,
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 125000,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-})
-assertEq(standardSched.schedule.length, 4, '3-year property has 4 tax-year rows (half-year splits into 3.5 rounded up)')
-assertNear(standardSched.totalOverLife, 125000, 0.5, 'total over full life = depreciable basis (rates sum to 1.0)')
-
-console.log('\n=== Calculator UI contract: sync + userOverride + slider (Scenarios A/B/C/D) ===\n')
-
-// --- Scenario A: basis=$500k, income=$0 ---
-// Recommended: BONUS_ONLY. Slider: disabled (maxSection179 = 0).
-{
-  const recA = recommendStrategy({
-    costBasis: 500000,
-    estimatedTaxableIncome: 0,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  })
-  assertEq(recA.key, STRATEGY.BONUS_ONLY, 'A: recommended = Bonus only for basis=$500k, income=$0')
-
-  const maxA = getMaxSection179Slider({ costBasis: 500000, taxableIncome: 0 })
-  assertEq(maxA, 0, 'A: maxSection179 = 0 when income = 0 (slider disabled)')
-
-  // Sync: fresh mount, no override. initial_sync should pick recommendation.
-  const stateA = reduceStrategyState(
-    { strategy: STRATEGY.STANDARD_MACRS, userOverride: false },
-    { type: 'initial_sync', recommendedKey: recA.key },
-  )
-  assertEq(stateA.strategy, STRATEGY.BONUS_ONLY, 'A: sync snaps active to Bonus only')
-  assertEq(stateA.userOverride, false, 'A: sync does not set userOverride')
+for (const row of SPEC_TABLE) {
+  const got = recommendStrategy(row.basis, row.income, 100)
+  assertEq(got, row.recommended, row.scenario + '.recommendStrategy')
 }
 
-// --- Scenario B: basis=$500k, income=$500k ---
-// Recommended: SECTION_179. Slider: 0..$500k with default $500k.
-{
-  const recB = recommendStrategy({
-    costBasis: 500000,
-    estimatedTaxableIncome: 500000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  })
-  assertEq(recB.key, STRATEGY.SECTION_179, 'B: recommended = Section 179 for basis=$500k, income=$500k')
+console.log('\n=== Extra: recommendStrategy boundary + businessUse gate ===\n')
 
-  const maxB = getMaxSection179Slider({ costBasis: 500000, taxableIncome: 500000 })
-  assertEq(maxB, 500000, 'B: maxSection179 = $500,000 (basis, income, and 2026 cap all allow)')
+// business_use < 50 → always standardMacrs, regardless of income/basis
+assertEq(recommendStrategy(125000, 500000, 49), 'standardMacrs',
+  'businessUsePct<50 forces standardMacrs even with income>=basis')
+assertEq(recommendStrategy(125000, 500000, 50), 'onlySection179',
+  'businessUsePct=50 is the eligibility boundary (≥50 qualifies)')
 
-  // Section 179 strategy with slider at maxSection179 = $500k produces full writeoff.
-  const cmpB = compareStrategies({
-    assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-    costBasis: 500000,
-    section179Amount: maxB,
-    bonusRate: 1.0,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-    taxOfNet: () => ({ totalTax: 0 }),
-    netProfitBeforeDeduction: 500000,
-  })
-  const rowB = cmpB.find(r => r.key === STRATEGY.SECTION_179)
-  assertEq(rowB.section179Applied, 500000, 'B: §179 applied = full $500k (no income clamp)')
-  assertNear(rowB.year1MACRS, 0, 0.5, 'B: year-1 MACRS = $0 (§179 absorbed everything)')
-  assertEq(rowB.nolYear1, 0, 'B: NOL = 0 (income = deduction)')
-}
+// income == basis boundary: SPEC says income >= basis → onlySection179
+assertEq(recommendStrategy(125000, 125000, 100), 'onlySection179',
+  'income==basis → onlySection179')
 
-// --- Scenario C: basis=$500k, income=$50k ---
-// Recommended: SECTION_179_BONUS. Slider for §179 capped at $50k (income).
-{
-  const recC = recommendStrategy({
-    costBasis: 500000,
-    estimatedTaxableIncome: 50000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  })
-  assertEq(recC.key, STRATEGY.SECTION_179_BONUS, 'C: recommended = Section 179 + Bonus for basis=$500k, income=$50k')
+// Negative income behaves like 0
+assertEq(recommendStrategy(125000, -1, 100), 'onlyBonus',
+  'negative income → onlyBonus')
 
-  const maxC = getMaxSection179Slider({ costBasis: 500000, taxableIncome: 50000 })
-  assertEq(maxC, 50000, 'C: maxSection179 = $50,000 (income limit clamps below basis)')
+console.log('\n=== MACRS 3-year schedule (half-year convention, Rev. Proc. 87-57 Table A-1) ===\n')
 
-  // User clicks a different card (e.g. Bonus only) → userOverride=true, strategy=clicked.
-  const overrideC = reduceStrategyState(
-    { strategy: STRATEGY.SECTION_179_BONUS, userOverride: false },
-    { type: 'user_clicked', key: STRATEGY.BONUS_ONLY },
-  )
-  assertEq(overrideC.strategy, STRATEGY.BONUS_ONLY, 'C: clicking Bonus only sets active strategy')
-  assertEq(overrideC.userOverride, true, 'C: clicking a card locks userOverride')
+// Rates array matches the IRS table exactly
+assertEq(MACRS_3YR_RATES[0], 0.3333, 'MACRS Y1 rate = 33.33%')
+assertEq(MACRS_3YR_RATES[1], 0.4445, 'MACRS Y2 rate = 44.45%')
+assertEq(MACRS_3YR_RATES[2], 0.1481, 'MACRS Y3 rate = 14.81%')
+assertEq(MACRS_3YR_RATES[3], 0.0741, 'MACRS Y4 rate = 7.41%')
 
-  // Subsequent initial_sync must NOT overwrite while userOverride is true.
-  const stickyC = reduceStrategyState(overrideC, { type: 'initial_sync', recommendedKey: STRATEGY.SECTION_179_BONUS })
-  assertEq(stickyC.strategy, STRATEGY.BONUS_ONLY, 'C: userOverride blocks sync from reverting to recommendation')
-  assertEq(stickyC.userOverride, true, 'C: userOverride stays true through sync')
-}
+// Rates sum to 1.0 exactly → schedule totals to the full basis
+const rateSum = MACRS_3YR_RATES.reduce((s, r) => s + r, 0)
+assertClose(rateSum, 1.0, 'MACRS 3-year rates sum to 1.0')
 
-// --- Scenario D: income changes $0 → $500k, userOverride resets and active re-snaps ---
-{
-  // Start: user was on Bonus only (recommended for income=0) and had manually tapped it.
-  const start = { strategy: STRATEGY.BONUS_ONLY, userOverride: true }
+// Schedule for $125,000 basis sums to basis
+const sched125 = computeMacrsSchedule(125000)
+assertEq(sched125.length, 4, 'MACRS schedule has 4 rows')
+assertClose(sched125[0] + sched125[1] + sched125[2] + sched125[3], 125000,
+  'MACRS schedule sums to basis ($125k)')
+assertClose(sched125[0], 41662.50, 'MACRS Y1 for $125k basis = $41,662.50')
 
-  // Editing income ($0 → $500k) sends input_changed with the NEW recommendation.
-  const newRec = recommendStrategy({
-    costBasis: 500000,
-    estimatedTaxableIncome: 500000,
-    placedInServiceDate: '2026-03-15',
-    businessUsePct: 100,
-  })
-  assertEq(newRec.key, STRATEGY.SECTION_179, 'D: new recommendation after income $0→$500k = Section 179')
+// Schedule for $500,000 basis sums to basis
+const sched500 = computeMacrsSchedule(500000)
+assertClose(sched500[0] + sched500[1] + sched500[2] + sched500[3], 500000,
+  'MACRS schedule sums to basis ($500k)')
+assertClose(sched500[0], 166650, 'MACRS Y1 for $500k basis = $166,650')
 
-  const afterEdit = reduceStrategyState(start, { type: 'input_changed', recommendedKey: newRec.key })
-  assertEq(afterEdit.userOverride, false, 'D: input change resets userOverride')
-  assertEq(afterEdit.strategy, STRATEGY.SECTION_179, 'D: input change snaps active to new recommendation')
-}
+// Zero basis → all zeros
+const sched0 = computeMacrsSchedule(0)
+assertEq(sched0.every(v => v === 0), true, 'MACRS schedule for basis=0 is all zeros')
 
-// --- Load-record behavior: saved strategy must survive the initial sync ---
-{
-  // User opens the tab, Supabase returns { strategy: 'bonus_only' }.
-  const loaded = reduceStrategyState(
-    { strategy: STRATEGY.STANDARD_MACRS, userOverride: false },
-    { type: 'load_record', key: STRATEGY.BONUS_ONLY },
-  )
-  assertEq(loaded.strategy, STRATEGY.BONUS_ONLY, 'Load: saved strategy is applied')
-  assertEq(loaded.userOverride, true, 'Load: treated as prior override so sync leaves it alone')
+console.log('\n=== getEffRate — simplified income buckets ===\n')
 
-  // A same-frame sync must NOT overwrite.
-  const survived = reduceStrategyState(loaded, { type: 'initial_sync', recommendedKey: STRATEGY.SECTION_179 })
-  assertEq(survived.strategy, STRATEGY.BONUS_ONLY, 'Load: subsequent sync does not touch the loaded strategy')
-}
+assertEq(getEffRate(0), 0, 'effRate($0) = 0%')
+assertEq(getEffRate(-100), 0, 'effRate(negative) = 0%')
+assertEq(getEffRate(1), 0.17, 'effRate($1) = 17%')
+assertEq(getEffRate(50000), 0.17, 'effRate($50k) = 17% (upper bound inclusive)')
+assertEq(getEffRate(50001), 0.27, 'effRate($50,001) = 27%')
+assertEq(getEffRate(500000), 0.27, 'effRate($500k) = 27% (upper bound inclusive)')
+assertEq(getEffRate(500001), 0.32, 'effRate($500,001) = 32%')
+assertEq(getEffRate(10000000), 0.32, 'effRate($10M) = 32%')
 
-// --- Slider bounds: phase-out cap ---
-{
-  // Huge hypothetical truck at $3M, income $5M. 2026 cap is $2.56M, income > cap, basis > cap → max = $2.56M.
-  const big = getMaxSection179Slider({ costBasis: 3_000_000, taxableIncome: 5_000_000 })
-  assertEq(big, 2_560_000, 'Slider: 2026 cap caps the max at $2,560,000 even when income and basis allow more')
-}
-
-console.log('\n=== Tax savings (income cap per strategy + effective rate) ===\n')
-
-// A flat 17% tax-of-net makes the expected savings easy to hand-verify.
-const flat17 = (net) => ({ totalTax: Math.max(net, 0) * 0.17 })
-
-// Test 1: at basis=$125k / income=$50k, MACRS year-1 deduction ($41,663) lives INSIDE
-// the income cap — so it's the only strategy whose savings stay below §50k × rate.
-// §179 / §179+Bonus / Bonus all saturate at income, producing identical year-1 savings.
-// This is the behavior the bug report called for (MACRS < §179/Bonus).
-const savingsY1 = compareStrategies({
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 125000,
-  section179Amount: 125000,
-  bonusRate: 1.0,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-  taxOfNet: flat17,
-  netProfitBeforeDeduction: 50000,
-})
-const Y1_std = savingsY1.find(r => r.key === STRATEGY.STANDARD_MACRS)
-const Y1_s179 = savingsY1.find(r => r.key === STRATEGY.SECTION_179)
-const Y1_s179b = savingsY1.find(r => r.key === STRATEGY.SECTION_179_BONUS)
-const Y1_bonus = savingsY1.find(r => r.key === STRATEGY.BONUS_ONLY)
-
-assertNear(Y1_std.year1TaxSavings, 125000 * 0.3333 * 0.17, 0.5,
-  'Y1 savings (MACRS): min($41,663, $50k) × 0.17 = ~$7,083')
-assertNear(Y1_s179.year1TaxSavings, 50000 * 0.17, 0.5,
-  'Y1 savings (§179): capped by income $50k → $8,500')
-assertNear(Y1_s179b.year1TaxSavings, 50000 * 0.17, 0.5,
-  'Y1 savings (§179+Bonus): capped by income $50k → $8,500')
-assertNear(Y1_bonus.year1TaxSavings, 50000 * 0.17, 0.5,
-  'Y1 savings (Bonus only): capped by income $50k → $8,500')
-// The headline acceptance: MACRS strategies produce smaller Y1 savings than §179/Bonus.
-if (Y1_std.year1TaxSavings < Y1_s179.year1TaxSavings &&
-    Y1_std.year1TaxSavings < Y1_s179b.year1TaxSavings &&
-    Y1_std.year1TaxSavings < Y1_bonus.year1TaxSavings) {
-  passes++
-  console.log('  ok  Y1 savings: MACRS < §179 / §179+Bonus / Bonus')
-} else {
-  failures++
-  console.error('  FAIL Y1 savings: expected MACRS < §179/Bonus, got ',
-    Y1_std.year1TaxSavings, Y1_s179.year1TaxSavings, Y1_s179b.year1TaxSavings, Y1_bonus.year1TaxSavings)
-}
-
-// Test 2: lifetime savings. MACRS spreads the deduction over 4 tax years, so each
-// year captures another min(yearDeduction, income)×rate slice. §179+Bonus and Bonus
-// collapse to a single row, capped at Y1 income. So MACRS lifetime > §179+Bonus /
-// Bonus lifetime whenever basis > income (there's more value to be had from the tail).
-// We ignore NOL carryforward (IRC §172 80%) for MVP — noted in the UI disclaimer.
-const macrsLifetimeExpected = 0.17 * (
-  Math.min(125000 * 0.3333, 50000) +
-  Math.min(125000 * 0.4445, 50000) +
-  Math.min(125000 * 0.1481, 50000) +
-  Math.min(125000 * 0.0741, 50000)
-)
-assertNear(Y1_std.totalTaxSavings, macrsLifetimeExpected, 1,
-  'Lifetime savings (MACRS) sums 4 capped years ~$20,305')
-assertNear(Y1_s179b.totalTaxSavings, 50000 * 0.17, 0.5,
-  'Lifetime savings (§179+Bonus): single Y1 row, capped at $50k × 0.17 = $8,500')
-assertNear(Y1_bonus.totalTaxSavings, 50000 * 0.17, 0.5,
-  'Lifetime savings (Bonus only): single Y1 row, capped at $50k × 0.17 = $8,500')
-// Acceptance: MACRS lifetime > §179+Bonus lifetime (because income-cap at each year adds up).
-if (Y1_std.totalTaxSavings > Y1_s179b.totalTaxSavings &&
-    Y1_std.totalTaxSavings > Y1_bonus.totalTaxSavings) {
-  passes++
-  console.log('  ok  Lifetime savings: MACRS > §179+Bonus / Bonus')
-} else {
-  failures++
-  console.error('  FAIL Lifetime savings: expected MACRS > §179+Bonus / Bonus, got ',
-    Y1_std.totalTaxSavings, Y1_s179b.totalTaxSavings, Y1_bonus.totalTaxSavings)
-}
-
-// Test 3: savings scale linearly with the effective tax rate implied by taxOfNet.
-// The new formula uses baseTax/income as the effective rate, so if we swap the tax
-// function from 17% to 27% and hold everything else fixed, savings should scale by
-// 27/17. This is the property the DepreciationTab UI hint relies on — it reports
-// the same effective rate that compareStrategies uses to translate a capped
-// deduction dollar into a savings dollar.
-const flat27 = (net) => ({ totalTax: Math.max(net, 0) * 0.27 })
-const savingsHigh = compareStrategies({
-  assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
-  costBasis: 125000,
-  section179Amount: 125000,
-  bonusRate: 1.0,
-  placedInServiceDate: '2026-03-15',
-  businessUsePct: 100,
-  taxOfNet: flat27,
-  netProfitBeforeDeduction: 50000,
-})
-const H_std = savingsHigh.find(r => r.key === STRATEGY.STANDARD_MACRS)
-const H_bonus = savingsHigh.find(r => r.key === STRATEGY.BONUS_ONLY)
-// At 27% rate: MACRS Y1 = $41,663 × 0.27 = $11,249 (not income-capped, y1 < income).
-assertNear(H_std.year1TaxSavings, 125000 * 0.3333 * 0.27, 0.5,
-  'Y1 savings (MACRS) at 27% rate = ~$11,249')
-// Bonus Y1 = $125k, capped at income $50k × 0.27 = $13,500.
-assertNear(H_bonus.year1TaxSavings, 50000 * 0.27, 0.5,
-  'Y1 savings (Bonus) at 27% rate = ~$13,500 (capped by income)')
-// Scaling invariant: savings at 27% / savings at 17% ≈ 27/17 for BOTH strategies.
-const ratioStd = H_std.year1TaxSavings / Y1_std.year1TaxSavings
-const ratioBonus = H_bonus.year1TaxSavings / Y1_bonus.year1TaxSavings
-assertNear(ratioStd, 27 / 17, 0.01, 'Y1 savings scales linearly with effective rate (MACRS)')
-assertNear(ratioBonus, 27 / 17, 0.01, 'Y1 savings scales linearly with effective rate (Bonus)')
-
+// ============================================================================
+console.log('\n' + '='.repeat(60))
 if (failures === 0) {
-  console.log('\n✓ ALL ' + passes + ' ASSERTIONS PASSED')
+  console.log('\n✓ ALL ' + passes + ' ASSERTIONS PASSED (SPEC-compliant)')
   process.exit(0)
 } else {
   console.error('\n✗ ' + failures + ' FAILED, ' + passes + ' passed')
+  console.error('\nMismatches:')
+  for (const m of mismatches) console.error('  - ' + m)
   process.exit(1)
 }

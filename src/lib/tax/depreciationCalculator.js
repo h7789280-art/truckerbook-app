@@ -266,7 +266,7 @@ export function compareStrategies({
  *
  * depreciableBasis = costBasis × (businessUsePct / 100)
  */
-export function recommendStrategy({
+export function recommendStrategyLegacy({
   costBasis,
   estimatedTaxableIncome,
   placedInServiceDate: _placedInServiceDate,
@@ -461,4 +461,222 @@ export function reduceStrategyState(state, event) {
     default:
       return state
   }
+}
+
+// =============================================================================
+// SPEC-compliant pure calculators.
+//
+// These implement the exact formulas from SPEC.md (the 6×4×4 reference table).
+// The new functions use camelCase strategy keys ('standardMacrs', 'onlySection179',
+// 's179PlusBonus', 'onlyBonus') and plain positional arguments so they're trivial
+// to test. They coexist with the object-argument helpers above; the React UI
+// continues to use compareStrategies / buildStrategySchedule, while tests and any
+// new logic should prefer the compute* functions here.
+// =============================================================================
+
+// IRS Rev. Proc. 87-57 Table A-1 — MACRS 3-year property, half-year convention.
+// Sum is exactly 1.0000.
+export const MACRS_3YR_RATES = [0.3333, 0.4445, 0.1481, 0.0741]
+
+// Rev. Proc. 2025-32 — §179 expense limit for tax year 2026.
+export const SECTION_179_LIMIT_2026 = 2_560_000
+
+// IRC §172 (post-TCJA) — NOL usage capped at 80% of taxable income.
+const NOL_USE_LIMIT = 0.80
+
+// Post-OBBBA (PL 119-21) bonus depreciation rate for property placed in service
+// after 2025-01-19 (which includes the SPEC-fixed purchase date 2026-04-11).
+const BONUS_RATE_POST_OBBBA = 1.00
+
+/**
+ * MACRS 3-year schedule (4 tax years under half-year convention).
+ * Any rounding residual is absorbed into the last year so the sum equals basis exactly.
+ *
+ * @param {number} basis
+ * @returns {[number, number, number, number]}
+ */
+export function computeMacrsSchedule(basis) {
+  const b = Math.max(Number(basis) || 0, 0)
+  if (b === 0) return [0, 0, 0, 0]
+  const y1 = b * MACRS_3YR_RATES[0]
+  const y2 = b * MACRS_3YR_RATES[1]
+  const y3 = b * MACRS_3YR_RATES[2]
+  const y4 = b - y1 - y2 - y3 // absorbs rounding residual
+  return [y1, y2, y3, y4]
+}
+
+/**
+ * Effective combined tax rate (federal + SE + state) used to translate a deduction
+ * dollar into a savings dollar. Matches the UI hint displayed under the income field.
+ *
+ * @param {number} income
+ * @returns {number} rate in [0, 1]
+ */
+export function getEffRate(income) {
+  const i = Number(income) || 0
+  if (i <= 0) return 0
+  if (i <= 50_000) return 0.17
+  if (i <= 500_000) return 0.27
+  return 0.32
+}
+
+/**
+ * Compute the year-1 deduction + full 4-year yearly deductions array for a given strategy.
+ *
+ * For §179 strategies, s179_applied = min(sliderValue, basis, §179 limit, max(0, income)).
+ * Per IRC §179(b)(3), §179 cannot exceed taxable business income — so the slider
+ * ceiling (auto-synced in the UI) is min(basis, $2.56M, max(0, income)).
+ *
+ * Bonus Depreciation (§168(k) post-OBBBA) is 100% on whatever basis remains after
+ * §179. It has NO income limitation, so the excess becomes an NOL under §172.
+ *
+ * @param {'standardMacrs'|'onlySection179'|'s179PlusBonus'|'onlyBonus'} strategy
+ * @param {number} basis
+ * @param {number} income
+ * @param {number} s179SliderValue
+ * @returns {{
+ *   year1Deduction: number,
+ *   yearlyDeductions: [number, number, number, number],
+ *   section179Applied: number,
+ *   macrsComponent: number,
+ *   nolYear1: number,
+ * }}
+ */
+export function computeStrategy(strategy, basis, income, s179SliderValue) {
+  const b = Math.max(Number(basis) || 0, 0)
+  const i = Math.max(Number(income) || 0, 0)
+
+  if (strategy === 'standardMacrs') {
+    const macrs = computeMacrsSchedule(b)
+    return {
+      year1Deduction: macrs[0],
+      yearlyDeductions: macrs,
+      section179Applied: 0,
+      macrsComponent: macrs[0],
+      nolYear1: Math.max(macrs[0] - i, 0),
+    }
+  }
+
+  if (strategy === 'onlyBonus') {
+    const y1 = b * BONUS_RATE_POST_OBBBA
+    return {
+      year1Deduction: y1,
+      yearlyDeductions: [y1, 0, 0, 0],
+      section179Applied: 0,
+      macrsComponent: 0,
+      nolYear1: Math.max(y1 - i, 0),
+    }
+  }
+
+  // §179 strategies share the IRC §179(b)(3) clamp.
+  const slider = Math.max(Number(s179SliderValue) || 0, 0)
+  const s179Applied = Math.min(slider, b, SECTION_179_LIMIT_2026, i)
+  const remaining = b - s179Applied
+
+  if (strategy === 'onlySection179') {
+    const macrsRem = computeMacrsSchedule(remaining)
+    const y1 = s179Applied + macrsRem[0]
+    return {
+      year1Deduction: y1,
+      yearlyDeductions: [y1, macrsRem[1], macrsRem[2], macrsRem[3]],
+      section179Applied: s179Applied,
+      macrsComponent: macrsRem[0],
+      nolYear1: Math.max(y1 - i, 0),
+    }
+  }
+
+  if (strategy === 's179PlusBonus') {
+    const bonus = remaining * BONUS_RATE_POST_OBBBA
+    const y1 = s179Applied + bonus
+    return {
+      year1Deduction: y1,
+      yearlyDeductions: [y1, 0, 0, 0],
+      section179Applied: s179Applied,
+      macrsComponent: 0,
+      nolYear1: Math.max(y1 - i, 0),
+    }
+  }
+
+  throw new Error('Unknown strategy: ' + strategy)
+}
+
+/**
+ * Year-1 tax savings: the deduction absorbed by current-year income × effective rate.
+ * Any overflow (NOL) is NOT counted here; it's tracked in computeTaxSavingsLifetime.
+ */
+export function computeTaxSavingsYear1(year1Ded, income, effRate) {
+  const ded = Math.max(Number(year1Ded) || 0, 0)
+  const i = Math.max(Number(income) || 0, 0)
+  const r = Number(effRate) || 0
+  return Math.min(ded, i) * r
+}
+
+/**
+ * Lifetime tax savings with NOL carryforward under the 80% §172 limit.
+ *
+ * For each scheduled year:
+ *   income_after_deduction = max(0, income - yearlyDed)
+ *   nol_used               = min(nol_carry, income_after_deduction * 0.80)
+ *   income_after_nol       = income_after_deduction - nol_used
+ *   nol_carry             -= nol_used
+ *   if yearlyDed > income: nol_carry += (yearlyDed - income)
+ *   savings               += (income - income_after_nol) * effRate
+ *
+ * Income is assumed equal across years (realistic planning, per SPEC fixed conditions).
+ */
+export function computeTaxSavingsLifetime(yearlyDeds, income, effRate) {
+  const i = Math.max(Number(income) || 0, 0)
+  const r = Number(effRate) || 0
+  if (r === 0 || i === 0) return 0
+  let nolCarry = 0
+  let total = 0
+  for (const d of yearlyDeds) {
+    const ded = Math.max(Number(d) || 0, 0)
+    const incomeAfterDed = Math.max(i - ded, 0)
+    const nolUsed = Math.min(nolCarry, incomeAfterDed * NOL_USE_LIMIT)
+    const incomeAfterNol = incomeAfterDed - nolUsed
+    nolCarry -= nolUsed
+    if (ded > i) nolCarry += (ded - i)
+    total += (i - incomeAfterNol) * r
+  }
+  return total
+}
+
+/**
+ * Strategy recommendation per SPEC.md "Strategy recommendation logic".
+ *
+ *   if business_use < 50%:       standardMacrs
+ *   elif income <= 0:            onlyBonus        // creates NOL carryforward
+ *   elif income >= basis:        onlySection179   // full deduction, simplest
+ *   else:                        s179PlusBonus    // §179 to cap, Bonus on remainder
+ *
+ * @param {number} basis
+ * @param {number} income
+ * @param {number} businessUsePct
+ * @returns {'standardMacrs'|'onlySection179'|'s179PlusBonus'|'onlyBonus'}
+ */
+export function recommendStrategy(basis, income, businessUsePct) {
+  const pct = Number(businessUsePct) || 0
+  if (pct < 50) return 'standardMacrs'
+  const b = Math.max(Number(basis) || 0, 0)
+  const i = Number(income) || 0
+  if (i <= 0) return 'onlyBonus'
+  if (i >= b) return 'onlySection179'
+  return 's179PlusBonus'
+}
+
+/** Map SPEC camelCase keys → existing STRATEGY.* snake_case keys (for the UI layer). */
+export const SPEC_TO_STRATEGY = {
+  standardMacrs: STRATEGY.STANDARD_MACRS,
+  onlySection179: STRATEGY.SECTION_179,
+  s179PlusBonus: STRATEGY.SECTION_179_BONUS,
+  onlyBonus: STRATEGY.BONUS_ONLY,
+}
+
+/** Reverse of SPEC_TO_STRATEGY. */
+export const STRATEGY_TO_SPEC = {
+  [STRATEGY.STANDARD_MACRS]: 'standardMacrs',
+  [STRATEGY.SECTION_179]: 'onlySection179',
+  [STRATEGY.SECTION_179_BONUS]: 's179PlusBonus',
+  [STRATEGY.BONUS_ONLY]: 'onlyBonus',
 }

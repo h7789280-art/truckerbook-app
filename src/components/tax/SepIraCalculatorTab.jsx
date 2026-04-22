@@ -22,6 +22,7 @@ import {
   addSepIraContribution,
   deleteSepIraContribution,
 } from '../../lib/api'
+import { getCurrentYearDeduction } from '../../lib/tax/depreciationCalculator'
 
 const ORANGE = '#f59e0b'
 const GREEN = '#10b981'
@@ -153,7 +154,7 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
         .lt('date', endPlusOne),
       supabase
         .from('vehicle_depreciation')
-        .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation')
+        .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
         .limit(1)
@@ -171,26 +172,10 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
         const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
         const pdTotal = perDiemResults.reduce((s, r) => s + (r?.totals?.total_amount || 0), 0)
 
-        // Depreciation
-        let depreciation = 0
-        const d = depRes?.data
-        if (d) {
-          const price = Number(d.purchase_price) || 0
-          const salvage = Number(d.salvage_value) || 0
-          const prior = Number(d.prior_depreciation) || 0
-          const basis = Math.max(price - salvage, 0)
-          const purchaseYear = d.purchase_date ? new Date(d.purchase_date).getFullYear() : year
-          if (d.depreciation_type === 'section179') {
-            depreciation = Math.max(Math.min(basis, 1160000) - prior, 0)
-            if (purchaseYear !== year) depreciation = 0
-          } else {
-            const rates = d.depreciation_type === 'macrs7'
-              ? [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
-              : [20, 32, 19.2, 11.52, 11.52, 5.76]
-            const idx = year - purchaseYear
-            if (idx >= 0 && idx < rates.length) depreciation = basis * (rates[idx] / 100)
-          }
-        }
+        // Shared helper: mirrors Schedule C / Estimated Tax / Tax Meter.
+        // Handles legacy (depreciation_type) and strategy-based records (MACRS 3-year
+        // class 00.26 tractors, bonus, §179). Single source of truth with Schedule C.
+        const depreciation = getCurrentYearDeduction(depRes?.data, year)
 
         const totalDed = fuelCost + vehExpCost + serviceCost + pdTotal + depreciation
 

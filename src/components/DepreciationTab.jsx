@@ -22,6 +22,7 @@ import {
   compareStrategies,
   recommendStrategy,
   needsMidQuarterConvention,
+  getMaxSection179Slider,
 } from '../lib/tax/depreciationCalculator'
 
 const LEGACY_SECTION_179_LIMIT = 1160000
@@ -368,7 +369,13 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
   const [filingStatus, setFilingStatus] = useState('single')
 
   // Strategy inputs.
+  // `strategy` tracks the active (highlighted) card. `userOverride` flips to true
+  // when the user explicitly picks a strategy or we load a saved record, so the
+  // sync-to-recommendation effect stops fighting them. Editing basis / income /
+  // businessUse resets userOverride (those are the inputs that change the
+  // recommendation, and the user's expectation is "new inputs ⇒ new guidance").
   const [strategy, setStrategy] = useState(STRATEGY.STANDARD_MACRS)
+  const [userOverride, setUserOverride] = useState(false)
   const [section179Amount, setSection179Amount] = useState('')
 
   // Persistence state.
@@ -438,7 +445,12 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
         if (data.primary_use) setPrimaryUse(data.primary_use)
         if (data.business_use_pct != null) setBusinessUsePct(String(data.business_use_pct))
         if (data.estimated_taxable_income != null) setEstimatedTaxableIncome(String(data.estimated_taxable_income))
-        if (data.strategy) setStrategy(data.strategy)
+        if (data.strategy) {
+          // Loaded record = user previously chose a strategy. Preserve that choice
+          // and suppress auto-sync until they edit basis/income/businessUse.
+          setStrategy(data.strategy)
+          setUserOverride(true)
+        }
         if (data.section_179_amount != null) setSection179Amount(String(data.section_179_amount))
       })
       .catch(() => {})
@@ -460,7 +472,17 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
   const salvageNum = Number(salvageValue) || 0
   const businessUseNum = Math.min(Math.max(Number(businessUsePct) || 0, 0), 100)
   const taxableIncomeNum = Number(estimatedTaxableIncome) || 0
-  const s179Input = Math.max(Number(section179Amount) || 0, 0)
+
+  // Slider upper bound incorporates IRC §179(b)(3) income limit: the deduction
+  // can never exceed taxable business income, so the slider reflects that.
+  const maxSection179 = getMaxSection179Slider({ costBasis: priceNum, taxableIncome: taxableIncomeNum })
+
+  // If the user hasn't touched the slider, default to the max allowed — that
+  // matches the user's expectation ("Section 179 writes off the full amount")
+  // and makes scenario B produce §179 = basis rather than §179 = 0.
+  const s179Input = section179Amount === ''
+    ? maxSection179
+    : Math.min(Math.max(Number(section179Amount) || 0, 0), Math.max(maxSection179, 0))
 
   // Section 179 phase-out applies if total qualifying purchases > $4.09M.
   // For a solo OP buying one truck this is the truck's own cost.
@@ -511,6 +533,17 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
     placedInServiceDate,
     businessUsePct: businessUseNum,
   }), [priceNum, taxableIncomeNum, placedInServiceDate, businessUseNum])
+
+  // Auto-sync active strategy to the recommendation. Skipped once the user has
+  // overridden the choice (either by tapping a card or by loading a saved
+  // record). onChange handlers for basis / income / businessUse reset
+  // userOverride so that editing inputs re-engages the sync.
+  useEffect(() => {
+    if (userOverride) return
+    if (!(priceNum > 0)) return
+    if (!recommended?.key) return
+    if (strategy !== recommended.key) setStrategy(recommended.key)
+  }, [recommended?.key, userOverride, priceNum, strategy])
 
   // Active strategy schedule (what the user has selected).
   // IRC §179(b)(3): Section 179 cannot exceed taxable business income for the year.
@@ -701,7 +734,7 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
           <div>
             <label style={labelStyle}>{t('depreciation.purchasePrice')} ($)</label>
             <input type="number" inputMode="decimal" value={purchasePrice}
-              onChange={e => setPurchasePrice(e.target.value)} placeholder="0" style={inputStyle} />
+              onChange={e => { setPurchasePrice(e.target.value); setUserOverride(false) }} placeholder="0" style={inputStyle} />
           </div>
           <div>
             <label style={labelStyle}>{t('depreciation.purchaseDate')}</label>
@@ -721,13 +754,13 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
           <div>
             <label style={labelStyle}>{t('depreciation.businessUsePct')}</label>
             <input type="number" inputMode="decimal" min="0" max="100" value={businessUsePct}
-              onChange={e => setBusinessUsePct(e.target.value)} placeholder="100" style={inputStyle} />
+              onChange={e => { setBusinessUsePct(e.target.value); setUserOverride(false) }} placeholder="100" style={inputStyle} />
             <div style={hintStyle}>{t('depreciation.businessUseHint')}</div>
           </div>
           <div>
             <label style={labelStyle}>{t('depreciation.taxableIncomeLabel')}</label>
             <input type="number" inputMode="decimal" value={estimatedTaxableIncome}
-              onChange={e => setEstimatedTaxableIncome(e.target.value)} placeholder="0" style={inputStyle} />
+              onChange={e => { setEstimatedTaxableIncome(e.target.value); setUserOverride(false) }} placeholder="0" style={inputStyle} />
             <div style={hintStyle}>
               {t('depreciation.taxableIncomeHint')}
               {marginalFederalRate > 0 && (
@@ -786,7 +819,7 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
                 <button
                   key={key}
                   disabled={locked}
-                  onClick={() => setStrategy(key)}
+                  onClick={() => { setStrategy(key); setUserOverride(true) }}
                   style={{
                     textAlign: 'left',
                     padding: '14px',
@@ -824,32 +857,48 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
         </div>
       )}
 
-      {/* Section 179 amount slider */}
-      {priceNum > 0 && (strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS) && businessUseEligible && (
-        <div style={card}>
-          <label style={labelStyle}>
-            {t('depreciation.section179Amount')}: <strong style={{ color: theme.text }}>${fmtInt(s179Effective)}</strong>
-          </label>
-          <input
-            type="range"
-            min="0"
-            max={Math.floor(Math.min(priceNum, SECTION_179_2026.maxDeduction))}
-            step="1000"
-            value={Math.min(s179Input, priceNum)}
-            onChange={e => setSection179Amount(e.target.value)}
-            style={{ width: '100%', accentColor: '#f59e0b' }}
-          />
-          <div style={{ ...hintStyle, display: 'flex', justifyContent: 'space-between' }}>
-            <span>{t('depreciation.section179Max2026')}</span>
-            <span>{t('depreciation.section179PhaseOut')}</span>
+      {/* Section 179 amount slider — capped at IRC §179(b)(3) income limit */}
+      {priceNum > 0 && (strategy === STRATEGY.SECTION_179 || strategy === STRATEGY.SECTION_179_BONUS) && businessUseEligible && (() => {
+        const disabled = maxSection179 === 0
+        const sliderValue = Math.min(s179Input, maxSection179)
+        return (
+          <div style={card}>
+            <label style={labelStyle}>
+              {t('depreciation.section179Amount')}: <strong style={{ color: theme.text }}>${fmtInt(sliderValue)}</strong>
+            </label>
+            <input
+              type="range"
+              min="0"
+              max={Math.max(Math.floor(maxSection179), 0)}
+              step="1000"
+              value={sliderValue}
+              disabled={disabled}
+              onChange={e => setSection179Amount(e.target.value)}
+              style={{
+                width: '100%',
+                accentColor: '#f59e0b',
+                opacity: disabled ? 0.5 : 1,
+                pointerEvents: disabled ? 'none' : 'auto',
+              }}
+            />
+            {disabled ? (
+              <div style={{ ...hintStyle, color: '#f59e0b', marginTop: '8px' }}>
+                {t('depreciation.section179IncomeDisabled')}
+              </div>
+            ) : (
+              <div style={{ ...hintStyle, display: 'flex', justifyContent: 'space-between' }}>
+                <span>{t('depreciation.section179Max2026')}</span>
+                <span>{t('depreciation.section179PhaseOut')}</span>
+              </div>
+            )}
+            {s179TooMuch && (
+              <div style={{ ...hintStyle, color: '#ef4444', marginTop: '8px' }}>
+                {'✗ '}{t('depreciation.errorSection179TooMuch')}
+              </div>
+            )}
           </div>
-          {s179TooMuch && (
-            <div style={{ ...hintStyle, color: '#ef4444', marginTop: '8px' }}>
-              {'✗ '}{t('depreciation.errorSection179TooMuch')}
-            </div>
-          )}
-        </div>
-      )}
+        )
+      })()}
 
       {/* Comparison table */}
       {comparison.length > 0 && (
@@ -982,20 +1031,37 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
       )}
 
       {/* Current-year callout */}
-      {activeSchedule.schedule.length > 0 && currentYearDeduction > 0 && (
-        <div style={{
-          ...card, textAlign: 'center',
-          background: 'rgba(245,158,11,0.08)',
-          border: '1px solid rgba(245,158,11,0.25)',
-        }}>
-          <div style={{ color: theme.dim, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
-            {t('depreciation.currentYearDeduction')} ({currentYear})
+      {activeSchedule.schedule.length > 0 && currentYearDeduction > 0 && (() => {
+        // §179 breakdown shows for the pure Section 179 strategy in year 1 so the
+        // user can see how the deduction splits between §179 (income-limited) and
+        // MACRS (residual). Reuses the same string format as the comparison table.
+        const purchaseYear = placedInServiceDate ? placedInServiceDate.getUTCFullYear() : currentYear
+        const isYear1 = currentYear === purchaseYear
+        const s179Applied = activeSchedule.section179Applied || 0
+        const year1MACRS = Math.max(currentYearDeduction - s179Applied, 0)
+        const showS179Breakdown = strategy === STRATEGY.SECTION_179 && isYear1
+        return (
+          <div style={{
+            ...card, textAlign: 'center',
+            background: 'rgba(245,158,11,0.08)',
+            border: '1px solid rgba(245,158,11,0.25)',
+          }}>
+            <div style={{ color: theme.dim, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+              {t('depreciation.currentYearDeduction')} ({currentYear})
+            </div>
+            <div style={{ color: '#f59e0b', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
+              ${fmt(currentYearDeduction)}
+            </div>
+            {showS179Breakdown && (
+              <div style={{ fontSize: '11px', color: theme.dim, marginTop: '6px', lineHeight: '1.4' }}>
+                {'Section 179: $' + fmtInt(s179Applied)}
+                {s179Applied === 0 ? ' (' + t('depreciation.compareNoIncome') + ')' : ''}
+                {' + MACRS: $' + fmtInt(year1MACRS)}
+              </div>
+            )}
           </div>
-          <div style={{ color: '#f59e0b', fontSize: '24px', fontWeight: 700, fontFamily: 'monospace' }}>
-            ${fmt(currentYearDeduction)}
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Schedule table */}
       {activeSchedule.schedule.length > 0 && (

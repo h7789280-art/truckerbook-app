@@ -400,3 +400,51 @@ export function checkSection179Eligibility({ businessUsePct }) {
   }
   return null
 }
+
+/**
+ * Slider upper bound for the Section 179 amount. The IRC §179(b)(3) income
+ * limitation clamps the deduction to taxable business income, so the slider
+ * itself must not exceed that ceiling. When income ≤ 0 the slider is
+ * effectively disabled (maxSection179 = 0) — callers should surface that to
+ * the user along with a pointer to Bonus Depreciation (which CAN create an NOL).
+ *
+ * maxSection179 = min(costBasis, 2026 §179 cap, max(0, taxableIncome))
+ */
+export function getMaxSection179Slider({ costBasis, taxableIncome, year = 2026 }) {
+  const basisN = Math.max(Number(costBasis) || 0, 0)
+  const incomeN = Math.max(Number(taxableIncome) || 0, 0)
+  const limits = year === 2026 ? SECTION_179_2026 : SECTION_179_2026
+  return Math.min(basisN, limits.maxDeduction, incomeN)
+}
+
+/**
+ * Reducer for the active-strategy / userOverride state machine used by
+ * DepreciationTab. Extracted so the sync logic is unit-testable.
+ *
+ * States: { strategy, userOverride }
+ * Events:
+ *   - { type: 'input_changed', recommendedKey } — basis/income/businessUse changed;
+ *     reset override and snap active to the new recommendation.
+ *   - { type: 'user_clicked', key }            — user tapped a strategy card;
+ *     lock userOverride and set active to the clicked key.
+ *   - { type: 'load_record', key }             — a saved record was read from DB;
+ *     treat like a prior user choice (userOverride = true).
+ *   - { type: 'initial_sync', recommendedKey } — sync effect firing without a
+ *     prior override (no-op on userOverride, just snaps strategy to recommendation).
+ */
+export function reduceStrategyState(state, event) {
+  if (!event) return state
+  switch (event.type) {
+    case 'input_changed':
+      return { strategy: event.recommendedKey, userOverride: false }
+    case 'user_clicked':
+      return { strategy: event.key, userOverride: true }
+    case 'load_record':
+      return { strategy: event.key, userOverride: true }
+    case 'initial_sync':
+      if (state.userOverride) return state
+      return { strategy: event.recommendedKey, userOverride: false }
+    default:
+      return state
+  }
+}

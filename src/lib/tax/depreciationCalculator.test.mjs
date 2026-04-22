@@ -7,6 +7,8 @@ import {
   recommendStrategy,
   compareStrategies,
   buildStrategySchedule,
+  getMaxSection179Slider,
+  reduceStrategyState,
 } from './depreciationCalculator.js'
 import { STRATEGY, ASSET_CLASS } from './macrs-constants.js'
 
@@ -250,6 +252,131 @@ const standardSched = buildStrategySchedule({
 })
 assertEq(standardSched.schedule.length, 4, '3-year property has 4 tax-year rows (half-year splits into 3.5 rounded up)')
 assertNear(standardSched.totalOverLife, 125000, 0.5, 'total over full life = depreciable basis (rates sum to 1.0)')
+
+console.log('\n=== Calculator UI contract: sync + userOverride + slider (Scenarios A/B/C/D) ===\n')
+
+// --- Scenario A: basis=$500k, income=$0 ---
+// Recommended: BONUS_ONLY. Slider: disabled (maxSection179 = 0).
+{
+  const recA = recommendStrategy({
+    costBasis: 500000,
+    estimatedTaxableIncome: 0,
+    placedInServiceDate: '2026-03-15',
+    businessUsePct: 100,
+  })
+  assertEq(recA.key, STRATEGY.BONUS_ONLY, 'A: recommended = Bonus only for basis=$500k, income=$0')
+
+  const maxA = getMaxSection179Slider({ costBasis: 500000, taxableIncome: 0 })
+  assertEq(maxA, 0, 'A: maxSection179 = 0 when income = 0 (slider disabled)')
+
+  // Sync: fresh mount, no override. initial_sync should pick recommendation.
+  const stateA = reduceStrategyState(
+    { strategy: STRATEGY.STANDARD_MACRS, userOverride: false },
+    { type: 'initial_sync', recommendedKey: recA.key },
+  )
+  assertEq(stateA.strategy, STRATEGY.BONUS_ONLY, 'A: sync snaps active to Bonus only')
+  assertEq(stateA.userOverride, false, 'A: sync does not set userOverride')
+}
+
+// --- Scenario B: basis=$500k, income=$500k ---
+// Recommended: SECTION_179. Slider: 0..$500k with default $500k.
+{
+  const recB = recommendStrategy({
+    costBasis: 500000,
+    estimatedTaxableIncome: 500000,
+    placedInServiceDate: '2026-03-15',
+    businessUsePct: 100,
+  })
+  assertEq(recB.key, STRATEGY.SECTION_179, 'B: recommended = Section 179 for basis=$500k, income=$500k')
+
+  const maxB = getMaxSection179Slider({ costBasis: 500000, taxableIncome: 500000 })
+  assertEq(maxB, 500000, 'B: maxSection179 = $500,000 (basis, income, and 2026 cap all allow)')
+
+  // Section 179 strategy with slider at maxSection179 = $500k produces full writeoff.
+  const cmpB = compareStrategies({
+    assetClass: ASSET_CLASS.SEMI_TRACTOR_OTR,
+    costBasis: 500000,
+    section179Amount: maxB,
+    bonusRate: 1.0,
+    placedInServiceDate: '2026-03-15',
+    businessUsePct: 100,
+    taxOfNet: () => ({ totalTax: 0 }),
+    netProfitBeforeDeduction: 500000,
+  })
+  const rowB = cmpB.find(r => r.key === STRATEGY.SECTION_179)
+  assertEq(rowB.section179Applied, 500000, 'B: §179 applied = full $500k (no income clamp)')
+  assertNear(rowB.year1MACRS, 0, 0.5, 'B: year-1 MACRS = $0 (§179 absorbed everything)')
+  assertEq(rowB.nolYear1, 0, 'B: NOL = 0 (income = deduction)')
+}
+
+// --- Scenario C: basis=$500k, income=$50k ---
+// Recommended: SECTION_179_BONUS. Slider for §179 capped at $50k (income).
+{
+  const recC = recommendStrategy({
+    costBasis: 500000,
+    estimatedTaxableIncome: 50000,
+    placedInServiceDate: '2026-03-15',
+    businessUsePct: 100,
+  })
+  assertEq(recC.key, STRATEGY.SECTION_179_BONUS, 'C: recommended = Section 179 + Bonus for basis=$500k, income=$50k')
+
+  const maxC = getMaxSection179Slider({ costBasis: 500000, taxableIncome: 50000 })
+  assertEq(maxC, 50000, 'C: maxSection179 = $50,000 (income limit clamps below basis)')
+
+  // User clicks a different card (e.g. Bonus only) → userOverride=true, strategy=clicked.
+  const overrideC = reduceStrategyState(
+    { strategy: STRATEGY.SECTION_179_BONUS, userOverride: false },
+    { type: 'user_clicked', key: STRATEGY.BONUS_ONLY },
+  )
+  assertEq(overrideC.strategy, STRATEGY.BONUS_ONLY, 'C: clicking Bonus only sets active strategy')
+  assertEq(overrideC.userOverride, true, 'C: clicking a card locks userOverride')
+
+  // Subsequent initial_sync must NOT overwrite while userOverride is true.
+  const stickyC = reduceStrategyState(overrideC, { type: 'initial_sync', recommendedKey: STRATEGY.SECTION_179_BONUS })
+  assertEq(stickyC.strategy, STRATEGY.BONUS_ONLY, 'C: userOverride blocks sync from reverting to recommendation')
+  assertEq(stickyC.userOverride, true, 'C: userOverride stays true through sync')
+}
+
+// --- Scenario D: income changes $0 → $500k, userOverride resets and active re-snaps ---
+{
+  // Start: user was on Bonus only (recommended for income=0) and had manually tapped it.
+  const start = { strategy: STRATEGY.BONUS_ONLY, userOverride: true }
+
+  // Editing income ($0 → $500k) sends input_changed with the NEW recommendation.
+  const newRec = recommendStrategy({
+    costBasis: 500000,
+    estimatedTaxableIncome: 500000,
+    placedInServiceDate: '2026-03-15',
+    businessUsePct: 100,
+  })
+  assertEq(newRec.key, STRATEGY.SECTION_179, 'D: new recommendation after income $0→$500k = Section 179')
+
+  const afterEdit = reduceStrategyState(start, { type: 'input_changed', recommendedKey: newRec.key })
+  assertEq(afterEdit.userOverride, false, 'D: input change resets userOverride')
+  assertEq(afterEdit.strategy, STRATEGY.SECTION_179, 'D: input change snaps active to new recommendation')
+}
+
+// --- Load-record behavior: saved strategy must survive the initial sync ---
+{
+  // User opens the tab, Supabase returns { strategy: 'bonus_only' }.
+  const loaded = reduceStrategyState(
+    { strategy: STRATEGY.STANDARD_MACRS, userOverride: false },
+    { type: 'load_record', key: STRATEGY.BONUS_ONLY },
+  )
+  assertEq(loaded.strategy, STRATEGY.BONUS_ONLY, 'Load: saved strategy is applied')
+  assertEq(loaded.userOverride, true, 'Load: treated as prior override so sync leaves it alone')
+
+  // A same-frame sync must NOT overwrite.
+  const survived = reduceStrategyState(loaded, { type: 'initial_sync', recommendedKey: STRATEGY.SECTION_179 })
+  assertEq(survived.strategy, STRATEGY.BONUS_ONLY, 'Load: subsequent sync does not touch the loaded strategy')
+}
+
+// --- Slider bounds: phase-out cap ---
+{
+  // Huge hypothetical truck at $3M, income $5M. 2026 cap is $2.56M, income > cap, basis > cap → max = $2.56M.
+  const big = getMaxSection179Slider({ costBasis: 3_000_000, taxableIncome: 5_000_000 })
+  assertEq(big, 2_560_000, 'Slider: 2026 cap caps the max at $2,560,000 even when income and basis allow more')
+}
 
 if (failures === 0) {
   console.log('\n✓ ALL ' + passes + ' ASSERTIONS PASSED')

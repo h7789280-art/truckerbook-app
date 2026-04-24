@@ -1,6 +1,27 @@
 import { renderPdfHeader, renderPdfFooter } from './pdfHeader.js'
 
 // ====== Shared Excel styling constants & helpers (ExcelJS) ======
+// US-locale money format: Excel renders "1,234.56" in en-US and "1 234,56" in
+// ru-RU, but both sides read the cell as a native number (so SUM works and
+// QuickBooks / TurboTax parse cleanly). Values must be stored as numbers.
+const US_NUMBER_FMT = '#,##0.00'
+
+const applyUsNumberFormatToSheet = (ws) => {
+  if (!ws) return
+  ws.eachRow({ includeEmpty: false }, (row) => {
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      if (typeof cell.value === 'number' && Number.isFinite(cell.value)) {
+        if (!cell.numFmt) cell.numFmt = US_NUMBER_FMT
+      }
+    })
+  })
+}
+
+const applyUsNumberFormatToWorkbook = (wb) => {
+  if (!wb || typeof wb.eachSheet !== 'function') return
+  wb.eachSheet((ws) => applyUsNumberFormatToSheet(ws))
+}
+
 const HEADER_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } }  // gray
 const HEADER_FONT = { bold: true, size: 11 }
 const HEADER_BORDER_BOTTOM = { bottom: { style: 'thin', color: { argb: 'FF999999' } } }
@@ -152,6 +173,7 @@ export async function exportToExcel(data, columns, filename, options) {
 
   styledAutoWidth(ws)
 
+  applyUsNumberFormatToWorkbook(wb)
   const buffer = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 }
@@ -281,6 +303,7 @@ export async function exportToExcelWithSummary(opts) {
 
   styledAutoWidth(ws2)
 
+  applyUsNumberFormatToWorkbook(wb)
   const buffer = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 }
@@ -415,6 +438,7 @@ export async function exportAllVehiclesExcel(opts) {
     styledAutoWidth(ws3)
   }
 
+  applyUsNumberFormatToWorkbook(wb)
   const buffer = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 }
@@ -461,7 +485,7 @@ export async function exportDriverReportExcel(opts) {
 
   const fmtNum = (n) => {
     if (n == null || isNaN(n)) return ''
-    return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+    return Number(Number(n).toFixed(2))
   }
 
   // ---- SHEET 1: Summary ----
@@ -622,6 +646,7 @@ export async function exportDriverReportExcel(opts) {
   }
 
   // Write file
+  applyUsNumberFormatToWorkbook(wb)
   const buffer = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 }
@@ -1018,6 +1043,7 @@ export async function exportFleetReportExcel(opts) {
   styledAutoWidth(ws6)
 
   // Write file
+  applyUsNumberFormatToWorkbook(wb)
   const buffer = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename)
 
@@ -1932,6 +1958,7 @@ export async function exportDriverFullReportExcel(opts) {
     }
     styledAutoWidth(wsPers)
 
+    applyUsNumberFormatToWorkbook(wb)
     const bufferO = await wb.xlsx.writeBuffer()
     saveAs(new Blob([bufferO], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename || 'full_report.xlsx')
     return
@@ -2167,6 +2194,7 @@ export async function exportDriverFullReportExcel(opts) {
   }
   styledAutoWidth(ws7)
 
+  applyUsNumberFormatToWorkbook(wb)
   const buffer = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }), filename || 'full_report.xlsx')
 }

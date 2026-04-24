@@ -136,6 +136,23 @@ async function pdfToBlob(doc) {
 }
 
 function wbToBlob(wb) {
+  // Force US-locale money format on all numeric cells (without clobbering
+  // explicit formats like '0.0%'). A US-locale CPA opens the file and sees
+  // "1,234.56"; a ru-RU user sees "1 234,56"; both sides parse as numbers.
+  for (const sheetName of wb.SheetNames || []) {
+    const ws = wb.Sheets[sheetName]
+    if (!ws || !ws['!ref']) continue
+    const range = XLSX.utils.decode_range(ws['!ref'])
+    for (let R = range.s.r; R <= range.e.r; R++) {
+      for (let C = range.s.c; C <= range.e.c; C++) {
+        const addr = XLSX.utils.encode_cell({ r: R, c: C })
+        const cell = ws[addr]
+        if (cell && cell.t === 'n' && !cell.z) {
+          cell.z = '#,##0.00'
+        }
+      }
+    }
+  }
   const out = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
   return new Blob([out], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
 }

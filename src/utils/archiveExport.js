@@ -419,6 +419,17 @@ export async function exportArchiveExcel({ docs, filterSlug, labels, lang, onPro
     }
   })
 
+  // Force US-locale money format on all numeric cells so a US-locale CPA sees
+  // "1,234.56" and SUM works — otherwise Excel renders native numbers via the
+  // opener's Windows locale (e.g. "1 234,56" in ru-RU).
+  ws.eachRow({ includeEmpty: false }, (row) => {
+    row.eachCell({ includeEmpty: false }, (cell) => {
+      if (typeof cell.value === 'number' && Number.isFinite(cell.value) && !cell.numFmt) {
+        cell.numFmt = '#,##0.00'
+      }
+    })
+  })
+
   throwIfAborted(signal)
   const arrayBuffer = await wb.xlsx.writeBuffer()
   const mime = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

@@ -226,10 +226,18 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
     [contributions]
   )
 
-  // Clamp slider when max changes
+  // Clamp slider to [totalContributed, maxContribution]. Also used to initialize
+  // the slider to the already-contributed amount on first load so the "savings"
+  // calculation reflects actual history, not a hypothetical $0.
   useEffect(() => {
-    setSliderAmount(prev => Math.min(prev, maxContribution))
-  }, [maxContribution])
+    setSliderAmount(prev => {
+      const floor = Math.min(totalContributed, maxContribution)
+      const ceil = maxContribution
+      if (prev < floor) return floor
+      if (prev > ceil) return ceil
+      return prev
+    })
+  }, [totalContributed, maxContribution])
 
   const savings = useMemo(
     () => calculateTaxSavings({
@@ -482,11 +490,15 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
             </div>
             <input
               type="range"
-              min={0}
+              min={Math.min(totalContributed, maxContribution)}
               max={maxContribution}
               step={500}
               value={sliderAmount}
-              onChange={e => setSliderAmount(parseInt(e.target.value, 10) || 0)}
+              onChange={e => {
+                const raw = parseInt(e.target.value, 10) || 0
+                const floor = Math.min(totalContributed, maxContribution)
+                setSliderAmount(Math.max(raw, floor))
+              }}
               style={{
                 width: '100%',
                 accentColor: ORANGE,
@@ -497,7 +509,7 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
               display: 'flex', justifyContent: 'space-between',
               fontSize: '11px', color: theme.dim, marginTop: '4px',
             }}>
-              <span>$0</span>
+              <span>${fmt(Math.min(totalContributed, maxContribution))}</span>
               <span>${fmt(maxContribution)}</span>
             </div>
             <div style={{
@@ -507,6 +519,36 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
                 color: ORANGE, fontWeight: 700, fontFamily: 'monospace',
               }}>{savings.marginalRate.toFixed(1)}%</span>
             </div>
+
+            {/* Contribution context: already contributed + room left */}
+            {totalContributed > 0 && (
+              <div style={{
+                marginTop: '10px',
+                padding: '10px 12px',
+                background: 'rgba(245,158,11,0.08)',
+                border: '1px solid rgba(245,158,11,0.25)',
+                borderRadius: '8px',
+                fontSize: '12px',
+                color: theme.text,
+                lineHeight: 1.5,
+              }}>
+                <div>
+                  {interpolate(t('sepIra.alreadyContributedInfo'), {
+                    total: fmt(totalContributed),
+                    pct: progressPct.toFixed(0),
+                    cap: fmt(maxContribution),
+                    remaining: fmt(Math.max(maxContribution - totalContributed, 0)),
+                  })}
+                </div>
+                {sliderAmount > totalContributed && (
+                  <div style={{ marginTop: '4px', color: ORANGE, fontWeight: 600 }}>
+                    {interpolate(t('sepIra.planningAddMore'), {
+                      extra: fmt(sliderAmount - totalContributed),
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* SAVINGS COMPARISON */}

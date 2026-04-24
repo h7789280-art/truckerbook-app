@@ -958,6 +958,13 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
             const showS179Breakdown = item.key === STRATEGY.SECTION_179
               && item.year1MACRS > 0
               && (item.section179Applied === 0 || item.section179Applied < s179Input)
+            // IRC §179(b)(3) income limitation blocks §179 entirely when income = 0.
+            // In that case "Только §179" Year-1 deduction == Standard MACRS — without
+            // an explicit indicator the user reads this as duplicate data. Highlight
+            // the row so they understand the §179 strategy simply doesn't apply here.
+            const s179IncomeBlocked = item.key === STRATEGY.SECTION_179
+              && item.section179Applied === 0
+              && taxableIncomeNum === 0
             return (
               <div key={item.key} style={{
                 display: 'grid', gridTemplateColumns: '1.5fr 0.9fr 0.9fr 0.9fr',
@@ -971,7 +978,13 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
                     {isRecommended && <span style={{ color: '#22c55e', marginLeft: '6px' }}>★</span>}
                   </div>
                   {showS179Breakdown && (
-                    <div style={{ fontSize: '10px', color: theme.dim, marginTop: '3px', lineHeight: '1.35' }}>
+                    <div style={{
+                      fontSize: s179IncomeBlocked ? '11px' : '10px',
+                      color: s179IncomeBlocked ? '#f59e0b' : theme.dim,
+                      fontWeight: s179IncomeBlocked ? 600 : 400,
+                      marginTop: '3px',
+                      lineHeight: '1.35',
+                    }}>
                       {'Section 179: $' + fmtInt(item.section179Applied)}
                       {item.section179Applied === 0
                         ? (taxableIncomeNum === 0
@@ -984,6 +997,20 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
                 </div>
                 <div style={{ fontSize: '12px', fontFamily: 'monospace', textAlign: 'right', color: '#ef4444' }}>
                   ${fmtInt(item.year1)}
+                  {s179IncomeBlocked && (
+                    <span
+                      title={t('depreciation.section179UnavailableTooltip')}
+                      aria-label={t('depreciation.section179UnavailableBadge')}
+                      style={{
+                        marginLeft: '4px',
+                        fontSize: '11px',
+                        color: '#f59e0b',
+                        cursor: 'help',
+                      }}
+                    >
+                      {'⚠'}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: '12px', fontFamily: 'monospace', textAlign: 'right', color: '#22c55e' }}>
                   ${fmtInt(item.year1TaxSavings)}

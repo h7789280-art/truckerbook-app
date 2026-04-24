@@ -4,12 +4,16 @@ import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import {
   fetchFuels, fetchTrips, fetchBytExpenses,
   fetchServiceRecords, fetchVehicleExpenses, getTireRecords,
+  fetchInsurance,
 } from '../lib/api'
+import { supabase } from '../lib/supabase'
 import {
   exportDriverFullReportExcel, exportDriverFullReportPDF,
   exportToExcel, exportToPDF,
   exportToExcelWithSummary,
 } from '../utils/export'
+import { computeCPMFromInputs } from '../lib/metrics/cpmCalculator'
+import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
 
 function fmt(n) {
   if (n == null || isNaN(n)) return '0'
@@ -43,6 +47,8 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
   const [vehicleExps, setVehicleExps] = useState([])
   const [serviceRecs, setServiceRecs] = useState([])
   const [tireRecs, setTireRecs] = useState([])
+  const [insuranceProRated, setInsuranceProRated] = useState(0)
+  const [depreciationProRated, setDepreciationProRated] = useState(0)
 
   const getDateRange = useCallback(() => {
     const now = new Date()
@@ -83,6 +89,50 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
       setVehicleExps(_vexp.filter(x => inRange(x.date)))
       setServiceRecs(_service.filter(x => inRange(x.date)))
       setTireRecs(_tires.filter(x => inRange(x.installed_at)))
+
+      // Insurance: pro-rate each active policy by overlap with the report period.
+      const DAY_MS = 24 * 60 * 60 * 1000
+      const periodStartMs = new Date(start + 'T00:00:00').getTime()
+      const periodEndMs = new Date(end + 'T23:59:59').getTime()
+      const daysInRange = Math.max(1, Math.round((periodEndMs - periodStartMs) / DAY_MS) + 1)
+      let insSum = 0
+      try {
+        const insRecs = await fetchInsurance(userId).catch(() => [])
+        for (const row of insRecs) {
+          const cost = Number(row?.cost) || 0
+          const fromStr = row?.date_from
+          const toStr = row?.date_to
+          if (!cost || !fromStr || !toStr) continue
+          const from = new Date(fromStr + 'T00:00:00').getTime()
+          const to = new Date(toStr + 'T23:59:59').getTime()
+          if (to <= from) continue
+          const ovStart = Math.max(from, periodStartMs)
+          const ovEnd = Math.min(to, periodEndMs)
+          if (ovEnd <= ovStart) continue
+          const totalDays = Math.max(Math.round((to - from) / DAY_MS), 1)
+          const ovDays = Math.max(Math.round((ovEnd - ovStart) / DAY_MS), 0)
+          insSum += cost * (ovDays / totalDays)
+        }
+      } catch { insSum = 0 }
+      setInsuranceProRated(insSum)
+
+      // Depreciation: pull the saved asset and pro-rate annual deduction by days in range.
+      let depSum = 0
+      try {
+        const currentYear = new Date().getFullYear()
+        const { data: depRow } = await supabase
+          .from('vehicle_depreciation')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (depRow) {
+          const annual = getCurrentYearDeduction(depRow, currentYear)
+          depSum = annual * (daysInRange / 365)
+        }
+      } catch { depSum = 0 }
+      setDepreciationProRated(depSum)
     } catch (err) {
       console.error('Reports load error:', err)
     } finally {
@@ -166,6 +216,8 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
     distance: t('trips.distance') || 'Distance',
     avgRatePerDist: t('overview.avgRateMile') || 'Avg rate',
     costPerDist: t('overview.costPerMile') || 'Cost per mile',
+    cpmVariable: t('cpm.variable.label') || 'Variable CPM',
+    cpmFullyLoaded: t('cpm.fullyLoaded.label') || 'Fully-loaded CPM',
     station: t('fuel.station') || 'Station',
     odometer: t('excel.odometer') || 'Odometer',
     category: t('excel.category') || 'Category',
@@ -183,11 +235,40 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
   }
 
   const reportRole = isOwner ? 'owner_operator' : (profile?.role || 'driver')
+
+  // Unified CPM calculation (Variable + Fully-loaded). Bucket vehicle_expenses
+  // by category so tolls/parking/payments don't silently inflate the variable
+  // line (which is the bug the legacy single "Cost per mile" row had).
+  const TOLL_CATS = new Set(['toll', 'platon'])
+  const PARKING_CATS = new Set(['parking'])
+  const PAYMENT_CATS = new Set(['lease', 'payment', 'loan_payment'])
+  const FUEL_CATS = new Set(['fuel', 'reefer'])
+  const tollsSum = vehicleExps.filter(e => TOLL_CATS.has(e.category)).reduce((s, e) => s + (e.amount || 0), 0)
+  const parkingSum = vehicleExps.filter(e => PARKING_CATS.has(e.category)).reduce((s, e) => s + (e.amount || 0), 0)
+  const truckPaymentSum = vehicleExps.filter(e => PAYMENT_CATS.has(e.category)).reduce((s, e) => s + (e.amount || 0), 0)
+  const otherVehicleMaintenance = vehicleExps
+    .filter(e => !FUEL_CATS.has(e.category) && !TOLL_CATS.has(e.category) && !PARKING_CATS.has(e.category) && !PAYMENT_CATS.has(e.category))
+    .reduce((s, e) => s + (e.amount || 0), 0)
+
+  const cpm = computeCPMFromInputs({
+    miles: totalDist,
+    fuel: fuelCost,
+    maintenance: serviceCost + tireCost + otherVehicleMaintenance,
+    tolls: tollsSum,
+    parking: parkingSum,
+    perDiem: 0,
+    insurance: insuranceProRated,
+    truckPayment: truckPaymentSum,
+    depreciationAnnual: depreciationProRated,
+    revenue: totalIncome,
+    period: 'year',
+  })
+
   const fullReportPayload = {
     period: periodLabel,
     cs, distLabel, volLabel, isImperial,
     trips, fuels, vehicleExps, bytExps, serviceRecs, tireRecs,
-    labels, role: reportRole,
+    labels, role: reportRole, cpm,
   }
 
   const runExport = async (key, fn) => {

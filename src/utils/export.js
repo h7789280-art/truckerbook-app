@@ -1681,7 +1681,7 @@ export async function exportDriverFullReportExcel(opts) {
   const {
     period, cs, distLabel, volLabel, isImperial,
     trips, fuels, vehicleExps, bytExps, serviceRecs, tireRecs,
-    labels, filename, role,
+    labels, filename, role, cpm,
   } = opts
 
   const L = labels || {}
@@ -1779,7 +1779,16 @@ export async function exportDriverFullReportExcel(opts) {
     addKVS((L.personalExpenses || 'Personal expenses') + ' (' + cs + ')', fmt(personalCost))
     addKVS((L.netInHand || 'Net in hand') + ' (' + cs + ')', fmt(netInHand))
     if (totalDist > 0) {
-      addKVS((L.costPerDist || 'Cost per mile') + ' (' + cs + '/' + distLabel + ')', Math.round(costPerDist * 100) / 100)
+      const variablePerMile = cpm?.variable?.perMile ?? costPerDist
+      const fullyLoadedPerMile = cpm?.fullyLoaded?.perMile ?? costPerDist
+      const rVar = wsS.addRow([(L.cpmVariable || 'Variable CPM') + ' (' + cs + '/' + distLabel + ')', variablePerMile])
+      rVar.getCell(1).font = { bold: true, size: 11 }
+      rVar.getCell(2).font = { size: 11 }
+      rVar.getCell(2).numFmt = '#,##0.000'
+      const rFull = wsS.addRow([(L.cpmFullyLoaded || 'Fully-loaded CPM') + ' (' + cs + '/' + distLabel + ')', fullyLoadedPerMile])
+      rFull.getCell(1).font = { bold: true, size: 11 }
+      rFull.getCell(2).font = { size: 11 }
+      rFull.getCell(2).numFmt = '#,##0.000'
     }
     if (mpg > 0) {
       addKVS('MPG', Math.round(mpg * 10) / 10)
@@ -1992,7 +2001,18 @@ export async function exportDriverFullReportExcel(opts) {
   ws1.addRow([])
   addKV('MPG', mpg > 0 ? Math.round(mpg * 10) / 10 : '')
   addKV((L.avgRatePerDist || 'Avg rate') + ' (' + cs + '/' + distLabel + ')', avgRatePerDist > 0 ? Math.round(avgRatePerDist * 100) / 100 : '')
-  addKV((L.costPerDist || 'Cost') + ' (' + cs + '/' + distLabel + ')', costPerDist > 0 ? Math.round(costPerDist * 100) / 100 : '')
+  if (totalDist > 0) {
+    const variablePerMile = cpm?.variable?.perMile ?? costPerDist
+    const fullyLoadedPerMile = cpm?.fullyLoaded?.perMile ?? costPerDist
+    const rVar = ws1.addRow([(L.cpmVariable || 'Variable CPM') + ' (' + cs + '/' + distLabel + ')', variablePerMile])
+    rVar.getCell(1).font = { bold: true, size: 11 }
+    rVar.getCell(2).font = { size: 11 }
+    rVar.getCell(2).numFmt = '#,##0.000'
+    const rFull = ws1.addRow([(L.cpmFullyLoaded || 'Fully-loaded CPM') + ' (' + cs + '/' + distLabel + ')', fullyLoadedPerMile])
+    rFull.getCell(1).font = { bold: true, size: 11 }
+    rFull.getCell(2).font = { size: 11 }
+    rFull.getCell(2).numFmt = '#,##0.000'
+  }
   ws1.getColumn(1).width = 36
   ws1.getColumn(2).width = 20
 

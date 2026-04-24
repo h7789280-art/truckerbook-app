@@ -6,6 +6,8 @@ import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchInsurance, fetchVehicleExpensesByMonth, fetchVehicleExpensesByDateRange, getActiveShift, startShift, endShift, getCompletedShifts, getShiftStats, getTodayShiftSummary, getVehicleShifts, startDrivingSession, endDrivingSession, fetchFleetSummary, fetchVehicleReport, fetchDriverReport, fetchAllDriversComparison, fetchFleetAnalytics, fetchDriversSalaryData, fetchAchievementStats, uploadOdometerPhoto, fetchFleetReportExportData, getCompanyDrivers, deactivateDriver, reactivateDriver, reassignVehicle, fetchPartResources, fetchLatestOdometer } from '../lib/api'
 import { calculatePartWear } from '../lib/partResourceCalc'
 import { getPresetByCategory } from '../lib/partResourcePresets'
+import { computeCPMFromInputs } from '../lib/metrics/cpmCalculator'
+import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
 import { exportToExcel, exportFleetReportExcel, exportFleetReportPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
@@ -132,6 +134,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [dashDriverPay, setDashDriverPay] = useState(0)
   const [dashPersonalExp, setDashPersonalExp] = useState(0)
   const [dashChartData, setDashChartData] = useState([]) // [{label, fullLabel, income, expense}]
+  const [dashCPM, setDashCPM] = useState(null)
 
   // Odometer card state (owner_operator only)
   const [ownerOdometer, setOwnerOdometer] = useState(null)
@@ -588,6 +591,79 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([key, vals]) => ({ label: getLabel(key), income: vals.income, expense: vals.expense }))
       setDashChartData(sorted)
+
+      // Unified CPM (Variable + Fully-loaded). Categorize vehicle_expenses by
+      // semantic buckets so tolls/parking/truck payments land in the right line
+      // of the formula — mixing them (as the legacy "Стоимость мили" did) gives
+      // the wrong answer for both cash-view and break-even analysis.
+      const TOLL_CATS = new Set(['toll', 'platon'])
+      const PARKING_CATS = new Set(['parking'])
+      const PAYMENT_CATS = new Set(['lease', 'payment', 'loan_payment'])
+      const FUEL_CATS = new Set(['fuel', 'reefer'])
+      const tollsSum = rangeVehicleExp.filter(e => TOLL_CATS.has(e.category)).reduce((s, e) => s + (e.amount || 0), 0)
+      const parkingSum = rangeVehicleExp.filter(e => PARKING_CATS.has(e.category)).reduce((s, e) => s + (e.amount || 0), 0)
+      const truckPaymentSum = rangeVehicleExp.filter(e => PAYMENT_CATS.has(e.category)).reduce((s, e) => s + (e.amount || 0), 0)
+      const otherVehicleMaintenance = rangeVehicleExp
+        .filter(e => !FUEL_CATS.has(e.category) && !TOLL_CATS.has(e.category) && !PARKING_CATS.has(e.category) && !PAYMENT_CATS.has(e.category))
+        .reduce((s, e) => s + (e.amount || 0), 0)
+
+      const DAY_MS = 24 * 60 * 60 * 1000
+      const periodStartMs = new Date(start + 'T00:00:00').getTime()
+      const periodEndMs = new Date(end + 'T23:59:59').getTime()
+      const daysInRange = Math.max(1, Math.round((periodEndMs - periodStartMs) / DAY_MS) + 1)
+
+      // Insurance — pro-rate each active policy by days of overlap with the dashboard period.
+      let insuranceProRated = 0
+      try {
+        const insRecs = await fetchInsurance(userId).catch(() => [])
+        for (const row of insRecs) {
+          const cost = Number(row?.cost) || 0
+          const fromStr = row?.date_from
+          const toStr = row?.date_to
+          if (!cost || !fromStr || !toStr) continue
+          const from = new Date(fromStr + 'T00:00:00').getTime()
+          const to = new Date(toStr + 'T23:59:59').getTime()
+          if (to <= from) continue
+          const ovStart = Math.max(from, periodStartMs)
+          const ovEnd = Math.min(to, periodEndMs)
+          if (ovEnd <= ovStart) continue
+          const totalDays = Math.max(Math.round((to - from) / DAY_MS), 1)
+          const ovDays = Math.max(Math.round((ovEnd - ovStart) / DAY_MS), 0)
+          insuranceProRated += cost * (ovDays / totalDays)
+        }
+      } catch { insuranceProRated = 0 }
+
+      // Depreciation — annual deduction from vehicle_depreciation, pro-rated by days in range.
+      let depreciationProRated = 0
+      try {
+        const currentYear = new Date().getFullYear()
+        const { data: depRow } = await supabase
+          .from('vehicle_depreciation')
+          .select('*')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+        if (depRow) {
+          const annual = getCurrentYearDeduction(depRow, currentYear)
+          depreciationProRated = annual * (daysInRange / 365)
+        }
+      } catch { depreciationProRated = 0 }
+
+      const cpm = computeCPMFromInputs({
+        miles: totalMiles,
+        fuel: fuelCostAll,
+        maintenance: serviceCostAll + otherVehicleMaintenance,
+        tolls: tollsSum,
+        parking: parkingSum,
+        perDiem: 0,
+        insurance: insuranceProRated,
+        truckPayment: truckPaymentSum,
+        depreciationAnnual: depreciationProRated,
+        revenue: totalIncome,
+        period: 'year',
+      })
+      setDashCPM(cpm)
     } catch (err) {
       console.error('loadDashData error:', err)
     } finally {
@@ -2682,7 +2758,6 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     const volUnit = unitSys === 'imperial' ? 'gal' : t('fuel.litersShort') || 'L'
                     const avgRate = dashTotalMiles > 0 ? (dashIncome / dashTotalMiles).toFixed(2) : '0.00'
                     const avgFuelPrice = dashTotalGallons > 0 ? (dashFuelCost / dashTotalGallons).toFixed(3) : '0.000'
-                    const costMile = dashTotalMiles > 0 ? (dashExpense / dashTotalMiles).toFixed(2) : '0.00'
                     const netRateMile = dashTotalMiles > 0 ? ((dashIncome - dashFuelCost) / dashTotalMiles).toFixed(2) : '0.00'
                     const netRateColor = dashFuelCost === 0 ? theme.dim : (parseFloat(netRateMile) >= 0 ? '#22c55e' : '#ef4444')
                     return (
@@ -2742,16 +2817,27 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                           </div>
                           <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{dash}</div>
                         </div>
-                        {/* Cost per Mile */}
-                        <div style={{ ...cardStyle, padding: '12px' }}>
+                        {/* Variable CPM */}
+                        <div style={{ ...cardStyle, padding: '12px' }} title={t('cpm.variable.tooltip')}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                             <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(239,68,68,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udcc9'}</div>
-                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('overview.costPerMile')}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('cpm.variable.label')}</div>
                           </div>
                           <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>
-                            {cs}{costMile}<span style={{ fontSize: '12px', fontWeight: 400 }}>/{distUnit}</span>
+                            {cs}{(dashCPM?.variable?.perMile || 0).toFixed(3)}<span style={{ fontSize: '12px', fontWeight: 400 }}>/{distUnit}</span>
                           </div>
-                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{formatNumber(dashTotalMiles)} {distUnit}</div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{t('cpm.variable.subtitle')}</div>
+                        </div>
+                        {/* Fully-loaded CPM */}
+                        <div style={{ ...cardStyle, padding: '12px' }} title={t('cpm.fullyLoaded.tooltip')}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                            <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(239,68,68,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '14px' }}>{'\ud83d\udcca'}</div>
+                            <div style={{ fontSize: '11px', color: theme.dim }}>{t('cpm.fullyLoaded.label')}</div>
+                          </div>
+                          <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 700, color: '#ef4444' }}>
+                            {cs}{(dashCPM?.fullyLoaded?.perMile || 0).toFixed(3)}<span style={{ fontSize: '12px', fontWeight: 400 }}>/{distUnit}</span>
+                          </div>
+                          <div style={{ fontSize: '11px', color: theme.dim, marginTop: '2px' }}>{t('cpm.fullyLoaded.subtitle')}</div>
                         </div>
                         {/* Net Rate per Mile */}
                         <div style={{ ...cardStyle, padding: '12px' }}>

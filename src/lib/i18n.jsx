@@ -2076,6 +2076,18 @@ const translations = {
       scanning: '\u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0451\u043c \u043d\u0430\u043a\u043b\u0430\u0434\u043d\u0443\u044e...',
       scanError: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c \u043d\u0430\u043a\u043b\u0430\u0434\u043d\u0443\u044e, \u0437\u0430\u043f\u043e\u043b\u043d\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043d\u0443\u044e',
     },
+    cpm: {
+      variable: {
+        label: '\u041f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u0430\u044f CPM',
+        subtitle: '\u0422\u043e\u043f\u043b\u0438\u0432\u043e, \u0440\u0435\u043c\u043e\u043d\u0442, per diem, tolls',
+        tooltip: '\u0427\u0442\u043e \u0442\u0440\u0430\u0442\u0438\u0442\u0441\u044f \u043f\u0440\u044f\u043c\u043e \u0437\u0430 \u043f\u0440\u043e\u0435\u0437\u0434. \u0415\u0441\u043b\u0438 \u0433\u0440\u0443\u0437\u043e\u0432\u0438\u043a \u0441\u0442\u043e\u0438\u0442 \u2014 \u044d\u0442\u0438\u0445 \u0440\u0430\u0441\u0445\u043e\u0434\u043e\u0432 \u043d\u0435\u0442.',
+      },
+      fullyLoaded: {
+        label: '\u041f\u043e\u043b\u043d\u0430\u044f \u0441\u0435\u0431\u0435\u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c',
+        subtitle: '+ \u0441\u0442\u0440\u0430\u0445\u043e\u0432\u043a\u0430, \u043f\u043b\u0430\u0442\u0435\u0436\u0438, \u0430\u043c\u043e\u0440\u0442\u0438\u0437\u0430\u0446\u0438\u044f',
+        tooltip: '\u0418\u0441\u0442\u0438\u043d\u043d\u0430\u044f \u0441\u0435\u0431\u0435\u0441\u0442\u043e\u0438\u043c\u043e\u0441\u0442\u044c \u043c\u0438\u043b\u0438. \u0415\u0441\u043b\u0438 \u0441\u0442\u0430\u0432\u043a\u0430 \u0431\u0440\u043e\u043a\u0435\u0440\u0430 \u043d\u0438\u0436\u0435 \u044d\u0442\u043e\u0439 \u0446\u0438\u0444\u0440\u044b \u2014 \u0440\u0435\u0439\u0441 \u0443\u0431\u044b\u0442\u043e\u0447\u043d\u044b\u0439, \u0434\u0430\u0436\u0435 \u0435\u0441\u043b\u0438 \u0432 \u043f\u043b\u044e\u0441 \u043f\u043e \u043a\u044d\u0448\u0443.',
+      },
+    },
   },
   en: {
     tabs: {
@@ -4147,6 +4159,18 @@ const translations = {
       scanHint: 'Or fill in manually below',
       scanning: 'Reading invoice...',
       scanError: 'Could not read invoice, please fill in manually',
+    },
+    cpm: {
+      variable: {
+        label: 'Variable CPM',
+        subtitle: 'Fuel, maintenance, per diem, tolls',
+        tooltip: "What you spend just to keep rolling. If the truck sits idle, these costs don't accrue.",
+      },
+      fullyLoaded: {
+        label: 'Fully-loaded CPM',
+        subtitle: '+ insurance, payments, depreciation',
+        tooltip: 'True cost per mile. If a broker rate is below this figure, the load loses money — even if cash-flow looks positive.',
+      },
     },
   },
   uk: {

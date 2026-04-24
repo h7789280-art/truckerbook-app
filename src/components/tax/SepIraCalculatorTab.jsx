@@ -170,7 +170,8 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
         const fuelCost = (fuelRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
         const vehExpCost = (vehExpRes.data || []).reduce((s, r) => s + (r.amount || 0), 0)
         const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
-        const pdTotal = perDiemResults.reduce((s, r) => s + (r?.totals?.total_amount || 0), 0)
+        // Net profit uses the 80% DOT HOS deductible — same number Schedule C uses.
+        const pdTotal = perDiemResults.reduce((s, r) => s + (r?.totals?.total_deductible || 0), 0)
 
         // Shared helper: mirrors Schedule C / Estimated Tax / Tax Meter.
         // Handles legacy (depreciation_type) and strategy-based records (MACRS 3-year

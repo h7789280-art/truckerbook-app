@@ -509,7 +509,7 @@ async function buildScheduleCPdf({ taxYear, profile, breakdown, incomeTotal, exp
   y = doc.lastAutoTable.finalY + 6
 
   const deductRows = [
-    ['Per Diem Deduction', fmtMoney(perDiemTotal)],
+    ['Per Diem Deduction (80% DOT HOS)', fmtMoney(perDiemTotal)],
     ['Truck Depreciation (MACRS / Sec 179)', fmtMoney(depreciation)],
     ['', ''],
     ['TOTAL DEDUCTIONS', fmtMoney(totals.totalDeductions)],
@@ -735,25 +735,24 @@ function buildMileageLogExcel({ mileage, totals }) {
   return wbToBlob(wb)
 }
 
-async function buildPerDiemPdf({ taxYear, quarters, totalAmount, totalFullDays, totalPartialDays, dailyRate }) {
+async function buildPerDiemPdf({ taxYear, quarters, totalGross, totalDeductible, totalFullDays, totalPartialDays, dailyRate }) {
   if (!quarters || quarters.every(q => q.trips.length === 0)) return null
   const { doc, y: startY } = await newBrandedPdf({
     title: 'Per Diem Summary',
-    subtitle: 'IRS Meals & Incidentals (Transportation Industry) \u2014 80% deductible',
+    subtitle: 'IRS Meals & Incidentals (Transportation Industry) \u2014 80% deductible (DOT HOS)',
     year: 'FY ' + taxYear,
   })
   const autoTable = (await import('jspdf-autotable')).default
-  const pageW = doc.internal.pageSize.getWidth()
   const margin = 14
   let y = startY
 
   doc.setFont('Roboto', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(60, 60, 60)
-  doc.text('Daily Rate: $' + dailyRate.toFixed(2) + ' (Transportation Industry, 2026)', margin, y); y += 5
+  doc.text('Daily Rate (gross): $' + Number(dailyRate).toFixed(2) + ' (IRS Notice 2025-54, transportation industry)', margin, y); y += 5
   doc.text('Total Full Days: ' + totalFullDays + '   Partial Days: ' + totalPartialDays, margin, y); y += 5
-  doc.text('Total Amount (100%): ' + fmtMoney(totalAmount), margin, y); y += 5
-  doc.text('Deductible (80%): ' + fmtMoney(totalAmount * 0.8), margin, y); y += 8
+  doc.text('Total Gross (100%): ' + fmtMoney(totalGross), margin, y); y += 5
+  doc.text('Deductible (80%): ' + fmtMoney(totalDeductible) + '   \u2190 amount on Schedule C', margin, y); y += 8
 
   for (const q of quarters) {
     if (q.trips.length === 0) continue
@@ -764,21 +763,25 @@ async function buildPerDiemPdf({ taxYear, quarters, totalAmount, totalFullDays, 
     doc.setFont('Roboto', 'bold')
     doc.setFontSize(11)
     doc.setTextColor(20, 20, 20)
-    doc.text('Q' + q.quarter + '  \u2014  Total: ' + fmtMoney(q.totals.total_amount), margin, y)
+    doc.text('Q' + q.quarter + '  \u2014  Deductible: ' + fmtMoney(q.totals.total_deductible), margin, y)
     y += 2
     autoTable(doc, {
       startY: y + 2,
-      head: [['Date', 'Origin \u2192 Destination', 'Full', 'Partial', 'Amount']],
+      head: [['Date', 'Origin \u2192 Destination', 'Full', 'Partial', 'Gross', 'Deductible']],
       body: q.trips.map(t => [
         t.date_start || '',
         (t.origin || '') + (t.origin && t.destination ? ' \u2192 ' : '') + (t.destination || ''),
         String(t.full_days),
         String(t.partial_days),
-        fmtMoney(t.amount),
+        fmtMoney(t.gross),
+        fmtMoney(t.deductible),
       ]),
       styles: { fontSize: 8, cellPadding: 2, font: 'Roboto' },
       headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: 'bold' },
-      columnStyles: { 4: { halign: 'right', cellWidth: 28 } },
+      columnStyles: {
+        4: { halign: 'right', cellWidth: 24 },
+        5: { halign: 'right', cellWidth: 28 },
+      },
       margin: { left: margin, right: margin, top: 30 },
       didDrawPage: (data) => {
         if (data.pageNumber > 1) {
@@ -791,9 +794,9 @@ async function buildPerDiemPdf({ taxYear, quarters, totalAmount, totalFullDays, 
   return pdfToBlob(doc)
 }
 
-function buildPerDiemExcel({ quarters, totalAmount, dailyRate }) {
+function buildPerDiemExcel({ quarters, totalGross, totalDeductible, dailyRate }) {
   if (!quarters || quarters.every(q => q.trips.length === 0)) return null
-  const headers = ['Quarter', 'Date Start', 'Date End', 'Origin', 'Destination', 'Full Days', 'Partial Days', 'Amount']
+  const headers = ['Quarter', 'Date Start', 'Date End', 'Origin', 'Destination', 'Full Days', 'Partial Days', 'Gross', 'Deductible (80%)']
   const rows = []
   for (const q of quarters) {
     for (const t of q.trips) {
@@ -805,20 +808,21 @@ function buildPerDiemExcel({ quarters, totalAmount, dailyRate }) {
         t.destination || '',
         t.full_days || 0,
         t.partial_days || 0,
-        Number(t.amount) || 0,
+        Number(t.gross) || 0,
+        Number(t.deductible) || 0,
       ])
     }
   }
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows])
   const footerStart = rows.length + 3
   XLSX.utils.sheet_add_aoa(ws, [
-    ['Daily Rate', dailyRate],
-    ['Total Amount (100%)', totalAmount],
-    ['Deductible (80%, TCJA)', totalAmount * 0.8],
+    ['Daily Rate (gross)', Number(dailyRate) || 0],
+    ['Total Gross (100%)', Number(totalGross) || 0],
+    ['Deductible (80%, DOT HOS)', Number(totalDeductible) || 0],
   ], { origin: `A${footerStart}` })
   ws['!cols'] = [
     { wch: 8 }, { wch: 12 }, { wch: 12 }, { wch: 18 }, { wch: 18 },
-    { wch: 10 }, { wch: 12 }, { wch: 12 },
+    { wch: 10 }, { wch: 12 }, { wch: 12 }, { wch: 16 },
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, 'Per Diem')
@@ -1189,7 +1193,7 @@ function buildReadmeTxt({
   lines.push('')
   lines.push('Gross income:                    ' + fmtMoney(grossIncome))
   lines.push('Schedule C expenses:             ' + fmtMoney(totalExpenses))
-  lines.push('Per Diem:                        ' + fmtMoney(perDiemTotal))
+  lines.push('Per Diem (80% deductible):       ' + fmtMoney(perDiemTotal))
   lines.push('Truck amortization:              ' + fmtMoney(amortization))
   lines.push('-----------------------------------------------')
   lines.push('NET PROFIT:                      ' + fmtMoney(netProfit))
@@ -1221,8 +1225,9 @@ function buildReadmeTxt({
     perDiem: [
       '03_per_diem_summary.pdf',
       '03_per_diem_summary.xlsx',
-      '    Per diem at the IRS transportation rate. Apply 80% TCJA limit',
-      '    on Schedule C if client is subject to DOT hours-of-service.',
+      '    Per diem at the IRS transportation rate (Notice 2025-54).',
+      '    Both GROSS and 80% DEDUCTIBLE shown. The Schedule C number',
+      '    above already uses the 80% deductible (DOT HOS, IRC §274(n)(3)).',
     ],
     amortization: [
       '04_amortization_schedule.pdf',
@@ -1381,19 +1386,19 @@ export async function generateTaxPackage({
     [1, 2, 3, 4].map(q =>
       calculatePerDiem({ supabase, userId, role, quarter: q, year: taxYear })
         .then(r => ({ quarter: q, ...r }))
-        .catch(() => ({ quarter: q, trips: [], totals: { total_amount: 0, total_full_days: 0, total_partial_days: 0, daily_rate: 80 } }))
+        .catch(() => ({ quarter: q, trips: [], totals: { total_gross: 0, total_deductible: 0, total_full_days: 0, total_partial_days: 0, daily_rate: 80 } }))
     )
   )
-  const perDiemTotal = quarterlyPerDiem.reduce((s, q) => s + (q.totals?.total_amount || 0), 0)
+  // Gross = full IRS allowance, Deductible = gross × 80% (DOT HOS, IRC §274(n)(3)).
+  // The DEDUCTIBLE — not the gross — is what flows into Schedule C and Net Profit.
+  // perDiemCalculator is the single source of truth, shared with TaxSummaryTab.
+  const perDiemGross = quarterlyPerDiem.reduce((s, q) => s + (q.totals?.total_gross || 0), 0)
+  const perDiemTotal = quarterlyPerDiem.reduce((s, q) => s + (q.totals?.total_deductible || 0), 0)
   const totalFullDays = quarterlyPerDiem.reduce((s, q) => s + (q.totals?.total_full_days || 0), 0)
   const totalPartialDays = quarterlyPerDiem.reduce((s, q) => s + (q.totals?.total_partial_days || 0), 0)
   const dailyRate = quarterlyPerDiem.find(q => q.totals?.daily_rate)?.totals?.daily_rate || 80
 
   const depreciation = computeDepreciationForYear(data.depreciation, taxYear)
-  // Match TaxSummaryTab: deduct per diem at 100%. The 80% TCJA limit is the
-  // strictly-correct IRS treatment, but keeping the two screens in sync is
-  // more important than re-litigating it in two places — CPA reviews the final
-  // return anyway.
   const totalDeductions = totalExpenses + perDiemTotal + depreciation
   const netProfit = income - totalDeductions
   const positiveNet = Math.max(netProfit, 0)
@@ -1487,12 +1492,14 @@ export async function generateTaxPackage({
       const blobPdf = await buildPerDiemPdf({
         taxYear,
         quarters: quarterlyPerDiem,
-        totalAmount: perDiemTotal,
+        totalGross: perDiemGross,
+        totalDeductible: perDiemTotal,
         totalFullDays, totalPartialDays, dailyRate,
       })
       const blobXls = buildPerDiemExcel({
         quarters: quarterlyPerDiem,
-        totalAmount: perDiemTotal,
+        totalGross: perDiemGross,
+        totalDeductible: perDiemTotal,
         dailyRate,
       })
       if (blobPdf) zip.file('03_per_diem_summary.pdf', blobPdf)

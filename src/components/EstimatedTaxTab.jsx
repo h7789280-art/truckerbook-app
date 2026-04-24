@@ -148,7 +148,9 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
         const fuelCost = (fuelRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
         const vehExp = (vehExpRes.data || []).reduce((s, r) => s + (r.amount || 0), 0)
         const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
-        const perDiem = perDiems.reduce((s, r) => s + (r?.totals?.total_amount || 0), 0)
+        // Schedule C uses the 80% DOT HOS deductible — single source of truth
+        // shared with TaxSummaryTab and the export pipeline.
+        const perDiem = perDiems.reduce((s, r) => s + (r?.totals?.total_deductible || 0), 0)
 
         // Shared helper: handles both legacy depreciation_type records and new
         // strategy-based records (asset_class + strategy + section_179_amount + bonus_rate).

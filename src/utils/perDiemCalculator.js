@@ -1,13 +1,32 @@
 /**
  * Per Diem Calculator
  * Calculates per diem tax deductions for transportation workers
- * based on completed trips (IRS Publication 463).
+ * based on completed trips.
  *
- * Default rate: $69/day (2026), partial day (departure/arrival): 75%
+ * Sources:
+ *  - IRS Notice 2025-54 (effective Oct 1, 2025 – Sep 30, 2026):
+ *    CONUS daily rate $80/day (gross M&IE allowance).
+ *  - IRC §274(n)(3): Transportation workers under DOT Hours-of-Service rules
+ *    deduct 80% of the per diem on Schedule C (vs. 50% for general M&IE).
+ *  - IRS Pub. 463: Partial day (departure / arrival) = 75% of daily rate.
+ *
+ * The store-of-record holds the GROSS rate. The DEDUCTION is computed by
+ * `computeDeductible()` (gross * 0.80). PerDiemTab shows both numbers; every
+ * tax consumer (Schedule C, Estimated Tax, SEP-IRA, Tax Meter, exports) uses
+ * `total_deductible` so UI and exports are byte-for-byte in sync.
  */
 
-const DEFAULT_DAILY_RATE = 69.00
-const DEFAULT_PARTIAL_PERCENT = 75
+export const DEFAULT_DAILY_RATE = 80.00
+export const DEFAULT_PARTIAL_PERCENT = 75
+export const DEDUCTION_RATE_DOT_HOS = 0.80
+
+/**
+ * Apply the 80% DOT HOS limit to a gross per diem allowance.
+ * Used by every Schedule C consumer so the deduction is consistent.
+ */
+export function computeDeductible(grossAmount) {
+  return (Number(grossAmount) || 0) * DEDUCTION_RATE_DOT_HOS
+}
 
 /**
  * Returns [startDate, endDate] ISO strings for a given quarter/year.
@@ -84,6 +103,10 @@ function calcTripDays(dateStart, dateEnd) {
 /**
  * Calculate per diem deduction for a quarter.
  *
+ * Returns trips with both `gross` (full IRS allowance) and `deductible`
+ * (gross * 0.80, the Schedule C number). Totals expose `total_gross` and
+ * `total_deductible` so callers pick the right number for their context.
+ *
  * @param {Object} params
  * @param {Object} params.supabase - Supabase client
  * @param {string} params.userId - Current user UUID
@@ -130,7 +153,9 @@ export async function calculatePerDiem({ supabase, userId, role, vehicleId, quar
   // 4. Calculate per trip
   const trips = (tripsData || []).map(trip => {
     const { full_days, partial_days } = calcTripDays(trip.date_start, trip.date_end)
-    const amount = (full_days * dailyRate) + (partial_days * dailyRate * partialMultiplier)
+    const grossRaw = (full_days * dailyRate) + (partial_days * dailyRate * partialMultiplier)
+    const gross = Math.round(grossRaw * 100) / 100
+    const deductible = Math.round(computeDeductible(grossRaw) * 100) / 100
 
     return {
       trip_id: trip.id,
@@ -140,7 +165,8 @@ export async function calculatePerDiem({ supabase, userId, role, vehicleId, quar
       date_end: trip.date_end,
       full_days,
       partial_days,
-      amount: Math.round(amount * 100) / 100,
+      gross,
+      deductible,
     }
   })
 
@@ -149,7 +175,9 @@ export async function calculatePerDiem({ supabase, userId, role, vehicleId, quar
   const total_full_days = trips.reduce((s, t) => s + t.full_days, 0)
   const total_partial_days = trips.reduce((s, t) => s + t.partial_days, 0)
   const total_days = total_full_days + total_partial_days
-  const total_amount = trips.reduce((s, t) => s + t.amount, 0)
+  const total_gross_raw = trips.reduce((s, t) => s + t.gross, 0)
+  const total_gross = Math.round(total_gross_raw * 100) / 100
+  const total_deductible = Math.round(computeDeductible(total_gross_raw) * 100) / 100
 
   return {
     trips,
@@ -160,7 +188,9 @@ export async function calculatePerDiem({ supabase, userId, role, vehicleId, quar
       total_days,
       daily_rate: dailyRate,
       partial_day_percent: partialPercent,
-      total_amount: Math.round(total_amount * 100) / 100,
+      deduction_percent: DEDUCTION_RATE_DOT_HOS * 100,
+      total_gross,
+      total_deductible,
     },
   }
 }

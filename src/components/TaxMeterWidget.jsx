@@ -148,7 +148,9 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
         const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (Number(r.cost) || 0), 0)
         const totalExp = fuelCost + vehExp + serviceCost
 
-        const perDiemTotal = perDiems.reduce((s, r) => s + (Number(r?.totals?.total_amount) || 0), 0)
+        // Tax meter accrual uses the 80% DOT HOS deductible — same number that
+        // hits Schedule C. Keeps the widget byte-for-byte aligned with TaxSummaryTab.
+        const perDiemTotal = perDiems.reduce((s, r) => s + (Number(r?.totals?.total_deductible) || 0), 0)
         const dep = computeDepreciation(depRes.data, year)
         const fs = settingsRes.data?.filing_status || 'single'
 

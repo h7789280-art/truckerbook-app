@@ -181,8 +181,10 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
           else other += amt
         }
 
-        // Sum per diem across all quarters
-        const pdTotal = perDiemResults.reduce((s, r) => s + (r?.totals?.total_amount || 0), 0)
+        // Sum per diem deductible (GROSS × 80% per IRC §274(n)(3) DOT HOS limit)
+        // across all quarters. The deductible — not the gross allowance — is what
+        // shows up on Schedule C, so this is the single number used for Net Profit.
+        const pdTotal = perDiemResults.reduce((s, r) => s + (r?.totals?.total_deductible || 0), 0)
 
         setIncome(totalIncome)
         setFuelExpenses(fuelCost)

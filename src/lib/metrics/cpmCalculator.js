@@ -41,7 +41,12 @@ const perMileSafe = (total, miles) => {
  * @property {number} [maintenance]         Sum of service / repair cost in the period.
  * @property {number} [tolls]               Sum of tolls (and platon) in the period.
  * @property {number} [parking]             Sum of parking fees in the period.
- * @property {number} [perDiem]             Per-diem deduction for the period.
+ * @property {number} [perDiem]             Per-diem DEDUCTIBLE for the period
+ *                                          (gross × 80% DOT HOS, not the gross
+ *                                          allowance). Caller must apply the
+ *                                          80% limit before passing it in —
+ *                                          perDiemCalculator.totals.total_deductible
+ *                                          already has it baked in.
  * @property {number} [insurance]           Insurance cost ALREADY scoped to the period
  *                                          (caller pro-rates if the policy is annual).
  * @property {number} [truckPayment]        Truck/lease payments in the period

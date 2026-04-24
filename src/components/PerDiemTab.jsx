@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
-import { calculatePerDiem } from '../utils/perDiemCalculator'
+import { calculatePerDiem, DEFAULT_DAILY_RATE, DEDUCTION_RATE_DOT_HOS } from '../utils/perDiemCalculator'
 
 function getCurrentQuarter() {
   return Math.ceil((new Date().getMonth() + 1) / 3)
@@ -46,7 +46,7 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
 
   // Settings
   const [showSettings, setShowSettings] = useState(false)
-  const [dailyRate, setDailyRate] = useState(69.00)
+  const [dailyRate, setDailyRate] = useState(DEFAULT_DAILY_RATE)
   const [partialPercent, setPartialPercent] = useState(75)
   const [savingSettings, setSavingSettings] = useState(false)
   const [toast, setToast] = useState(null)
@@ -113,7 +113,7 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
       .from('per_diem_settings')
       .upsert({
         user_id: userId,
-        daily_rate: Number(dailyRate) || 69.00,
+        daily_rate: Number(dailyRate) || DEFAULT_DAILY_RATE,
         partial_day_percent: Number(partialPercent) || 75,
       }, { onConflict: 'user_id' })
 
@@ -299,7 +299,8 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
                     t('perDiem.colDateEnd'),
                     t('perDiem.fullDays'),
                     t('perDiem.partialDays'),
-                    t('perDiem.colAmount'),
+                    t('perDiem.colGross'),
+                    t('perDiem.colDeductible'),
                   ].map((h, i) => (
                     <th key={i} style={{
                       padding: '8px 4px',
@@ -327,8 +328,11 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
                     <td style={cellMono}>{formatShortDate(trip.date_end)}</td>
                     <td style={cellMono}>{trip.full_days}</td>
                     <td style={cellMono}>{trip.partial_days}</td>
+                    <td style={{ ...cellMono, color: theme.text }}>
+                      ${trip.gross.toFixed(2)}
+                    </td>
                     <td style={{ ...cellMono, fontWeight: 700, color: '#22c55e' }}>
-                      ${trip.amount.toFixed(2)}
+                      ${trip.deductible.toFixed(2)}
                     </td>
                   </tr>
                 ))}
@@ -336,15 +340,19 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
             </table>
           </div>
 
-          {/* Totals cards */}
+          {/* Totals cards: Trips, Days, Gross, Deductible (80%) */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '8px' }}>
             {[
               { label: t('perDiem.totalTrips'), value: String(data.totals.total_trips), color: theme.text },
               { label: t('perDiem.totalDays'), value: String(data.totals.total_days), color: theme.text },
-              { label: t('perDiem.dailyRate'), value: '$' + data.totals.daily_rate.toFixed(2), color: '#3b82f6' },
               {
-                label: t('perDiem.totalDeduction'),
-                value: '$' + data.totals.total_amount.toFixed(2),
+                label: t('perDiem.totalGross'),
+                value: '$' + data.totals.total_gross.toFixed(2),
+                color: '#3b82f6',
+              },
+              {
+                label: t('perDiem.totalDeductible'),
+                value: '$' + data.totals.total_deductible.toFixed(2),
                 color: '#22c55e',
                 large: true,
               },
@@ -372,6 +380,29 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
               </div>
             ))}
           </div>
+
+          {/* Rate breakdown line: "$80/day × 80% deductible = $64/day" */}
+          <div style={{
+            ...card,
+            textAlign: 'center',
+            padding: '10px 12px',
+            background: 'rgba(59,130,246,0.06)',
+            border: '1px solid rgba(59,130,246,0.2)',
+          }}>
+            <div style={{ fontSize: '12px', color: theme.text, fontFamily: 'monospace', fontWeight: 600 }}>
+              {t('perDiem.rateBreakdownLabel')}{' '}
+              <span style={{ color: '#3b82f6' }}>${data.totals.daily_rate.toFixed(2)}/day</span>
+              {' × '}
+              <span style={{ color: theme.text }}>{(DEDUCTION_RATE_DOT_HOS * 100).toFixed(0)}%</span>
+              {' = '}
+              <span style={{ color: '#22c55e' }}>
+                ${(data.totals.daily_rate * DEDUCTION_RATE_DOT_HOS).toFixed(2)}/day
+              </span>
+            </div>
+            <div style={{ fontSize: '10px', color: theme.dim, marginTop: '4px', lineHeight: 1.5 }}>
+              {t('perDiem.irsNote')}
+            </div>
+          </div>
         </>
       )}
 
@@ -395,10 +426,10 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
       {showSettings && (
         <div style={card}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {/* Daily Rate */}
+            {/* Daily Rate (GROSS — IRS allowance) */}
             <div>
               <label style={{ fontSize: '12px', color: theme.dim, display: 'block', marginBottom: '4px' }}>
-                {t('perDiem.dailyRate')} ($)
+                {t('perDiem.grossRateLabel')} ($)
               </label>
               <input
                 type="number"
@@ -418,6 +449,12 @@ export default function PerDiemTab({ userId, role, userVehicles, employmentType 
                   boxSizing: 'border-box',
                 }}
               />
+              <div style={{ fontSize: '11px', color: theme.dim, marginTop: '4px', lineHeight: 1.4 }}>
+                {t('perDiem.deductibleRateLabel')}{' '}
+                <span style={{ color: '#22c55e', fontFamily: 'monospace', fontWeight: 600 }}>
+                  ${((Number(dailyRate) || 0) * DEDUCTION_RATE_DOT_HOS).toFixed(2)}/day
+                </span>
+              </div>
             </div>
 
             {/* Partial Day Percent */}

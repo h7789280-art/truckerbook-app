@@ -13,7 +13,7 @@ import {
   exportToExcelWithSummary,
 } from '../utils/export'
 import { computeCPMFromInputs } from '../lib/metrics/cpmCalculator'
-import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
+import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
 
 function fmt(n) {
   if (n == null || isNaN(n)) return '0'
@@ -116,21 +116,12 @@ export default function Reports({ userId, profile, onBack, onNavigate }) {
       } catch { insSum = 0 }
       setInsuranceProRated(insSum)
 
-      // Depreciation: pull the saved asset and pro-rate annual deduction by days in range.
+      // Depreciation: sum annual deduction across all vehicle_depreciation records, pro-rated by days in range.
       let depSum = 0
       try {
         const currentYear = new Date().getFullYear()
-        const { data: depRow } = await supabase
-          .from('vehicle_depreciation')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        if (depRow) {
-          const annual = getCurrentYearDeduction(depRow, currentYear)
-          depSum = annual * (daysInRange / 365)
-        }
+        const annual = await getTotalDepreciationForYear(supabase, userId, currentYear)
+        depSum = annual * (daysInRange / 365)
       } catch { depSum = 0 }
       setDepreciationProRated(depSum)
     } catch (err) {

@@ -22,6 +22,7 @@ import { calculatePerDiem } from './perDiemCalculator.js'
 import { buildQuarterlyReport } from './iftaReport.js'
 import { calculateTotalTax } from './taxCalculator.js'
 import { getStateName } from './stateTaxData2026.js'
+import { getTotalDepreciationForYear } from './vehicleAggregates.js'
 
 const STEPS = [
   'scheduleC',
@@ -174,7 +175,10 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
   // A typo here causes PostgREST to 400 and Supabase JS to resolve with
   // { data: null, error: {...} } — which this file previously swallowed,
   // producing empty sections in the generated package.
-  const [tripsRes, fuelRes, vehExpRes, serviceRes, archiveRes, mileageRes, depRes] = await Promise.all([
+  // Two separate fetches for vehicle_depreciation:
+  //  - depTotal: sum of current-year MACRS deduction across ALL records (Schedule C number)
+  //  - depRowRes: most-recent record only, used by the per-record amortization PDF
+  const [tripsRes, fuelRes, vehExpRes, serviceRes, archiveRes, mileageRes, depTotal, depRowRes] = await Promise.all([
     // Filter trips by created_at (matches TaxSummaryTab + MileageLogTab),
     // since date_start can be null or span multiple years.
     supabase
@@ -232,6 +236,8 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
       .order('date', { ascending: true })
       .then(r => r)
       .catch(() => ({ data: [] })),
+
+    getTotalDepreciationForYear(supabase, userId, taxYear).catch(() => 0),
 
     supabase
       .from('vehicle_depreciation')
@@ -317,7 +323,8 @@ async function loadAnnualData({ supabase, userId, role, taxYear }) {
     serviceRecords: serviceRes.data || [],
     archive,
     mileage: combinedMileage,
-    depreciation: depRes.data || null,
+    depreciation: depRowRes.data || null,
+    depreciationTotal: Number.isFinite(depTotal) ? depTotal : 0,
     bytExpenses: bytExpRes.data || [],
     sepIraContributions: sepIraRes.data || [],
     deductionAuditDecisions: deductionAuditRes.data || [],
@@ -370,25 +377,6 @@ function categorizeVehicleExpenses(list) {
     else other += amt
   }
   return { insurance, lease, toll, parking, other }
-}
-
-function computeDepreciationForYear(dep, taxYear) {
-  if (!dep) return 0
-  const price = Number(dep.purchase_price) || 0
-  const salvage = Number(dep.salvage_value) || 0
-  const prior = Number(dep.prior_depreciation) || 0
-  const basis = Math.max(price - salvage, 0)
-  const purchaseYear = dep.purchase_date ? new Date(dep.purchase_date).getFullYear() : taxYear
-
-  if (dep.depreciation_type === 'section179') {
-    return purchaseYear === taxYear ? Math.max(Math.min(basis, 1160000) - prior, 0) : 0
-  }
-  const rates = dep.depreciation_type === 'macrs7'
-    ? [14.29, 24.49, 17.49, 12.49, 8.93, 8.92, 8.93, 4.46]
-    : [20, 32, 19.2, 11.52, 11.52, 5.76]
-  const idx = taxYear - purchaseYear
-  if (idx < 0 || idx >= rates.length) return 0
-  return basis * (rates[idx] / 100)
 }
 
 function buildAmortizationSchedule(dep) {
@@ -1398,7 +1386,7 @@ export async function generateTaxPackage({
   const totalPartialDays = quarterlyPerDiem.reduce((s, q) => s + (q.totals?.total_partial_days || 0), 0)
   const dailyRate = quarterlyPerDiem.find(q => q.totals?.daily_rate)?.totals?.daily_rate || 80
 
-  const depreciation = computeDepreciationForYear(data.depreciation, taxYear)
+  const depreciation = data.depreciationTotal
   const totalDeductions = totalExpenses + perDiemTotal + depreciation
   const netProfit = income - totalDeductions
   const positiveNet = Math.max(netProfit, 0)

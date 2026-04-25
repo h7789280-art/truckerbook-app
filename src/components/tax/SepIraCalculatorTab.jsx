@@ -22,7 +22,7 @@ import {
   addSepIraContribution,
   deleteSepIraContribution,
 } from '../../lib/api'
-import { getCurrentYearDeduction } from '../../lib/tax/depreciationCalculator'
+import { getTotalDepreciationForYear } from '../../utils/vehicleAggregates'
 
 const ORANGE = '#f59e0b'
 const GREEN = '#10b981'
@@ -152,18 +152,10 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
         .eq('user_id', userId)
         .gte('date', start)
         .lt('date', endPlusOne),
-      supabase
-        .from('vehicle_depreciation')
-        .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-        .then(r => r)
-        .catch(() => ({ data: null })),
+      getTotalDepreciationForYear(supabase, userId, year).catch(() => 0),
       ...perDiemPromises,
     ])
-      .then(([tripsRes, fuelRes, vehExpRes, serviceRes, depRes, ...perDiemResults]) => {
+      .then(([tripsRes, fuelRes, vehExpRes, serviceRes, depreciation, ...perDiemResults]) => {
         if (cancelled) return
 
         const totalIncome = (tripsRes.data || []).reduce((s, r) => s + (r.income || 0), 0)
@@ -172,11 +164,6 @@ export default function SepIraCalculatorTab({ userId, role, profile, stateOfResi
         const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
         // Net profit uses the 80% DOT HOS deductible — same number Schedule C uses.
         const pdTotal = perDiemResults.reduce((s, r) => s + (r?.totals?.total_deductible || 0), 0)
-
-        // Shared helper: mirrors Schedule C / Estimated Tax / Tax Meter.
-        // Handles legacy (depreciation_type) and strategy-based records (MACRS 3-year
-        // class 00.26 tractors, bonus, §179). Single source of truth with Schedule C.
-        const depreciation = getCurrentYearDeduction(depRes?.data, year)
 
         const totalDed = fuelCost + vehExpCost + serviceCost + pdTotal + depreciation
 

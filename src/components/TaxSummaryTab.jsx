@@ -11,7 +11,7 @@ import {
   SS_WAGE_BASE_2026,
 } from '../utils/taxCalculator'
 import { STATE_OPTIONS, STATE_TAX_2026, getStateName } from '../utils/stateTaxData2026'
-import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
+import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -90,21 +90,12 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
     } catch { /* ignore — UI keeps local state */ }
   }
 
-  // Load depreciation from vehicle_depreciation table
+  // Load depreciation across ALL vehicle_depreciation records for the user
   useEffect(() => {
     if (!userId) return
-    supabase
-      .from('vehicle_depreciation')
-      .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!data) return
-        setDepreciation(getCurrentYearDeduction(data, year))
-      })
-      .catch(() => {})
+    getTotalDepreciationForYear(supabase, userId, year)
+      .then(total => setDepreciation(total))
+      .catch(() => setDepreciation(0))
   }, [userId, year])
 
   // Load annual data

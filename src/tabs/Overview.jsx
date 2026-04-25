@@ -7,7 +7,7 @@ import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchIns
 import { calculatePartWear } from '../lib/partResourceCalc'
 import { getPresetByCategory } from '../lib/partResourcePresets'
 import { computeCPMFromInputs } from '../lib/metrics/cpmCalculator'
-import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
+import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
 import { exportToExcel, exportFleetReportExcel, exportFleetReportPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
 import { readOdometerFromPhoto } from '../lib/geminiVision'
@@ -637,17 +637,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       let depreciationProRated = 0
       try {
         const currentYear = new Date().getFullYear()
-        const { data: depRow } = await supabase
-          .from('vehicle_depreciation')
-          .select('*')
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle()
-        if (depRow) {
-          const annual = getCurrentYearDeduction(depRow, currentYear)
-          depreciationProRated = annual * (daysInRange / 365)
-        }
+        const annual = await getTotalDepreciationForYear(supabase, userId, currentYear)
+        depreciationProRated = annual * (daysInRange / 365)
       } catch { depreciationProRated = 0 }
 
       const cpm = computeCPMFromInputs({

@@ -13,7 +13,7 @@ import {
   calculateSavingsBucket,
   getNextQuarterDeadline,
 } from '../utils/taxMeterCalculator'
-import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
+import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
 
 const GOLD = '#f59e0b'
 const GREEN = '#22c55e'
@@ -71,12 +71,6 @@ function daysLeftColor(days) {
   return RED
 }
 
-// Uses shared helper that handles both legacy (depreciation_type) and new
-// strategy-based records (asset_class + strategy + section_179_amount + bonus_rate).
-function computeDepreciation(row, year) {
-  return getCurrentYearDeduction(row, year)
-}
-
 export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
   const { theme } = useTheme()
 
@@ -127,10 +121,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
         .gte('date', start).lt('date', endPlusOne).then(r => r).catch(() => ({ data: [] })),
       supabase.from('service_records').select('cost').eq('user_id', userId)
         .gte('date', start).lt('date', endPlusOne),
-      supabase.from('vehicle_depreciation')
-        .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
-        .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
-        .then(r => r).catch(() => ({ data: null })),
+      getTotalDepreciationForYear(supabase, userId, year).catch(() => 0),
       supabase.from('estimated_tax_settings').select('filing_status').eq('user_id', userId).maybeSingle()
         .then(r => r).catch(() => ({ data: null })),
       supabase.from('quarterly_tax_payments').select('quarter, paid_amount')
@@ -140,7 +131,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
     ])
       .then(results => {
         if (cancelled) return
-        const [tripsRes, fuelRes, vehExpRes, serviceRes, depRes, settingsRes, paymentsRes, ...perDiems] = results
+        const [tripsRes, fuelRes, vehExpRes, serviceRes, dep, settingsRes, paymentsRes, ...perDiems] = results
 
         const gross = calculateYTDGrossIncome(tripsRes.data || [], year, today)
         const fuelCost = (fuelRes.data || []).reduce((s, r) => s + (Number(r.cost) || 0), 0)
@@ -151,7 +142,6 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
         // Tax meter accrual uses the 80% DOT HOS deductible — same number that
         // hits Schedule C. Keeps the widget byte-for-byte aligned with TaxSummaryTab.
         const perDiemTotal = perDiems.reduce((s, r) => s + (Number(r?.totals?.total_deductible) || 0), 0)
-        const dep = computeDepreciation(depRes.data, year)
         const fs = settingsRes.data?.filing_status || 'single'
 
         const pByQ = {}

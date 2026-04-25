@@ -9,7 +9,7 @@ import { supabase } from '../lib/supabase'
 import { calculatePerDiem } from '../utils/perDiemCalculator'
 import { calculateTotalTax } from '../utils/taxCalculator'
 import { sendNotification, isPermissionGranted, requestPermission } from '../lib/notifications'
-import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator'
+import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -136,12 +136,13 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
         .gte('date', start).lt('date', endPlusOne).then(r => r).catch(() => ({ data: [] })),
       supabase.from('service_records').select('cost').eq('user_id', userId)
         .gte('date', start).lt('date', endPlusOne),
-      supabase.from('vehicle_depreciation').select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
-        .eq('user_id', userId).order('created_at', { ascending: false }).limit(1).maybeSingle()
-        .then(r => r).catch(() => ({ data: null })),
+      // Sum across ALL vehicle_depreciation rows (tractor + trailer + ...).
+      // Previously read only the most-recent row via .limit(1).maybeSingle(),
+      // which silently dropped every record except one for multi-vehicle users.
+      getTotalDepreciationForYear(supabase, userId, taxYear).catch(() => 0),
       ...perDiemPromises,
     ])
-      .then(([tripsRes, fuelRes, vehExpRes, serviceRes, depRes, ...perDiems]) => {
+      .then(([tripsRes, fuelRes, vehExpRes, serviceRes, depreciation, ...perDiems]) => {
         if (cancelled) return
 
         const income = (tripsRes.data || []).reduce((s, r) => s + (r.income || 0), 0)
@@ -151,10 +152,6 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
         // Schedule C uses the 80% DOT HOS deductible — single source of truth
         // shared with TaxSummaryTab and the export pipeline.
         const perDiem = perDiems.reduce((s, r) => s + (r?.totals?.total_deductible || 0), 0)
-
-        // Shared helper: handles both legacy depreciation_type records and new
-        // strategy-based records (asset_class + strategy + section_179_amount + bonus_rate).
-        const depreciation = getCurrentYearDeduction(depRes.data, taxYear)
 
         const netProfit = Math.max(income - fuelCost - vehExp - serviceCost - perDiem - depreciation, 0)
         const result = calculateTotalTax(netProfit, filingStatus, stateCode)

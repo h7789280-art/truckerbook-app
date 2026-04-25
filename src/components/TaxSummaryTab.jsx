@@ -12,6 +12,7 @@ import {
 } from '../utils/taxCalculator'
 import { STATE_OPTIONS, STATE_TAX_2026, getStateName } from '../utils/stateTaxData2026'
 import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
+import { computeScheduleCNetProfit } from '../utils/scheduleC'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -199,10 +200,21 @@ export default function TaxSummaryTab({ userId, role, userVehicles, employmentTy
 
   // Calculations — IRS-accurate 2026
   const depreciationNum = Number(depreciation) || 0
-  const totalExpenses = fuelExpenses + repairsExpenses + insuranceExpenses + leaseExpenses + tollExpenses + parkingExpenses + otherExpenses
+  const vehicleExpenseTotal = insuranceExpenses + leaseExpenses + tollExpenses + parkingExpenses + otherExpenses
+  const totalExpenses = fuelExpenses + repairsExpenses + vehicleExpenseTotal
   const totalDeductions = totalExpenses + perDiemTotal + depreciationNum
+  // Display value: raw difference, can be negative — UI renders red when < 0.
   const netProfit = income - totalDeductions
-  const positiveNet = Math.max(netProfit, 0)
+  // Tax-calc value: clamped via the shared Schedule C formula so EstimatedTaxTab
+  // and the Tax Meter stay byte-aligned with this tab.
+  const positiveNet = computeScheduleCNetProfit({
+    income,
+    fuelCost: fuelExpenses,
+    vehExp: vehicleExpenseTotal,
+    serviceCost: repairsExpenses,
+    perDiem: perDiemTotal,
+    depreciation: depreciationNum,
+  })
   const taxResult = calculateTotalTax(positiveNet, filingStatus, sessionState)
   const {
     taxableSEIncome,

@@ -6,6 +6,7 @@
 // Pairs with TaxMeterWidget on Overview. Does NOT modify taxCalculator.js.
 
 import { calculateTotalTax } from './taxCalculator'
+import { computeScheduleCNetProfit } from './scheduleC'
 
 const MS_PER_DAY = 1000 * 60 * 60 * 24
 
@@ -97,7 +98,13 @@ export function calculateAccruedTax({
   const expenses = Number(ytdExpenses) || 0
   const perDiem = Number(ytdPerDiem) || 0
   const dep = Number(depreciation) || 0
-  const netProfit = Math.max(gross - expenses - perDiem - dep, 0)
+  // YTD path pre-aggregates fuel + vehicle + service into `ytdExpenses` because
+  // the widget applies a date_start trip filter upstream that the annual
+  // Schedule C path does not. We map the lump sum into `fuelCost` so the shared
+  // formula sees the same total — vehExp/serviceCost stay 0 here by design.
+  const netProfit = computeScheduleCNetProfit({
+    income: gross, fuelCost: expenses, perDiem, depreciation: dep,
+  })
 
   const tax = calculateTotalTax(netProfit, filingStatus, state, resolvedYear)
   const seTax = tax.totalSETax || 0

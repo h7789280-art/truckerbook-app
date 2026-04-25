@@ -6,10 +6,9 @@ import { useState, useEffect, useMemo } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
-import { calculatePerDiem } from '../utils/perDiemCalculator'
 import { calculateTotalTax } from '../utils/taxCalculator'
 import { sendNotification, isPermissionGranted, requestPermission } from '../lib/notifications'
-import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
+import { calculateScheduleCNetProfit } from '../utils/scheduleC'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -119,41 +118,9 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
     setLoading(true)
     setError(null)
 
-    const start = `${taxYear}-01-01`
-    const endPlusOne = `${taxYear + 1}-01-01`
-
-    const perDiemPromises = [1, 2, 3, 4].map(q =>
-      calculatePerDiem({ supabase, userId, role, quarter: q, year: taxYear })
-        .catch(() => ({ totals: { total_amount: 0 } }))
-    )
-
-    Promise.all([
-      supabase.from('trips').select('income').eq('user_id', userId)
-        .gte('created_at', start + 'T00:00:00').lt('created_at', endPlusOne + 'T00:00:00'),
-      supabase.from('fuel_entries').select('cost').eq('user_id', userId)
-        .gte('date', start).lt('date', endPlusOne),
-      supabase.from('vehicle_expenses').select('amount').eq('user_id', userId)
-        .gte('date', start).lt('date', endPlusOne).then(r => r).catch(() => ({ data: [] })),
-      supabase.from('service_records').select('cost').eq('user_id', userId)
-        .gte('date', start).lt('date', endPlusOne),
-      // Sum across ALL vehicle_depreciation rows (tractor + trailer + ...).
-      // Previously read only the most-recent row via .limit(1).maybeSingle(),
-      // which silently dropped every record except one for multi-vehicle users.
-      getTotalDepreciationForYear(supabase, userId, taxYear).catch(() => 0),
-      ...perDiemPromises,
-    ])
-      .then(([tripsRes, fuelRes, vehExpRes, serviceRes, depreciation, ...perDiems]) => {
+    calculateScheduleCNetProfit(supabase, userId, taxYear, role)
+      .then(({ netProfit }) => {
         if (cancelled) return
-
-        const income = (tripsRes.data || []).reduce((s, r) => s + (r.income || 0), 0)
-        const fuelCost = (fuelRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
-        const vehExp = (vehExpRes.data || []).reduce((s, r) => s + (r.amount || 0), 0)
-        const serviceCost = (serviceRes.data || []).reduce((s, r) => s + (r.cost || 0), 0)
-        // Schedule C uses the 80% DOT HOS deductible — single source of truth
-        // shared with TaxSummaryTab and the export pipeline.
-        const perDiem = perDiems.reduce((s, r) => s + (r?.totals?.total_deductible || 0), 0)
-
-        const netProfit = Math.max(income - fuelCost - vehExp - serviceCost - perDiem - depreciation, 0)
         const result = calculateTotalTax(netProfit, filingStatus, stateCode)
         setTotalTax(result.totalTax || 0)
       })

@@ -10,7 +10,7 @@ import { computeCPMFromInputs } from '../lib/metrics/cpmCalculator'
 import { getTotalDepreciationForYear } from '../utils/vehicleAggregates'
 import { exportToExcel, exportFleetReportExcel, exportFleetReportPDF } from '../utils/export'
 import Achievements, { ACHIEVEMENTS } from '../components/Achievements'
-import { readOdometerFromPhoto } from '../lib/geminiVision'
+import { readOdometerFromPhoto, shouldWarnOdometerDecrease } from '../lib/geminiVision'
 import DispatchBoard from '../components/DispatchBoard'
 import FleetMap from '../components/FleetMap'
 import AIForecast from '../components/AIForecast'
@@ -143,6 +143,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
   const [odoModalOpen, setOdoModalOpen] = useState(false)
   const [odoModalValue, setOdoModalValue] = useState('')
   const [odoSaving, setOdoSaving] = useState(false)
+  const [odoAiStatus, setOdoAiStatus] = useState(null) // null | 'loading' | 'success' | 'no_odometer' | 'error'
+  const [odoAiResult, setOdoAiResult] = useState(null) // { value, confidence, kmConverted } | null
+  const odoFileInputRef = useRef(null)
 
   // Parts Resource block state (owner_operator only)
   const [ownerParts, setOwnerParts] = useState([])
@@ -921,9 +924,52 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     loadOwnerOdometerAndParts()
   }, [loadOwnerOdometerAndParts, refreshKey])
 
+  const closeOdoModal = () => {
+    setOdoModalOpen(false)
+    setOdoModalValue('')
+    setOdoAiStatus(null)
+    setOdoAiResult(null)
+  }
+
+  const handleOdoPhotoChange = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (odoAiStatus === 'loading') return
+    setOdoAiStatus('loading')
+    setOdoAiResult(null)
+    const v = await validateAndCompressFile(file, userId, profile)
+    if (!v.ok) {
+      setOdoAiStatus(null)
+      alert(interpolate(t(v.errorKey), v.errorParams))
+      return
+    }
+    try {
+      const result = await readOdometerFromPhoto(v.file)
+      if (result && result.value != null) {
+        setOdoAiResult({ value: result.value, confidence: result.confidence, kmConverted: !!result.kmConverted })
+        setOdoModalValue(String(result.value))
+        setOdoAiStatus('success')
+      } else if (result && result.error === 'no_odometer_detected') {
+        setOdoAiStatus('no_odometer')
+      } else {
+        setOdoAiStatus('error')
+      }
+    } catch {
+      setOdoAiStatus('error')
+    }
+  }
+
   const handleSaveOdometer = async () => {
     const n = parseInt(odoModalValue, 10)
     if (!Number.isFinite(n) || n < 0) return
+    if (shouldWarnOdometerDecrease(n, ownerOdometer)) {
+      const msg = interpolate(t('odometer.validation.decreasedMessage'), {
+        newValue: formatNumber(n),
+        currentValue: formatNumber(Math.round(ownerOdometer)),
+      })
+      if (!window.confirm(msg)) return
+    }
     setOdoSaving(true)
     try {
       const vehicleId = activeVehicleId && activeVehicleId !== 'main' ? activeVehicleId : null
@@ -943,8 +989,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       }
       setOwnerOdometer(n)
       setOwnerOdometerUpdatedAt(nowIso)
-      setOdoModalOpen(false)
-      setOdoModalValue('')
+      closeOdoModal()
     } catch (err) {
       console.error('handleSaveOdometer error:', err)
       alert(err.message || String(err))
@@ -1011,9 +1056,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
     setAiOdometerValue(null)
     try {
       const result = await readOdometerFromPhoto(file)
-      if (result !== null) {
-        setAiOdometerValue(result)
-        setShiftOdometer(String(result))
+      if (result && result.value != null) {
+        setAiOdometerValue(result.value)
+        setShiftOdometer(String(result.value))
         setAiOdometerStatus('success')
       } else {
         setAiOdometerStatus('error')
@@ -2281,7 +2326,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
           background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center',
           zIndex: 1000, padding: '16px',
-        }} onClick={() => !odoSaving && setOdoModalOpen(false)}>
+        }} onClick={() => !odoSaving && closeOdoModal()}>
           <div
             style={{ background: theme.card, border: '1px solid ' + theme.border, borderRadius: '16px', padding: '24px', width: '100%', maxWidth: '360px' }}
             onClick={e => e.stopPropagation()}
@@ -2289,6 +2334,35 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             <div style={{ fontSize: '18px', fontWeight: 700, marginBottom: '16px', color: theme.text }}>
               {t('overview.odometerModalTitle')}
             </div>
+
+            {role === 'owner_operator' && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => odoFileInputRef.current?.click()}
+                  disabled={odoAiStatus === 'loading' || odoSaving}
+                  style={{
+                    width: '100%', padding: '14px', marginBottom: '12px',
+                    border: '1px solid ' + theme.border, borderRadius: '10px',
+                    background: 'transparent', color: theme.text,
+                    fontSize: '14px', fontWeight: 600,
+                    cursor: (odoAiStatus === 'loading' || odoSaving) ? 'not-allowed' : 'pointer',
+                    opacity: (odoAiStatus === 'loading' || odoSaving) ? 0.6 : 1,
+                  }}
+                >
+                  {odoAiStatus === 'loading' ? t('odometer.scan.processing') : t('odometer.scan.button')}
+                </button>
+                <input
+                  ref={odoFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handleOdoPhotoChange}
+                  style={{ display: 'none' }}
+                />
+              </>
+            )}
+
             <label style={{ fontSize: '14px', color: theme.dim, display: 'block', marginBottom: '6px' }}>
               {t('overview.currentOdometer')} ({unitSys === 'imperial' ? 'mi' : 'km'})
             </label>
@@ -2300,12 +2374,50 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
               style={{
                 width: '100%', padding: '14px', borderRadius: '10px', border: '1px solid ' + theme.border,
                 background: theme.bg, color: theme.text, fontSize: '18px', fontFamily: 'monospace',
-                marginBottom: '16px', boxSizing: 'border-box',
+                marginBottom: '12px', boxSizing: 'border-box',
               }}
             />
-            <div style={{ display: 'flex', gap: '8px' }}>
+
+            {odoAiStatus === 'success' && odoAiResult?.confidence === 'low' && (
+              <div style={{
+                padding: '8px 10px', marginBottom: '12px', borderRadius: '8px',
+                background: 'rgba(245,158,11,0.1)', color: '#f59e0b',
+                fontSize: '12px', lineHeight: 1.4,
+              }}>
+                {t('odometer.scan.lowConfidence')}
+              </div>
+            )}
+            {odoAiStatus === 'success' && odoAiResult?.kmConverted && (
+              <div style={{
+                padding: '8px 10px', marginBottom: '12px', borderRadius: '8px',
+                background: 'rgba(59,130,246,0.1)', color: '#3b82f6',
+                fontSize: '12px', lineHeight: 1.4,
+              }}>
+                {t('odometer.scan.kmConverted')}
+              </div>
+            )}
+            {odoAiStatus === 'no_odometer' && (
+              <div style={{
+                padding: '8px 10px', marginBottom: '12px', borderRadius: '8px',
+                background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                fontSize: '12px', lineHeight: 1.4,
+              }}>
+                {t('odometer.scan.notDetected')}
+              </div>
+            )}
+            {odoAiStatus === 'error' && (
+              <div style={{
+                padding: '8px 10px', marginBottom: '12px', borderRadius: '8px',
+                background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                fontSize: '12px', lineHeight: 1.4,
+              }}>
+                {t('odometer.scan.networkError')}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
               <button
-                onClick={() => !odoSaving && setOdoModalOpen(false)}
+                onClick={() => !odoSaving && closeOdoModal()}
                 style={{ flex: 1, padding: '12px', border: '1px solid ' + theme.border, borderRadius: '10px', background: 'transparent', color: theme.text, fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
               >
                 {t('common.cancel')}

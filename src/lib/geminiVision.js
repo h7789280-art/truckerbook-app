@@ -2,9 +2,34 @@
  * AI odometer reading via Gemini Vision.
  * Routed through /api/gemini serverless proxy so the Gemini API key
  * never ships in the client bundle. See api/gemini.js.
+ *
+ * Returns a structured object (or null on missing session):
+ *   { value, confidence, notes, kmConverted }    — recognised odometer
+ *   { error: 'no_odometer_detected' }             — image is not a dashboard
+ *   { error: 'parse_error' }                      — model returned bad JSON
+ *   { error: 'http_<status>' | 'transport_error' } — proxy/transport failure
  */
 
 import { supabase } from './supabase'
+import { parseOdometerResponse, shouldWarnOdometerDecrease } from './geminiVisionUtils'
+
+export { parseOdometerResponse, shouldWarnOdometerDecrease }
+
+const ODOMETER_PROMPT =
+  'You are reading the odometer on a truck dashboard. Return ONLY a JSON object:\n' +
+  '{\n' +
+  '  "odometer_miles": <integer>,\n' +
+  '  "confidence": "high" | "medium" | "low",\n' +
+  '  "notes": "<string, optional>"\n' +
+  '}\n' +
+  '\n' +
+  'Rules:\n' +
+  '1. Return the MAIN odometer reading (total miles), NOT trip A or trip B counters.\n' +
+  '2. If you see a decimal (e.g. 258099.5), round to nearest integer.\n' +
+  '3. If the image shows kilometers (km), convert to miles: miles = round(km / 1.609344). Mention this in "notes".\n' +
+  '4. If you cannot read the digits clearly, set confidence: "low" and explain in notes.\n' +
+  '5. If the image is not a dashboard or does not contain an odometer, return: {"error": "no_odometer_detected"}.\n' +
+  '6. Do NOT return any text outside the JSON.'
 
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
@@ -22,7 +47,6 @@ export async function readOdometerFromPhoto(imageFile) {
   const { data: sessionData } = await supabase.auth.getSession()
   const accessToken = sessionData?.session?.access_token
   if (!accessToken) {
-    // No session — fail quietly (same contract as old "no API key" path).
     return null
   }
 
@@ -38,12 +62,8 @@ export async function readOdometerFromPhoto(imageFile) {
       },
       body: JSON.stringify({
         action: 'generate',
-        prompt:
-          'This is a photo of a vehicle odometer. Read the number shown on the odometer display. Return ONLY the numeric value, digits only, no spaces, no units, no text. If you cannot read it, return ERROR.',
-        image: {
-          mimeType,
-          data: base64,
-        },
+        prompt: ODOMETER_PROMPT,
+        image: { mimeType, data: base64 },
       }),
     })
 
@@ -59,26 +79,14 @@ export async function readOdometerFromPhoto(imageFile) {
       } else {
         console.error('readOdometerFromPhoto: Gemini proxy error', response.status)
       }
-      return null
+      return { error: 'http_' + response.status }
     }
 
     const data = await response.json()
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text?.trim()
-
-    if (!text || text.includes('ERROR')) {
-      return null
-    }
-
-    const cleaned = text.replace(/[\s,._\-]/g, '')
-    const num = parseInt(cleaned, 10)
-
-    if (isNaN(num) || num <= 0) {
-      return null
-    }
-
-    return num
+    return parseOdometerResponse(text)
   } catch (err) {
     console.error('readOdometerFromPhoto error:', err)
-    return null
+    return { error: 'transport_error' }
   }
 }

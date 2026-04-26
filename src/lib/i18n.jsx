@@ -983,6 +983,22 @@ const translations = {
       recognized: 'AI: {value} \u043a\u043c \u2705',
       recognizeFailed: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043d\u0443\u044e.',
     },
+    odometer: {
+      scan: {
+        button: '\ud83d\udcf7 \u0421\u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043e\u0434\u043e\u043c\u0435\u0442\u0440',
+        processing: '\u23f3 \u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0451\u043c...',
+        lowConfidence: '\u26a0 \u041d\u0438\u0437\u043a\u0430\u044f \u0443\u0432\u0435\u0440\u0435\u043d\u043d\u043e\u0441\u0442\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0432\u0430\u043d\u0438\u044f. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0446\u0438\u0444\u0440\u0443.',
+        kmConverted: '\u2139 \u0420\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u043d\u044b \u043a\u0438\u043b\u043e\u043c\u0435\u0442\u0440\u044b, \u043a\u043e\u043d\u0432\u0435\u0440\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u043e \u0432 \u043c\u0438\u043b\u0438.',
+        notDetected: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c \u043e\u0434\u043e\u043c\u0435\u0442\u0440. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435, \u0447\u0442\u043e \u043d\u0430 \u0444\u043e\u0442\u043e \u0432\u0438\u0434\u043d\u0430 \u043f\u0440\u0438\u0431\u043e\u0440\u043d\u0430\u044f \u043f\u0430\u043d\u0435\u043b\u044c, \u0438\u043b\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043d\u0443\u044e.',
+        networkError: '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u0435\u0442\u0438. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0441\u043d\u043e\u0432\u0430 \u0438\u043b\u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043d\u0443\u044e.',
+      },
+      validation: {
+        decreasedTitle: '\u041e\u0434\u043e\u043c\u0435\u0442\u0440 \u0443\u043c\u0435\u043d\u044c\u0448\u0430\u0435\u0442\u0441\u044f',
+        decreasedMessage: '\u041d\u043e\u0432\u044b\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440 ({newValue}) \u043c\u0435\u043d\u044c\u0448\u0435 \u0442\u0435\u043a\u0443\u0449\u0435\u0433\u043e ({currentValue}). \u041e\u0434\u043e\u043c\u0435\u0442\u0440 \u043e\u0431\u044b\u0447\u043d\u043e \u0442\u043e\u043b\u044c\u043a\u043e \u0443\u0432\u0435\u043b\u0438\u0447\u0438\u0432\u0430\u0435\u0442\u0441\u044f. \u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0432\u0441\u0451 \u0440\u0430\u0432\u043d\u043e?',
+        saveAnyway: '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c \u0432\u0441\u0451 \u0440\u0430\u0432\u043d\u043e',
+        cancel: '\u041e\u0442\u043c\u0435\u043d\u0430',
+      },
+    },
     dispatch: {
       title: '\u041a\u0430\u0440\u0442\u0430 \u043f\u0430\u0440\u043a\u0430',
       totalVehicles: '\u0412\u0441\u0435\u0433\u043e \u043c\u0430\u0448\u0438\u043d',
@@ -3125,6 +3141,22 @@ const translations = {
       recognizing: 'Recognizing...',
       recognized: 'AI: {value} km \u2705',
       recognizeFailed: 'Could not recognize. Enter manually.',
+    },
+    odometer: {
+      scan: {
+        button: '📷 Scan odometer',
+        processing: '⏳ Recognizing...',
+        lowConfidence: '⚠ Low recognition confidence. Verify the digit.',
+        kmConverted: 'ℹ Kilometers detected, converted to miles.',
+        notDetected: 'Could not detect odometer. Make sure the dashboard is visible, or enter manually.',
+        networkError: 'Network error. Try again or enter manually.',
+      },
+      validation: {
+        decreasedTitle: 'Odometer decreased',
+        decreasedMessage: 'New odometer ({newValue}) is lower than current ({currentValue}). Odometer normally only increases. Save anyway?',
+        saveAnyway: 'Save anyway',
+        cancel: 'Cancel',
+      },
     },
     dispatch: {
       title: 'Fleet Map',
@@ -5273,6 +5305,22 @@ const translations = {
       recognized: 'AI: {value} \u043a\u043c \u2705',
       recognizeFailed: '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0442\u0438. \u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443.',
     },
+    odometer: {
+      scan: {
+        button: '\ud83d\udcf7 \u0421\u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0443\u0432\u0430\u0442\u0438 \u043e\u0434\u043e\u043c\u0435\u0442\u0440',
+        processing: '\u23f3 \u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0454\u043c\u043e...',
+        lowConfidence: '\u26a0 \u041d\u0438\u0437\u044c\u043a\u0430 \u0432\u043f\u0435\u0432\u043d\u0435\u043d\u0456\u0441\u0442\u044c \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0432\u0430\u043d\u043d\u044f. \u041f\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u0446\u0438\u0444\u0440\u0443.',
+        kmConverted: '\u2139 \u0420\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u043d\u043e \u043a\u0456\u043b\u043e\u043c\u0435\u0442\u0440\u0438, \u043a\u043e\u043d\u0432\u0435\u0440\u0442\u043e\u0432\u0430\u043d\u043e \u0443 \u043c\u0438\u043b\u0456.',
+        notDetected: '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0442\u0438 \u043e\u0434\u043e\u043c\u0435\u0442\u0440. \u041f\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435, \u0449\u043e \u043d\u0430 \u0444\u043e\u0442\u043e \u0432\u0438\u0434\u043d\u043e \u043f\u0430\u043d\u0435\u043b\u044c \u043f\u0440\u0438\u043b\u0430\u0434\u0456\u0432, \u0430\u0431\u043e \u0432\u0432\u0435\u0434\u0456\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443.',
+        networkError: '\u041f\u043e\u043c\u0438\u043b\u043a\u0430 \u043c\u0435\u0440\u0435\u0436\u0456. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0449\u0435 \u0440\u0430\u0437 \u0430\u0431\u043e \u0432\u0432\u0435\u0434\u0456\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443.',
+      },
+      validation: {
+        decreasedTitle: '\u041e\u0434\u043e\u043c\u0435\u0442\u0440 \u0437\u043c\u0435\u043d\u0448\u0443\u0454\u0442\u044c\u0441\u044f',
+        decreasedMessage: '\u041d\u043e\u0432\u0438\u0439 \u043e\u0434\u043e\u043c\u0435\u0442\u0440 ({newValue}) \u043c\u0435\u043d\u0448\u0438\u0439 \u0437\u0430 \u043f\u043e\u0442\u043e\u0447\u043d\u0438\u0439 ({currentValue}). \u041e\u0434\u043e\u043c\u0435\u0442\u0440 \u0437\u0430\u0437\u0432\u0438\u0447\u0430\u0439 \u0442\u0456\u043b\u044c\u043a\u0438 \u0437\u0431\u0456\u043b\u044c\u0448\u0443\u0454\u0442\u044c\u0441\u044f. \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u0432\u0441\u0435 \u043e\u0434\u043d\u043e?',
+        saveAnyway: '\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u0432\u0441\u0435 \u043e\u0434\u043d\u043e',
+        cancel: '\u0421\u043a\u0430\u0441\u0443\u0432\u0430\u0442\u0438',
+      },
+    },
     dispatch: {
       title: '\u041a\u0430\u0440\u0442\u0430 \u043f\u0430\u0440\u043a\u0443',
       totalVehicles: '\u0412\u0441\u044c\u043e\u0433\u043e \u043c\u0430\u0448\u0438\u043d',
@@ -7164,6 +7212,22 @@ const translations = {
       recognized: 'AI: {value} km \u2705',
       recognizeFailed: 'No se pudo reconocer. Ingrese manualmente.',
     },
+    odometer: {
+      scan: {
+        button: '📷 Escanear odómetro',
+        processing: '⏳ Reconociendo...',
+        lowConfidence: '⚠ Baja confianza de reconocimiento. Verifique el número.',
+        kmConverted: 'ℹ Kilómetros detectados, convertidos a millas.',
+        notDetected: 'No se pudo detectar el odómetro. Asegúrese de que el tablero sea visible, o ingrese manualmente.',
+        networkError: 'Error de red. Intente de nuevo o ingrese manualmente.',
+      },
+      validation: {
+        decreasedTitle: 'Odómetro disminuyó',
+        decreasedMessage: 'El nuevo odómetro ({newValue}) es menor que el actual ({currentValue}). El odómetro normalmente solo aumenta. ¿Guardar de todos modos?',
+        saveAnyway: 'Guardar de todos modos',
+        cancel: 'Cancelar',
+      },
+    },
     dispatch: {
       title: 'Mapa de flota',
       totalVehicles: 'Total veh\u00edculos',
@@ -9036,6 +9100,22 @@ const translations = {
       recognizing: 'Erkennung...',
       recognized: 'AI: {value} km \u2705',
       recognizeFailed: 'Nicht erkannt. Bitte manuell eingeben.',
+    },
+    odometer: {
+      scan: {
+        button: '📷 Tachostand fotografieren',
+        processing: '⏳ Erkenne...',
+        lowConfidence: '⚠ Geringe Erkennungssicherheit. Bitte prüfen.',
+        kmConverted: 'ℹ Kilometer erkannt, in Meilen umgerechnet.',
+        notDetected: 'Tachostand nicht erkannt. Stellen Sie sicher, dass das Armaturenbrett sichtbar ist, oder geben Sie ihn manuell ein.',
+        networkError: 'Netzwerkfehler. Bitte erneut versuchen oder manuell eingeben.',
+      },
+      validation: {
+        decreasedTitle: 'Tachostand gesunken',
+        decreasedMessage: 'Neuer Tachostand ({newValue}) ist niedriger als der aktuelle ({currentValue}). Der Tachostand steigt normalerweise nur. Trotzdem speichern?',
+        saveAnyway: 'Trotzdem speichern',
+        cancel: 'Abbrechen',
+      },
     },
     dispatch: {
       title: 'Fuhrpark\u00fcbersicht',
@@ -10910,6 +10990,22 @@ const translations = {
       recognized: 'AI : {value} km \u2705',
       recognizeFailed: 'Impossible de reconna\u00eetre. Saisissez manuellement.',
     },
+    odometer: {
+      scan: {
+        button: "\ud83d\udcf7 Scanner l'odom\u00e8tre",
+        processing: '\u23f3 Reconnaissance...',
+        lowConfidence: '\u26a0 Faible confiance de reconnaissance. V\u00e9rifiez le chiffre.',
+        kmConverted: '\u2139 Kilom\u00e8tres d\u00e9tect\u00e9s, convertis en milles.',
+        notDetected: "Impossible de d\u00e9tecter l'odom\u00e8tre. Assurez-vous que le tableau de bord est visible, ou saisissez manuellement.",
+        networkError: 'Erreur r\u00e9seau. R\u00e9essayez ou saisissez manuellement.',
+      },
+      validation: {
+        decreasedTitle: 'Odom\u00e8tre diminu\u00e9',
+        decreasedMessage: "Le nouvel odom\u00e8tre ({newValue}) est inf\u00e9rieur \u00e0 l'actuel ({currentValue}). L'odom\u00e8tre n'augmente normalement que. Enregistrer quand m\u00eame ?",
+        saveAnyway: 'Enregistrer quand m\u00eame',
+        cancel: 'Annuler',
+      },
+    },
     dispatch: {
       title: 'Carte de la flotte',
       totalVehicles: 'Total v\u00e9hicules',
@@ -12782,6 +12878,22 @@ const translations = {
       recognizing: 'Tan\u0131n\u0131yor...',
       recognized: 'AI: {value} km \u2705',
       recognizeFailed: 'Tan\u0131namad\u0131. Manuel olarak girin.',
+    },
+    odometer: {
+      scan: {
+        button: '\ud83d\udcf7 Kilometre saatini tara',
+        processing: '\u23f3 Tan\u0131n\u0131yor...',
+        lowConfidence: '\u26a0 D\u00fc\u015f\u00fck tan\u0131ma g\u00fcveni. Rakam\u0131 kontrol edin.',
+        kmConverted: '\u2139 Kilometreler tespit edildi, mile \u00e7evrildi.',
+        notDetected: 'Kilometre saati tespit edilemedi. G\u00f6sterge panelinin g\u00f6r\u00fcnd\u00fc\u011f\u00fcnden emin olun veya manuel olarak girin.',
+        networkError: 'A\u011f hatas\u0131. Tekrar deneyin veya manuel olarak girin.',
+      },
+      validation: {
+        decreasedTitle: 'Kilometre azald\u0131',
+        decreasedMessage: 'Yeni kilometre ({newValue}), mevcut ({currentValue}) de\u011ferinden d\u00fc\u015f\u00fck. Kilometre normalde yaln\u0131zca artar. Yine de kaydedilsin mi?',
+        saveAnyway: 'Yine de kaydet',
+        cancel: '\u0130ptal',
+      },
     },
     dispatch: {
       title: 'Filo haritas\u0131',
@@ -14659,6 +14771,22 @@ const translations = {
       recognizing: 'Rozpoznawanie...',
       recognized: 'AI: {value} km \u2705',
       recognizeFailed: 'Nie uda\u0142o si\u0119 rozpozna\u0107. Wpisz r\u0119cznie.',
+    },
+    odometer: {
+      scan: {
+        button: '\ud83d\udcf7 Zeskanuj licznik',
+        processing: '\u23f3 Rozpoznaj\u0119...',
+        lowConfidence: '\u26a0 Niska pewno\u015b\u0107 rozpoznawania. Sprawd\u017a cyfr\u0119.',
+        kmConverted: '\u2139 Wykryto kilometry, przeliczono na mile.',
+        notDetected: 'Nie uda\u0142o si\u0119 rozpozna\u0107 licznika. Upewnij si\u0119, \u017ce deska rozdzielcza jest widoczna, lub wpisz r\u0119cznie.',
+        networkError: 'B\u0142\u0105d sieci. Spr\u00f3buj ponownie lub wpisz r\u0119cznie.',
+      },
+      validation: {
+        decreasedTitle: 'Licznik zmniejszony',
+        decreasedMessage: 'Nowy licznik ({newValue}) jest ni\u017cszy ni\u017c obecny ({currentValue}). Licznik zazwyczaj tylko ro\u015bnie. Zapisa\u0107 mimo to?',
+        saveAnyway: 'Zapisz mimo to',
+        cancel: 'Anuluj',
+      },
     },
     dispatch: {
       title: 'Mapa floty',

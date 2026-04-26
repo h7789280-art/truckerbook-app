@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { uploadReceiptPhoto, addServiceRecord, checkDuplicateReceipt } from '../lib/api'
 import { saveToArchive } from '../lib/documentsArchive'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 const REPAIR_CATEGORIES = ['labor', 'parts', 'diagnostics', 'towing', 'other']
 
@@ -20,7 +21,7 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
   const { t } = useLanguage()
 
   const [shopName, setShopName] = useState(result.shop_name || '')
-  const [date, setDate] = useState(result.date || new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(result.date || getLocalDateString())
   const [mileage, setMileage] = useState(result.mileage || '')
   const [notes, setNotes] = useState(result.notes || '')
   const [items, setItems] = useState(() =>

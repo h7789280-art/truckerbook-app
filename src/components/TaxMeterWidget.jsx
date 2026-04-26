@@ -5,6 +5,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useTheme } from '../lib/theme'
+import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { calculatePerDiem } from '../utils/perDiemCalculator'
 import {
@@ -73,6 +74,7 @@ function daysLeftColor(days) {
 
 export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
   const { theme } = useTheme()
+  const { t } = useLanguage()
 
   const today = useMemo(() => new Date(), [])
   const year = today.getFullYear()
@@ -325,21 +327,50 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
               <div style={amountStyle}>{fmtMoney(reservedGross)}</div>
             </div>
 
-            {/* Row 3 — Next quarter */}
+            {/* Row 3 — Next quarter (Safe Harbor minimum) */}
             {nextQ && (
-              <div style={{ ...row, alignItems: 'flex-start' }}>
-                <div style={labelStyle}>
-                  <span>{EMOJI.calendar}</span>
-                  <span>{nextQ.quarter} {nextQ.year} {L.dueBy} {formatDueShort(nextQ.dueDate)}:</span>
+              <>
+                <div style={{
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.6px',
+                  color: theme.dim,
+                  marginTop: '8px',
+                  paddingTop: '8px',
+                  borderTop: '1px dashed ' + theme.border,
+                }}>
+                  {t('taxMeter.safeHarborMinimum')}
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                  <div style={amountStyle}>{fmtMoney(nextQ.amount)}</div>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: daysColor, fontFamily: 'monospace' }}>
-                    {nextQ.daysUntil} {daysWord(nextQ.daysUntil)}
+                <div style={{ ...row, alignItems: 'flex-start' }}>
+                  <div style={labelStyle}>
+                    <span>{EMOJI.calendar}</span>
+                    <span>{nextQ.quarter} {nextQ.year} {L.dueBy} {formatDueShort(nextQ.dueDate)}:</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                    <div style={amountStyle}>{fmtMoney(nextQ.amount)}</div>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: daysColor, fontFamily: 'monospace' }}>
+                      {nextQ.daysUntil} {daysWord(nextQ.daysUntil)}
+                    </div>
                   </div>
                 </div>
-              </div>
+                <div style={{ fontSize: '10px', color: theme.dim, marginTop: '-2px' }}>
+                  {t('taxMeter.safeHarborExplain')}
+                </div>
+              </>
             )}
+
+            {/* Why two numbers? — collapsible cross-reference */}
+            <details
+              style={{ fontSize: '11px', color: theme.dim, marginTop: '10px' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <summary style={{ cursor: 'pointer', userSelect: 'none' }}>
+                {t('taxMeter.whyTwoNumbers')}
+              </summary>
+              <div style={{ marginTop: '6px', lineHeight: 1.5 }}>
+                {t('taxMeter.whyTwoNumbersExplain')}
+              </div>
+            </details>
 
             {/* Subtle delta hint when savings bucket is short */}
             {!loading && savingsBucketDue > 0.5 && ytdGross > 0 && (

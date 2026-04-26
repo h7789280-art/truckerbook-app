@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useLanguage } from '../lib/i18n'
 import { addIncidentRecord, getIncidentRecords, deleteIncidentRecord } from '../lib/api'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 const cardStyle = {
   background: 'var(--card)',
@@ -232,7 +233,7 @@ function IncidentModal({ userId, vehicleId, onClose, onSaved }) {
   const { t } = useLanguage()
   const INC_TYPES = getIncidentTypes(t)
   const [incidentType, setIncidentType] = useState('fine')
-  const [incidentDate, setIncidentDate] = useState(new Date().toISOString().slice(0, 10))
+  const [incidentDate, setIncidentDate] = useState(getLocalDateString())
   const [description, setDescription] = useState('')
   const [amount, setAmount] = useState('')
   const [incFiles, setIncFiles] = useState([])

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { useLanguage } from '../lib/i18n'
 import { uploadTrailerPhoto, deleteVehiclePhoto } from '../lib/api'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 const cardStyle = {
   background: 'var(--card)',
@@ -120,7 +121,7 @@ export default function TrailerInspectionContent({ userId, vehicleId, userRole }
           const resp = await fetch(photo.photo_url)
           if (!resp.ok) continue
           const blob = await resp.blob()
-          const dateStr = photo.created_at ? new Date(photo.created_at).toISOString().slice(0, 10) : 'nodate'
+          const dateStr = photo.created_at ? getLocalDateString(new Date(photo.created_at)) : 'nodate'
           const typePart = (TRAILER_LABELS[photo.photo_type] || photo.photo_type || 'photo').replace(/[<>:"/\\|?*]/g, '_').slice(0, 50)
           const ext = (photo.photo_url.split('.').pop() || 'jpg').split('?')[0]
           let baseName = `${typePart}_${dateStr}`

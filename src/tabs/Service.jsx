@@ -14,6 +14,7 @@ import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToExcel } from '../utils/export'
 import { validateAndCompressFile, interpolate } from '../lib/fileUtils'
 import { consumeNavHighlight, flashHighlightElement, monthRangeForDate } from '../lib/navHighlight'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 const ELD_COUNTRIES = ['US','CA','DE','FR','PL','GB','NL','BE','AT','CZ','SK','IT','ES','SE','DK','FI','NO','HU','RO','BG','HR','LT','LV','EE','SI','IE','PT','GR','LU']
 
@@ -722,7 +723,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
   const categories = isRepair ? REPAIR_CATEGORIES : MAINTENANCE_CATEGORIES
 
   const [category, setCategory] = useState(categories[0])
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(getLocalDateString())
   const [description, setDescription] = useState('')
   const [odometerVal, setOdometerVal] = useState('')
   const [cost, setCost] = useState('')
@@ -777,7 +778,7 @@ function AddServiceModal({ tileKey, userId, vehicles, userRole, selectedVehicleI
             const veh = vehicles?.find(v => v.id === vehicleId)
             const plateName = (veh?.plate_number || '').replace(/\s/g, '') || 'noplate'
             const costStr = String(cost || '0')
-            const dateStr = new Date().toISOString().slice(0, 10)
+            const dateStr = getLocalDateString()
             const catStr = category || 'other'
             const path = `${user.id}/receipts/${dateStr}-${plateName}-${catStr}-${costStr}-${Date.now()}.${ext}`
             const { error: upErr } = await supabase.storage.from('receipts').upload(path, file, { contentType: file.type || 'image/jpeg' })
@@ -1341,7 +1342,7 @@ function TireModal({ userId, vehicleId, tire, defaultPosition, onClose, onSaved,
   const [model, setModel] = useState(tire?.model || '')
   const [size, setSize] = useState(tire?.size || '')
   const [position, setPosition] = useState(tire?.position || defaultPosition || 'front_left')
-  const [installedAt, setInstalledAt] = useState(tire?.installed_at?.slice(0, 10) || new Date().toISOString().slice(0, 10))
+  const [installedAt, setInstalledAt] = useState(tire?.installed_at?.slice(0, 10) || getLocalDateString())
   const [installedOdometer, setInstalledOdometer] = useState(tire?.installed_odometer?.toString() || '')
   const [condition, setCondition] = useState(tire?.condition || 'new')
   const [cost, setCost] = useState(tire?.cost?.toString() || '')
@@ -1804,7 +1805,7 @@ function BolSection({ userId, vehicleId, userRole }) {
           const resp = await fetch(bol.file_url)
           if (!resp.ok) continue
           const blob = await resp.blob()
-          const dateStr = bol.created_at ? new Date(bol.created_at).toISOString().slice(0, 10) : 'nodate'
+          const dateStr = bol.created_at ? getLocalDateString(new Date(bol.created_at)) : 'nodate'
           const ext = (bol.title || '').split('.').pop() || 'jpg'
           const baseName = bol.title ? bol.title.replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_\u0400-\u04FF -]/g, '_') : bol.id
           const fileName = `${baseName}_${dateStr}.${ext}`
@@ -2645,7 +2646,7 @@ function VehicleInspectionContent({ userId, vehicleId, userRole }) {
           const resp = await fetch(photo.photo_url)
           if (!resp.ok) continue
           const blob = await resp.blob()
-          const dateStr = photo.created_at ? new Date(photo.created_at).toISOString().slice(0, 10) : 'nodate'
+          const dateStr = photo.created_at ? getLocalDateString(new Date(photo.created_at)) : 'nodate'
           const titlePart = (photo.notes || photo.photo_type || 'photo').replace(/[<>:"/\\|?*]/g, '_').slice(0, 50)
           const ext = (photo.photo_url.split('.').pop() || 'jpg').split('?')[0]
           const folder = getFolderName(photo.vehicle_id)
@@ -3513,7 +3514,7 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
             try {
               await updatePartResource(detailPart.id, {
                 status: 'removed',
-                removed_date: new Date().toISOString().slice(0, 10),
+                removed_date: getLocalDateString(),
                 removed_odometer: odo,
               })
               const preset = getPresetByCategory(detailPart.category)
@@ -3683,7 +3684,7 @@ function PartDetailModal({ part, currentOdometer, onClose, onEdit, onDelete, onR
 
 function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, onClose, onSaved, t }) {
   const isEdit = !!editing
-  const todayISO = new Date().toISOString().slice(0, 10)
+  const todayISO = getLocalDateString()
   // Для режима "Добавить" — по умолчанию первая категория из PART_PRESETS ("oil" / Моторное масло)
   const defaultCategory = PART_PRESETS[0].category
   const initialCategory = editing?.category || preset?.category || defaultCategory
@@ -3703,7 +3704,7 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   })
   const [installedDate, setInstalledDate] = useState(() => {
     if (editing?.installed_date) return editing.installed_date
-    return new Date().toISOString().slice(0, 10)
+    return getLocalDateString()
   })
   const [installedOdometer, setInstalledOdometer] = useState(() => {
     if (editing?.installed_odometer != null) return String(editing.installed_odometer)

@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { fetchFuels, fetchTrips, fetchBytExpenses, fetchServiceRecords, fetchVehicleExpenses, fetchDriverReportExportData, getTireRecords, fetchFleetReportExportData, fetchFleetBolDocuments, fetchVehicles } from '../lib/api'
 import { exportDriverReportExcel, exportFleetReportExcel, exportToPDF, exportFleetReportPDF } from '../utils/export'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 function formatNumber(n) {
   return n.toLocaleString('en-US')
@@ -157,7 +158,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
           const day = dt.getDay()
           const monday = new Date(dt)
           monday.setDate(dt.getDate() - ((day + 6) % 7))
-          return monday.toISOString().slice(0, 10) // Monday of the week
+          return getLocalDateString(monday) // Monday of the week
         }
         return d.slice(0, 7) // YYYY-MM
       }
@@ -202,7 +203,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
         const cur = new Date(start)
         const endD = new Date(end)
         while (cur <= endD) {
-          const k = cur.toISOString().slice(0, 10)
+          const k = getLocalDateString(cur)
           ensureGroup(k)
           cur.setDate(cur.getDate() + 1)
         }
@@ -211,7 +212,7 @@ export default function FinanceDetails({ userId, profile, onBack }) {
           const cur = new Date(keys[0])
           const last = new Date(keys[keys.length - 1])
           while (cur <= last) {
-            const k = cur.toISOString().slice(0, 10)
+            const k = getLocalDateString(cur)
             ensureGroup(k)
             cur.setDate(cur.getDate() + 7)
           }

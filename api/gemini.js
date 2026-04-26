@@ -8,6 +8,7 @@
 // losers get aborted. Pro excluded — too slow (often 6-8s) to fit budget.
 
 import { createClient } from '@supabase/supabase-js'
+import { containsNonUsdCurrency } from '../src/lib/forecastPrompt.js'
 
 const RACE_MODELS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite']
 
@@ -180,6 +181,7 @@ export default async function handler(req, res) {
     generationConfig,
     image,
     media,
+    checkUsdCurrency = false,
   } = req.body || {}
 
   if (action !== 'generate') {
@@ -260,6 +262,18 @@ export default async function handler(req, res) {
     const first = await raceModels(apiKey, body, RACE_MODELS, FIRST_RACE_TIMEOUT_MS, errors)
 
     if (first.success) {
+      if (checkUsdCurrency) {
+        const text = first.data?.candidates?.[0]?.content?.parts?.[0]?.text
+        if (containsNonUsdCurrency(text)) {
+          console.log(`[gemini-proxy] CURRENCY_VIOLATION model=${first.modelUsed} duration=${Date.now() - startTime}ms`)
+          return res.status(422).json({
+            error: 'currency_violation',
+            retryable: true,
+            message: 'Forecast contained non-USD currency, please retry',
+            modelUsed: first.modelUsed,
+          })
+        }
+      }
       console.log(`[gemini-proxy] SUCCESS model=${first.modelUsed} duration=${Date.now() - startTime}ms race=1`)
       res.setHeader('X-Model-Used', first.modelUsed)
       return res.status(200).json(first.data)
@@ -285,6 +299,18 @@ export default async function handler(req, res) {
       const retry = await raceModels(apiKey, body, RACE_MODELS, retryTimeout, errors)
 
       if (retry.success) {
+        if (checkUsdCurrency) {
+          const text = retry.data?.candidates?.[0]?.content?.parts?.[0]?.text
+          if (containsNonUsdCurrency(text)) {
+            console.log(`[gemini-proxy] CURRENCY_VIOLATION_RETRY model=${retry.modelUsed} duration=${Date.now() - startTime}ms`)
+            return res.status(422).json({
+              error: 'currency_violation',
+              retryable: true,
+              message: 'Forecast contained non-USD currency, please retry',
+              modelUsed: retry.modelUsed,
+            })
+          }
+        }
         console.log(`[gemini-proxy] SUCCESS_RETRY model=${retry.modelUsed} total_duration=${Date.now() - startTime}ms`)
         res.setHeader('X-Model-Used', retry.modelUsed)
         return res.status(200).json(retry.data)

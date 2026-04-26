@@ -16,6 +16,7 @@ import {
   FILING_STATUS_OPTIONS,
 } from '../../utils/taxCalculator'
 import { calculateQBIDeduction } from '../../utils/qbi/calculateQBI'
+import { buildQBISavePayload, determineTierUsed } from '../../utils/qbi/qbiSnapshot'
 
 const ORANGE = '#f59e0b'
 const GREEN = '#10b981'
@@ -41,6 +42,15 @@ function fmt2(n) {
 function buildYearOptions() {
   const cur = new Date().getFullYear()
   return [cur, cur - 1, cur - 2]
+}
+
+function fmtDateTime(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (!Number.isFinite(d.getTime())) return ''
+  const pad = n => String(n).padStart(2, '0')
+  return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear() +
+    ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes())
 }
 
 function interpolate(template, values) {
@@ -72,21 +82,62 @@ export default function QBICalculatorTab({ userId, role, profile }) {
   const [ubiaOverrideInput, setUbiaOverrideInput] = useState('')
   const [sehiInput, setSehiInput] = useState('')
 
+  // Session 2B — persistence + history
+  const [saving, setSaving] = useState(false)
+  const [toast, setToast] = useState(null)
+  const [history, setHistory] = useState([])
+
   const yearOptions = useMemo(() => buildYearOptions(), [])
 
-  // If profile didn't carry filing_status, fall back to estimated_tax_settings.
   useEffect(() => {
-    if (!userId || profile?.filing_status) return
+    if (!toast) return
+    const timer = setTimeout(() => setToast(null), 3000)
+    return () => clearTimeout(timer)
+  }, [toast])
+
+  // If profile didn't carry filing_status, fall back to estimated_tax_settings.
+  // Also pull persisted SEHI annual amount (Session 2B). Both columns live on
+  // the same row keyed by user_id; one round-trip covers both reads.
+  useEffect(() => {
+    if (!userId) return
     supabase
       .from('estimated_tax_settings')
-      .select('filing_status')
+      .select('filing_status, sehi_annual')
       .eq('user_id', userId)
       .maybeSingle()
       .then(({ data }) => {
-        if (data && data.filing_status) setFilingStatus(data.filing_status)
+        if (!data) return
+        if (!profile?.filing_status && data.filing_status) {
+          setFilingStatus(data.filing_status)
+        }
+        const persistedSehi = Number(data.sehi_annual)
+        if (Number.isFinite(persistedSehi) && persistedSehi > 0) {
+          setSehiInput(String(persistedSehi))
+        }
       })
       .catch(() => {})
   }, [userId, profile?.filing_status])
+
+  // Load snapshot history for the active tax year. Re-runs on year change
+  // and after every successful save/delete via refreshHistory().
+  const refreshHistory = useMemo(() => async () => {
+    if (!userId) return
+    try {
+      const { data } = await supabase
+        .from('qbi_calculations')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('tax_year', year)
+        .order('created_at', { ascending: false })
+      setHistory(Array.isArray(data) ? data : [])
+    } catch {
+      setHistory([])
+    }
+  }, [userId, year])
+
+  useEffect(() => {
+    refreshHistory()
+  }, [refreshHistory])
 
   // Load Schedule C net profit + UBIA when year changes.
   useEffect(() => {
@@ -165,6 +216,90 @@ export default function QBICalculatorTab({ userId, role, profile }) {
   const phase = result?.phase || 'below'
   const sstbPhasedOut = isSSTB && phase === 'above'
   const tier3Applicable = phase !== 'below' && !sstbPhasedOut
+
+  const tierUsed = useMemo(() => determineTierUsed({
+    phase,
+    isSSTB,
+    tier1,
+    tier2,
+    tier3,
+    deduction: result?.deduction,
+  }), [phase, isSSTB, tier1, tier2, tier3, result])
+
+  // Save snapshot via UPSERT on (user_id, tax_year). Persists SEHI in
+  // estimated_tax_settings only when the user actually entered a value, so
+  // an empty input does not stomp a prior saved figure with 0.
+  const handleSave = async () => {
+    if (!userId || saving) return
+    setSaving(true)
+    try {
+      const payload = buildQBISavePayload({
+        userId,
+        taxYear: year,
+        filingStatus: qbiFilingStatus,
+        qbiBase,
+        taxableIncomeCap,
+        isSSTB,
+        w2Wages: w2Num,
+        ubia: ubiaUsed,
+        priorYearLoss: priorYearLossNum,
+        sehiAnnual: sehiNum,
+        netProfit,
+        seTax,
+        result,
+        tier1,
+        tier2,
+        tier3,
+      })
+      const { error: saveErr } = await supabase
+        .from('qbi_calculations')
+        .upsert(payload, { onConflict: 'user_id,tax_year' })
+      if (saveErr) throw saveErr
+
+      if (sehiNum > 0) {
+        await supabase
+          .from('estimated_tax_settings')
+          .upsert(
+            { user_id: userId, sehi_annual: sehiNum },
+            { onConflict: 'user_id' }
+          )
+      }
+
+      setToast({ type: 'success', text: t('qbi.calculator.snapshotSaved') })
+      await refreshHistory()
+    } catch (err) {
+      const msg = (err && err.message) || 'Unknown error'
+      setToast({
+        type: 'error',
+        text: interpolate(t('qbi.calculator.saveError'), { error: msg }),
+      })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (snapshotId) => {
+    if (!snapshotId) return
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      const ok = window.confirm(t('qbi.calculator.deleteConfirm'))
+      if (!ok) return
+    }
+    try {
+      const { error: delErr } = await supabase
+        .from('qbi_calculations')
+        .delete()
+        .eq('id', snapshotId)
+      if (delErr) throw delErr
+      setToast({ type: 'success', text: t('qbi.calculator.snapshotDeleted') })
+      await refreshHistory()
+    } catch (err) {
+      const msg = (err && err.message) || 'Unknown error'
+      setToast({
+        type: 'error',
+        text: interpolate(t('qbi.calculator.deleteError'), { error: msg }),
+      })
+    }
+  }
 
   // ---------- Styles ----------
   const card = {
@@ -259,7 +394,19 @@ export default function QBICalculatorTab({ userId, role, profile }) {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative' }}>
+
+      {toast && (
+        <div style={{
+          position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
+          padding: '12px 24px', borderRadius: '10px', fontSize: '14px', fontWeight: 600,
+          color: '#fff', background: toast.type === 'success' ? GREEN : RED,
+          boxShadow: '0 4px 20px rgba(0,0,0,0.3)', zIndex: 9999, maxWidth: '90%',
+          textAlign: 'center',
+        }}>
+          {toast.type === 'success' ? '✓ ' : '✗ '}{toast.text}
+        </div>
+      )}
 
       {/* Title + year */}
       <div style={card}>
@@ -556,6 +703,105 @@ export default function QBICalculatorTab({ userId, role, profile }) {
                       })
               )}
             </div>
+          </div>
+
+          {/* SECTION 6 — SAVE SNAPSHOT */}
+          <div style={card}>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              data-testid="qbi-save-snapshot"
+              data-tier-used={tierUsed}
+              style={{
+                width: '100%',
+                padding: '14px',
+                borderRadius: '10px',
+                border: 'none',
+                background: ORANGE,
+                color: '#fff',
+                fontSize: '15px',
+                fontWeight: 700,
+                cursor: saving ? 'wait' : 'pointer',
+                opacity: saving ? 0.6 : 1,
+              }}
+            >
+              {'💾 '}{t('qbi.calculator.saveSnapshot')}
+            </button>
+          </div>
+
+          {/* SECTION 7 — HISTORY */}
+          <div style={card}>
+            <div style={sectionTitle}>
+              {interpolate(t('qbi.calculator.history'), { year })}
+            </div>
+            {history.length === 0 ? (
+              <div style={{ color: theme.dim, fontSize: '13px', padding: '8px 0' }}>
+                {t('qbi.calculator.historyEmpty')}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1.4fr 1fr 0.8fr 0.5fr 36px',
+                  gap: '8px',
+                  fontSize: '11px',
+                  color: theme.dim,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  paddingBottom: '6px',
+                  borderBottom: '1px solid ' + theme.border,
+                }}>
+                  <div>{t('qbi.calculator.historyDate')}</div>
+                  <div style={{ textAlign: 'right' }}>{t('qbi.calculator.historyDeduction')}</div>
+                  <div>{t('qbi.calculator.filingStatus')}</div>
+                  <div>{t('qbi.calculator.historySSTB')}</div>
+                  <div></div>
+                </div>
+                {history.map(row => (
+                  <div
+                    key={row.id}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1.4fr 1fr 0.8fr 0.5fr 36px',
+                      gap: '8px',
+                      fontSize: '13px',
+                      color: theme.text,
+                      padding: '8px 0',
+                      borderBottom: '1px dashed ' + theme.border,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <div style={{ fontFamily: 'monospace' }}>
+                      {fmtDateTime(row.created_at)}
+                    </div>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 700, textAlign: 'right' }}>
+                      ${fmt2(row.deduction)}
+                    </div>
+                    <div style={{ textTransform: 'uppercase', fontSize: '12px' }}>
+                      {row.filing_status}
+                    </div>
+                    <div style={{ fontSize: '12px' }}>
+                      {row.is_sstb ? t('qbi.calculator.yes') : t('qbi.calculator.no')}
+                    </div>
+                    <button
+                      onClick={() => handleDelete(row.id)}
+                      data-testid={'qbi-delete-' + row.id}
+                      title={t('qbi.calculator.deleteConfirm')}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        padding: '4px',
+                        color: theme.dim,
+                      }}
+                    >
+                      {'🗑'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </>
       )}

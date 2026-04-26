@@ -1104,6 +1104,12 @@ const translations = {
       dupTitle: '\u041f\u043e\u0445\u043e\u0436\u0438\u0439 \u0447\u0435\u043a \u0443\u0436\u0435 \u0435\u0441\u0442\u044c',
       dupMessage: '\u041d\u0430\u0439\u0434\u0435\u043d\u0430 \u043f\u043e\u0445\u043e\u0436\u0430\u044f \u0437\u0430\u043f\u0438\u0441\u044c \u0437\u0430 \u043f\u043e\u0441\u043b\u0435\u0434\u043d\u0438\u0435 30 \u0434\u043d\u0435\u0439. \u0412\u043e\u0437\u043c\u043e\u0436\u043d\u043e, \u044d\u0442\u043e\u0442 \u0447\u0435\u043a \u0443\u0436\u0435 \u0431\u044b\u043b \u0434\u043e\u0431\u0430\u0432\u043b\u0435\u043d.',
       dupSaveAnyway: '\u0412\u0441\u0451 \u0440\u0430\u0432\u043d\u043e \u0441\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c',
+      validationErrors: {
+        nonUsdCurrency: '\u0427\u0435\u043a \u043d\u0435 \u0432 \u0434\u043e\u043b\u043b\u0430\u0440\u0430\u0445 \u0421\u0428\u0410 (\u043e\u0431\u043d\u0430\u0440\u0443\u0436\u0435\u043d\u043e: {currency}). TruckerBook \u043f\u043e\u0434\u0434\u0435\u0440\u0436\u0438\u0432\u0430\u0435\u0442 \u0442\u043e\u043b\u044c\u043a\u043e USD.',
+        dateInvalid: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c \u0434\u0430\u0442\u0443 \u0447\u0435\u043a\u0430. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0435\u0451 \u0432\u0440\u0443\u0447\u043d\u0443\u044e.',
+        dateOutOfRange: '\u0414\u0430\u0442\u0430 \u0447\u0435\u043a\u0430 ({date}) \u0432\u043d\u0435 \u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u043e\u0433\u043e \u0434\u0438\u0430\u043f\u0430\u0437\u043e\u043d\u0430. \u041f\u0440\u043e\u0432\u0435\u0440\u044c\u0442\u0435 \u0438 \u0432\u0432\u0435\u0434\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043d\u0443\u044e.',
+        amountInvalid: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0440\u0430\u0441\u043f\u043e\u0437\u043d\u0430\u0442\u044c \u0441\u0443\u043c\u043c\u0443 \u0447\u0435\u043a\u0430. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0432\u0440\u0443\u0447\u043d\u0443\u044e.',
+      },
     },
     smartScan: {
       title: 'AI \u0421\u043a\u0430\u043d\u0435\u0440',
@@ -3263,6 +3269,12 @@ const translations = {
       dupTitle: 'Similar receipt already exists',
       dupMessage: 'A similar entry was found in the last 30 days. This receipt may have already been added.',
       dupSaveAnyway: 'Save anyway',
+      validationErrors: {
+        nonUsdCurrency: 'Receipt is not in US dollars (detected: {currency}). TruckerBook supports USD only.',
+        dateInvalid: 'Could not read the receipt date. Please enter manually.',
+        dateOutOfRange: 'Receipt date ({date}) is outside the allowed range. Please verify and enter manually.',
+        amountInvalid: 'Could not read the receipt amount. Please enter manually.',
+      },
     },
     smartScan: {
       title: 'AI Scanner',
@@ -5426,6 +5438,12 @@ const translations = {
       dupTitle: '\u041f\u043e\u0434\u0456\u0431\u043d\u0438\u0439 \u0447\u0435\u043a \u0432\u0436\u0435 \u0454',
       dupMessage: '\u0417\u043d\u0430\u0439\u0434\u0435\u043d\u043e \u043f\u043e\u0434\u0456\u0431\u043d\u0438\u0439 \u0437\u0430\u043f\u0438\u0441 \u0437\u0430 \u043e\u0441\u0442\u0430\u043d\u043d\u0456 30 \u0434\u043d\u0456\u0432. \u041c\u043e\u0436\u043b\u0438\u0432\u043e, \u0446\u0435\u0439 \u0447\u0435\u043a \u0432\u0436\u0435 \u0431\u0443\u043b\u043e \u0434\u043e\u0434\u0430\u043d\u043e.',
       dupSaveAnyway: '\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u0432\u0441\u0435 \u043e\u0434\u043d\u043e',
+      validationErrors: {
+        nonUsdCurrency: '\u0427\u0435\u043a \u043d\u0435 \u0432 \u0434\u043e\u043b\u0430\u0440\u0430\u0445 \u0421\u0428\u0410 (\u0432\u0438\u044f\u0432\u043b\u0435\u043d\u043e: {currency}). TruckerBook \u043f\u0456\u0434\u0442\u0440\u0438\u043c\u0443\u0454 \u043b\u0438\u0448\u0435 USD.',
+        dateInvalid: '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0442\u0438 \u0434\u0430\u0442\u0443 \u0447\u0435\u043a\u0430. \u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443.',
+        dateOutOfRange: '\u0414\u0430\u0442\u0430 \u0447\u0435\u043a\u0430 ({date}) \u043f\u043e\u0437\u0430 \u0434\u043e\u043f\u0443\u0441\u0442\u0438\u043c\u0438\u043c \u0434\u0456\u0430\u043f\u0430\u0437\u043e\u043d\u043e\u043c. \u041f\u0435\u0440\u0435\u0432\u0456\u0440\u0442\u0435 \u0456 \u0432\u0432\u0435\u0434\u0456\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443.',
+        amountInvalid: '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0440\u043e\u0437\u043f\u0456\u0437\u043d\u0430\u0442\u0438 \u0441\u0443\u043c\u0443 \u0447\u0435\u043a\u0430. \u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0432\u0440\u0443\u0447\u043d\u0443.',
+      },
     },
     smartScan: {
       title: 'AI \u0421\u043a\u0430\u043d\u0435\u0440',
@@ -7333,6 +7351,12 @@ const translations = {
       dupTitle: 'Un recibo similar ya existe',
       dupMessage: 'Se encontr\u00f3 un registro similar en los \u00faltimos 30 d\u00edas. Es posible que este recibo ya haya sido agregado.',
       dupSaveAnyway: 'Guardar de todos modos',
+      validationErrors: {
+        nonUsdCurrency: 'El recibo no está en dólares estadounidenses (detectado: {currency}). TruckerBook solo admite USD.',
+        dateInvalid: 'No se pudo leer la fecha del recibo. Introdúzcala manualmente.',
+        dateOutOfRange: 'La fecha del recibo ({date}) está fuera del rango permitido. Verifique e introduzca manualmente.',
+        amountInvalid: 'No se pudo leer el importe del recibo. Introdúzcalo manualmente.',
+      },
     },
     smartScan: {
       title: 'AI Esc\u00e1ner',
@@ -9222,6 +9246,12 @@ const translations = {
       dupTitle: '\u00c4hnliche Quittung bereits vorhanden',
       dupMessage: 'In den letzten 30 Tagen wurde ein \u00e4hnlicher Eintrag gefunden. Diese Quittung wurde m\u00f6glicherweise bereits hinzugef\u00fcgt.',
       dupSaveAnyway: 'Trotzdem speichern',
+      validationErrors: {
+        nonUsdCurrency: 'Beleg ist nicht in US-Dollar (erkannt: {currency}). TruckerBook unterst\u00fctzt nur USD.',
+        dateInvalid: 'Belegdatum konnte nicht gelesen werden. Bitte manuell eingeben.',
+        dateOutOfRange: 'Belegdatum ({date}) liegt au\u00dferhalb des zul\u00e4ssigen Bereichs. Bitte \u00fcberpr\u00fcfen und manuell eingeben.',
+        amountInvalid: 'Belegbetrag konnte nicht gelesen werden. Bitte manuell eingeben.',
+      },
     },
     smartScan: {
       title: 'AI Scanner',
@@ -11111,6 +11141,12 @@ const translations = {
       dupTitle: 'Un re\u00e7u similaire existe d\u00e9j\u00e0',
       dupMessage: 'Une entr\u00e9e similaire a \u00e9t\u00e9 trouv\u00e9e au cours des 30 derniers jours. Ce re\u00e7u a peut-\u00eatre d\u00e9j\u00e0 \u00e9t\u00e9 ajout\u00e9.',
       dupSaveAnyway: 'Enregistrer quand m\u00eame',
+      validationErrors: {
+        nonUsdCurrency: 'Le re\u00e7u n\u2019est pas en dollars am\u00e9ricains (d\u00e9tect\u00e9 : {currency}). TruckerBook prend en charge uniquement l\u2019USD.',
+        dateInvalid: 'Impossible de lire la date du re\u00e7u. Veuillez la saisir manuellement.',
+        dateOutOfRange: 'La date du re\u00e7u ({date}) est hors de la plage autoris\u00e9e. Veuillez v\u00e9rifier et saisir manuellement.',
+        amountInvalid: 'Impossible de lire le montant du re\u00e7u. Veuillez le saisir manuellement.',
+      },
     },
     smartScan: {
       title: 'AI Scanner',
@@ -13000,6 +13036,12 @@ const translations = {
       dupTitle: 'Benzer fi\u015f zaten mevcut',
       dupMessage: 'Son 30 g\u00fcn i\u00e7inde benzer bir kay\u0131t bulundu. Bu fi\u015f zaten eklenmi\u015f olabilir.',
       dupSaveAnyway: 'Yine de kaydet',
+      validationErrors: {
+        nonUsdCurrency: 'Fi\u015f ABD dolar\u0131 cinsinden de\u011fil (alg\u0131land\u0131: {currency}). TruckerBook yaln\u0131zca USD destekler.',
+        dateInvalid: 'Fi\u015fin tarihi okunamad\u0131. L\u00fctfen manuel olarak girin.',
+        dateOutOfRange: 'Fi\u015f tarihi ({date}) izin verilen aral\u0131\u011f\u0131n d\u0131\u015f\u0131nda. L\u00fctfen do\u011frulay\u0131n ve manuel girin.',
+        amountInvalid: 'Fi\u015f tutar\u0131 okunamad\u0131. L\u00fctfen manuel olarak girin.',
+      },
     },
     smartScan: {
       title: 'AI Taray\u0131c\u0131',
@@ -14893,6 +14935,12 @@ const translations = {
       dupTitle: 'Podobny paragon ju\u017c istnieje',
       dupMessage: 'Znaleziono podobny wpis z ostatnich 30 dni. Ten paragon m\u00f3g\u0142 ju\u017c zosta\u0107 dodany.',
       dupSaveAnyway: 'Zapisz mimo to',
+      validationErrors: {
+        nonUsdCurrency: 'Paragon nie jest w dolarach amerykańskich (wykryto: {currency}). TruckerBook obsługuje tylko USD.',
+        dateInvalid: 'Nie udało się odczytać daty paragonu. Wprowadź ją ręcznie.',
+        dateOutOfRange: 'Data paragonu ({date}) jest poza dopuszczalnym zakresem. Sprawdź i wprowadź ręcznie.',
+        amountInvalid: 'Nie udało się odczytać kwoty paragonu. Wprowadź ją ręcznie.',
+      },
     },
     smartScan: {
       title: 'AI Skaner',

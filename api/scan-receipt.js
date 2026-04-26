@@ -1,5 +1,6 @@
 // POST /api/scan-receipt — requires `Authorization: Bearer <supabase-jwt>` and is rate-limited per user.
 import { setCorsHeaders, handleOptions, validateJwt, checkRateLimit } from './_security.js'
+import { validateReceiptResponse } from './scanReceiptValidation.js'
 
 const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro']
 const MAX_RETRIES = 3
@@ -96,7 +97,21 @@ IMPORTANT RULES:
 4. If receipt is from auto parts store (AutoZone, O'Reilly, NAPA, Advance Auto) -> default to "parts"
 5. If receipt is from truck stop (Pilot, Flying J, Love's, TA, Petro) -> check each item individually
 
-If you cannot read the receipt clearly, return: {"error": "Cannot read receipt", "items": []}`
+Additional validation rules:
+
+6. **Currency**: The receipt MUST be in US Dollars (USD).
+   - Accept: $, USD, "dollars", "U.S."
+   - If you see ₽ (RUB), € (EUR), £ (GBP), ¥ (JPY/CNY), C$ (CAD), ₴ (UAH), ₸ (KZT), Br (BYN), or any non-USD currency symbol/code, return: {"error": "non_usd_currency", "detected_currency": "<what you saw, e.g. RUB or EUR>"}
+   - If currency is ambiguous (no symbol but European decimal format like "1.234,56" suggesting EUR), return: {"error": "non_usd_currency", "detected_currency": "ambiguous_european_format"}
+   - Do NOT attempt to convert non-USD amounts to dollars.
+
+7. **Date validation**:
+   - The "date" field MUST be ISO 8601 (YYYY-MM-DD).
+   - If you cannot reliably read the date (illegible, missing, partial, ambiguous), return: {"error": "date_unreadable"}
+   - Do NOT default to today, "1970-01-01", or any placeholder year. Better to return the error than fabricate a date.
+   - If the date appears to be after today's actual real-world date (a receipt from the future is impossible), return: {"error": "date_in_future", "detected_date": "<what you saw>"}
+
+If you cannot read the receipt clearly at all, return: {"error": "Cannot read receipt", "items": []}`
 
   // Strip data URI prefix if present (e.g. "data:image/jpeg;base64,...")
   const cleanBase64 = image.includes(',') ? image.split(',')[1] : image
@@ -168,6 +183,25 @@ If you cannot read the receipt clearly, return: {"error": "Cannot read receipt",
 
         if (model !== MODELS[0]) {
           parsed._fallback_model = model
+        }
+
+        // Defense in depth: validate currency, date range, and amount
+        // before the client writes the receipt to the database. Even
+        // when Gemini ignores rules 6/7 in the prompt, this server-side
+        // check refuses to return mangled data (1970-01-01, RUB amount,
+        // negative totals). See scanReceiptValidation.js.
+        const validation = validateReceiptResponse(parsed)
+        if (!validation.ok) {
+          return res.status(422).json({
+            userError: validation.userError,
+            detectedCurrency: validation.detectedCurrency,
+            detectedDate: validation.detectedDate,
+            detectedAmount: validation.detectedAmount,
+            // Echo the recognized items so the client can offer manual
+            // entry pre-filled with what we DID read (e.g. amount when
+            // only the date failed).
+            parsed: validation.parsed || null,
+          })
         }
 
         return res.status(200).json(parsed)

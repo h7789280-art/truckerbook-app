@@ -128,6 +128,41 @@ export default function ScanReceipt({ onClose, onResult, userId, vehicleId, onSa
 
       const data = await resp.json().catch(() => ({}))
 
+      // Server-side validation failure (currency / date / amount).
+      // 422 carries a `userError` code and optional `parsed` echo so the
+      // user can keep what was readable and just fix the failed field.
+      if (resp.status === 422 && data.userError) {
+        const ue = data.userError
+        if (ue === 'non_usd_currency') {
+          setError(t('scan.validationErrors.nonUsdCurrency').replace('{currency}', data.detectedCurrency || '?'))
+          setScanning(false)
+          return
+        }
+        if (ue === 'amount_invalid') {
+          setError(t('scan.validationErrors.amountInvalid'))
+          setScanning(false)
+          return
+        }
+        if (ue === 'date_invalid' || ue === 'date_out_of_range') {
+          // Date is the only failed field \u2014 keep recognized items / amount and
+          // let the user enter the date manually in ScanConfirm. We strip the
+          // bad date from the parsed result so ScanConfirm falls back to today.
+          const msg = ue === 'date_out_of_range'
+            ? t('scan.validationErrors.dateOutOfRange').replace('{date}', data.detectedDate || '?')
+            : t('scan.validationErrors.dateInvalid')
+          setError(msg)
+          if (data.parsed && Array.isArray(data.parsed.items) && data.parsed.items.length > 0) {
+            const fallback = { ...data.parsed }
+            delete fallback.date
+            setResult(fallback)
+            setShowConfirm(true)
+            if (onResult) onResult(fallback)
+          }
+          setScanning(false)
+          return
+        }
+      }
+
       if (!resp.ok || data.error) {
         if (resp.status >= 500) {
           setError(data.error || 'Service temporarily unavailable')

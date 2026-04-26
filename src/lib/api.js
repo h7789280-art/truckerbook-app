@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { addToSyncQueue } from './offlineDb'
+import { fetchFleetBytExpenses, fetchOwnBytExpensesForReport } from './fleetPrivacy'
 
 async function offlineInsert(table, row) {
   await addToSyncQueue(table, 'insert', row)
@@ -2047,10 +2048,12 @@ export async function fetchFleetReportExportData(userId, year, month) {
     fetchVehicleExpenses(userId).catch(() => []),
     Promise.resolve([]),  // placeholder — dashboard only queries by user_id
     Promise.resolve([]),  // placeholder — dashboard only queries by user_id
-    // Byt (personal) expenses: by owner, by all users
-    safeQuery(supabase.from('byt_expenses').select('*').eq('user_id', userId).gte('date', start).lt('date', end).order('date')),
+    // Byt expenses: owner sees their own (personal+business); fleet owner sees
+    // hired drivers' BUSINESS-only entries. Personal entries are private to
+    // the driver per CLAUDE.md guarantee. See src/lib/fleetPrivacy.js.
+    fetchOwnBytExpensesForReport(supabase, userId, start, end),
     allUserIds.length > 1
-      ? safeQuery(supabase.from('byt_expenses').select('*').in('user_id', allUserIds).gte('date', start).lt('date', end).order('date'))
+      ? fetchFleetBytExpenses(supabase, allUserIds, start, end)
       : Promise.resolve([]),
     // Sessions & advances
     safeQuery(supabase.from('driving_sessions').select('*').in('user_id', allUserIds).gte('started_at', start + 'T00:00:00').lt('started_at', end + 'T00:00:00').order('started_at')),

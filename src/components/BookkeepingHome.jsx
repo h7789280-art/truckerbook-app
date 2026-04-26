@@ -11,6 +11,7 @@ import MileageLogTab from './MileageLogTab'
 import DeductionChecklistTab from './DeductionChecklistTab'
 import TaxPackageTab from './TaxPackageTab'
 import SepIraCalculatorTab from './tax/SepIraCalculatorTab'
+import QBICalculatorTab from './tax/QBICalculatorTab'
 import DeductionAuditTab from './tax/DeductionAuditTab'
 
 export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
@@ -36,10 +37,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
   const showTaxPackage = role === 'owner_operator' || isDriver1099
   // SEP-IRA Retirement Calculator — owner_operator only.
   const showSepIra = role === 'owner_operator'
+  // QBI Deduction Calculator (§199A) — Schedule C filers only.
+  const showQBI = role === 'owner_operator' || isDriver1099
   // AI Deduction Audit — owner_operator only.
   const showDeductionAudit = role === 'owner_operator'
 
-  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist' || activeSection === 'taxPackage' || activeSection === 'sepIra' || activeSection === 'deductionAudit') {
+  if (activeSection === 'ifta' || activeSection === 'perDiem' || activeSection === 'deadlines' || activeSection === 'estimatedTax' || activeSection === 'taxSummary' || activeSection === 'depreciation' || activeSection === 'mileageLog' || activeSection === 'deductionChecklist' || activeSection === 'taxPackage' || activeSection === 'sepIra' || activeSection === 'qbi' || activeSection === 'deductionAudit') {
     return (
       <div>
         <button
@@ -62,6 +65,7 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
         {activeSection === 'deductionChecklist' && showDeductionChecklist && <DeductionChecklistTab />}
         {activeSection === 'taxPackage' && showTaxPackage && <TaxPackageTab userId={userId} role={role} profile={profile} />}
         {activeSection === 'sepIra' && showSepIra && <SepIraCalculatorTab userId={userId} role={role} profile={profile} stateOfResidence={profile?.state_of_residence} />}
+        {activeSection === 'qbi' && showQBI && <QBICalculatorTab userId={userId} role={role} profile={profile} />}
         {activeSection === 'deductionAudit' && showDeductionAudit && <DeductionAuditTab userId={userId} role={role} profile={profile} />}
         <div style={{
           marginTop: '24px', padding: '12px', fontSize: '11px',
@@ -127,6 +131,12 @@ export default function BookkeepingHome({ userId, role, userVehicles, profile, o
       icon: '\uD83D\uDCE6',
       title: t('bookkeeping.taxPackageCard'),
       desc: t('bookkeeping.taxPackageDescription'),
+    }] : []),
+    ...(showQBI ? [{
+      key: 'qbi',
+      icon: '🏛️',
+      title: t('qbi.calculator.menuTitle'),
+      desc: t('qbi.calculator.menuSubtitle'),
     }] : []),
     ...(showSepIra ? [{
       key: 'sepIra',

@@ -161,6 +161,63 @@ await assertRejects(
   'Dep5: Supabase error throws',
 )
 
+// 6. Schedule C aggregator regression — Peter's tractor placed in service
+//    THIS year (year 1 of MACRS 3-year, half-year). Locks $41,662.50 so a
+//    legacy-fallback regression that returned the full purchase_price would
+//    fail this test loudly. Reference: IRS Pub 946 Table A-1, 3-year property,
+//    year 1 rate = 33.33% × $125,000 = $41,662.50.
+{
+  const peterYear1 = { ...peterTractor, purchase_date: '2026-04-11' }
+  const dep = await getTotalDepreciationForYear(makeMockSupabase({ rows: [peterYear1] }), 'u', TAX_YEAR)
+  assertClose(dep, 41_662.5, 'Dep6: Peter year-1 OTR tractor → $41,662.50 (33.33% MACRS)')
+}
+
+// 7. Same row but with strategy=null (a partially-migrated record where the
+//    strategy column never landed). Aggregator should still default to
+//    STANDARD_MACRS via asset_class — NOT fall through to the legacy
+//    section179 100%-writedown branch (which was the $125k bug).
+{
+  const peterMissingStrategy = {
+    ...peterTractor,
+    purchase_date: '2026-04-11',
+    strategy: null,
+    depreciation_type: 'section179',
+  }
+  const dep = await getTotalDepreciationForYear(makeMockSupabase({ rows: [peterMissingStrategy] }), 'u', TAX_YEAR)
+  assertClose(dep, 41_662.5, 'Dep7: missing strategy + asset_class → defaults to STANDARD_MACRS, not legacy section179')
+}
+
+// 8. Truly legacy row (no asset_class, depreciation_type='section179') keeps
+//    its historical 100%-writedown semantics — users who explicitly elected
+//    Section 179 in the pre-strategy era must not have their deduction
+//    silently downgraded to MACRS.
+{
+  const trueLegacy = {
+    purchase_price: 125000,
+    purchase_date: '2026-04-11',
+    depreciation_type: 'section179',
+    salvage_value: 0,
+    prior_depreciation: 0,
+  }
+  const dep = await getTotalDepreciationForYear(makeMockSupabase({ rows: [trueLegacy] }), 'u', TAX_YEAR)
+  assertClose(dep, 125_000, 'Dep8: true legacy section179 (no asset_class) → preserves 100% writedown')
+}
+
+// 9. SELECT must include depreciation_convention (Pack 2). Without this column
+//    in the projection, the aggregator silently disagrees with the MACRS UI on
+//    any row whose Q4-trigger flipped it to mid-quarter.
+{
+  const mock = makeMockSupabase({ rows: [] })
+  await getTotalDepreciationForYear(mock, 'u', TAX_YEAR)
+  const sel = mock._calls.find(c => c[0] === 'select')
+  const cols = sel && sel[1] ? sel[1] : ''
+  assertEq(
+    cols.includes('depreciation_convention'),
+    true,
+    'Dep9: SELECT includes depreciation_convention (Pack 2 mid-quarter)',
+  )
+}
+
 // ----------------------------------------------------------------------
 // getTotalUBIAForYear
 // ----------------------------------------------------------------------

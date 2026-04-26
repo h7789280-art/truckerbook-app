@@ -26,7 +26,11 @@ import { getCurrentYearDeduction } from '../lib/tax/depreciationCalculator.js'
 export async function getTotalDepreciationForYear(supabase, userId, taxYear) {
   const { data, error } = await supabase
     .from('vehicle_depreciation')
-    .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct')
+    // depreciation_convention added by Pack 2 (mid-quarter trigger). Without it
+    // here, getCurrentYearDeduction sees `convention=undefined` and silently
+    // falls back to half-year — the aggregator would then disagree with the
+    // MACRS UI on any asset whose Q4-trigger flipped it to mid-quarter.
+    .select('purchase_price, purchase_date, depreciation_type, salvage_value, prior_depreciation, asset_class, strategy, section_179_amount, bonus_rate, business_use_pct, depreciation_convention')
     .eq('user_id', userId)
 
   if (error) throw error

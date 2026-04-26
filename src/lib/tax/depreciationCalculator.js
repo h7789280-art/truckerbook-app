@@ -335,9 +335,16 @@ export function getCurrentYearDeduction(row, year) {
   const purchaseYear = row.purchase_date ? new Date(row.purchase_date).getUTCFullYear() : year
 
   // New strategy-based record — use the strategy calculator.
-  if (row.strategy) {
+  // Rows saved through DepreciationTab.handleSave always have asset_class set,
+  // so treat asset_class as the marker for "new-flow row." When such a row is
+  // missing `strategy` (older row migrated before the column was populated, or
+  // a partial save), default to STANDARD_MACRS rather than dropping into the
+  // legacy `depreciation_type === 'section179'` branch — which returns the
+  // full purchase price minus prior, giving Schedule C a $125k deduction for
+  // a row whose user-visible strategy in the MACRS UI is Standard MACRS.
+  if (row.strategy || row.asset_class) {
     const schedule = buildStrategySchedule({
-      strategy: row.strategy,
+      strategy: row.strategy || STRATEGY.STANDARD_MACRS,
       assetClass: row.asset_class || ASSET_CLASS.LIGHT_TRUCK,
       costBasis: price,
       salvageValue: salvage,
@@ -351,7 +358,9 @@ export function getCurrentYearDeduction(row, year) {
     return match ? match.deduction : 0
   }
 
-  // Legacy path — preserve previous behavior exactly.
+  // Legacy path — preserve previous behavior exactly for rows that predate the
+  // strategy/asset_class columns (Section 179 election persisted as
+  // depreciation_type='section179' with no asset_class).
   if (row.depreciation_type === 'section179') {
     return purchaseYear === year ? Math.max(Math.min(basis, LEGACY_SECTION_179_LIMIT) - prior, 0) : 0
   }
@@ -373,9 +382,11 @@ export function getDeductedToDate(row, throughYear) {
   const salvage = Number(row.salvage_value) || 0
   const purchaseYear = row.purchase_date ? new Date(row.purchase_date).getUTCFullYear() : throughYear
 
-  if (row.strategy) {
+  // Same default-to-STANDARD_MACRS rule as getCurrentYearDeduction so the
+  // deducted-to-date display agrees with Schedule C across the same row.
+  if (row.strategy || row.asset_class) {
     const { schedule } = buildStrategySchedule({
-      strategy: row.strategy,
+      strategy: row.strategy || STRATEGY.STANDARD_MACRS,
       assetClass: row.asset_class || ASSET_CLASS.LIGHT_TRUCK,
       costBasis: price,
       salvageValue: salvage,

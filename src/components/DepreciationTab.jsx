@@ -22,8 +22,10 @@ import {
   buildStrategySchedule,
   compareStrategies,
   recommendStrategyLegacy as recommendStrategy,
-  needsMidQuarterConvention,
   getMaxSection179Slider,
+  computeConventionForAssets,
+  getSection179DisplayAmount,
+  DEPRECIATION_CONVENTION,
 } from '../lib/tax/depreciationCalculator'
 
 const LEGACY_SECTION_179_LIMIT = 1160000
@@ -395,6 +397,10 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
   // IRS requires Form 3115 to switch methods on an already-placed-in-service asset.
   // On initial entry (no loaded record) we never show the banner.
   const [previousAssetClass, setPreviousAssetClass] = useState(null)
+  // IRS depreciation convention for the loaded asset, decided once when the year
+  // it was placed in service was finalized (mid-quarter trigger = >40% of that
+  // year's basis placed in Q4). Falls back to half_year for legacy rows.
+  const [depreciationConvention, setDepreciationConvention] = useState(DEPRECIATION_CONVENTION.HALF_YEAR)
 
   const currentYear = new Date().getFullYear()
   const placedInServiceDate = purchaseDate ? new Date(purchaseDate + 'T00:00:00Z') : null
@@ -460,6 +466,7 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
           setUserOverride(true)
         }
         if (data.section_179_amount != null) setSection179Amount(String(data.section_179_amount))
+        if (data.depreciation_convention) setDepreciationConvention(data.depreciation_convention)
       })
       .catch(() => {})
   }, [userId])
@@ -503,7 +510,11 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
   const s179ExceedsIncome = s179Effective > s179IncomeLimited && taxableIncomeNum > 0
 
   const businessUseEligible = businessUseNum >= SECTION_179_2026.businessUseMinPct
-  const midQuarter = needsMidQuarterConvention(placedInServiceDate)
+  const usingMidQuarter = typeof depreciationConvention === 'string'
+    && depreciationConvention.startsWith('mid_quarter_')
+  const midQuarterLetter = usingMidQuarter
+    ? depreciationConvention.slice(-2).toUpperCase()
+    : null
 
   // Tax helper: compute (federal + SE + state) tax on a given net profit.
   const taxOfNet = useMemo(() => (
@@ -538,8 +549,9 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
       businessUsePct: businessUseNum,
       taxOfNet,
       netProfitBeforeDeduction: taxableIncomeNum,
+      convention: depreciationConvention,
     })
-  }, [priceNum, purchaseDate, salvageNum, s179Effective, autoBonusRate, placedInServiceDate, businessUseNum, assetClass, taxOfNet, taxableIncomeNum])
+  }, [priceNum, purchaseDate, salvageNum, s179Effective, autoBonusRate, placedInServiceDate, businessUseNum, assetClass, taxOfNet, taxableIncomeNum, depreciationConvention])
 
   // Recommended strategy (honest heuristic — not financial advice).
   const recommended = useMemo(() => recommendStrategy({
@@ -591,8 +603,9 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
       bonusRate: strategy === STRATEGY.BONUS_ONLY || strategy === STRATEGY.SECTION_179_BONUS ? autoBonusRate : 0,
       placedInServiceDate,
       businessUsePct: businessUseNum,
+      convention: depreciationConvention,
     })
-  }, [strategy, assetClass, priceNum, purchaseDate, salvageNum, s179IncomeLimited, autoBonusRate, placedInServiceDate, businessUseNum])
+  }, [strategy, assetClass, priceNum, purchaseDate, salvageNum, s179IncomeLimited, autoBonusRate, placedInServiceDate, businessUseNum, depreciationConvention])
 
   const deductedToDate = activeSchedule.schedule
     .filter(r => r.year < currentYear)
@@ -649,6 +662,44 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
         .maybeSingle()
       if (error) throw error
       if (data) setLoadedId(data.id)
+
+      // Re-evaluate the IRS mid-quarter trigger for the year this asset was placed
+      // in service. If >40% of that year's basis was placed in Q4, every asset for
+      // that year gets a mid_quarter_qN convention; otherwise half_year stays. The
+      // result is per-asset because each asset's quarter feeds its own rate vector.
+      const purchaseYear = new Date(purchaseDate).getUTCFullYear()
+      if (Number.isFinite(purchaseYear)) {
+        const yearStart = purchaseYear + '-01-01'
+        const yearEnd = (purchaseYear + 1) + '-01-01'
+        const { data: yearAssets, error: fetchErr } = await supabase
+          .from('vehicle_depreciation')
+          .select('id, purchase_date, purchase_price, business_use_pct, depreciation_convention')
+          .eq('user_id', userId)
+          .gte('purchase_date', yearStart)
+          .lt('purchase_date', yearEnd)
+        if (!fetchErr && Array.isArray(yearAssets)) {
+          const conventionMap = computeConventionForAssets(yearAssets)
+          const updates = []
+          for (const asset of yearAssets) {
+            const next = conventionMap.get(asset.id)
+            if (next && asset.depreciation_convention !== next) {
+              updates.push(
+                supabase
+                  .from('vehicle_depreciation')
+                  .update({ depreciation_convention: next })
+                  .eq('id', asset.id),
+              )
+              if (data && asset.id === data.id) setDepreciationConvention(next)
+            } else if (data && asset.id === data.id && next) {
+              // Reflect already-correct convention into local state so the UI badge
+              // updates the first time the user saves a brand-new row.
+              setDepreciationConvention(next)
+            }
+          }
+          if (updates.length > 0) await Promise.all(updates)
+        }
+      }
+
       setToast({ text: t('depreciation.saved'), type: 'success' })
     } catch (err) {
       setToast({ text: err.message, type: 'error' })
@@ -812,14 +863,14 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
           </div>
         </div>
       )}
-      {midQuarter && (
+      {usingMidQuarter && (
         <div style={{
           ...card,
-          background: 'rgba(245,158,11,0.08)',
-          border: '1px solid rgba(245,158,11,0.3)',
+          background: 'rgba(34,197,94,0.08)',
+          border: '1px solid rgba(34,197,94,0.3)',
         }}>
-          <div style={{ fontSize: '12px', color: '#f59e0b', fontWeight: 600 }}>
-            {'⚠ '}{t('depreciation.warnMidQuarter')}
+          <div style={{ fontSize: '12px', color: '#22c55e', fontWeight: 600 }}>
+            {'✓ '}{t('depreciation.badgeMidQuarterApplied').replace('{Q}', midQuarterLetter || 'Q4')}
           </div>
         </div>
       )}
@@ -954,17 +1005,17 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
           {comparison.map(item => {
             const isRecommended = recommended.key === item.key
             const isActive = strategy === item.key
-            // Show Section 179 breakdown when the deduction was income-limited.
-            const showS179Breakdown = item.key === STRATEGY.SECTION_179
-              && item.year1MACRS > 0
-              && (item.section179Applied === 0 || item.section179Applied < s179Input)
-            // IRC §179(b)(3) income limitation blocks §179 entirely when income = 0.
-            // In that case "Только §179" Year-1 deduction == Standard MACRS — without
-            // an explicit indicator the user reads this as duplicate data. Highlight
-            // the row so they understand the §179 strategy simply doesn't apply here.
-            const s179IncomeBlocked = item.key === STRATEGY.SECTION_179
-              && item.section179Applied === 0
-              && taxableIncomeNum === 0
+            // For the §179 row we display the §179-only amount per IRC §179(b)(3)
+            // (capped at basis, $2.56M, max(0, income)). The MACRS fallback that
+            // covers the rest of the basis when §179 is income-limited is shown
+            // in the breakdown line below — never as the headline figure.
+            const isS179Row = item.key === STRATEGY.SECTION_179
+            const s179DisplayValue = isS179Row
+              ? getSection179DisplayAmount(priceNum, taxableIncomeNum)
+              : null
+            const showS179Breakdown = isS179Row && (item.year1MACRS > 0 || item.section179Applied > 0)
+            const s179IncomeBlocked = isS179Row && taxableIncomeNum === 0
+            const headlineY1 = isS179Row ? s179DisplayValue : item.year1
             return (
               <div key={item.key} style={{
                 display: 'grid', gridTemplateColumns: '1.5fr 0.9fr 0.9fr 0.9fr',
@@ -977,40 +1028,31 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
                     {t('depreciation.' + STRATEGY_LABELS[item.key].titleKey)}
                     {isRecommended && <span style={{ color: '#22c55e', marginLeft: '6px' }}>★</span>}
                   </div>
-                  {showS179Breakdown && (
+                  {s179IncomeBlocked && (
                     <div style={{
-                      fontSize: s179IncomeBlocked ? '11px' : '10px',
-                      color: s179IncomeBlocked ? '#f59e0b' : theme.dim,
-                      fontWeight: s179IncomeBlocked ? 600 : 400,
-                      marginTop: '3px',
-                      lineHeight: '1.35',
+                      fontSize: '11px', color: '#f59e0b', fontWeight: 600,
+                      marginTop: '3px', lineHeight: '1.35',
+                    }}>
+                      {t('depreciation.compareSection179LimitedByIncome')}
+                    </div>
+                  )}
+                  {showS179Breakdown && !s179IncomeBlocked && (
+                    <div style={{
+                      fontSize: '10px', color: theme.dim,
+                      marginTop: '3px', lineHeight: '1.35',
                     }}>
                       {'Section 179: $' + fmtInt(item.section179Applied)}
                       {item.section179Applied === 0
-                        ? (taxableIncomeNum === 0
-                            ? ' (' + t('depreciation.compareNoIncome') + ')'
-                            : ' (' + t('depreciation.compareSliderZero') + ')')
+                        ? ' (' + t('depreciation.compareSliderZero') + ')'
                         : ''}
-                      {' + MACRS: $' + fmtInt(item.year1MACRS)}
+                      {item.year1MACRS > 0
+                        ? ' + MACRS: $' + fmtInt(item.year1MACRS)
+                        : ''}
                     </div>
                   )}
                 </div>
                 <div style={{ fontSize: '12px', fontFamily: 'monospace', textAlign: 'right', color: '#ef4444' }}>
-                  ${fmtInt(item.year1)}
-                  {s179IncomeBlocked && (
-                    <span
-                      title={t('depreciation.section179UnavailableTooltip')}
-                      aria-label={t('depreciation.section179UnavailableBadge')}
-                      style={{
-                        marginLeft: '4px',
-                        fontSize: '11px',
-                        color: '#f59e0b',
-                        cursor: 'help',
-                      }}
-                    >
-                      {'⚠'}
-                    </span>
-                  )}
+                  ${fmtInt(headlineY1)}
                 </div>
                 <div style={{ fontSize: '12px', fontFamily: 'monospace', textAlign: 'right', color: '#22c55e' }}>
                   ${fmtInt(item.year1TaxSavings)}
@@ -1161,10 +1203,9 @@ function OwnerDepreciation({ userId, stateOfResidence }) {
             )
           })}
           <div style={{ fontSize: '10px', color: theme.dim, marginTop: '10px', lineHeight: '1.45' }}>
-            {t('depreciation.scheduleFootnote')}
-          </div>
-          <div style={{ fontSize: '10px', color: theme.dim, marginTop: '4px', lineHeight: '1.45' }}>
-            {t('depreciation.midQuarterFootnote')}
+            {usingMidQuarter
+              ? t('depreciation.scheduleFootnoteMidQuarter').replace('{Q}', midQuarterLetter || 'Q4')
+              : t('depreciation.scheduleFootnote')}
           </div>
         </div>
       )}

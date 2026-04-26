@@ -3,6 +3,7 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { uploadReceiptPhoto, addVehicleExpense, addBytExpense, checkDuplicateReceipt } from '../lib/api'
 import { saveToArchive, receiptDocType } from '../lib/documentsArchive'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 // AI category -> vehicle_expenses category (valid DB values: def, oil, parts, equipment, supplies, hotel, toll, other)
 const VEHICLE_CAT_MAP = {
@@ -53,7 +54,7 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
   const { t } = useLanguage()
 
   const [storeName, setStoreName] = useState(result.store_name || '')
-  const [date, setDate] = useState(result.date || new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(result.date || getLocalDateString())
   const [items, setItems] = useState(() =>
     (result.items || []).map((item, i) => {
       const type = guessType(item.category)

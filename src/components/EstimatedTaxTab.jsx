@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase'
 import { calculateTotalTax } from '../utils/taxCalculator'
 import { sendNotification, isPermissionGranted, requestPermission } from '../lib/notifications'
 import { calculateScheduleCNetProfit } from '../utils/scheduleC'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 function fmt(n) {
   return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -387,8 +388,17 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px dashed ' + theme.border }}>
               <div>
+                <div style={{
+                  fontSize: '10px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.6px',
+                  color: theme.dim,
+                  marginBottom: '2px',
+                }}>
+                  {t('quarterlyTax.equalQuarters')}
+                </div>
                 <div style={{ fontSize: '12px', color: theme.dim }}>{t('quarterlyTax.quarterlyInstallment')}</div>
-                <div style={{ fontSize: '10px', color: theme.dim, marginTop: '2px' }}>{t('quarterlyTax.annualDiv4')}</div>
+                <div style={{ fontSize: '10px', color: theme.dim, marginTop: '2px' }}>{t('quarterlyTax.equalQuartersExplain')}</div>
               </div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text, fontFamily: 'monospace' }}>
                 ${fmt(quarterlyAmount)}
@@ -648,7 +658,7 @@ export default function EstimatedTaxTab({ userId, role, userVehicles, employment
 
 function MarkPaidModal({ theme, t, quarter, estimated, saving, onCancel, onSave }) {
   const [amount, setAmount] = useState(String(estimated || 0))
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+  const [date, setDate] = useState(getLocalDateString())
   const [method, setMethod] = useState('direct_pay')
   const [notes, setNotes] = useState('')
 

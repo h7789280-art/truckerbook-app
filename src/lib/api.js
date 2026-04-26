@@ -1,6 +1,7 @@
 import { supabase } from './supabase'
 import { addToSyncQueue } from './offlineDb'
 import { fetchFleetBytExpenses, fetchOwnBytExpensesForReport } from './fleetPrivacy'
+import { getLocalDateString } from './dateHelpers'
 
 async function offlineInsert(table, row) {
   await addToSyncQueue(table, 'insert', row)
@@ -49,7 +50,7 @@ export async function addFuel(_userId, entry) {
     user_id: user.id,
     vehicle_id: entry.vehicle_id || null,
     station: entry.station || '',
-    date: entry.date || new Date().toISOString().slice(0, 10),
+    date: entry.date || getLocalDateString(),
     liters: parseFloat(entry.liters) || 0,
     cost: parseFloat(entry.amount) || 0,
     odometer: parseInt(entry.odometer, 10) || 0,
@@ -176,7 +177,7 @@ export async function addBytExpense(entry) {
     user_id: user.id,
     category: entry.category || 'other',
     name: entry.name || '',
-    date: entry.date || new Date().toISOString().slice(0, 10),
+    date: entry.date || getLocalDateString(),
     amount: parseFloat(entry.amount) || 0,
     receipt_url: entry.receipt_url || null,
   }
@@ -246,7 +247,7 @@ export async function addServiceRecord(entry) {
     service_station: entry.sto || '',
     cost: parseFloat(entry.amount) || 0,
     odometer: parseInt(entry.odometer, 10) || 0,
-    date: entry.date || new Date().toISOString().slice(0, 10),
+    date: entry.date || getLocalDateString(),
     receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('service_records', row)
@@ -646,7 +647,7 @@ export async function addVehicleExpense(entry) {
     category: entry.category || 'other',
     description: entry.description || '',
     amount: parseFloat(entry.amount) || 0,
-    date: entry.date || new Date().toISOString().slice(0, 10),
+    date: entry.date || getLocalDateString(),
     receipt_url: entry.receipt_url || null,
   }
   if (!navigator.onLine) return offlineInsert('vehicle_expenses', row)
@@ -883,7 +884,7 @@ export async function addTireRecord(entry) {
     model: entry.model || '',
     size: entry.size || '',
     position: entry.position || '',
-    installed_at: entry.installed_at || new Date().toISOString().slice(0, 10),
+    installed_at: entry.installed_at || getLocalDateString(),
     installed_odometer: parseInt(entry.installed_odometer, 10) || 0,
     condition: entry.condition || 'new',
     cost: parseFloat(entry.cost) || 0,
@@ -1440,9 +1441,9 @@ export async function fetchVehicleReport(vehicleId, userId, period = 'month') {
   if (period === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)
-    startDate = d.toISOString().slice(0, 10)
+    startDate = getLocalDateString(d)
   } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    startDate = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1))
   }
 
   const [fuelsRes, tripsRes, serviceRes, vehicleExpRes, shiftsRes] = await Promise.all([
@@ -1497,9 +1498,9 @@ export async function fetchDriverReport(driverName, userId, period = 'month') {
   if (period === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)
-    startDate = d.toISOString().slice(0, 10)
+    startDate = getLocalDateString(d)
   } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    startDate = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1))
   }
 
   const [shiftsRes, vehiclesRes, fuelsRes, tripsRes] = await Promise.all([
@@ -1550,13 +1551,13 @@ export async function fetchFleetAnalytics(userId, period = 'month') {
   const now = new Date()
   let startDate
   if (period === 'day') {
-    startDate = now.toISOString().slice(0, 10)
+    startDate = getLocalDateString(now)
   } else if (period === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)
-    startDate = d.toISOString().slice(0, 10)
+    startDate = getLocalDateString(d)
   } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    startDate = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1))
   }
 
   const [fuelsRes, tripsRes, serviceRes, vehicleExpRes, shiftsRes] = await Promise.all([
@@ -1615,13 +1616,13 @@ export async function fetchDriversSalaryData(userId, period = 'month') {
   const now = new Date()
   let startDate
   if (period === 'day') {
-    startDate = now.toISOString().slice(0, 10)
+    startDate = getLocalDateString(now)
   } else if (period === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)
-    startDate = d.toISOString().slice(0, 10)
+    startDate = getLocalDateString(d)
   } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    startDate = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1))
   }
 
   const [shiftsRes, tripsRes, vehiclesRes] = await Promise.all([
@@ -1659,9 +1660,9 @@ export async function fetchAllDriversComparison(userId, period = 'month') {
   if (period === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 7)
-    startDate = d.toISOString().slice(0, 10)
+    startDate = getLocalDateString(d)
   } else {
-    startDate = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10)
+    startDate = getLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1))
   }
 
   const [shiftsRes, tripsRes, vehiclesRes] = await Promise.all([
@@ -2528,7 +2529,7 @@ export async function addSepIraContribution(userId, contribution) {
     user_id: userId,
     tax_year: parseInt(contribution.tax_year, 10) || new Date().getFullYear(),
     amount,
-    contribution_date: contribution.contribution_date || new Date().toISOString().slice(0, 10),
+    contribution_date: contribution.contribution_date || getLocalDateString(),
     broker_name: contribution.broker_name || null,
     notes: contribution.notes || null,
   }
@@ -2839,8 +2840,8 @@ export async function runDeductionAudit(userId, profile) {
   const end = new Date()
   const start = new Date(end)
   start.setFullYear(start.getFullYear() - 1)
-  const startStr = start.toISOString().slice(0, 10)
-  const endStr = end.toISOString().slice(0, 10)
+  const startStr = getLocalDateString(start)
+  const endStr = getLocalDateString(end)
 
   // Open a "running" run so duplicate clicks collide on the cooldown.
   const runInsert = await supabase

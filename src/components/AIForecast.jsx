@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
+import { buildForecastPrompt } from '../lib/forecastPrompt'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 const CACHE_TTL = 24 * 60 * 60 * 1000 // 24 hours
 
@@ -36,7 +38,7 @@ function saveForecast(vehicleId, text, limitedMonths) {
 async function fetchExpenseData(userId, vehicleId) {
   const now = new Date()
   const threeMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 3, 1)
-  const sinceDate = threeMonthsAgo.toISOString().slice(0, 10)
+  const sinceDate = getLocalDateString(threeMonthsAgo)
 
   const applyVehicle = (q) => (vehicleId ? q.eq('vehicle_id', vehicleId) : q)
 
@@ -80,14 +82,7 @@ async function requestGeminiForecast(data, lang, monthCount) {
     throw e
   }
 
-  const langMap = { ru: 'Russian', en: 'English', uk: 'Ukrainian', es: 'Spanish', de: 'German', fr: 'French', tr: 'Turkish', pl: 'Polish' }
-  const language = langMap[lang] || 'English'
-
-  const partialNote = monthCount < 3
-    ? ` Based on ${monthCount} month(s) of data (partial history, may be less accurate).`
-    : ''
-
-  const prompt = `You are a financial analyst for a trucking business. Based on the expense data below, provide a brief forecast for next month. Include: 1) Expected total expenses 2) Which category will likely increase 3) One money-saving tip. Keep it under 100 words. Respond in ${language} language.${partialNote} Data: ${JSON.stringify(data)}`
+  const prompt = buildForecastPrompt({ data, lang, monthCount })
 
   const res = await fetch('/api/gemini', {
     method: 'POST',
@@ -99,12 +94,21 @@ async function requestGeminiForecast(data, lang, monthCount) {
       action: 'generate',
       prompt,
       generationConfig: { temperature: 0.7 },
+      // Hint to the proxy: enable post-response USD currency check.
+      // (See api/gemini.js — only forecast traffic opts in.)
+      checkUsdCurrency: true,
     }),
   })
 
   if (!res.ok) {
     const err = new Error(`Gemini proxy error ${res.status}`)
     if (res.status === 401) err.code = 'UNAUTHORIZED'
+    else if (res.status === 422) {
+      // Server detected non-USD currency leak in the response.
+      const body = await res.json().catch(() => null)
+      if (body?.error === 'currency_violation') err.code = 'CURRENCY_VIOLATION'
+      else err.code = 'NETWORK'
+    }
     else if (res.status === 429) err.code = 'RATE_LIMITED'
     else if (res.status === 503) err.code = 'UNAVAILABLE'
     else err.code = 'NETWORK'
@@ -156,7 +160,19 @@ export default function AIForecast({ userId, activeVehicleId }) {
         return
       }
 
-      const text = await requestGeminiForecast(data, lang, monthCount)
+      let text
+      try {
+        text = await requestGeminiForecast(data, lang, monthCount)
+      } catch (firstErr) {
+        // Defense-in-depth: if Gemini hallucinated rubles/EUR/etc despite
+        // the explicit USD-only prompt, retry once before surfacing an
+        // error. See src/lib/forecastPrompt.js + api/gemini.js.
+        if (firstErr?.code === 'CURRENCY_VIOLATION') {
+          text = await requestGeminiForecast(data, lang, monthCount)
+        } else {
+          throw firstErr
+        }
+      }
       const effectiveLimited = monthCount < 3 ? monthCount : 0
       setForecast(text)
       setUpdatedAt(new Date())
@@ -167,6 +183,7 @@ export default function AIForecast({ userId, activeVehicleId }) {
       if (e?.code === 'UNAUTHORIZED') setError('authRequired')
       else if (e?.code === 'RATE_LIMITED') setError('rateLimit')
       else if (e?.code === 'UNAVAILABLE') setError('aiUnavailable')
+      else if (e?.code === 'CURRENCY_VIOLATION') setError('currencyError')
       else setError('error')
       setForecast(null)
     } finally {
@@ -191,6 +208,7 @@ export default function AIForecast({ userId, activeVehicleId }) {
     if (error === 'authRequired') return t('forecast.authRequired')
     if (error === 'rateLimit') return t('forecast.rateLimit')
     if (error === 'aiUnavailable') return t('forecast.aiUnavailable')
+    if (error === 'currencyError') return t('forecast.currencyError')
     if (error === 'error') return t('common.error')
     return null
   })()

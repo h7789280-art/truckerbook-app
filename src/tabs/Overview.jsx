@@ -16,6 +16,7 @@ import FleetMap from '../components/FleetMap'
 import AIForecast from '../components/AIForecast'
 import TaxMeterWidget from '../components/TaxMeterWidget'
 import { scheduleHOSWarning, scheduleMaintenanceReminder, scheduleTrialExpiry } from '../lib/notifications'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 function getGreeting(name, t) {
   const h = new Date().getHours()
@@ -553,7 +554,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
           const day = dt.getDay()
           const monday = new Date(dt)
           monday.setDate(dt.getDate() - ((day + 6) % 7))
-          return monday.toISOString().slice(0, 10)
+          return getLocalDateString(monday)
         }
         return d.slice(0, 7)
       }
@@ -580,7 +581,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
       if (groupMode === 'day') {
         const cur = new Date(start)
         const endD = new Date(end)
-        while (cur <= endD) { ensureGroup(cur.toISOString().slice(0, 10)); cur.setDate(cur.getDate() + 1) }
+        while (cur <= endD) { ensureGroup(getLocalDateString(cur)); cur.setDate(cur.getDate() + 1) }
       }
 
       const shortMonths = t('expenses.monthNamesShort')

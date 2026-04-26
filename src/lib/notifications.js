@@ -1,3 +1,5 @@
+import { getLocalDateString } from './dateHelpers'
+
 const LS_KEY = 'truckerbook_push_permission'
 const SHOWN_KEY = 'truckerbook_notif_shown'
 
@@ -86,7 +88,7 @@ export function scheduleHOSWarning(minutesLeft, t) {
 
 export function scheduleMaintenanceReminder(vehicleName, serviceType, t) {
   const tag = 'maint-' + (vehicleName || '') + '-' + (serviceType || '')
-  const today = new Date().toISOString().slice(0, 10)
+  const today = getLocalDateString()
   const dailyTag = tag + '-' + today
   if (wasShown(dailyTag)) return
   markShown(dailyTag)
@@ -98,7 +100,7 @@ export function scheduleMaintenanceReminder(vehicleName, serviceType, t) {
 }
 
 export function scheduleTrialExpiry(daysLeft, t) {
-  const today = new Date().toISOString().slice(0, 10)
+  const today = getLocalDateString()
   const tag = 'trial-' + today
   if (wasShown(tag)) return
   markShown(tag)

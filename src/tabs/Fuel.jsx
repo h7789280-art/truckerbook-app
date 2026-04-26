@@ -3,6 +3,7 @@ import { fetchFuels, deleteFuel, fetchVehicleExpenses, deleteVehicleExpense } fr
 import { useLanguage, getCurrencySymbol, getUnits } from '../lib/i18n'
 import { exportToPDF, exportToExcelWithSummary, exportAllVehiclesExcel } from '../utils/export'
 import { consumeNavHighlight, flashHighlightElement, monthRangeForDate } from '../lib/navHighlight'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 function formatNumber(n) {
   return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ')
@@ -395,7 +396,7 @@ export default function Fuel({ userId, refreshKey, profile, filterVehicleId, use
         periodStr = fmtD(getDateRange('day').from)
       } else if (period === 'week') {
         const r = getDateRange('week')
-        periodStr = `${fmtD(r.from)}\u2013${fmtD(now2.toISOString().slice(0, 10))}`
+        periodStr = `${fmtD(r.from)}\u2013${fmtD(getLocalDateString(now2))}`
       } else if (period === 'custom' && customFrom) {
         const r = getDateRange('custom', customFrom, customTo)
         periodStr = `${fmtD(r.from)}\u2013${fmtD(r.to)}`

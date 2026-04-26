@@ -3,6 +3,7 @@ import { fetchBytExpenses, deleteBytExpense } from '../lib/api'
 import { useLanguage, getCurrencySymbol } from '../lib/i18n'
 import { exportToExcel, exportToPDF } from '../utils/export'
 import { consumeNavHighlight, flashHighlightElement, monthRangeForDate } from '../lib/navHighlight'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
@@ -29,16 +30,16 @@ function describeArc(cx, cy, r, startAngle, endAngle) {
 
 function getDateRange(period, customFrom, customTo) {
   const now = new Date()
-  const today = now.toISOString().slice(0, 10)
+  const today = getLocalDateString(now)
   if (period === 'day') return { from: today, to: null }
   if (period === 'week') {
     const d = new Date(now)
     d.setDate(d.getDate() - 6)
-    return { from: d.toISOString().slice(0, 10), to: null }
+    return { from: getLocalDateString(d), to: null }
   }
   if (period === 'month') {
     const ms = new Date(now.getFullYear(), now.getMonth(), 1)
-    return { from: ms.toISOString().slice(0, 10), to: null }
+    return { from: getLocalDateString(ms), to: null }
   }
   if (period === 'custom') {
     return { from: customFrom || today, to: customTo || today }
@@ -186,7 +187,7 @@ export default function Byt({ userId, refreshKey, userRole }) {
         periodStr = fmtD(getDateRange('day').from)
       } else if (period === 'week') {
         const r = getDateRange('week')
-        periodStr = `${fmtD(r.from)}\u2013${fmtD(now2.toISOString().slice(0, 10))}`
+        periodStr = `${fmtD(r.from)}\u2013${fmtD(getLocalDateString(now2))}`
       } else if (period === 'custom' && customFrom) {
         const r = getDateRange('custom', customFrom, customTo)
         periodStr = `${fmtD(r.from)}\u2013${fmtD(r.to)}`

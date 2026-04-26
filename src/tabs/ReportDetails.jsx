@@ -5,6 +5,7 @@ import {
   fetchTrips, fetchFuels, fetchBytExpenses,
   fetchVehicleExpenses, fetchServiceRecords, getTireRecords,
 } from '../lib/api'
+import { getLocalDateString } from '../lib/dateHelpers'
 
 // Utilities
 
@@ -263,7 +264,7 @@ function groupByPeriod(period, start, end, records, keyMap) {
       const day = dt.getDay()
       const monday = new Date(dt)
       monday.setDate(dt.getDate() - ((day + 6) % 7))
-      return monday.toISOString().slice(0, 10)
+      return getLocalDateString(monday)
     }
     return d.slice(0, 7)
   }
@@ -283,7 +284,7 @@ function groupByPeriod(period, start, end, records, keyMap) {
     const cur = new Date(start)
     const endD = new Date(end)
     while (cur <= endD) {
-      const k = cur.toISOString().slice(0, 10)
+      const k = getLocalDateString(cur)
       if (!map[k]) map[k] = { key: k }
       cur.setDate(cur.getDate() + 1)
     }

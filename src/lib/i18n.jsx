@@ -1333,6 +1333,7 @@ const translations = {
       rateLimit: '\u0421\u043b\u0438\u0448\u043a\u043e\u043c \u043c\u043d\u043e\u0433\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u043e\u0432. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u0447\u0435\u0440\u0435\u0437 \u043c\u0438\u043d\u0443\u0442\u0443.',
       aiUnavailable: 'AI-\u043f\u0440\u043e\u0433\u043d\u043e\u0437 \u0432\u0440\u0435\u043c\u0435\u043d\u043d\u043e \u043d\u0435\u0434\u043e\u0441\u0442\u0443\u043f\u0435\u043d. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.',
       limitedDisclaimer: '\u041f\u0440\u043e\u0433\u043d\u043e\u0437 \u043d\u0430 \u043e\u0441\u043d\u043e\u0432\u0435 {months} \u043c\u0435\u0441. \u0434\u0430\u043d\u043d\u044b\u0445 \u2014 \u0442\u043e\u0447\u043d\u043e\u0441\u0442\u044c \u043e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u0430.',
+      currencyError: '\u041d\u0435 \u0443\u0434\u0430\u043b\u043e\u0441\u044c \u0441\u0444\u043e\u0440\u043c\u0438\u0440\u043e\u0432\u0430\u0442\u044c \u043f\u0440\u043e\u0433\u043d\u043e\u0437. \u041f\u043e\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u043e\u0437\u0436\u0435.',
     },
     notifications: {
       hosWarningTitle: 'HOS \u043b\u0438\u043c\u0438\u0442',
@@ -1858,6 +1859,14 @@ const translations = {
       modalMethod: '\u041c\u0435\u0442\u043e\u0434',
       modalNotes: '\u0417\u0430\u043c\u0435\u0442\u043a\u0430',
       noDataPlaceholder: '\u0421\u043d\u0430\u0447\u0430\u043b\u0430 \u0440\u0430\u0441\u0441\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0433\u043e\u0434\u043e\u0432\u043e\u0439 \u043d\u0430\u043b\u043e\u0433 \u0432 \u0440\u0430\u0437\u0434\u0435\u043b\u0435 \u041d\u0430\u043b\u043e\u0433\u043e\u0432\u044b\u0439 \u043e\u0442\u0447\u0451\u0442',
+      equalQuarters: '\u0420\u0430\u0432\u043d\u044b\u043c\u0438 \u0434\u043e\u043b\u044f\u043c\u0438',
+      equalQuartersExplain: '\u041f\u043e\u043b\u043d\u044b\u0439 \u0433\u043e\u0434\u043e\u0432\u043e\u0439 \u043d\u0430\u043b\u043e\u0433 \u00f7 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: '\u041c\u0438\u043d\u0438\u043c\u0443\u043c Safe Harbor',
+      safeHarborExplain: '90% \u043e\u0442 \u0440\u0430\u0441\u0447\u0451\u0442\u043d\u043e\u0433\u043e \u0433\u043e\u0434\u043e\u0432\u043e\u0433\u043e \u043d\u0430\u043b\u043e\u0433\u0430 \u00f7 4',
+      whyTwoNumbers: '\u041f\u043e\u0447\u0435\u043c\u0443 \u0437\u0434\u0435\u0441\u044c \u0438 \u0432 \u00ab\u041d\u0430\u043b\u043e\u0433\u043e\u0432\u044b\u0439 \u043e\u0442\u0447\u0451\u0442\u00bb \u0440\u0430\u0437\u043d\u044b\u0435 \u0441\u0443\u043c\u043c\u044b?',
+      whyTwoNumbersExplain: '\u042d\u0442\u043e\u0442 \u0432\u0438\u0434\u0436\u0435\u0442 \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442 Safe Harbor \u043c\u0438\u043d\u0438\u043c\u0443\u043c \u2014 \u0441\u0430\u043c\u044b\u0439 \u043d\u0438\u0437\u043a\u0438\u0439 \u043b\u0435\u0433\u0430\u043b\u044c\u043d\u044b\u0439 \u043a\u0432\u0430\u0440\u0442\u0430\u043b\u044c\u043d\u044b\u0439 \u043f\u043b\u0430\u0442\u0451\u0436 IRS (90% \u0433\u043e\u0434\u043e\u0432\u043e\u0433\u043e \u043d\u0430\u043b\u043e\u0433\u0430 \u00f7 4). \u041d\u0430\u043b\u043e\u0433\u043e\u0432\u044b\u0439 \u043e\u0442\u0447\u0451\u0442 \u043f\u043e\u043a\u0430\u0437\u044b\u0432\u0430\u0435\u0442 \u0440\u0430\u0432\u043d\u044b\u0435 \u0434\u043e\u043b\u0438 \u043f\u043e\u043b\u043d\u043e\u0433\u043e \u043d\u0430\u043b\u043e\u0433\u0430 (100% \u00f7 4). \u041e\u0431\u0430 \u0432\u0430\u0440\u0438\u0430\u043d\u0442\u0430 \u043b\u0435\u0433\u0438\u0442\u0438\u043c\u043d\u044b: Safe Harbor \u0432\u044b\u0433\u043e\u0434\u043d\u0435\u0435 \u043f\u0440\u0438 \u0432\u043e\u043b\u0430\u0442\u0438\u043b\u044c\u043d\u043e\u043c \u0434\u043e\u0445\u043e\u0434\u0435, \u0440\u0430\u0432\u043d\u044b\u0435 \u0434\u043e\u043b\u0438 \u2014 \u043f\u0440\u0438 \u0441\u0442\u0430\u0431\u0438\u043b\u044c\u043d\u043e\u043c.',
     },
     taxSummary: {
       title: '\u0413\u043e\u0434\u043e\u0432\u043e\u0439 \u043d\u0430\u043b\u043e\u0433\u043e\u0432\u044b\u0439 \u043e\u0442\u0447\u0451\u0442',
@@ -3501,6 +3510,7 @@ const translations = {
       rateLimit: 'Too many requests. Please try again in a minute.',
       aiUnavailable: 'AI forecast is temporarily unavailable. Try again later.',
       limitedDisclaimer: 'Forecast based on {months} month(s) of data \u2014 accuracy is limited.',
+      currencyError: 'Failed to generate forecast. Please try again later.',
     },
     notifications: {
       hosWarningTitle: 'HOS Limit',
@@ -4026,6 +4036,14 @@ const translations = {
       modalMethod: 'Method',
       modalNotes: 'Notes',
       noDataPlaceholder: 'First calculate your annual tax in the Tax Summary section',
+      equalQuarters: 'Equal quarters',
+      equalQuartersExplain: 'Full annual tax ÷ 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: 'Safe Harbor minimum',
+      safeHarborExplain: '90% of estimated annual tax ÷ 4',
+      whyTwoNumbers: 'Why does this differ from the "Tax Report"?',
+      whyTwoNumbersExplain: 'This widget shows the Safe Harbor minimum — the lowest legal quarterly payment per IRS rules (90% of annual tax ÷ 4). The Tax Report shows equal quarters of the full tax (100% ÷ 4). Both are legitimate: Safe Harbor works better with volatile income, equal quarters with stable income.',
     },
     taxSummary: {
       title: 'Annual Tax Summary',
@@ -5668,6 +5686,7 @@ const translations = {
       loading: '\u0410\u043d\u0430\u043b\u0456\u0437 \u0432\u0438\u0442\u0440\u0430\u0442...',
       noData: '\u041d\u0435\u0434\u043e\u0441\u0442\u0430\u0442\u043d\u044c\u043e \u0434\u0430\u043d\u0438\u0445 \u0434\u043b\u044f \u043f\u0440\u043e\u0433\u043d\u043e\u0437\u0443. \u0417\u0430\u043f\u0438\u0441\u0443\u0439\u0442\u0435 \u0432\u0438\u0442\u0440\u0430\u0442\u0438 \u043c\u0456\u043d\u0456\u043c\u0443\u043c 3 \u043c\u0456\u0441\u044f\u0446\u0456.',
       updatedAt: '\u041e\u043d\u043e\u0432\u043b\u0435\u043d\u043e',
+      currencyError: '\u041d\u0435 \u0432\u0434\u0430\u043b\u043e\u0441\u044f \u0441\u0444\u043e\u0440\u043c\u0443\u0432\u0430\u0442\u0438 \u043f\u0440\u043e\u0433\u043d\u043e\u0437. \u0421\u043f\u0440\u043e\u0431\u0443\u0439\u0442\u0435 \u043f\u0456\u0437\u043d\u0456\u0448\u0435.',
     },
     notifications: {
       hosWarningTitle: 'HOS \u043b\u0456\u043c\u0456\u0442',
@@ -6052,6 +6071,14 @@ const translations = {
       modalMethod: '\u041c\u0435\u0442\u043e\u0434',
       modalNotes: '\u041d\u043e\u0442\u0430\u0442\u043a\u0430',
       noDataPlaceholder: '\u0421\u043f\u043e\u0447\u0430\u0442\u043a\u0443 \u0440\u043e\u0437\u0440\u0430\u0445\u0443\u0439\u0442\u0435 \u0440\u0456\u0447\u043d\u0438\u0439 \u043f\u043e\u0434\u0430\u0442\u043e\u043a \u0443 \u0440\u043e\u0437\u0434\u0456\u043b\u0456 \u041f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0438\u0439 \u0437\u0432\u0456\u0442',
+      equalQuarters: '\u0420\u0456\u0432\u043d\u0438\u043c\u0438 \u0447\u0430\u0441\u0442\u043a\u0430\u043c\u0438',
+      equalQuartersExplain: '\u041f\u043e\u0432\u043d\u0438\u0439 \u0440\u0456\u0447\u043d\u0438\u0439 \u043f\u043e\u0434\u0430\u0442\u043e\u043a \u00f7 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: '\u041c\u0456\u043d\u0456\u043c\u0443\u043c Safe Harbor',
+      safeHarborExplain: '90% \u0440\u043e\u0437\u0440\u0430\u0445\u0443\u043d\u043a\u043e\u0432\u043e\u0433\u043e \u0440\u0456\u0447\u043d\u043e\u0433\u043e \u043f\u043e\u0434\u0430\u0442\u043a\u0443 \u00f7 4',
+      whyTwoNumbers: '\u0427\u043e\u043c\u0443 \u0442\u0443\u0442 \u0456 \u0432 \u00ab\u041f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0438\u0439 \u0437\u0432\u0456\u0442\u00bb \u0440\u0456\u0437\u043d\u0456 \u0441\u0443\u043c\u0438?',
+      whyTwoNumbersExplain: '\u0426\u0435\u0439 \u0432\u0456\u0434\u0436\u0435\u0442 \u043f\u043e\u043a\u0430\u0437\u0443\u0454 \u043c\u0456\u043d\u0456\u043c\u0443\u043c Safe Harbor \u2014 \u043d\u0430\u0439\u043c\u0435\u043d\u0448\u0438\u0439 \u043b\u0435\u0433\u0430\u043b\u044c\u043d\u0438\u0439 \u043a\u0432\u0430\u0440\u0442\u0430\u043b\u044c\u043d\u0438\u0439 \u043f\u043b\u0430\u0442\u0456\u0436 \u0437\u0430 \u043f\u0440\u0430\u0432\u0438\u043b\u0430\u043c\u0438 IRS (90% \u0440\u0456\u0447\u043d\u043e\u0433\u043e \u043f\u043e\u0434\u0430\u0442\u043a\u0443 \u00f7 4). \u041f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0438\u0439 \u0437\u0432\u0456\u0442 \u043f\u043e\u043a\u0430\u0437\u0443\u0454 \u0440\u0456\u0432\u043d\u0456 \u0447\u0430\u0441\u0442\u043a\u0438 \u043f\u043e\u0432\u043d\u043e\u0433\u043e \u043f\u043e\u0434\u0430\u0442\u043a\u0443 (100% \u00f7 4). \u041e\u0431\u0438\u0434\u0432\u0430 \u0432\u0430\u0440\u0456\u0430\u043d\u0442\u0438 \u0437\u0430\u043a\u043e\u043d\u043d\u0456: Safe Harbor \u0432\u0438\u0433\u0456\u0434\u043d\u0456\u0448\u0438\u0439 \u043f\u0440\u0438 \u043d\u0435\u0441\u0442\u0430\u0431\u0456\u043b\u044c\u043d\u043e\u043c\u0443 \u0434\u043e\u0445\u043e\u0434\u0456, \u0440\u0456\u0432\u043d\u0456 \u0447\u0430\u0441\u0442\u043a\u0438 \u2014 \u043f\u0440\u0438 \u0441\u0442\u0430\u0431\u0456\u043b\u044c\u043d\u043e\u043c\u0443.',
     },
     taxSummary: {
       title: '\u0420\u0456\u0447\u043d\u0438\u0439 \u043f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0438\u0439 \u0437\u0432\u0456\u0442',
@@ -7578,6 +7605,7 @@ const translations = {
       loading: 'Analizando gastos...',
       noData: 'Datos insuficientes para el pron\u00f3stico. Registre gastos durante al menos 3 meses.',
       updatedAt: 'Actualizado',
+      currencyError: 'No se pudo generar el pronóstico. Inténtalo de nuevo más tarde.',
     },
     chat: {
       title: 'Chat de conductores',
@@ -7948,6 +7976,14 @@ const translations = {
       modalMethod: 'M\u00e9todo',
       modalNotes: 'Nota',
       noDataPlaceholder: 'Primero calcula tu impuesto anual en la secci\u00f3n Resumen Fiscal',
+      equalQuarters: 'Cuotas iguales',
+      equalQuartersExplain: 'Impuesto anual completo \u00f7 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: 'M\u00ednimo Safe Harbor',
+      safeHarborExplain: '90% del impuesto anual estimado \u00f7 4',
+      whyTwoNumbers: '\u00bfPor qu\u00e9 difiere del \u00abInforme de impuestos\u00bb?',
+      whyTwoNumbersExplain: 'Este widget muestra el m\u00ednimo Safe Harbor \u2014 el pago trimestral legal m\u00e1s bajo seg\u00fan las reglas del IRS (90% del impuesto anual \u00f7 4). El Informe de impuestos muestra cuotas iguales del impuesto completo (100% \u00f7 4). Ambos son leg\u00edtimos: Safe Harbor funciona mejor con ingresos vol\u00e1tiles, cuotas iguales con ingresos estables.',
     },
     taxSummary: {
       title: 'Resumen Fiscal Anual',
@@ -9474,6 +9510,7 @@ const translations = {
       loading: 'Ausgaben analysieren...',
       noData: 'Nicht gen\u00fcgend Daten f\u00fcr die Prognose. Erfassen Sie Ausgaben mindestens 3 Monate.',
       updatedAt: 'Aktualisiert',
+      currencyError: 'Prognose konnte nicht erstellt werden. Bitte versuchen Sie es später erneut.',
     },
     chat: {
       title: 'Fahrer-Chat',
@@ -9844,6 +9881,14 @@ const translations = {
       modalMethod: 'Methode',
       modalNotes: 'Notiz',
       noDataPlaceholder: 'Berechnen Sie zuerst Ihre Jahressteuer im Abschnitt Steuer\u00fcbersicht',
+      equalQuarters: 'Gleiche Quartale',
+      equalQuartersExplain: 'Voller Jahressteuerbetrag \u00f7 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: 'Safe-Harbor-Minimum',
+      safeHarborExplain: '90% der gesch\u00e4tzten Jahressteuer \u00f7 4',
+      whyTwoNumbers: 'Warum unterscheidet sich dies vom \u201eSteuerbericht"?',
+      whyTwoNumbersExplain: 'Dieses Widget zeigt das Safe-Harbor-Minimum \u2014 die niedrigste zul\u00e4ssige Quartalszahlung nach IRS-Regeln (90% der Jahressteuer \u00f7 4). Der Steuerbericht zeigt gleiche Quartalsanteile der vollen Steuer (100% \u00f7 4). Beide sind legitim: Safe Harbor passt besser bei schwankendem Einkommen, gleiche Quartale bei stabilem Einkommen.',
     },
     taxSummary: {
       title: 'J\u00e4hrliche Steuer\u00fcbersicht',
@@ -11370,6 +11415,7 @@ const translations = {
       loading: 'Analyse des d\u00e9penses...',
       noData: 'Donn\u00e9es insuffisantes pour la pr\u00e9vision. Enregistrez vos d\u00e9penses pendant au moins 3 mois.',
       updatedAt: 'Mis \u00e0 jour',
+      currencyError: 'Impossible de g\u00e9n\u00e9rer la pr\u00e9vision. Veuillez r\u00e9essayer plus tard.',
     },
     chat: {
       title: 'Chat chauffeurs',
@@ -11740,6 +11786,14 @@ const translations = {
       modalMethod: 'M\u00e9thode',
       modalNotes: 'Note',
       noDataPlaceholder: 'Calculez d\u2019abord votre imp\u00f4t annuel dans la section R\u00e9sum\u00e9 fiscal',
+      equalQuarters: 'Trimestres \u00e9gaux',
+      equalQuartersExplain: 'Imp\u00f4t annuel complet \u00f7 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: 'Minimum Safe Harbor',
+      safeHarborExplain: '90% de l\u2019imp\u00f4t annuel estim\u00e9 \u00f7 4',
+      whyTwoNumbers: 'Pourquoi cela diff\u00e8re-t-il du \u00ab Rapport fiscal \u00bb ?',
+      whyTwoNumbersExplain: 'Ce widget affiche le minimum Safe Harbor \u2014 le paiement trimestriel l\u00e9gal le plus bas selon les r\u00e8gles de l\u2019IRS (90% de l\u2019imp\u00f4t annuel \u00f7 4). Le Rapport fiscal affiche des trimestres \u00e9gaux de l\u2019imp\u00f4t total (100% \u00f7 4). Les deux sont l\u00e9gitimes : Safe Harbor convient mieux aux revenus volatils, les trimestres \u00e9gaux aux revenus stables.',
     },
     taxSummary: {
       title: 'R\u00e9sum\u00e9 Fiscal Annuel',
@@ -13266,6 +13320,7 @@ const translations = {
       loading: 'Harcamalar analiz ediliyor...',
       noData: 'Tahmin i\u00e7in yeterli veri yok. En az 3 ay harcama kaydedin.',
       updatedAt: 'G\u00fcncellendi',
+      currencyError: 'Tahmin olu\u015fturulamad\u0131. L\u00fctfen daha sonra tekrar deneyin.',
     },
     chat: {
       title: 'S\u00fcr\u00fcc\u00fc Sohbeti',
@@ -13636,6 +13691,14 @@ const translations = {
       modalMethod: 'Y\u00f6ntem',
       modalNotes: 'Not',
       noDataPlaceholder: '\u00d6nce Vergi \u00d6zeti b\u00f6l\u00fcm\u00fcnde y\u0131ll\u0131k verginizi hesaplay\u0131n',
+      equalQuarters: 'E\u015fit \u00e7eyrekler',
+      equalQuartersExplain: 'Y\u0131ll\u0131k vergi toplam\u0131 \u00f7 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: 'Safe Harbor minimumu',
+      safeHarborExplain: 'Tahmini y\u0131ll\u0131k verginin %90\u2019\u0131 \u00f7 4',
+      whyTwoNumbers: 'Neden \u201eVergi Raporu" ile farkl\u0131?',
+      whyTwoNumbersExplain: 'Bu widget Safe Harbor minimumunu g\u00f6sterir \u2014 IRS kurallar\u0131na g\u00f6re yasal en d\u00fc\u015f\u00fck \u00fc\u00e7 ayl\u0131k \u00f6deme (y\u0131ll\u0131k verginin %90\u2019\u0131 \u00f7 4). Vergi Raporu ise toplam verginin e\u015fit dilimlerini g\u00f6sterir (%100 \u00f7 4). \u0130kisi de ge\u00e7erlidir: Safe Harbor de\u011fi\u015fken gelirde, e\u015fit dilimler istikrarl\u0131 gelirde daha iyidir.',
     },
     taxSummary: {
       title: 'Y\u0131ll\u0131k Vergi \u00d6zeti',
@@ -15166,6 +15229,7 @@ const translations = {
       loading: 'Analiza wydatk\u00f3w...',
       noData: 'Za ma\u0142o danych do prognozy. Rejestruj wydatki przez co najmniej 3 miesi\u0105ce.',
       updatedAt: 'Zaktualizowano',
+      currencyError: 'Nie uda\u0142o si\u0119 wygenerowa\u0107 prognozy. Spr\u00f3buj ponownie p\u00f3\u017aniej.',
     },
     chat: {
       title: 'Czat kierowc\u00f3w',
@@ -15536,6 +15600,14 @@ const translations = {
       modalMethod: 'Metoda',
       modalNotes: 'Notatka',
       noDataPlaceholder: 'Najpierw oblicz podatek roczny w sekcji Raport podatkowy',
+      equalQuarters: 'Równe kwartały',
+      equalQuartersExplain: 'Pełny podatek roczny ÷ 4',
+    },
+    taxMeter: {
+      safeHarborMinimum: 'Minimum Safe Harbor',
+      safeHarborExplain: '90% szacowanego rocznego podatku ÷ 4',
+      whyTwoNumbers: 'Dlaczego różni się od „Raportu podatkowego"?',
+      whyTwoNumbersExplain: 'Ten widget pokazuje minimum Safe Harbor — najniższą zgodną z prawem płatność kwartalną według zasad IRS (90% rocznego podatku ÷ 4). Raport podatkowy pokazuje równe części pełnego podatku (100% ÷ 4). Oba są zgodne z przepisami: Safe Harbor lepiej sprawdza się przy zmiennych dochodach, równe kwartały przy stabilnych.',
     },
     taxSummary: {
       title: 'Roczne Podsumowanie Podatkowe',

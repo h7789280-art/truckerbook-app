@@ -43,6 +43,7 @@ export function buildStrategySchedule({
   bonusRate = 0,
   placedInServiceDate,
   businessUsePct = 100,
+  convention,
 }) {
   const price = Math.max(Number(costBasis) || 0, 0)
   const salvage = Math.max(Number(salvageValue) || 0, 0)
@@ -57,7 +58,19 @@ export function buildStrategySchedule({
     ? purchaseDate.getUTCFullYear()
     : new Date().getUTCFullYear()
 
-  const rates = getMacrsRatesForAssetClass(assetClass)
+  // Mid-quarter convention rate tables are only available for 3-year property
+  // today (semi-tractor OTR, IRS Asset Class 00.26). For 5-year / 7-year classes
+  // we fall back to half-year regardless of `convention` — the IRS does publish
+  // mid-quarter tables for those, but TruckerBook does not yet ship them, so we
+  // intentionally do nothing rather than apply a half-year vector under a
+  // mid-quarter label.
+  const recoveryPeriod = ASSET_CLASS_TO_RECOVERY_PERIOD[assetClass] ?? 5
+  const usingMidQuarter = typeof convention === 'string'
+    && convention.startsWith('mid_quarter_')
+    && recoveryPeriod === 3
+  const rates = usingMidQuarter
+    ? getMacrs3YearRatesForConvention(convention)
+    : getMacrsRatesForAssetClass(assetClass)
 
   let s179 = 0
   let bonus = 0
@@ -152,6 +165,7 @@ export function compareStrategies({
   businessUsePct = 100,
   taxOfNet,
   netProfitBeforeDeduction,
+  convention,
 }) {
   const strategies = [
     STRATEGY.STANDARD_MACRS,
@@ -187,6 +201,7 @@ export function compareStrategies({
       bonusRate: effectiveBonus,
       placedInServiceDate,
       businessUsePct,
+      convention,
     })
 
     // Year-1 MACRS portion = whatever is left after S179/Bonus one-time writedowns.
@@ -330,6 +345,7 @@ export function getCurrentYearDeduction(row, year) {
       bonusRate: Number(row.bonus_rate) || 0,
       placedInServiceDate: row.purchase_date || null,
       businessUsePct: Number(row.business_use_pct) || 100,
+      convention: row.depreciation_convention || undefined,
     }).schedule
     const match = schedule.find(r => r.year === year)
     return match ? match.deduction : 0
@@ -367,6 +383,7 @@ export function getDeductedToDate(row, throughYear) {
       bonusRate: Number(row.bonus_rate) || 0,
       placedInServiceDate: row.purchase_date || null,
       businessUsePct: Number(row.business_use_pct) || 100,
+      convention: row.depreciation_convention || undefined,
     })
     return schedule.filter(r => r.year <= throughYear).reduce((s, r) => s + r.deduction, 0)
   }
@@ -478,8 +495,69 @@ export function reduceStrategyState(state, event) {
 // Sum is exactly 1.0000.
 export const MACRS_3YR_RATES = [0.3333, 0.4445, 0.1481, 0.0741]
 
+// IRS Pub 946 Appendix A Table A-2 — MACRS 3-year property, mid-quarter convention.
+// Used when more than 40% of total basis of all property placed in service during
+// the tax year is placed in Q4. When triggered, ALL property placed in service that
+// year uses mid-quarter rates (not just Q4 property), keyed by the quarter in which
+// THAT specific asset was placed in service.
+export const MACRS_3YEAR_MIDQUARTER = {
+  Q1: [0.5833, 0.2778, 0.1235, 0.0154],
+  Q2: [0.4167, 0.3889, 0.1414, 0.0530],
+  Q3: [0.2500, 0.5000, 0.1667, 0.0833],
+  Q4: [0.0833, 0.6111, 0.2037, 0.1019],
+}
+
+// Map a 1-indexed month (1=January…12=December) to its calendar quarter key.
+export function quarterOfMonth(month) {
+  const m = Number(month)
+  if (m <= 3) return 'Q1'
+  if (m <= 6) return 'Q2'
+  if (m <= 9) return 'Q3'
+  return 'Q4'
+}
+
+// Allowed values for vehicle_depreciation.depreciation_convention.
+// Half-year is the default; mid-quarter variants are set when the 40%-Q4 trigger
+// fires for the year in which the asset was placed in service. The choice is
+// fixed for the asset's life and never re-evaluated in future years.
+export const DEPRECIATION_CONVENTION = {
+  HALF_YEAR: 'half_year',
+  MID_QUARTER_Q1: 'mid_quarter_q1',
+  MID_QUARTER_Q2: 'mid_quarter_q2',
+  MID_QUARTER_Q3: 'mid_quarter_q3',
+  MID_QUARTER_Q4: 'mid_quarter_q4',
+}
+
+// Resolve a convention string to the 4-element rate vector for 3-year property.
+// Anything other than mid_quarter_q[1-4] falls back to half-year.
+function getMacrs3YearRatesForConvention(convention) {
+  switch (convention) {
+    case DEPRECIATION_CONVENTION.MID_QUARTER_Q1: return MACRS_3YEAR_MIDQUARTER.Q1
+    case DEPRECIATION_CONVENTION.MID_QUARTER_Q2: return MACRS_3YEAR_MIDQUARTER.Q2
+    case DEPRECIATION_CONVENTION.MID_QUARTER_Q3: return MACRS_3YEAR_MIDQUARTER.Q3
+    case DEPRECIATION_CONVENTION.MID_QUARTER_Q4: return MACRS_3YEAR_MIDQUARTER.Q4
+    default: return MACRS_3YR_RATES
+  }
+}
+
 // Rev. Proc. 2025-32 — §179 expense limit for tax year 2026.
 export const SECTION_179_LIMIT_2026 = 2_560_000
+
+/**
+ * Year-1 §179 deduction amount as it should be DISPLAYED for the "Section 179"
+ * row of the strategy comparison table, applying the IRC §179(b)(3) income
+ * limitation. This is a presentation helper; the actual schedule is built
+ * separately and falls back to MACRS for any basis the income limit blocks.
+ *
+ *   §179_displayed = min(basis, $2.56M cap, max(0, taxableIncome))
+ *
+ * Used by tests (Pack 2 audit fix) and by the comparison table renderer.
+ */
+export function getSection179DisplayAmount(basis, taxableIncome) {
+  const b = Math.max(Number(basis) || 0, 0)
+  const i = Math.max(Number(taxableIncome) || 0, 0)
+  return Math.min(b, SECTION_179_LIMIT_2026, i)
+}
 
 // IRC §172 (post-TCJA) — NOL usage capped at 80% of taxable income.
 const NOL_USE_LIMIT = 0.80
@@ -489,18 +567,27 @@ const NOL_USE_LIMIT = 0.80
 const BONUS_RATE_POST_OBBBA = 1.00
 
 /**
- * MACRS 3-year schedule (4 tax years under half-year convention).
+ * MACRS 3-year schedule (4 tax years).
+ *
+ * Half-year convention is the default. Pass `{ convention: 'mid_quarter_qN' }`
+ * to use IRS Pub 946 Table A-2 mid-quarter rates for property placed in
+ * service in quarter N. The mid-quarter election is fixed at the asset level
+ * for the entire recovery period.
+ *
  * Any rounding residual is absorbed into the last year so the sum equals basis exactly.
  *
  * @param {number} basis
+ * @param {object} [options]
+ * @param {string} [options.convention] - One of DEPRECIATION_CONVENTION.* (default half_year).
  * @returns {[number, number, number, number]}
  */
-export function computeMacrsSchedule(basis) {
+export function computeMacrsSchedule(basis, options = {}) {
   const b = Math.max(Number(basis) || 0, 0)
   if (b === 0) return [0, 0, 0, 0]
-  const y1 = b * MACRS_3YR_RATES[0]
-  const y2 = b * MACRS_3YR_RATES[1]
-  const y3 = b * MACRS_3YR_RATES[2]
+  const rates = getMacrs3YearRatesForConvention(options.convention)
+  const y1 = b * rates[0]
+  const y2 = b * rates[1]
+  const y3 = b * rates[2]
   const y4 = b - y1 - y2 - y3 // absorbs rounding residual
   return [y1, y2, y3, y4]
 }
@@ -534,6 +621,12 @@ export function getEffRate(income) {
  * @param {number} basis
  * @param {number} income
  * @param {number} s179SliderValue
+ * @param {object} [options]
+ * @param {string} [options.convention] - One of DEPRECIATION_CONVENTION.* (default half_year).
+ *        When set to a mid_quarter_qN variant, MACRS rates use IRS Pub 946
+ *        Table A-2 (mid-quarter convention) instead of half-year. The
+ *        convention is irrelevant for §179 / Bonus components; it only changes
+ *        the MACRS portion of the schedule.
  * @returns {{
  *   year1Deduction: number,
  *   yearlyDeductions: [number, number, number, number],
@@ -542,12 +635,13 @@ export function getEffRate(income) {
  *   nolYear1: number,
  * }}
  */
-export function computeStrategy(strategy, basis, income, s179SliderValue) {
+export function computeStrategy(strategy, basis, income, s179SliderValue, options = {}) {
   const b = Math.max(Number(basis) || 0, 0)
   const i = Math.max(Number(income) || 0, 0)
+  const macrsOptions = { convention: options.convention }
 
   if (strategy === 'standardMacrs') {
-    const macrs = computeMacrsSchedule(b)
+    const macrs = computeMacrsSchedule(b, macrsOptions)
     return {
       year1Deduction: macrs[0],
       yearlyDeductions: macrs,
@@ -574,7 +668,7 @@ export function computeStrategy(strategy, basis, income, s179SliderValue) {
   const remaining = b - s179Applied
 
   if (strategy === 'onlySection179') {
-    const macrsRem = computeMacrsSchedule(remaining)
+    const macrsRem = computeMacrsSchedule(remaining, macrsOptions)
     const y1 = s179Applied + macrsRem[0]
     return {
       year1Deduction: y1,
@@ -679,4 +773,70 @@ export const STRATEGY_TO_SPEC = {
   [STRATEGY.SECTION_179]: 'onlySection179',
   [STRATEGY.SECTION_179_BONUS]: 's179PlusBonus',
   [STRATEGY.BONUS_ONLY]: 'onlyBonus',
+}
+
+// =============================================================================
+// Mid-quarter convention trigger (IRS Pub 946, §1.168(d)-1).
+//
+// Rule: if MORE THAN 40% of the depreciable basis of property placed in service
+// during the tax year is placed in service during the LAST 3 months of that year
+// (Q4 = Oct-Dec on a calendar tax year), the mid-quarter convention applies to
+// ALL property placed in service that year — not just the Q4 property. Each
+// asset uses the rate vector for the quarter in which IT was placed in service.
+//
+// Once decided, the convention is locked at the asset level (it shapes the rate
+// vector for the entire recovery period) and is NOT re-evaluated in later years.
+// =============================================================================
+
+/**
+ * Pure helper. Given an array of assets all placed in service in the same tax
+ * year, return a Map<assetId, conventionString> reflecting the IRS 40%-Q4 test.
+ *
+ * Each asset must expose: { id, purchase_date, purchase_price, business_use_pct }.
+ * Inputs that aren't valid numbers / dates are coerced to safe defaults
+ * (purchase_price ≥ 0, business_use_pct in [0..100]).
+ *
+ * The function is intentionally I/O-free so that tests can drive it with plain
+ * objects and the DB-update step lives in the UI layer that owns the supabase
+ * client.
+ *
+ * @param {Array<{id:string, purchase_date:string|Date, purchase_price:number, business_use_pct:number}>} assets
+ * @returns {Map<string, string>} asset.id → DEPRECIATION_CONVENTION.* value
+ */
+export function computeConventionForAssets(assets) {
+  const out = new Map()
+  if (!Array.isArray(assets) || assets.length === 0) return out
+
+  let totalBasis = 0
+  let q4Basis = 0
+  const annotated = []
+
+  for (const a of assets) {
+    if (!a || !a.purchase_date) continue
+    const d = a.purchase_date instanceof Date ? a.purchase_date : new Date(a.purchase_date)
+    if (Number.isNaN(d.getTime())) continue
+    const month = d.getUTCMonth() + 1 // 1..12
+    const quarter = quarterOfMonth(month)
+    const price = Math.max(Number(a.purchase_price) || 0, 0)
+    const pct = Math.max(Math.min(Number(a.business_use_pct) || 100, 100), 0) / 100
+    const basis = price * pct
+    totalBasis += basis
+    if (quarter === 'Q4') q4Basis += basis
+    annotated.push({ id: a.id, quarter, basis })
+  }
+
+  // IRS rule: STRICTLY greater than 40% triggers mid-quarter (Treas. Reg.
+  // §1.168(d)-1(b)(3)). At exactly 40% or below, half-year applies.
+  const triggered = totalBasis > 0 && (q4Basis / totalBasis) > 0.40
+
+  for (const a of annotated) {
+    out.set(
+      a.id,
+      triggered
+        ? ('mid_quarter_' + a.quarter.toLowerCase())
+        : DEPRECIATION_CONVENTION.HALF_YEAR,
+    )
+  }
+
+  return out
 }

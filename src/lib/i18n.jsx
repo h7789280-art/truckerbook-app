@@ -1988,6 +1988,9 @@ const translations = {
       section179UnavailableBadge: '§179 недоступен',
       section179UnavailableTooltip: 'Недоступно при нулевом доходе (IRC §179(b)(3) income limitation). Год 1 амортизируется через MACRS — поэтому сумма совпадает со стандартной MACRS.',
       scheduleFootnote: 'MACRS GDS, half-year convention, Rev. Proc. 87-57 Table A-1.',
+      scheduleFootnoteMidQuarter: 'MACRS GDS, mid-quarter convention ({Q}), IRS Pub 946 Table A-2.',
+      compareSection179LimitedByIncome: '\u041e\u0433\u0440\u0430\u043d\u0438\u0447\u0435\u043d\u043e \u043d\u0430\u043b\u043e\u0433\u043e\u043e\u0431\u043b\u0430\u0433\u0430\u0435\u043c\u044b\u043c \u0434\u043e\u0445\u043e\u0434\u043e\u043c (\u00a7179(b)(3))',
+      badgeMidQuarterApplied: '\u041f\u0440\u0438\u043c\u0435\u043d\u0435\u043d\u0430 mid-quarter convention ({Q})',
       midQuarterFootnote: '\u0420\u0430\u0441\u0447\u0451\u0442 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u0442 half-year convention. \u0415\u0441\u043b\u0438 \u0432 \u044d\u0442\u043e\u043c \u0433\u043e\u0434\u0443 \u0432\u044b \u0432\u0432\u0435\u0434\u0451\u0442\u0435 >40% \u0430\u043a\u0442\u0438\u0432\u043e\u0432 \u0432 Q4 (\u043e\u043a\u0442\u2013\u0434\u0435\u043a), \u043f\u0440\u0438\u043c\u0435\u043d\u044f\u0435\u0442\u0441\u044f mid-quarter convention \u2014 \u043f\u0435\u0440\u0435\u0441\u0447\u0438\u0442\u0430\u0439\u0442\u0435 \u0442\u043e\u0433\u0434\u0430.',
       disclaimerNolVsCarryforward: '\u041f\u0440\u0438 \u043e\u0442\u0441\u0443\u0442\u0441\u0442\u0432\u0438\u0438 \u0438\u043b\u0438 \u043d\u0438\u0437\u043a\u043e\u043c \u0434\u043e\u0445\u043e\u0434\u0435 \u0432 \u0433\u043e\u0434 \u043f\u043e\u043a\u0443\u043f\u043a\u0438 \u043e\u0431\u0441\u0443\u0434\u0438\u0442\u0435 \u0441 CPA \u0432\u044b\u0431\u043e\u0440 \u043c\u0435\u0436\u0434\u0443 Section 179 carryforward \u0438 \u0441\u043e\u0437\u0434\u0430\u043d\u0438\u0435\u043c NOL \u0447\u0435\u0440\u0435\u0437 Bonus Depreciation \u2014 \u043f\u043e\u0441\u043b\u0435\u0434\u0441\u0442\u0432\u0438\u044f \u0440\u0430\u0437\u043d\u044b\u0435.',
       recommended: '\u2605 \u0420\u0435\u043a\u043e\u043c\u0435\u043d\u0434\u0443\u0435\u0442\u0441\u044f',
@@ -4152,7 +4155,10 @@ const translations = {
       compareSliderZero: 'slider',
       section179UnavailableBadge: '§179 unavailable',
       section179UnavailableTooltip: '§179 blocked at zero income (IRC §179(b)(3) income limitation). Year 1 depreciates via MACRS — that is why this row matches Standard MACRS.',
+      compareSection179LimitedByIncome: 'Limited by taxable income (§179(b)(3))',
+      badgeMidQuarterApplied: 'Mid-quarter convention applied ({Q})',
       scheduleFootnote: 'MACRS GDS, half-year convention, Rev. Proc. 87-57 Table A-1.',
+      scheduleFootnoteMidQuarter: 'MACRS GDS, mid-quarter convention ({Q}), IRS Pub 946 Table A-2.',
       midQuarterFootnote: 'Calculations use the half-year convention. If you place >40% of assets in service in Q4 (Oct-Dec), the mid-quarter convention applies \u2014 recalculate then.',
       disclaimerNolVsCarryforward: 'At zero or low income in the purchase year, discuss with a CPA whether to take a Section 179 carryforward or generate an NOL via Bonus Depreciation \u2014 the consequences differ.',
       recommended: '\u2605 Recommended',
@@ -6123,6 +6129,7 @@ const translations = {
       section179Limit: '\u041b\u0456\u043c\u0456\u0442 Section 179',
       noData: '\u0412\u0432\u0435\u0434\u0456\u0442\u044c \u0434\u0430\u043d\u0456 \u0432\u0430\u043d\u0442\u0430\u0436\u0456\u0432\u043a\u0438 \u0434\u043b\u044f \u0440\u043e\u0437\u0440\u0430\u0445\u0443\u043d\u043a\u0443 \u0430\u043c\u043e\u0440\u0442\u0438\u0437\u0430\u0446\u0456\u0457',
       w2Notice: '\u0410\u043c\u043e\u0440\u0442\u0438\u0437\u0430\u0446\u0456\u044e \u0440\u043e\u0437\u0440\u0430\u0445\u043e\u0432\u0443\u0454 \u0432\u0430\u0448 \u0440\u043e\u0431\u043e\u0442\u043e\u0434\u0430\u0432\u0435\u0446\u044c',
+      compareSection179LimitedByIncome: '\u041e\u0431\u043c\u0435\u0436\u0435\u043d\u043e \u043e\u043f\u043e\u0434\u0430\u0442\u043a\u043e\u0432\u0443\u0432\u0430\u043d\u0438\u043c \u0434\u043e\u0445\u043e\u0434\u043e\u043c (\u00a7179(b)(3))',
     },
     mileageLog: {
       title: '\u0416\u0443\u0440\u043d\u0430\u043b \u043f\u0440\u043e\u0431\u0456\u0433\u0443',
@@ -8018,6 +8025,7 @@ const translations = {
       section179Limit: 'L\u00edmite Section 179',
       noData: 'Ingrese los datos del cami\u00f3n para calcular la depreciaci\u00f3n',
       w2Notice: 'La depreciaci\u00f3n la gestiona su empleador',
+      compareSection179LimitedByIncome: 'Limitado por el ingreso imponible (\u00a7179(b)(3))',
     },
     mileageLog: {
       title: 'Registro de millaje',
@@ -9913,6 +9921,7 @@ const translations = {
       section179Limit: 'Section 179 Limit',
       noData: 'Geben Sie LKW-Daten ein, um die Abschreibung zu berechnen',
       w2Notice: 'Die Abschreibung wird von Ihrem Arbeitgeber berechnet',
+      compareSection179LimitedByIncome: 'Begrenzt durch das zu versteuernde Einkommen (§179(b)(3))',
     },
     mileageLog: {
       title: 'Fahrtenbuch',
@@ -11808,6 +11817,7 @@ const translations = {
       section179Limit: 'Limite Section 179',
       noData: 'Entrez les d\u00e9tails du camion pour calculer l\u2019amortissement',
       w2Notice: 'L\u2019amortissement est g\u00e9r\u00e9 par votre employeur',
+      compareSection179LimitedByIncome: 'Limit\u00e9 par le revenu imposable (\u00a7179(b)(3))',
     },
     mileageLog: {
       title: 'Journal de kilom\u00e9trage',
@@ -13703,6 +13713,7 @@ const translations = {
       section179Limit: 'Section 179 limiti',
       noData: 'Amortismanı hesaplamak i\u00e7in kamyon bilgilerini girin',
       w2Notice: 'Amortisman i\u015fvereniniz tarafından hesaplanır',
+      compareSection179LimitedByIncome: 'Vergilendirilebilir gelirle sınırlandırılmıştır (§179(b)(3))',
     },
     mileageLog: {
       title: 'Kilometre G\u00fcnl\u00fc\u011f\u00fc',
@@ -15602,6 +15613,7 @@ const translations = {
       section179Limit: 'Limit Section 179',
       noData: 'Wprowad\u017a dane ci\u0119\u017car\u00f3wki, aby obliczy\u0107 amortyzacj\u0119',
       w2Notice: 'Amortyzacj\u0119 oblicza Tw\u00f3j pracodawca',
+      compareSection179LimitedByIncome: 'Ograniczone dochodem podlegaj\u0105cym opodatkowaniu (\u00a7179(b)(3))',
     },
     mileageLog: {
       title: 'Dziennik przebiegu',

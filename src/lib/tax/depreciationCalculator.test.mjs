@@ -14,7 +14,12 @@ import {
   recommendStrategy,
   getEffRate,
   MACRS_3YR_RATES,
+  MACRS_3YEAR_MIDQUARTER,
   SECTION_179_LIMIT_2026,
+  quarterOfMonth,
+  computeConventionForAssets,
+  getSection179DisplayAmount,
+  DEPRECIATION_CONVENTION,
 } from './depreciationCalculator.js'
 
 let failures = 0
@@ -210,6 +215,134 @@ assertEq(getEffRate(50001), 0.27, 'effRate($50,001) = 27%')
 assertEq(getEffRate(500000), 0.27, 'effRate($500k) = 27% (upper bound inclusive)')
 assertEq(getEffRate(500001), 0.32, 'effRate($500,001) = 32%')
 assertEq(getEffRate(10000000), 0.32, 'effRate($10M) = 32%')
+
+// ============================================================================
+// Pack 2 — MACRS edge cases
+// ============================================================================
+
+console.log('\n=== Pack 2: quarterOfMonth helper ===\n')
+
+assertEq(quarterOfMonth(1), 'Q1', 'January = Q1')
+assertEq(quarterOfMonth(3), 'Q1', 'March = Q1')
+assertEq(quarterOfMonth(4), 'Q2', 'April = Q2')
+assertEq(quarterOfMonth(6), 'Q2', 'June = Q2')
+assertEq(quarterOfMonth(7), 'Q3', 'July = Q3')
+assertEq(quarterOfMonth(9), 'Q3', 'September = Q3')
+assertEq(quarterOfMonth(10), 'Q4', 'October = Q4')
+assertEq(quarterOfMonth(12), 'Q4', 'December = Q4')
+
+console.log('\n=== Pack 2: MACRS_3YEAR_MIDQUARTER rates from IRS Pub 946 Table A-2 ===\n')
+
+assertEq(MACRS_3YEAR_MIDQUARTER.Q1[0], 0.5833, 'Q1 mid-quarter Y1 rate = 58.33%')
+assertEq(MACRS_3YEAR_MIDQUARTER.Q2[0], 0.4167, 'Q2 mid-quarter Y1 rate = 41.67%')
+assertEq(MACRS_3YEAR_MIDQUARTER.Q3[0], 0.2500, 'Q3 mid-quarter Y1 rate = 25.00%')
+assertEq(MACRS_3YEAR_MIDQUARTER.Q4[0], 0.0833, 'Q4 mid-quarter Y1 rate = 8.33%')
+assertEq(MACRS_3YEAR_MIDQUARTER.Q4[1], 0.6111, 'Q4 mid-quarter Y2 rate = 61.11%')
+
+// Each quarter's rates should sum to ~1.0 (residual is absorbed by the schedule).
+for (const q of ['Q1', 'Q2', 'Q3', 'Q4']) {
+  const sum = MACRS_3YEAR_MIDQUARTER[q].reduce((s, r) => s + r, 0)
+  assertClose(sum, 1.0, `Mid-quarter ${q} rates sum to 1.0`)
+}
+
+console.log('\n=== Pack 2: MACRS schedule with mid-quarter convention (3-year property) ===\n')
+
+// Test 1 — Half-year regression on the canonical Q4 case (Petr's truck reused).
+//   $125k purchased 2026-11-15 with NO mid-quarter trigger → year 1 = $41,662.50
+const sched_HY_Q4 = computeMacrsSchedule(125000) // default = half_year
+assertClose(sched_HY_Q4[0], 41662.50, 'Half-year (default): $125k Q4 → Y1 = $41,662.50')
+
+// Test 2 — Same asset under mid-quarter Q4 convention → year 1 = $10,412.50
+const sched_MQ_Q4 = computeMacrsSchedule(125000, { convention: DEPRECIATION_CONVENTION.MID_QUARTER_Q4 })
+assertClose(sched_MQ_Q4[0], 10412.50, 'Mid-quarter Q4: $125k → Y1 = $10,412.50 (8.33%)')
+
+// Test 3 — Mid-quarter Q1: $100k Feb 2026 → 58.33% × $100k = $58,330
+const sched_MQ_Q1 = computeMacrsSchedule(100000, { convention: DEPRECIATION_CONVENTION.MID_QUARTER_Q1 })
+assertClose(sched_MQ_Q1[0], 58330, 'Mid-quarter Q1: $100k → Y1 = $58,330 (58.33%)')
+
+// Test 4 — Mid-quarter Q2: $100k May 2026 → 41.67% × $100k = $41,670
+const sched_MQ_Q2 = computeMacrsSchedule(100000, { convention: DEPRECIATION_CONVENTION.MID_QUARTER_Q2 })
+assertClose(sched_MQ_Q2[0], 41670, 'Mid-quarter Q2: $100k → Y1 = $41,670 (41.67%)')
+
+// Test 5 — Mid-quarter Q3: $100k Aug 2026 → 25.00% × $100k = $25,000
+const sched_MQ_Q3 = computeMacrsSchedule(100000, { convention: DEPRECIATION_CONVENTION.MID_QUARTER_Q3 })
+assertClose(sched_MQ_Q3[0], 25000, 'Mid-quarter Q3: $100k → Y1 = $25,000 (25.00%)')
+
+// Test 6 — Year 2 of mid-quarter Q4: $125k → 61.11% × $125k = $76,387.50
+assertClose(sched_MQ_Q4[1], 76387.50, 'Mid-quarter Q4: $125k → Y2 = $76,387.50 (61.11%)')
+
+// Bonus: schedule integrity (sums to basis, last year absorbs rounding residual)
+const sumMQQ4 = sched_MQ_Q4.reduce((s, v) => s + v, 0)
+assertClose(sumMQQ4, 125000, 'Mid-quarter Q4 schedule sums to basis ($125k)')
+
+// Threading through computeStrategy keeps standardMacrs results consistent.
+const strat_MQ_Q4 = computeStrategy('standardMacrs', 125000, 0, 0, { convention: DEPRECIATION_CONVENTION.MID_QUARTER_Q4 })
+assertClose(strat_MQ_Q4.year1Deduction, 10412.50, 'computeStrategy(standardMacrs) under mid-quarter Q4: Y1 = $10,412.50')
+assertClose(strat_MQ_Q4.yearlyDeductions[1], 76387.50, 'computeStrategy(standardMacrs) under mid-quarter Q4: Y2 = $76,387.50')
+
+console.log('\n=== Pack 2: 40%-Q4 trigger (computeConventionForAssets) ===\n')
+
+// Test 7 — Single Q4 asset: q4Basis/totalBasis = 1.0 > 0.40 → trigger fires.
+const trig_Q4Only = computeConventionForAssets([
+  { id: 'a1', purchase_date: '2026-11-15', purchase_price: 125000, business_use_pct: 100 },
+])
+assertEq(trig_Q4Only.get('a1'), 'mid_quarter_q4',
+  'Trigger — Q4-only ($125k Nov): mid_quarter_q4 applied')
+
+// Test 8 — Mixed light Q4: $80k Apr + $30k Nov → q4Basis/totalBasis = 30/110 ≈ 0.273 < 0.40 → half-year.
+const trig_LightQ4 = computeConventionForAssets([
+  { id: 'a1', purchase_date: '2026-04-10', purchase_price: 80000, business_use_pct: 100 },
+  { id: 'a2', purchase_date: '2026-11-10', purchase_price: 30000, business_use_pct: 100 },
+])
+assertEq(trig_LightQ4.get('a1'), 'half_year', 'Trigger — light Q4 (27%): a1 (Apr) stays half_year')
+assertEq(trig_LightQ4.get('a2'), 'half_year', 'Trigger — light Q4 (27%): a2 (Nov) stays half_year')
+
+// Test 9 — Heavy Q4: $30k March + $80k December → q4Basis/totalBasis = 80/110 ≈ 0.727 > 0.40 → trigger fires.
+// Each asset gets the convention for ITS OWN quarter.
+const trig_HeavyQ4 = computeConventionForAssets([
+  { id: 'a1', purchase_date: '2026-03-10', purchase_price: 30000, business_use_pct: 100 },
+  { id: 'a2', purchase_date: '2026-12-10', purchase_price: 80000, business_use_pct: 100 },
+])
+assertEq(trig_HeavyQ4.get('a1'), 'mid_quarter_q1', 'Trigger — heavy Q4 (73%): a1 (Mar) → mid_quarter_q1')
+assertEq(trig_HeavyQ4.get('a2'), 'mid_quarter_q4', 'Trigger — heavy Q4 (73%): a2 (Dec) → mid_quarter_q4')
+
+// Boundary: exactly 40% does NOT trigger (Treas. Reg. §1.168(d)-1 says STRICTLY greater than 40%).
+const trig_Exactly40 = computeConventionForAssets([
+  { id: 'a1', purchase_date: '2026-04-10', purchase_price: 60000, business_use_pct: 100 },
+  { id: 'a2', purchase_date: '2026-11-10', purchase_price: 40000, business_use_pct: 100 },
+])
+assertEq(trig_Exactly40.get('a2'), 'half_year', 'Trigger boundary: exactly 40% Q4 → half_year (NOT mid-quarter)')
+
+// Business-use percentage scales each asset's basis before the trigger ratio is taken.
+const trig_BusinessPct = computeConventionForAssets([
+  // Effective bases: a1 = 100k * 50% = 50k, a2 = 60k * 100% = 60k → 60/110 ≈ 0.545 > 0.40
+  { id: 'a1', purchase_date: '2026-02-15', purchase_price: 100000, business_use_pct: 50 },
+  { id: 'a2', purchase_date: '2026-12-01', purchase_price: 60000, business_use_pct: 100 },
+])
+assertEq(trig_BusinessPct.get('a2'), 'mid_quarter_q4',
+  'Trigger weighs business_use_pct: scaled bases tip ratio over 40%')
+
+console.log('\n=== Pack 2: §179 row display amount (IRC §179(b)(3) income limitation) ===\n')
+
+// Test §179-1 — income=0: §179 = $0 (income blocks it entirely).
+assertClose(getSection179DisplayAmount(125000, 0), 0,
+  '§179 display @ $125k basis, income=0 → $0')
+
+// Test §179-2 — income=$50k: §179 = $50k (income caps it below basis).
+assertClose(getSection179DisplayAmount(125000, 50000), 50000,
+  '§179 display @ $125k basis, income=$50k → $50,000')
+
+// Test §179-3 — income=$300k: §179 = $125k (full basis fits inside income).
+assertClose(getSection179DisplayAmount(125000, 300000), 125000,
+  '§179 display @ $125k basis, income=$300k → $125,000')
+
+// Test §179-4 — income=$3M, basis=$2.7M: §179 = $2.56M (statutory cap, not basis or income).
+assertClose(getSection179DisplayAmount(2_700_000, 3_000_000), 2_560_000,
+  '§179 display @ $2.7M basis, income=$3M → $2,560,000 (2026 §179 cap)')
+
+// Negative income behaves like zero.
+assertClose(getSection179DisplayAmount(125000, -1), 0,
+  '§179 display: negative income clamps to 0')
 
 // ============================================================================
 console.log('\n' + '='.repeat(60))

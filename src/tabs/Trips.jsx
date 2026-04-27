@@ -1070,7 +1070,7 @@ function TripsTab({ userId, refreshKey, theme, profile, onOpenSmartScan, onOpenA
         </div>
         <div style={miniCard}>
           <div style={{ color: theme.dim, fontSize: '11px', marginBottom: '4px' }}>
-            {t('trips.kmLabel')}
+            {distUnit}
           </div>
           <div style={{ color: theme.text, fontSize: '20px', fontWeight: 700, fontFamily: 'monospace' }}>
             {fmt(totalKm)}

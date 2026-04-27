@@ -659,7 +659,13 @@ truckerbook-app/
 │   ├── lib/
 │   │   ├── supabase.js    ← Supabase клиент (createClient)
 │   │   ├── api.js         ← Функции работы с БД (fetchFuels, addTrip...)
-│   │   └── i18n.js        ← Мультиязычность (ru, uk, en)
+│   │   ├── i18n.jsx       ← Мультиязычность (8 языков: ru/en/uk/es/de/fr/tr/pl)
+│   │   ├── format.js      ← LOCALE_MAP, formatNumber(value, lang, opts), getLocale(lang)
+│   │   ├── imageCompress.js ← Единая точка compressImage для AI-сканеров
+│   │   ├── geminiPartInvoice.js ← scanPartInvoice (Service > Resources > Add Part)
+│   │   ├── geminiVision.js  ← readOdometerFromPhoto (Start/End shift модалки)
+│   │   ├── voiceInput.js    ← parseExpenseFromVoice (AddModal voice)
+│   │   └── tachographParser.js ← parseTachographFile (Tachograph viewer)
 │   ├── components/
 │   │   ├── Auth.jsx       ← Регистрация: телефон → SMS → роль → профиль → создание PIN
 │   │   ├── PinLock.jsx    ← Экран PIN-кода при каждом входе (4 цифры + биометрия)
@@ -667,7 +673,12 @@ truckerbook-app/
 │   │   ├── BottomNav.jsx  ← Нижняя навигация (5 табов, адаптируется под роль)
 │   │   ├── Card.jsx       ← Переиспользуемая карточка
 │   │   ├── AddModal.jsx   ← Модалка добавления (фото + голос)
-│   │   └── FAB.jsx        ← Кнопка "+" (floating action button)
+│   │   ├── FAB.jsx        ← Кнопка "+" (floating action button)
+│   │   ├── SmartScan.jsx  ← Единственный AI-сканер: фото → /api/smart-scan → Confirm-экран
+│   │   ├── ScanConfirm.jsx ← Подтверждение распознанного receipt
+│   │   ├── TripConfirm.jsx ← Подтверждение распознанного trip
+│   │   ├── RepairConfirm.jsx ← Подтверждение repair + чекбокс «также добавить запчасть»
+│   │   └── UnknownDocChoice.jsx ← Модалка выбора типа при doc_type='unknown'
 │   ├── tabs/
 │   │   ├── Overview.jsx   ← Главный экран (дашборд)
 │   │   ├── Fuel.jsx       ← Топливо (заправки)
@@ -908,11 +919,19 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 
 ## Мультиязычность
 
-Файл: `src/lib/i18n.js`
-Формат: объект с ключами `{ ru: {...}, uk: {...}, en: {...} }`
-Используем `react-i18next` или простой контекст.
+**Файл:** `src/lib/i18n.jsx` (НЕ `.js`).
+**Поддерживается 8 языков:** `ru`, `en`, `uk`, `es` — полные переводы; `de`, `fr`, `tr`, `pl` — английские placeholder-строки с пометкой `// TODO: translate from English` (постепенная миграция, не блокирует UX).
+
+**Утилита локали:** `src/lib/format.js` — экспортирует:
+- `LOCALE_MAP` — карта lang code → full Intl-locale (например `'es' → 'es-ES'`)
+- `getLocale(lang)` — возвращает Intl-локаль или `'en-US'` fallback
+- `formatNumber(value, lang, options)` — обёртка над `toLocaleString` с правильной локалью
+
+**Имена стран и языков** в picker'ах (Auth/ProfileScreen/App): через `Intl.DisplayNames` — НЕ хранить 60+ имён × 8 языков, делегировано браузерному API.
 
 **Правило:** все видимые строки — через i18n. Никакой хардкод-кириллицы в JSX.
+
+> Pre-commit hook для блокировки кириллицы вне i18n (Спринт D) — **отложен**. Дисциплина разработчика. Если хук появится: regex должен ловить и литеральную кириллицу `[Ѐ-ӿ]`, и `\u04XX` escape (наивный grep escape не покроет).
 
 -----
 
@@ -1100,12 +1119,12 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 | `parseExpenseFromVoice` | `src/lib/voiceInput.js` | audio/webm | `e39dbd3` |
 | `parseTachographFile` | `src/lib/tachographParser.js` | octet-stream | `05117b4` |
 
-### Защищённые scan-эндпоинты (JWT + rate-limit добавлены 2026-04-21)
+### Защищённые scan-эндпоинты (JWT + rate-limit)
 
-- `api/scan-receipt.js` — вызывается из `ScanReceipt.jsx:98`
-- `api/smart-scan.js` — вызывается из `SmartScan.jsx:110`
-- `api/parse-trip.js` — вызывается из `TripFromText.jsx:99`
-- Общий rate-limit через `api/_security.js` (20 req/60s per user_id на всю группу scan-*)
+- `api/smart-scan.js` — единственный production scan-эндпоинт. Вызывается из `SmartScan.jsx`.
+- Общий rate-limit через `api/_security.js` (20 req/60s per user_id).
+
+> Старые отдельные scan-эндпоинты для receipt и trip (вместе с их frontend-компонентами) **удалены** — около 1500 строк мёртвого кода. Не возвращать.
 
 ### Шаблон миграции (для новых AI-функций)
 
@@ -1114,6 +1133,92 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 **НЕ ТРОГАТЬ** эти файлы без понимания шаблона — нарушение сломает защиту квоты Gemini и может допустить утечку ключей.
 
 **Следующий шаг:** удалить `VITE_GEMINI_API_KEY` и `VITE_GEMINI_MODEL` из Vercel env, сделать redeploy (см. SECURITY.md → Критично).
+
+-----
+
+## AI-сканер: архитектура
+
+### Единственный entry point
+
+`<SmartScan>` (компонент) → `POST /api/smart-scan` → Gemini-классификатор. Никаких других AI-сканер flow в приложении нет.
+
+```
+[фото] → SmartScan → /api/smart-scan → Gemini классифицирует:
+                                          ├─ doc_type = 'receipt' → <ScanConfirm>
+                                          ├─ doc_type = 'trip'    → <TripConfirm>
+                                          ├─ doc_type = 'repair'  → <RepairConfirm>
+                                          └─ doc_type = 'unknown' → <UnknownDocChoice>
+```
+
+### Server-side валидация
+
+`api/smartScanValidation.js` — три валидатора, вызываются после Gemini-ответа:
+- `validateReceiptResponse` — USD-only, валюта, amount, date, vendor
+- `validateTripResponse` — даты, miles ≥ 0, rate (USD/mile), pickup/delivery
+- `validateRepairResponse` — date, total cost, shop, items[]
+
+При нарушении — `422` с echo (структурой исходного Gemini-ответа), чтобы клиент мог показать "raw vs validation error" и пользователь поправил вручную.
+
+Тесты валидаторов: `api/smartScanValidation.test.js`.
+
+### Confirm-экраны (общая UX-модель)
+
+Каждый Confirm-экран показывает:
+- Распознанные поля + редактируемые input'ы.
+- **Reclassify-link** под заголовком: "Это не [receipt/trip/repair]?" → переоткрывает то же фото как другой `doc_type` (без повторного вызова Gemini, переключение на клиенте).
+- Кнопку "Сохранить" → пишет в соответствующую таблицу (`fuel_entries` / `byt_expenses` / `trips` / `service_records`).
+
+### UnknownDocChoice (doc_type='unknown')
+
+Если Gemini не уверен в типе → модалка с 4 кнопками:
+1. **Receipt** → переход в ScanConfirm
+2. **Trip** → переход в TripConfirm
+3. **Repair** → переход в RepairConfirm
+4. **Archive** → отправляет фото в Documents Archive без парсинга (чтобы не потерять)
+
+### RepairConfirm → Part Resources link
+
+В RepairConfirm есть чекбокс **"Также добавить запчасть"** (`alsoAddPart`). Если включён → после сохранения repair-записи открывается `<PartFormModal>` с предзаполненными `cost`, `date`, `odometer`, `shop_name` из repair-документа. Пользователь добавляет специфику запчасти (марка, артикул, ресурс) — связка repair ↔ part создаётся атомарно.
+
+State-канал: `App.jsx` → `pendingPartFromRepair` → `Service.jsx` → `PartFormModal`. Сбрасывается через `onPendingPartConsumed`.
+
+### Локальные точки входа в SmartScan через `contextHint`
+
+Чтобы пользователь сразу попадал в нужный flow без выбора doc_type, добавлены кнопки "🤖 AI Scanner" в локальные табы. Каждая передаёт hint, который SmartScan показывает как UI-подсказку (Gemini-промпт классификатора **не меняется** — hint только для пользователя):
+
+| Точка входа | Файл | i18n-ключ hint |
+|---|---|---|
+| Trips: "✏️ Trip" + "🤖 AI Scanner" | `src/tabs/Trips.jsx` | `smartScan.hints.trip` |
+| Expenses Vehicle: "✏️ Add Manually" + "🤖 AI Scanner" | `src/tabs/Fuel.jsx` | `smartScan.hints.vehicleExpense` |
+| Expenses Personal: "✏️ Add Manually" + "🤖 AI Scanner" | `src/tabs/Byt.jsx` | `smartScan.hints.personalExpense` |
+| Service: "+ Add repair" + "🤖 AI Scanner" | `src/tabs/Service.jsx` | `smartScan.hints.repair` |
+
+**Visibility:** все локальные кнопки видны только `driver` / `owner_operator` (через `showQuickAdd` или inline ternary). Для `job_seeker` / `company` — скрыты.
+
+**Передача hint:** `App.jsx` хранит `smartScanHint` state; `openSmartScan(hint)` сеттер передаётся вниз через props (`onOpenSmartScan`); `<SmartScan contextHint={smartScanHint} />`.
+
+### Локальные специализированные сканеры (НЕ дубли SmartScan, оставлены сознательно)
+
+Эти flow не классифицируют документ — они уже знают его тип, поэтому SmartScan не нужен:
+
+| Сканер | Где используется | Зачем отдельно |
+|---|---|---|
+| `scanPartInvoice` (`src/lib/geminiPartInvoice.js`) | Service > Resources > Add Part > Scan Invoice | Извлекает марку/артикул/ресурс запчасти — уровень детализации, не нужный SmartScan |
+| `readOdometerFromPhoto` (`src/lib/geminiVision.js`) | Overview модалки Start/End shift | Извлекает ОДНО число (километраж), не документ |
+| `parseExpenseFromVoice` (`src/lib/voiceInput.js`) | AddModal голосовой ввод | Аудио input, не фото |
+| `parseTachographFile` (`src/lib/tachographParser.js`) | Tachograph viewer | `.ddd` бинарный формат, не изображение |
+
+Все четыре идут через тот же `/api/gemini` proxy (см. таблицу мигрированных функций выше).
+
+### Утилита `compressImage`: единая точка
+
+`src/lib/imageCompress.js` — экспортирует `compressImage(file, opts)`. Используется:
+- `src/components/SmartScan.jsx`
+- `src/lib/geminiPartInvoice.js`
+
+⚠️ **НЕ путать** с `src/lib/fileUtils.js:compressImage` — это другая функция (общая загрузка файлов в Storage, возвращает File с другими дефолтами). Не сливать.
+
+**Правило:** новые AI-сканеры импортируют `compressImage` ИЗ `src/lib/imageCompress.js`. Не копировать логику в свой файл.
 
 -----
 
@@ -1187,20 +1292,53 @@ Vercel env (Project Settings → Environment Variables):
 
 -----
 
-## СЛЕДУЮЩИЕ ЗАДАЧИ (обновлено 2026-04-21)
+## RECENT WORK / ЗАКРЫТО (последние спринты)
+
+Компактный список — детали в git log по коммит-сообщениям:
+
+- ✅ **i18n HIGH-visibility migration** — 4 файла (Profile/Auth/App/TaxMeter), 277 хардкод-строк закрыто.
+- ✅ **8 языков** добавлены в `src/lib/i18n.jsx` (ru/en/uk/es полные; de/fr/tr/pl placeholder English).
+- ✅ **`Intl.DisplayNames`** для country/language picker'ов в Auth/ProfileScreen/App (вместо ручного словаря 60+ имён × 8 языков).
+- ✅ **Units bug pattern** распространён: `isImperial = unitSys === 'imperial'; convDist; distLabel = t('common.km'/'mi')` применён в:
+  - `src/components/ProfileScreen.jsx:1074`, `:1340`
+  - `src/App.jsx:1128` (Спринт C)
+  - Trips summary header (post-Спринт F фикс KM/mi label)
+  - Источник `unitSys`: `getUnits()` из `src/lib/i18n.jsx`, читает `localStorage.getItem('truckerbook_units')`.
+  - `.toLocaleString('ru-RU')` хардкоды заменены на `formatNumber(value, lang, opts)`.
+- ✅ **SmartScan validation migration** — server-side `api/smartScanValidation.js` с тремя валидаторами (USD/date/amount/miles/rate). 422 с echo на ошибки.
+- ✅ **Dead code cleanup** (~1500 строк): отдельные frontend-компоненты для receipt-scan и trip-paste, их API-эндпоинты и старый файл валидации — удалены. SmartScan = единственный entry point.
+- ✅ **`compressImage` extracted** в `src/lib/imageCompress.js` (раньше было 4 копии — теперь 1, импортируют 2 живых места).
+- ✅ **Local Add/Scan buttons** в Trips/Expenses(Vehicle+Personal)/Service tabs с `contextHint` через `smartScan.hints.*`.
+- ✅ **Trips summary KM/mi label fix** (post-Спринт C — проскочил мимо первой волны фикса).
+- ✅ **Спринт G:** `UnknownDocChoice.jsx` модалка для doc_type='unknown' + RepairConfirm→PartFormModal link через `pendingPartFromRepair` + reclassify-link под заголовком каждого Confirm-экрана.
+
+-----
+
+## СЛЕДУЮЩИЕ ЗАДАЧИ (обновлено 2026-04-27)
 
 ### Критично (до публичного запуска, см. SECURITY.md)
 - [ ] Ротация ключей `GEMINI_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `N8N_API_KEY`, `GOOGLE_API_KEY` (все пометить Sensitive в Vercel)
 - [ ] Удалить `VITE_GEMINI_API_KEY` и `VITE_GEMINI_MODEL` из Vercel env
+- [ ] Удалить старый Gemini API ключ (`...5Y0A`) из Google AI Studio (ручное действие)
 - [ ] Redeploy после удаления
 - [ ] Проверить RLS политики на всех таблицах Supabase
 - [ ] Curl-тесты защищённых эндпоинтов на проде
 
 ### Важно (в течение 2 недель)
-- [ ] Upstash Redis для распределённого rate-limit (сейчас in-memory Map)
+- [ ] **Upstash Redis** для распределённого rate-limit (сейчас in-memory Map ломается на cold instances Vercel — серверлесс ≠ shared memory).
 - [ ] Логирование 401/429/413 событий в Vercel Logs
 - [ ] Content Security Policy в `vercel.json`
 - [ ] 2FA на все админские аккаунты (GitHub, Vercel, Supabase, Google Cloud, email)
+- [ ] **Pre-commit hook** для блокировки кириллицы вне i18n — Спринт D отложен. Husky не введён. Если делать — regex должен ловить и `[Ѐ-ӿ]`, и `\u04XX` escape.
+- [ ] **N8N_API_KEY rotation** — отложено до активации n8n-подписки.
+
+### Качество i18n
+- [ ] Полные переводы для `de`, `fr`, `tr`, `pl` вместо английских placeholder.
+- [ ] **Timezone date defaults в "Add Manually"** — отложено до жалоб пользователей (низкий приоритет).
+- [ ] **Per Diem rate update to $80/day** (IRS Notice 2024-68) — мелкое изменение константы, не сделано.
+
+### Архитектура (рефакторинг)
+- [ ] **Vehicle data refactor:** перенести `brand`/`model`/`plate_number`/`fuel_consumption` из `profiles` в `vehicles` (одна таблица для всех машин). Требует миграции существующих профилей и правок клиента.
 
 ### Продуктовое развитие (не безопасность)
 - [ ] Добавить `&& isUsaMode` в условие отображения TaxMeterWidget на [Overview.jsx:2834](src/tabs/Overview.jsx#L2834) — на случай non-USA owner_operator deep-link приведёт на пустой DocsTab grid (bookkeeping tile там скрыт по `isUsaMode`).
@@ -1209,6 +1347,21 @@ Vercel env (Project Settings → Environment Variables):
 - [ ] `company` role (1120/1120-S/1065)
 - [ ] Pre-filled Schedule C/SE IRS PDF
 - [ ] 1099-NEC client/broker CRM
+
+-----
+
+## RECENT LEARNINGS & PRINCIPLES
+
+Принципы, выведенные из прошлых спринтов. Нарушение → быстрая регрессия.
+
+- **Любой новый AI-сканер** обращается через JWT-proxy (`/api/gemini` или `/api/smart-scan`) с rate-limit. Никогда напрямую к Google Gemini API из клиента — это утечёт ключ и сольёт квоту.
+- **`compressImage` — только из `src/lib/imageCompress.js`.** Не копировать логику в новые места, не плодить параллельные реализации.
+- **Новая кнопка "Сканировать" — через `contextHint`,** не отдельный flow. Передавать hint через `openSmartScan(hint)` в `App.jsx`.
+- **Reclassify-link обязателен** на всех Confirm-экранах: пользователь должен иметь возможность переоткрыть документ как другой тип без повторного вызова Gemini.
+- **Validation на сервере, не на клиенте.** Клиент показывает echo + сообщение об ошибке, не дублирует regex.
+- **PDF-экспорты** держат локальные мини-словари `L = { ru, uk, en, es }` внутри своих файлов — НЕ мигрировать в основной i18n (Спринт B решение: PDF-строки редко меняются и нужен offline-self-contained перевод).
+- **Workflow для UX/багфиксов:** пушить сразу в `master`, без feature-веток (договорённость с владельцем).
+- **Кириллица в коде = баги.** Только через i18n (Unicode escape `\u04XX` если нужно в редком хардкоде).
 
 -----
 

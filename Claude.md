@@ -1079,6 +1079,7 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 - Одометр грузовика хранится в таблице `shifts` (колонки `odometer_start`, `odometer_end`), **НЕ** в `trips`. При запросе последнего одометра использовать `shifts` с фильтром `status IN ('active', 'completed')` и `not('odometer_end', 'is', null)`.
 - В таблице `fuel_entries` сумма заправки — колонка `cost`, а не `amount`.
 - В таблице `insurance` нет колонки `date_to`, сортировать по `created_at`.
+- **Таблица `profiles` хранит данные основной машины owner_operator:** колонки `brand`, `model`, `plate_number`, `fuel_consumption` (numeric, default 34) — заполняются на шаге онбординга после SMS+роли. Если их нет в схеме, форма онбординга падает с `Could not find the 'brand' column of 'profiles' in the schema cache` и пользователь застревает (обнаружено 2026-04-27 на bypass-тестере). Восстановлены миграцией [supabase/migrations/20260427_add_profile_vehicle_fields.sql](supabase/migrations/20260427_add_profile_vehicle_fields.sql). **Архитектурное упрощение в backlog:** перенести данные основной машины из `profiles` в `vehicles` (одна таблица для всех машин), но это требует миграции существующих профилей и правок клиента — пока живём с дублированием.
 
 -----
 

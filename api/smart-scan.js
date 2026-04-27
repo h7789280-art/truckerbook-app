@@ -1,5 +1,10 @@
 // POST /api/smart-scan — requires `Authorization: Bearer <supabase-jwt>` and is rate-limited per user.
 import { setCorsHeaders, handleOptions, validateJwt, checkRateLimit } from './_security.js'
+import {
+  validateReceiptResponse,
+  validateTripResponse,
+  validateRepairResponse,
+} from './smartScanValidation.js'
 
 const MODELS = ['gemini-2.5-flash', 'gemini-2.5-pro']
 const MAX_RETRIES = 3
@@ -203,6 +208,38 @@ export default async function handler(req, res) {
 
         if (model !== MODELS[0]) {
           parsed._fallback_model = model
+        }
+
+        // Defense in depth: validate currency/date/amount/miles/rate before
+        // returning. Even if Gemini ignores prompt rules, this server-side
+        // check refuses to ship mangled data (1970-01-01 dates, RUB
+        // amounts, miles=99999) to the client. See smartScanValidation.js.
+        let validation
+        if (parsed.doc_type === 'receipt') {
+          validation = validateReceiptResponse(parsed)
+        } else if (parsed.doc_type === 'trip') {
+          validation = validateTripResponse(parsed)
+        } else if (parsed.doc_type === 'repair') {
+          validation = validateRepairResponse(parsed)
+        } else {
+          validation = { ok: true, parsed }
+        }
+
+        if (!validation.ok) {
+          return res.status(422).json({
+            error: 'validation_failed',
+            userError: validation.userError,
+            detectedCurrency: validation.detectedCurrency,
+            detectedDate: validation.detectedDate,
+            detectedAmount: validation.detectedAmount,
+            detectedMiles: validation.detectedMiles,
+            detectedRate: validation.detectedRate,
+            detectedMileage: validation.detectedMileage,
+            detectedState: validation.detectedState,
+            // Echo recognized fields so the client can prefill the Confirm
+            // screen and let the user fix only the failing field.
+            echo: validation.echo || validation.parsed || null,
+          })
         }
 
         return res.status(200).json(parsed)

@@ -1,6 +1,6 @@
 // Shared security helpers for serverless endpoints under /api.
 // JWT validation via Supabase service-role client + in-memory rate limit
-// shared across the scan-* endpoint group (scan-receipt, smart-scan, parse-trip).
+// shared across the AI scan endpoint group (smart-scan, gemini, etc).
 // CORS preflight + standard headers.
 // Each helper that rejects sends the response itself; callers just `return`.
 

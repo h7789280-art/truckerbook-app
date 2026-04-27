@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node src/lib/tax/depreciationCalculator.test.mjs && node src/lib/geminiVision.test.mjs && node src/utils/qbi/calculateQBI.test.js && node src/utils/qbi/qbiSnapshot.test.js && node src/utils/vehicleAggregates.test.js && node src/utils/scheduleC.test.js && node src/lib/fleetPrivacy.test.js && node api/scanReceiptValidation.test.js && node src/lib/dateHelpers.test.js && node src/lib/forecastPrompt.test.js && node api/auth/test-bypass.test.js"
+    "test": "node src/lib/tax/depreciationCalculator.test.mjs && node src/lib/geminiVision.test.mjs && node src/utils/qbi/calculateQBI.test.js && node src/utils/qbi/qbiSnapshot.test.js && node src/utils/vehicleAggregates.test.js && node src/utils/scheduleC.test.js && node src/lib/fleetPrivacy.test.js && node api/smartScanValidation.test.js && node src/lib/dateHelpers.test.js && node src/lib/forecastPrompt.test.js && node api/auth/test-bypass.test.js"
   },
   "keywords": [],
   "author": "",

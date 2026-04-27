@@ -4,59 +4,10 @@ import { useLanguage } from '../lib/i18n'
 import { addTrip } from '../lib/api'
 import { saveToArchive } from '../lib/documentsArchive'
 import { supabase } from '../lib/supabase'
+import { compressImage } from '../lib/imageCompress'
 import ScanConfirm from './ScanConfirm'
 import TripConfirm from './TripConfirm'
 import RepairConfirm from './RepairConfirm'
-
-function compressForScan(file, maxSize = 1024 * 1024, quality = 0.7) {
-  return new Promise((resolve) => {
-    if (!file.type.startsWith('image/')) {
-      resolve(null)
-      return
-    }
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      let w = img.width
-      let h = img.height
-      const maxDim = 1600
-      if (w > maxDim || h > maxDim) {
-        const ratio = Math.min(maxDim / w, maxDim / h)
-        w = Math.round(w * ratio)
-        h = Math.round(h * ratio)
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      const ctx = canvas.getContext('2d')
-      ctx.drawImage(img, 0, 0, w, h)
-      const tryCompress = (q) => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { resolve(null); return }
-            if (blob.size > maxSize && q > 0.3) {
-              tryCompress(q - 0.1)
-            } else {
-              const reader = new FileReader()
-              reader.onload = () => resolve(reader.result.split(',')[1])
-              reader.onerror = () => resolve(null)
-              reader.readAsDataURL(blob)
-            }
-          },
-          'image/jpeg',
-          q
-        )
-      }
-      tryCompress(quality)
-    }
-    img.onerror = () => {
-      URL.revokeObjectURL(url)
-      resolve(null)
-    }
-    img.src = url
-  })
-}
 
 export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripSaved, onServiceSaved }) {
   const { theme } = useTheme()
@@ -95,13 +46,13 @@ export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripS
       const body = {}
 
       if (file) {
-        const base64 = await compressForScan(file)
-        if (!base64) {
+        const compressed = await compressImage(file)
+        if (!compressed) {
           setError(t('smartScan.error'))
           setScanning(false)
           return
         }
-        body.image = base64
+        body.image = compressed.base64
       }
 
       if (text.trim()) {
@@ -139,6 +90,62 @@ export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripS
       }
 
       const data = await resp.json().catch(() => ({}))
+
+      // Server-side validation failure (currency / date / amount / miles / rate).
+      // 422 carries `userError` + `echo` so the user can keep what was readable
+      // and just fix the failed field in the appropriate Confirm screen.
+      if (resp.status === 422 && data.userError && data.echo) {
+        const ue = data.userError
+        const echo = data.echo
+        const docTypeFromEcho = echo.doc_type
+
+        // Show the user the localized warning for the failed field.
+        const validationMsg = t('smartScan.validation.' + ue) || t('smartScan.error')
+        const msg = ue === 'non_usd_currency'
+          ? validationMsg.replace('{currency}', data.detectedCurrency || '?')
+          : ue === 'date_out_of_range' || ue === 'date_invalid'
+            ? validationMsg.replace('{date}', data.detectedDate || '?')
+            : validationMsg
+
+        // non_usd_currency blocks entirely — opening Confirm would let the
+        // user save foreign-currency amounts as USD. The other failures
+        // are recoverable: strip the bad field and let the user re-enter it.
+        if (ue === 'non_usd_currency') {
+          setError(msg)
+          setScanning(false)
+          return
+        }
+
+        const fallback = { ...echo }
+        if (ue === 'date_invalid' || ue === 'date_out_of_range') {
+          delete fallback.date
+          delete fallback.pickup_date
+          delete fallback.delivery_date
+        } else if (ue === 'amount_invalid') {
+          delete fallback.total
+        } else if (ue === 'miles_invalid') {
+          delete fallback.miles
+          delete fallback.deadhead_miles
+        } else if (ue === 'rate_invalid') {
+          delete fallback.rate
+          delete fallback.rate_per_mile
+        } else if (ue === 'mileage_invalid') {
+          delete fallback.mileage
+        } else if (ue === 'shop_name_invalid') {
+          delete fallback.shop_name
+        } else if (ue === 'state_invalid') {
+          delete fallback.origin_state
+          delete fallback.destination_state
+        }
+
+        setError(msg)
+        if (docTypeFromEcho === 'receipt' || docTypeFromEcho === 'trip' || docTypeFromEcho === 'repair') {
+          setResult(fallback)
+          setDocType(docTypeFromEcho)
+        }
+        setScanning(false)
+        return
+      }
 
       if (!resp.ok || (data.doc_type === 'unknown')) {
         if (resp.status >= 500) {

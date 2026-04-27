@@ -17,6 +17,7 @@
  */
 
 import { supabase } from './supabase'
+import { compressImage } from './imageCompress'
 
 // Exact category keys from src/lib/partResourcePresets.js — DO NOT invent new ones.
 // Gemini is instructed to use one of these English tokens, then we map to app keys.
@@ -65,55 +66,6 @@ function fileToBase64(file) {
     reader.onload = () => resolve(reader.result.split(',')[1])
     reader.onerror = reject
     reader.readAsDataURL(file)
-  })
-}
-
-// Client-side compression before upload to keep Gemini payload small.
-function compressImage(file, maxSize = 1024 * 1024, maxDim = 1600, quality = 0.7) {
-  return new Promise((resolve) => {
-    if (!file.type || !file.type.startsWith('image/')) {
-      resolve(null)
-      return
-    }
-    const img = new Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      URL.revokeObjectURL(url)
-      let w = img.width
-      let h = img.height
-      if (w > maxDim || h > maxDim) {
-        const ratio = Math.min(maxDim / w, maxDim / h)
-        w = Math.round(w * ratio)
-        h = Math.round(h * ratio)
-      }
-      const canvas = document.createElement('canvas')
-      canvas.width = w
-      canvas.height = h
-      canvas.getContext('2d').drawImage(img, 0, 0, w, h)
-      const tryQ = (q) => {
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) { resolve(null); return }
-            if (blob.size > maxSize && q > 0.3) {
-              tryQ(q - 0.1)
-            } else {
-              const reader = new FileReader()
-              reader.onload = () => resolve({
-                base64: reader.result.split(',')[1],
-                mimeType: 'image/jpeg',
-              })
-              reader.onerror = () => resolve(null)
-              reader.readAsDataURL(blob)
-            }
-          },
-          'image/jpeg',
-          q
-        )
-      }
-      tryQ(quality)
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(null) }
-    img.src = url
   })
 }
 

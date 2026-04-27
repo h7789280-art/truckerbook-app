@@ -3,7 +3,9 @@ import { useAuth } from './hooks/useAuth'
 import { useProfile } from './hooks/useProfile'
 import { useOffline } from './hooks/useOffline'
 import { ThemeProvider, useTheme } from './lib/theme'
-import { LanguageProvider, useLanguage, applyCountryDefaults } from './lib/i18n'
+import { LanguageProvider, useLanguage, applyCountryDefaults, getUnits } from './lib/i18n'
+import translations from './lib/i18n'
+import { formatNumber } from './lib/format'
 import { supabase } from './lib/supabase'
 import Overview from './tabs/Overview'
 import Expenses from './tabs/Expenses'
@@ -38,42 +40,47 @@ import DriverChat, { useChatUnread } from './components/DriverChat'
 import InviteFlow from './components/InviteFlow'
 
 const WELCOME_COUNTRIES = [
-  { value: 'RU', flag: '\uD83C\uDDF7\uD83C\uDDFA', label: '\u0420\u043E\u0441\u0441\u0438\u044F' },
-  { value: 'US', flag: '\uD83C\uDDFA\uD83C\uDDF8', label: 'USA' },
-  { value: 'UA', flag: '\uD83C\uDDFA\uD83C\uDDE6', label: '\u0423\u043A\u0440\u0430\u0457\u043D\u0430' },
-  { value: 'BY', flag: '\uD83C\uDDE7\uD83C\uDDFE', label: '\u0411\u0435\u043B\u0430\u0440\u0443\u0441\u044C' },
-  { value: 'KZ', flag: '\uD83C\uDDF0\uD83C\uDDFF', label: '\u041A\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043D' },
-  { value: 'UZ', flag: '\uD83C\uDDFA\uD83C\uDDFF', label: '\u0423\u0437\u0431\u0435\u043A\u0438\u0441\u0442\u0430\u043D' },
-  { value: 'DE', flag: '\uD83C\uDDE9\uD83C\uDDEA', label: 'Deutschland' },
-  { value: 'FR', flag: '\uD83C\uDDEB\uD83C\uDDF7', label: 'France' },
-  { value: 'ES', flag: '\uD83C\uDDEA\uD83C\uDDF8', label: 'Espa\u00F1a' },
-  { value: 'TR', flag: '\uD83C\uDDF9\uD83C\uDDF7', label: 'T\u00FCrkiye' },
-  { value: 'PL', flag: '\uD83C\uDDF5\uD83C\uDDF1', label: 'Polska' },
+  { value: 'RU', flag: '\uD83C\uDDF7\uD83C\uDDFA' },
+  { value: 'US', flag: '\uD83C\uDDFA\uD83C\uDDF8' },
+  { value: 'UA', flag: '\uD83C\uDDFA\uD83C\uDDE6' },
+  { value: 'BY', flag: '\uD83C\uDDE7\uD83C\uDDFE' },
+  { value: 'KZ', flag: '\uD83C\uDDF0\uD83C\uDDFF' },
+  { value: 'UZ', flag: '\uD83C\uDDFA\uD83C\uDDFF' },
+  { value: 'DE', flag: '\uD83C\uDDE9\uD83C\uDDEA' },
+  { value: 'FR', flag: '\uD83C\uDDEB\uD83C\uDDF7' },
+  { value: 'ES', flag: '\uD83C\uDDEA\uD83C\uDDF8' },
+  { value: 'TR', flag: '\uD83C\uDDF9\uD83C\uDDF7' },
+  { value: 'PL', flag: '\uD83C\uDDF5\uD83C\uDDF1' },
 ]
+
+function getCountryLabel(code, uiLang) {
+  try {
+    return new Intl.DisplayNames([uiLang || 'en'], { type: 'region' }).of(code) || code
+  } catch {
+    return code
+  }
+}
 
 const WELCOME_LANGUAGES = [
-  { value: 'ru', flag: '\uD83C\uDDF7\uD83C\uDDFA', label: '\u0420\u0443\u0441\u0441\u043A\u0438\u0439' },
-  { value: 'en', flag: '\uD83C\uDDFA\uD83C\uDDF8', label: 'English' },
-  { value: 'uk', flag: '\uD83C\uDDFA\uD83C\uDDE6', label: '\u0423\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u0430' },
-  { value: 'es', flag: '\uD83C\uDDEA\uD83C\uDDF8', label: 'Espa\u00F1ol' },
-  { value: 'de', flag: '\uD83C\uDDE9\uD83C\uDDEA', label: 'Deutsch' },
-  { value: 'fr', flag: '\uD83C\uDDEB\uD83C\uDDF7', label: 'Fran\u00E7ais' },
-  { value: 'tr', flag: '\uD83C\uDDF9\uD83C\uDDF7', label: 'T\u00FCrk\u00E7e' },
-  { value: 'pl', flag: '\uD83C\uDDF5\uD83C\uDDF1', label: 'Polski' },
+  { value: 'ru', flag: '\uD83C\uDDF7\uD83C\uDDFA' },
+  { value: 'en', flag: '\uD83C\uDDFA\uD83C\uDDF8' },
+  { value: 'uk', flag: '\uD83C\uDDFA\uD83C\uDDE6' },
+  { value: 'es', flag: '\uD83C\uDDEA\uD83C\uDDF8' },
+  { value: 'de', flag: '\uD83C\uDDE9\uD83C\uDDEA' },
+  { value: 'fr', flag: '\uD83C\uDDEB\uD83C\uDDF7' },
+  { value: 'tr', flag: '\uD83C\uDDF9\uD83C\uDDF7' },
+  { value: 'pl', flag: '\uD83C\uDDF5\uD83C\uDDF1' },
 ]
 
-const LANG_TO_COUNTRY = { ru: 'RU', en: 'US', uk: 'UA', de: 'DE', fr: 'FR', es: 'ES', tr: 'TR', pl: 'PL' }
-
-const CONTINUE_LABELS = {
-  ru: '\u0414\u0430\u043B\u0435\u0435',
-  en: 'Continue',
-  uk: '\u0414\u0430\u043B\u0456',
-  es: 'Continuar',
-  de: 'Weiter',
-  fr: 'Continuer',
-  tr: 'Devam',
-  pl: 'Dalej',
+function getLanguageLabel(code) {
+  try {
+    return new Intl.DisplayNames([code], { type: 'language' }).of(code) || code
+  } catch {
+    return code
+  }
 }
+
+const LANG_TO_COUNTRY = { ru: 'RU', en: 'US', uk: 'UA', de: 'DE', fr: 'FR', es: 'ES', tr: 'TR', pl: 'PL' }
 
 function detectBrowserLang() {
   try {
@@ -145,7 +152,7 @@ function WelcomeSetup({ onComplete }) {
 
         <div style={{ textAlign: 'left', marginBottom: 16 }}>
           <label style={{ fontSize: 13, color: '#64748b', marginBottom: 6, display: 'block' }}>
-            {'\uD83C\uDF0D'} Country / {'\u0421\u0442\u0440\u0430\u043D\u0430'}
+            {'\uD83C\uDF0D'} Country
           </label>
           <select
             value={selectedCountry}
@@ -153,14 +160,14 @@ function WelcomeSetup({ onComplete }) {
             style={selectStyle}
           >
             {WELCOME_COUNTRIES.map((c) => (
-              <option key={c.value} value={c.value}>{c.flag + ' ' + c.label}</option>
+              <option key={c.value} value={c.value}>{c.flag + ' ' + getCountryLabel(c.value, selectedLang)}</option>
             ))}
           </select>
         </div>
 
         <div style={{ textAlign: 'left', marginBottom: 32 }}>
           <label style={{ fontSize: 13, color: '#64748b', marginBottom: 6, display: 'block' }}>
-            {'\uD83D\uDDE3\uFE0F'} Language / {'\u042F\u0437\u044B\u043A'}
+            {'\uD83D\uDDE3\uFE0F'} Language
           </label>
           <select
             value={selectedLang}
@@ -172,7 +179,7 @@ function WelcomeSetup({ onComplete }) {
             style={selectStyle}
           >
             {WELCOME_LANGUAGES.map((l) => (
-              <option key={l.value} value={l.value}>{l.flag + ' ' + l.label}</option>
+              <option key={l.value} value={l.value}>{l.flag + ' ' + getLanguageLabel(l.value)}</option>
             ))}
           </select>
         </div>
@@ -191,7 +198,7 @@ function WelcomeSetup({ onComplete }) {
             cursor: 'pointer',
           }}
         >
-          {CONTINUE_LABELS[selectedLang] || 'Continue'}
+          {translations[selectedLang]?.common?.next || 'Continue'}
         </button>
       </div>
     </div>
@@ -328,7 +335,7 @@ function AppInner() {
         alignItems: 'center', justifyContent: 'center', color: theme.dim,
         fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
       }}>
-        {'\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0430...'}
+        {t('common.loading')}
       </div>
     )
   }
@@ -460,7 +467,7 @@ function AppInner() {
         setActiveTab('overview')
       }, 2500)
     } catch (e) {
-      setVehicleError(e.message || '\u041e\u0448\u0438\u0431\u043a\u0430 \u0441\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u044f')
+      setVehicleError(e.message || t('app.saveError'))
     } finally {
       setVehicleSaving(false)
     }
@@ -473,7 +480,7 @@ function AppInner() {
     }}>
       <span style={{ fontSize: 48, marginBottom: 16 }}>{'\ud83d\udd12'}</span>
       <p style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: theme.text }}>
-        {'\u0414\u043e\u0441\u0442\u0443\u043f\u043d\u043e \u043f\u043e\u0441\u043b\u0435 \u0440\u0435\u0433\u0438\u0441\u0442\u0440\u0430\u0446\u0438\u0438 \u043c\u0430\u0448\u0438\u043d\u044b'}
+        {t('locked.title')}
       </p>
       <button
         onClick={() => setShowAddVehicle(true)}
@@ -483,7 +490,7 @@ function AppInner() {
           fontWeight: 600, cursor: 'pointer',
         }}
       >
-        {'\u0423\u0441\u0442\u0440\u043e\u0438\u043b\u0438\u0441\u044c \u043d\u0430 \u0440\u0430\u0431\u043e\u0442\u0443? \u2192 \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u043c\u0430\u0448\u0438\u043d\u0443'}
+        {t('locked.addVehiclePrompt')}
       </button>
     </div>
   )
@@ -494,7 +501,7 @@ function AppInner() {
       justifyContent: 'center', padding: '80px 24px', textAlign: 'center',
     }}>
       <p style={{ fontSize: 20, fontWeight: 600, color: theme.text }}>{title}</p>
-      <p style={{ fontSize: 14, color: theme.dim, marginTop: 8 }}>{'\u0421\u043a\u043e\u0440\u043e'}</p>
+      <p style={{ fontSize: 14, color: theme.dim, marginTop: 8 }}>{t('jobSeekerStubs.comingSoon')}</p>
     </div>
   )
 
@@ -574,7 +581,7 @@ function AppInner() {
           fontSize: 14,
           fontWeight: 500,
         }}>
-          {'\ud83d\udce1 \u041d\u0435\u0442 \u043f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u044f. \u0414\u0430\u043d\u043d\u044b\u0435 \u0441\u043e\u0445\u0440\u0430\u043d\u044f\u044e\u0442\u0441\u044f \u043b\u043e\u043a\u0430\u043b\u044c\u043d\u043e.'}
+          {'\ud83d\udce1 ' + t('offline.noConnection')}
         </div>
       )}
       {syncStatus === 'done' && (
@@ -586,7 +593,7 @@ function AppInner() {
           fontSize: 14,
           fontWeight: 500,
         }}>
-          {'\u2705 \u041f\u043e\u0434\u043a\u043b\u044e\u0447\u0435\u043d\u0438\u0435 \u0432\u043e\u0441\u0441\u0442\u0430\u043d\u043e\u0432\u043b\u0435\u043d\u043e. \u0421\u0438\u043d\u0445\u0440\u043e\u043d\u0438\u0437\u0438\u0440\u043e\u0432\u0430\u043d\u043e: ' + syncedCount + ' \u0437\u0430\u043f\u0438\u0441\u0435\u0439.'}
+          {'\u2705 ' + t('app.syncedFull').replace('{count}', String(syncedCount))}
         </div>
       )}
       {showWelcome && (
@@ -601,10 +608,10 @@ function AppInner() {
           }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>{'\ud83c\udf89'}</div>
             <h2 style={{ fontSize: 20, fontWeight: 700, color: theme.text, margin: '0 0 8px' }}>
-              {'\u0414\u043e\u0431\u0440\u043e \u043f\u043e\u0436\u0430\u043b\u043e\u0432\u0430\u0442\u044c!'}
+              {t('welcome.title')}
             </h2>
             <p style={{ fontSize: 15, color: theme.dim, margin: 0 }}>
-              {'\u0423 \u0432\u0430\u0441 7 \u0434\u043d\u0435\u0439 Pro-\u0434\u043e\u0441\u0442\u0443\u043f\u0430'}
+              {t('welcome.trialInfo')}
             </p>
           </div>
         </div>
@@ -622,13 +629,13 @@ function AppInner() {
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
               <div style={{ fontSize: 40 }}>{'\ud83d\ude9b'}</div>
               <h2 style={{ fontSize: 20, fontWeight: 700, color: theme.text, margin: '8px 0 0' }}>
-                {'\u0414\u043e\u0431\u0430\u0432\u044c\u0442\u0435 \u043c\u0430\u0448\u0438\u043d\u0443'}
+                {t('vehicle.addVehicle')}
               </h2>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
               <div>
                 <label style={{ fontSize: 13, color: theme.dim, marginBottom: 6, display: 'block' }}>
-                  {'\u041c\u0430\u0440\u043a\u0430'}
+                  {t('vehicle.brand')}
                 </label>
                 <BrandComboBox
                   value={vehicleForm.brand}
@@ -647,7 +654,7 @@ function AppInner() {
               </div>
               <div>
                 <label style={{ fontSize: 13, color: theme.dim, marginBottom: 6, display: 'block' }}>
-                  {'\u041c\u043e\u0434\u0435\u043b\u044c'}
+                  {t('vehicle.model')}
                 </label>
                 <input
                   style={{
@@ -662,7 +669,7 @@ function AppInner() {
               </div>
               <div>
                 <label style={{ fontSize: 13, color: theme.dim, marginBottom: 6, display: 'block' }}>
-                  {'\u041f\u0440\u043e\u0431\u0435\u0433, \u043a\u043c'}
+                  {t('vehicle.mileage')}
                 </label>
                 <input
                   style={{
@@ -678,7 +685,7 @@ function AppInner() {
               </div>
               <div>
                 <label style={{ fontSize: 13, color: theme.dim, marginBottom: 6, display: 'block' }}>
-                  {'\u0413\u043e\u0441\u043d\u043e\u043c\u0435\u0440 (\u043d\u0435\u043e\u0431\u044f\u0437\u0430\u0442\u0435\u043b\u044c\u043d\u043e)'}
+                  {t('app.plateOptional')}
                 </label>
                 <input
                   style={{
@@ -686,14 +693,14 @@ function AppInner() {
                     border: '1px solid ' + theme.border, borderRadius: 12,
                     color: theme.text, fontSize: 16, outline: 'none', boxSizing: 'border-box',
                   }}
-                  placeholder={'\u0410123\u0411\u0412 77'}
+                  placeholder={t('app.platePlaceholder')}
                   value={vehicleForm.plate}
                   onChange={(e) => setVehicleForm({ ...vehicleForm, plate: e.target.value })}
                 />
               </div>
               <div>
                 <label style={{ fontSize: 13, color: theme.dim, marginBottom: 6, display: 'block' }}>
-                  {'\u0420\u0430\u0441\u0445\u043e\u0434, \u043b/100\u043a\u043c: '}{vehicleForm.consumption}
+                  {t('vehicle.consumption') + ': '}{vehicleForm.consumption}
                 </label>
                 <input
                   type="range" min={20} max={50}
@@ -720,7 +727,7 @@ function AppInner() {
                 fontWeight: 700, cursor: (vehicleForm.brand && vehicleForm.model && vehicleForm.mileage && !vehicleSaving) ? 'pointer' : 'not-allowed',
               }}
             >
-              {vehicleSaving ? '\u0421\u043e\u0445\u0440\u0430\u043d\u0435\u043d\u0438\u0435...' : '\u0421\u043e\u0445\u0440\u0430\u043d\u0438\u0442\u044c'}
+              {vehicleSaving ? t('common.saving') : t('common.save')}
             </button>
             <button
               onClick={() => setShowAddVehicle(false)}
@@ -730,7 +737,7 @@ function AppInner() {
                 color: theme.dim, fontSize: 15, cursor: 'pointer',
               }}
             >
-              {'\u041e\u0442\u043c\u0435\u043d\u0430'}
+              {t('common.cancel')}
             </button>
           </div>
         </div>
@@ -765,7 +772,7 @@ function AppInner() {
                 fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
               }}
             >
-              {'\u2190 ' + (activeTab === 'jobs' ? '\u0412\u0430\u043a\u0430\u043d\u0441\u0438\u0438' : activeTab === 'news' ? '\u041d\u043e\u0432\u043e\u0441\u0442\u0438' : '\u041c\u0430\u0440\u043a\u0435\u0442\u043f\u043b\u0435\u0439\u0441')}
+              {'\u2190 ' + (activeTab === 'jobs' ? t('tabs.jobs') : activeTab === 'news' ? t('tabs.news') : t('tabs.marketplace'))}
             </button>
           </div>
         )}

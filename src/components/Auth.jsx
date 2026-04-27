@@ -2,78 +2,89 @@ import { useState, useRef, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 import { hashPin } from './PinLock'
 import BrandComboBox from './BrandComboBox'
-import { useLanguage } from '../lib/i18n'
+import { useLanguage, getUnits } from '../lib/i18n'
+import { formatNumber } from '../lib/format'
 import { isBypassPhone, verifyBypass } from '../lib/testBypass'
 
 const COUNTRIES = [
-  // \u0421\u041d\u0413
-  { flag: '\ud83c\uddf7\ud83c\uddfa', code: '+7', name: '\u0420\u043e\u0441\u0441\u0438\u044f', id: 'ru' },
-  { flag: '\ud83c\uddfa\ud83c\udde6', code: '+380', name: '\u0423\u043a\u0440\u0430\u0438\u043d\u0430', id: 'ua' },
-  { flag: '\ud83c\udde7\ud83c\uddfe', code: '+375', name: '\u0411\u0435\u043b\u0430\u0440\u0443\u0441\u044c', id: 'by' },
-  { flag: '\ud83c\uddf0\ud83c\uddff', code: '+7', name: '\u041a\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043d', id: 'kz' },
-  { flag: '\ud83c\uddfa\ud83c\uddff', code: '+998', name: '\u0423\u0437\u0431\u0435\u043a\u0438\u0441\u0442\u0430\u043d', id: 'uz' },
-  { flag: '\ud83c\uddf0\ud83c\uddec', code: '+996', name: '\u041a\u044b\u0440\u0433\u044b\u0437\u0441\u0442\u0430\u043d', id: 'kg' },
-  { flag: '\ud83c\uddf9\ud83c\uddef', code: '+992', name: '\u0422\u0430\u0434\u0436\u0438\u043a\u0438\u0441\u0442\u0430\u043d', id: 'tj' },
-  { flag: '\ud83c\uddf9\ud83c\uddf2', code: '+993', name: '\u0422\u0443\u0440\u043a\u043c\u0435\u043d\u0438\u0441\u0442\u0430\u043d', id: 'tm' },
-  { flag: '\ud83c\udde6\ud83c\uddff', code: '+994', name: '\u0410\u0437\u0435\u0440\u0431\u0430\u0439\u0434\u0436\u0430\u043d', id: 'az' },
-  { flag: '\ud83c\udde6\ud83c\uddf2', code: '+374', name: '\u0410\u0440\u043c\u0435\u043d\u0438\u044f', id: 'am' },
-  { flag: '\ud83c\uddec\ud83c\uddea', code: '+995', name: '\u0413\u0440\u0443\u0437\u0438\u044f', id: 'ge' },
-  { flag: '\ud83c\uddf2\ud83c\udde9', code: '+373', name: '\u041c\u043e\u043b\u0434\u043e\u0432\u0430', id: 'md' },
-  // \u0415\u0432\u0440\u043e\u043f\u0430
-  { flag: '\ud83c\uddf9\ud83c\uddf7', code: '+90', name: '\u0422\u0443\u0440\u0446\u0438\u044f', id: 'tr' },
-  { flag: '\ud83c\udde9\ud83c\uddea', code: '+49', name: '\u0413\u0435\u0440\u043c\u0430\u043d\u0438\u044f', id: 'de' },
-  { flag: '\ud83c\uddf5\ud83c\uddf1', code: '+48', name: '\u041f\u043e\u043b\u044c\u0448\u0430', id: 'pl' },
-  { flag: '\ud83c\uddf7\ud83c\uddf4', code: '+40', name: '\u0420\u0443\u043c\u044b\u043d\u0438\u044f', id: 'ro' },
-  { flag: '\ud83c\udde7\ud83c\uddec', code: '+359', name: '\u0411\u043e\u043b\u0433\u0430\u0440\u0438\u044f', id: 'bg' },
-  { flag: '\ud83c\udde8\ud83c\uddff', code: '+420', name: '\u0427\u0435\u0445\u0438\u044f', id: 'cz' },
-  { flag: '\ud83c\udded\ud83c\uddfa', code: '+36', name: '\u0412\u0435\u043d\u0433\u0440\u0438\u044f', id: 'hu' },
-  { flag: '\ud83c\udde6\ud83c\uddf9', code: '+43', name: '\u0410\u0432\u0441\u0442\u0440\u0438\u044f', id: 'at' },
-  { flag: '\ud83c\uddf3\ud83c\uddf1', code: '+31', name: '\u041d\u0438\u0434\u0435\u0440\u043b\u0430\u043d\u0434\u044b', id: 'nl' },
-  { flag: '\ud83c\udde7\ud83c\uddea', code: '+32', name: '\u0411\u0435\u043b\u044c\u0433\u0438\u044f', id: 'be' },
-  { flag: '\ud83c\uddeb\ud83c\uddf7', code: '+33', name: '\u0424\u0440\u0430\u043d\u0446\u0438\u044f', id: 'fr' },
-  { flag: '\ud83c\uddee\ud83c\uddf9', code: '+39', name: '\u0418\u0442\u0430\u043b\u0438\u044f', id: 'it' },
-  { flag: '\ud83c\uddea\ud83c\uddf8', code: '+34', name: '\u0418\u0441\u043f\u0430\u043d\u0438\u044f', id: 'es' },
-  { flag: '\ud83c\uddec\ud83c\udde7', code: '+44', name: '\u0412\u0435\u043b\u0438\u043a\u043e\u0431\u0440\u0438\u0442\u0430\u043d\u0438\u044f', id: 'gb' },
-  { flag: '\ud83c\uddee\ud83c\uddea', code: '+353', name: '\u0418\u0440\u043b\u0430\u043d\u0434\u0438\u044f', id: 'ie' },
-  { flag: '\ud83c\uddeb\ud83c\uddee', code: '+358', name: '\u0424\u0438\u043d\u043b\u044f\u043d\u0434\u0438\u044f', id: 'fi' },
-  { flag: '\ud83c\uddf8\ud83c\uddea', code: '+46', name: '\u0428\u0432\u0435\u0446\u0438\u044f', id: 'se' },
-  { flag: '\ud83c\uddf3\ud83c\uddf4', code: '+47', name: '\u041d\u043e\u0440\u0432\u0435\u0433\u0438\u044f', id: 'no' },
-  { flag: '\ud83c\udde9\ud83c\uddf0', code: '+45', name: '\u0414\u0430\u043d\u0438\u044f', id: 'dk' },
-  { flag: '\ud83c\uddf1\ud83c\uddf9', code: '+370', name: '\u041b\u0438\u0442\u0432\u0430', id: 'lt' },
-  { flag: '\ud83c\uddf1\ud83c\uddfb', code: '+371', name: '\u041b\u0430\u0442\u0432\u0438\u044f', id: 'lv' },
-  { flag: '\ud83c\uddea\ud83c\uddea', code: '+372', name: '\u042d\u0441\u0442\u043e\u043d\u0438\u044f', id: 'ee' },
-  { flag: '\ud83c\udded\ud83c\uddf7', code: '+385', name: '\u0425\u043e\u0440\u0432\u0430\u0442\u0438\u044f', id: 'hr' },
-  { flag: '\ud83c\uddf7\ud83c\uddf8', code: '+381', name: '\u0421\u0435\u0440\u0431\u0438\u044f', id: 'rs' },
-  { flag: '\ud83c\uddf8\ud83c\uddf0', code: '+421', name: '\u0421\u043b\u043e\u0432\u0430\u043a\u0438\u044f', id: 'sk' },
-  { flag: '\ud83c\uddf8\ud83c\uddee', code: '+386', name: '\u0421\u043b\u043e\u0432\u0435\u043d\u0438\u044f', id: 'si' },
-  { flag: '\ud83c\uddec\ud83c\uddf7', code: '+30', name: '\u0413\u0440\u0435\u0446\u0438\u044f', id: 'gr' },
-  { flag: '\ud83c\uddf5\ud83c\uddf9', code: '+351', name: '\u041f\u043e\u0440\u0442\u0443\u0433\u0430\u043b\u0438\u044f', id: 'pt' },
-  { flag: '\ud83c\udde8\ud83c\udded', code: '+41', name: '\u0428\u0432\u0435\u0439\u0446\u0430\u0440\u0438\u044f', id: 'ch' },
-  // \u0411\u043b\u0438\u0436\u043d\u0438\u0439 \u0412\u043e\u0441\u0442\u043e\u043a
-  { flag: '\ud83c\udde6\ud83c\uddea', code: '+971', name: '\u041e\u0410\u042d', id: 'ae' },
-  { flag: '\ud83c\uddf8\ud83c\udde6', code: '+966', name: '\u0421\u0430\u0443\u0434\u043e\u0432\u0441\u043a\u0430\u044f \u0410\u0440\u0430\u0432\u0438\u044f', id: 'sa' },
-  { flag: '\ud83c\uddf6\ud83c\udde6', code: '+974', name: '\u041a\u0430\u0442\u0430\u0440', id: 'qa' },
-  { flag: '\ud83c\uddf0\ud83c\uddfc', code: '+965', name: '\u041a\u0443\u0432\u0435\u0439\u0442', id: 'kw' },
-  { flag: '\ud83c\udde7\ud83c\udded', code: '+973', name: '\u0411\u0430\u0445\u0440\u0435\u0439\u043d', id: 'bh' },
-  { flag: '\ud83c\uddf4\ud83c\uddf2', code: '+968', name: '\u041e\u043c\u0430\u043d', id: 'om' },
-  { flag: '\ud83c\uddee\ud83c\uddf6', code: '+964', name: '\u0418\u0440\u0430\u043a', id: 'iq' },
-  { flag: '\ud83c\uddef\ud83c\uddf4', code: '+962', name: '\u0418\u043e\u0440\u0434\u0430\u043d\u0438\u044f', id: 'jo' },
-  { flag: '\ud83c\uddf1\ud83c\udde7', code: '+961', name: '\u041b\u0438\u0432\u0430\u043d', id: 'lb' },
-  { flag: '\ud83c\uddea\ud83c\uddec', code: '+20', name: '\u0415\u0433\u0438\u043f\u0435\u0442', id: 'eg' },
-  { flag: '\ud83c\uddee\ud83c\uddf7', code: '+98', name: '\u0418\u0440\u0430\u043d', id: 'ir' },
-  // \u0410\u0437\u0438\u044f \u0438 \u041b\u0430\u0442\u0438\u043d\u0441\u043a\u0430\u044f \u0410\u043c\u0435\u0440\u0438\u043a\u0430
-  { flag: '\ud83c\uddee\ud83c\uddf3', code: '+91', name: '\u0418\u043d\u0434\u0438\u044f', id: 'in' },
-  { flag: '\ud83c\uddf5\ud83c\uddf0', code: '+92', name: '\u041f\u0430\u043a\u0438\u0441\u0442\u0430\u043d', id: 'pk' },
-  { flag: '\ud83c\udde8\ud83c\uddf3', code: '+86', name: '\u041a\u0438\u0442\u0430\u0439', id: 'cn' },
-  { flag: '\ud83c\uddf2\ud83c\uddfd', code: '+52', name: '\u041c\u0435\u043a\u0441\u0438\u043a\u0430', id: 'mx' },
-  { flag: '\ud83c\udde7\ud83c\uddf7', code: '+55', name: '\u0411\u0440\u0430\u0437\u0438\u043b\u0438\u044f', id: 'br' },
-  { flag: '\ud83c\udde6\ud83c\uddf7', code: '+54', name: '\u0410\u0440\u0433\u0435\u043d\u0442\u0438\u043d\u0430', id: 'ar' },
-  // \u0414\u0440\u0443\u0433\u0438\u0435
-  { flag: '\ud83c\uddfa\ud83c\uddf8', code: '+1', name: '\u0421\u0428\u0410', id: 'us' },
-  { flag: '\ud83c\udde8\ud83c\udde6', code: '+1', name: '\u041a\u0430\u043d\u0430\u0434\u0430', id: 'ca' },
-  { flag: '\ud83c\uddee\ud83c\uddf1', code: '+972', name: '\u0418\u0437\u0440\u0430\u0438\u043b\u044c', id: 'il' },
-  { flag: '\ud83c\uddf2\ud83c\uddf3', code: '+976', name: '\u041c\u043e\u043d\u0433\u043e\u043b\u0438\u044f', id: 'mn' },
+  // CIS
+  { flag: '\ud83c\uddf7\ud83c\uddfa', code: '+7', id: 'ru' },
+  { flag: '\ud83c\uddfa\ud83c\udde6', code: '+380', id: 'ua' },
+  { flag: '\ud83c\udde7\ud83c\uddfe', code: '+375', id: 'by' },
+  { flag: '\ud83c\uddf0\ud83c\uddff', code: '+7', id: 'kz' },
+  { flag: '\ud83c\uddfa\ud83c\uddff', code: '+998', id: 'uz' },
+  { flag: '\ud83c\uddf0\ud83c\uddec', code: '+996', id: 'kg' },
+  { flag: '\ud83c\uddf9\ud83c\uddef', code: '+992', id: 'tj' },
+  { flag: '\ud83c\uddf9\ud83c\uddf2', code: '+993', id: 'tm' },
+  { flag: '\ud83c\udde6\ud83c\uddff', code: '+994', id: 'az' },
+  { flag: '\ud83c\udde6\ud83c\uddf2', code: '+374', id: 'am' },
+  { flag: '\ud83c\uddec\ud83c\uddea', code: '+995', id: 'ge' },
+  { flag: '\ud83c\uddf2\ud83c\udde9', code: '+373', id: 'md' },
+  // Europe
+  { flag: '\ud83c\uddf9\ud83c\uddf7', code: '+90', id: 'tr' },
+  { flag: '\ud83c\udde9\ud83c\uddea', code: '+49', id: 'de' },
+  { flag: '\ud83c\uddf5\ud83c\uddf1', code: '+48', id: 'pl' },
+  { flag: '\ud83c\uddf7\ud83c\uddf4', code: '+40', id: 'ro' },
+  { flag: '\ud83c\udde7\ud83c\uddec', code: '+359', id: 'bg' },
+  { flag: '\ud83c\udde8\ud83c\uddff', code: '+420', id: 'cz' },
+  { flag: '\ud83c\udded\ud83c\uddfa', code: '+36', id: 'hu' },
+  { flag: '\ud83c\udde6\ud83c\uddf9', code: '+43', id: 'at' },
+  { flag: '\ud83c\uddf3\ud83c\uddf1', code: '+31', id: 'nl' },
+  { flag: '\ud83c\udde7\ud83c\uddea', code: '+32', id: 'be' },
+  { flag: '\ud83c\uddeb\ud83c\uddf7', code: '+33', id: 'fr' },
+  { flag: '\ud83c\uddee\ud83c\uddf9', code: '+39', id: 'it' },
+  { flag: '\ud83c\uddea\ud83c\uddf8', code: '+34', id: 'es' },
+  { flag: '\ud83c\uddec\ud83c\udde7', code: '+44', id: 'gb' },
+  { flag: '\ud83c\uddee\ud83c\uddea', code: '+353', id: 'ie' },
+  { flag: '\ud83c\uddeb\ud83c\uddee', code: '+358', id: 'fi' },
+  { flag: '\ud83c\uddf8\ud83c\uddea', code: '+46', id: 'se' },
+  { flag: '\ud83c\uddf3\ud83c\uddf4', code: '+47', id: 'no' },
+  { flag: '\ud83c\udde9\ud83c\uddf0', code: '+45', id: 'dk' },
+  { flag: '\ud83c\uddf1\ud83c\uddf9', code: '+370', id: 'lt' },
+  { flag: '\ud83c\uddf1\ud83c\uddfb', code: '+371', id: 'lv' },
+  { flag: '\ud83c\uddea\ud83c\uddea', code: '+372', id: 'ee' },
+  { flag: '\ud83c\udded\ud83c\uddf7', code: '+385', id: 'hr' },
+  { flag: '\ud83c\uddf7\ud83c\uddf8', code: '+381', id: 'rs' },
+  { flag: '\ud83c\uddf8\ud83c\uddf0', code: '+421', id: 'sk' },
+  { flag: '\ud83c\uddf8\ud83c\uddee', code: '+386', id: 'si' },
+  { flag: '\ud83c\uddec\ud83c\uddf7', code: '+30', id: 'gr' },
+  { flag: '\ud83c\uddf5\ud83c\uddf9', code: '+351', id: 'pt' },
+  { flag: '\ud83c\udde8\ud83c\udded', code: '+41', id: 'ch' },
+  // Middle East
+  { flag: '\ud83c\udde6\ud83c\uddea', code: '+971', id: 'ae' },
+  { flag: '\ud83c\uddf8\ud83c\udde6', code: '+966', id: 'sa' },
+  { flag: '\ud83c\uddf6\ud83c\udde6', code: '+974', id: 'qa' },
+  { flag: '\ud83c\uddf0\ud83c\uddfc', code: '+965', id: 'kw' },
+  { flag: '\ud83c\udde7\ud83c\udded', code: '+973', id: 'bh' },
+  { flag: '\ud83c\uddf4\ud83c\uddf2', code: '+968', id: 'om' },
+  { flag: '\ud83c\uddee\ud83c\uddf6', code: '+964', id: 'iq' },
+  { flag: '\ud83c\uddef\ud83c\uddf4', code: '+962', id: 'jo' },
+  { flag: '\ud83c\uddf1\ud83c\udde7', code: '+961', id: 'lb' },
+  { flag: '\ud83c\uddea\ud83c\uddec', code: '+20', id: 'eg' },
+  { flag: '\ud83c\uddee\ud83c\uddf7', code: '+98', id: 'ir' },
+  // Asia & Latin America
+  { flag: '\ud83c\uddee\ud83c\uddf3', code: '+91', id: 'in' },
+  { flag: '\ud83c\uddf5\ud83c\uddf0', code: '+92', id: 'pk' },
+  { flag: '\ud83c\udde8\ud83c\uddf3', code: '+86', id: 'cn' },
+  { flag: '\ud83c\uddf2\ud83c\uddfd', code: '+52', id: 'mx' },
+  { flag: '\ud83c\udde7\ud83c\uddf7', code: '+55', id: 'br' },
+  { flag: '\ud83c\udde6\ud83c\uddf7', code: '+54', id: 'ar' },
+  // Other
+  { flag: '\ud83c\uddfa\ud83c\uddf8', code: '+1', id: 'us' },
+  { flag: '\ud83c\udde8\ud83c\udde6', code: '+1', id: 'ca' },
+  { flag: '\ud83c\uddee\ud83c\uddf1', code: '+972', id: 'il' },
+  { flag: '\ud83c\uddf2\ud83c\uddf3', code: '+976', id: 'mn' },
 ]
+
+function getCountryName(id, uiLang) {
+  if (!id) return ''
+  try {
+    return new Intl.DisplayNames([uiLang || 'en'], { type: 'region' }).of(id.toUpperCase()) || id.toUpperCase()
+  } catch {
+    return id.toUpperCase()
+  }
+}
+
 
 
 const styles = {
@@ -285,7 +296,7 @@ function PinDots({ length, shake, total = 4 }) {
 
 // ===== SCREEN 1: PHONE =====
 function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, error }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
   // E.164: total digits (country code + number) must be 7-15
   const phoneDigits = phone.replace(/\D/g, '')
   const codeDigits = country.code.replace(/\D/g, '')
@@ -317,13 +328,13 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, er
   const filtered = COUNTRIES.filter((c) => {
     if (!search) return true
     const q = search.toLowerCase()
-    return c.name.toLowerCase().includes(q) || c.code.includes(q)
+    return getCountryName(c.id, lang).toLowerCase().includes(q) || c.code.includes(q)
   })
 
   return (
     <div style={styles.inner}>
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-        <div style={styles.logo}>{'\u0422\u0411'}</div>
+        <div style={styles.logo}>{t('app.tbLogo')}</div>
         <h1 style={styles.title}>TRUCKERBOOK</h1>
         <p style={styles.subtitle}>{t('auth.subtitle')}</p>
 
@@ -411,7 +422,7 @@ function PhoneScreen({ phone, setPhone, country, setCountry, onNext, loading, er
                         }}
                       >
                         <span>{c.flag}</span>
-                        <span style={{ flex: 1 }}>{c.name}</span>
+                        <span style={{ flex: 1 }}>{getCountryName(c.id, lang)}</span>
                         <span style={{ color: '#64748b', fontSize: 14 }}>{c.code}</span>
                       </button>
                     ))}
@@ -1094,7 +1105,8 @@ function BiometricScreen({ onEnable, onSkip }) {
 
 // ===== SCREEN 7: WELCOME =====
 function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
-  const { t } = useLanguage()
+  const { t, lang } = useLanguage()
+  const unitSys = getUnits()
   const isJobSeeker = role === 'job_seeker'
 
   const driverFeatures = [
@@ -1114,7 +1126,10 @@ function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
 
   const features = isJobSeeker ? jobSeekerFeatures : driverFeatures
 
-  const formattedMileage = Number(profile.mileage || 0).toLocaleString('ru-RU')
+  const isImperial = unitSys === 'imperial'
+  const convMileage = isImperial ? Number(profile.mileage || 0) * 0.621371 : Number(profile.mileage || 0)
+  const formattedMileage = formatNumber(convMileage, lang, { maximumFractionDigits: 0 })
+  const distLabel = isImperial ? t('common.mi') : t('common.km')
 
   return (
     <div style={styles.inner}>
@@ -1125,7 +1140,7 @@ function WelcomeScreen({ profile, biometricEnabled, onStart, role }) {
         </h2>
         {!isJobSeeker && (
           <p style={{ color: '#64748b', fontSize: 14, margin: 0 }}>
-            {profile.brand + ' ' + profile.model + ' \u00b7 ' + formattedMileage + ' \u043a\u043c'}
+            {profile.brand + ' ' + profile.model + ' \u00b7 ' + formattedMileage + ' ' + distLabel}
           </p>
         )}
 

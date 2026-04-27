@@ -21,18 +21,7 @@ const GREEN = '#22c55e'
 const YELLOW = '#eab308'
 const RED = '#ef4444'
 
-// Cyrillic labels as Unicode escapes (per CLAUDE.md)
-const L = {
-  title: '\u041D\u0410\u041B\u041E\u0413\u0418',                           // НАЛОГИ
-  accrued: '\u041D\u0430\u043A\u043E\u043F\u043B\u0435\u043D\u043E \u043D\u0430\u043B\u043E\u0433\u0430',   // Накоплено налога
-  reserved: '\u041E\u0442\u043B\u043E\u0436\u0435\u043D\u043E',            // Отложено
-  dueBy: '\u043A',                                                          // к (due by)
-  loading: '\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430\u2026',       // Загрузка…
-  settingsTitle: '\u041F\u0440\u043E\u0446\u0435\u043D\u0442 \u043E\u0442\u043B\u043E\u0436\u0435\u043D\u0438\u044F \u043D\u0430 \u043D\u0430\u043B\u043E\u0433\u0438', // Процент отложения на налоги
-  settingsHint: '\u0420\u0435\u043A\u043E\u043C\u0435\u043D\u0434\u0443\u0435\u043C\u043E: 25\u201330% \u0434\u043B\u044F \u0432\u043B\u0430\u0434\u0435\u043B\u044C\u0446\u0435\u0432-\u043E\u043F\u0435\u0440\u0430\u0442\u043E\u0440\u043E\u0432', // Рекомендуемо: 25–30% для владельцев-операторов
-  cancel: '\u041E\u0442\u043C\u0435\u043D\u0430',                           // Отмена
-  save: '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C',           // Сохранить
-}
+// Labels migrated to i18n: taxMeter.titleHeader, accruedLabel, etc.
 
 const EMOJI = {
   building: '\uD83C\uDFDB\uFE0F',  // 🏛️
@@ -44,14 +33,14 @@ const EMOJI = {
   warning: '\u26A0\uFE0F',         // ⚠️
 }
 
-function daysWord(n) {
+function daysWord(n, t) {
   const abs = Math.abs(Math.trunc(n))
   const n10 = abs % 10
   const n100 = abs % 100
-  if (n100 >= 11 && n100 <= 19) return '\u0434\u043D\u0435\u0439' // дней
-  if (n10 === 1) return '\u0434\u0435\u043D\u044C'                 // день
-  if (n10 >= 2 && n10 <= 4) return '\u0434\u043D\u044F'            // дня
-  return '\u0434\u043D\u0435\u0439'
+  if (n100 >= 11 && n100 <= 19) return t('taxMeter.daysMany')
+  if (n10 === 1) return t('taxMeter.daysOne')
+  if (n10 >= 2 && n10 <= 4) return t('taxMeter.daysFew')
+  return t('taxMeter.daysMany')
 }
 
 function fmtMoney(n) {
@@ -293,7 +282,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
         <div style={headerRow}>
           <div style={headerTitle}>
             <span>{EMOJI.building}</span>
-            <span>{L.title} ({year})</span>
+            <span>{t('taxMeter.titleHeader')} ({year})</span>
           </div>
           <button style={gearBtn} onClick={handleOpenSettings} aria-label="settings">
             {EMOJI.gear}
@@ -302,7 +291,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
 
         {loading ? (
           <div style={{ color: theme.dim, fontSize: '13px', padding: '8px 0' }}>
-            {L.loading}
+            {t('common.loading')}
           </div>
         ) : (
           <>
@@ -310,7 +299,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
             <div style={row}>
               <div style={labelStyle}>
                 <span>{EMOJI.money}</span>
-                <span>{L.accrued}:</span>
+                <span>{t('taxMeter.accruedLabel')}:</span>
               </div>
               <div style={amountStyle}>{fmtMoney(accrued.ytdAccruedTax)}</div>
             </div>
@@ -319,7 +308,7 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
             <div style={row}>
               <div style={labelStyle}>
                 <span>{EMOJI.bank}</span>
-                <span>{L.reserved} ({withholdPct}%):</span>
+                <span>{t('taxMeter.reservedLabel')} ({withholdPct}%):</span>
                 {reservedIcon && (
                   <span style={{ fontSize: '13px' }}>{reservedIcon}</span>
                 )}
@@ -344,12 +333,12 @@ export default function TaxMeterWidget({ userId, profile, onOpenTaxSummary }) {
                 <div style={{ ...row, alignItems: 'flex-start' }}>
                   <div style={labelStyle}>
                     <span>{EMOJI.calendar}</span>
-                    <span>{nextQ.quarter} {nextQ.year} {L.dueBy} {formatDueShort(nextQ.dueDate)}:</span>
+                    <span>{nextQ.quarter} {nextQ.year} {t('taxMeter.dueBy')} {formatDueShort(nextQ.dueDate)}:</span>
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
                     <div style={amountStyle}>{fmtMoney(nextQ.amount)}</div>
                     <div style={{ fontSize: '11px', fontWeight: 600, color: daysColor, fontFamily: 'monospace' }}>
-                      {nextQ.daysUntil} {daysWord(nextQ.daysUntil)}
+                      {nextQ.daysUntil} {daysWord(nextQ.daysUntil, t)}
                     </div>
                   </div>
                 </div>
@@ -424,10 +413,10 @@ function SettingsModal({ theme, value, onChange, saving, onCancel, onSave }) {
         onClick={e => e.stopPropagation()}
       >
         <div style={{ fontSize: '15px', fontWeight: 700, color: theme.text, marginBottom: '6px' }}>
-          {L.settingsTitle}
+          {t('taxMeter.settingsTitle')}
         </div>
         <div style={{ fontSize: '11px', color: theme.dim, marginBottom: '20px', lineHeight: 1.5 }}>
-          {L.settingsHint}
+          {t('taxMeter.settingsHint')}
         </div>
 
         <div style={{ textAlign: 'center', marginBottom: '12px' }}>
@@ -462,7 +451,7 @@ function SettingsModal({ theme, value, onChange, saving, onCancel, onSave }) {
               color: theme.text, fontSize: '13px', fontWeight: 600, cursor: 'pointer',
             }}
           >
-            {L.cancel}
+            {t('common.cancel')}
           </button>
           <button
             disabled={saving}
@@ -474,7 +463,7 @@ function SettingsModal({ theme, value, onChange, saving, onCancel, onSave }) {
               cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.6 : 1,
             }}
           >
-            {L.save}
+            {t('common.save')}
           </button>
         </div>
       </div>

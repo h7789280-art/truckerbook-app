@@ -1,15 +1,32 @@
 import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage, applyCountryDefaults, COUNTRY_DEFAULTS, ALL_CURRENCIES, getCurrencySymbol, getUnits } from '../lib/i18n'
+import { formatNumber } from '../lib/format'
 import { supabase } from '../lib/supabase'
 import BrandComboBox from './BrandComboBox'
 import { STATE_OPTIONS } from '../utils/stateTaxData2026'
 
-const FUEL_TYPES = [
-  { value: 'diesel', label: '\u0414\u0438\u0437\u0435\u043B\u044C' },
-  { value: 'gasoline', label: '\u0411\u0435\u043D\u0437\u0438\u043D' },
-  { value: 'gas', label: '\u0413\u0430\u0437' },
+const FUEL_TYPE_KEYS = [
+  { value: 'diesel', labelKey: 'profile.fuelDiesel' },
+  { value: 'gasoline', labelKey: 'profile.fuelGasoline' },
+  { value: 'gas', labelKey: 'profile.fuelGas' },
 ]
+
+function getCountryLabel(code, uiLang) {
+  try {
+    return new Intl.DisplayNames([uiLang || 'en'], { type: 'region' }).of(code) || code
+  } catch {
+    return code
+  }
+}
+
+function getLanguageLabel(code) {
+  try {
+    return new Intl.DisplayNames([code], { type: 'language' }).of(code) || code
+  } catch {
+    return code
+  }
+}
 
 function getVehicleLimit(plan) {
   if (plan === 'business_pro') return Infinity
@@ -17,11 +34,9 @@ function getVehicleLimit(plan) {
   return 3
 }
 
-function getVehicleLimitMessage(plan) {
-  if (plan === 'business') {
-    return '\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 50 \u043C\u0430\u0448\u0438\u043D. \u041F\u0435\u0440\u0435\u0439\u0434\u0438\u0442\u0435 \u043D\u0430 Business Pro \u0434\u043B\u044F \u0431\u0435\u0437\u043B\u0438\u043C\u0438\u0442\u043D\u043E\u0433\u043E \u0434\u043E\u0441\u0442\u0443\u043F\u0430.'
-  }
-  return '\u041C\u0430\u043A\u0441\u0438\u043C\u0443\u043C 3 \u043C\u0430\u0448\u0438\u043D\u044B \u043D\u0430 \u0432\u0430\u0448\u0435\u043C \u0442\u0430\u0440\u0438\u0444\u0435. \u041F\u0435\u0440\u0435\u0439\u0434\u0438\u0442\u0435 \u043D\u0430 Business \u0434\u043B\u044F \u0434\u043E\u0431\u0430\u0432\u043B\u0435\u043D\u0438\u044F \u0434\u043E 50 \u043C\u0430\u0448\u0438\u043D.'
+function getVehicleLimitMessage(plan, t) {
+  if (plan === 'business') return t('profile.maxFleet50')
+  return t('profile.maxFleet3')
 }
 
 function PaySection({ userId, profile, theme, cardStyle, inputStyle, labelStyle }) {
@@ -188,6 +203,7 @@ function PaySection({ userId, profile, theme, cardStyle, inputStyle, labelStyle 
 export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
   const { theme } = useTheme()
   const { t, lang, setLang } = useLanguage()
+  const unitSys = getUnits()
   const [vehicles, setVehicles] = useState([])
   const [loggingOut, setLoggingOut] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
@@ -315,13 +331,13 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
 
   const handleAddVehicle = async () => {
     if (!formData.brand || !formData.model || !formData.odometer || !formData.fuel_consumption) {
-      alert('\u0417\u0430\u043F\u043E\u043B\u043D\u0438\u0442\u0435 \u043E\u0431\u044F\u0437\u0430\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u043F\u043E\u043B\u044F')
+      alert(t('profile.fillRequired'))
       return
     }
 
     const limit = getVehicleLimit(profile?.plan)
     if (vehicles.length >= limit) {
-      alert(getVehicleLimitMessage(profile?.plan))
+      alert(getVehicleLimitMessage(profile?.plan, t))
       return
     }
 
@@ -377,7 +393,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
       const { error } = await supabase.from('vehicles').insert(row)
       if (error) {
         console.error('Add vehicle error:', error)
-        alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
+        alert(t('profile.errorPrefix') + error.message)
         return
       }
 
@@ -461,7 +477,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         .eq('id', userId)
       if (error) {
         console.error('Update main vehicle error:', error)
-        alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
+        alert(t('profile.errorPrefix') + error.message)
         return
       }
       setEditingMain(false)
@@ -508,7 +524,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         .eq('id', vehicleId)
       if (error) {
         console.error('Update vehicle error:', error)
-        alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
+        alert(t('profile.errorPrefix') + error.message)
         return
       }
       setEditingVehicleId(null)
@@ -528,7 +544,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         .eq('id', vehicleId)
       if (error) {
         console.error('Delete vehicle error:', error)
-        alert('\u041E\u0448\u0438\u0431\u043A\u0430: ' + error.message)
+        alert(t('profile.errorPrefix') + error.message)
         return
       }
       setDeleteConfirmId(null)
@@ -646,7 +662,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           }}
         >{'\u2190'}</button>
         <div style={{ fontSize: '20px', fontWeight: 700, color: theme.text }}>
-          {'\u041F\u0440\u043E\u0444\u0438\u043B\u044C'}
+          {t('profile.title')}
         </div>
       </div>
 
@@ -666,7 +682,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           {'\uD83D\uDE9B'}
         </div>
         <div style={{ fontSize: '18px', fontWeight: 700, color: theme.text }}>
-          {profile?.name || '\u0412\u043E\u0434\u0438\u0442\u0435\u043B\u044C'}
+          {profile?.name || t('profile.driverFallback')}
         </div>
         <div style={{ fontSize: '13px', color: theme.dim, marginTop: '4px' }}>
           {profile?.plan === 'trial' ? 'Trial' : profile?.plan === 'pro' ? 'Pro' : profile?.plan || ''}
@@ -701,14 +717,18 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
           onBlur={(e) => e.target.style.borderColor = theme.border}
         >
-          <option value="ru">{'\uD83C\uDDF7\uD83C\uDDFA \u0420\u0443\u0441\u0441\u043A\u0438\u0439'}</option>
-          <option value="en">{'\uD83C\uDDFA\uD83C\uDDF8 English'}</option>
-          <option value="uk">{'\uD83C\uDDFA\uD83C\uDDE6 \u0423\u043A\u0440\u0430\u0457\u043D\u0441\u044C\u043A\u0430'}</option>
-          <option value="es">{'\uD83C\uDDEA\uD83C\uDDF8 Espa\u00F1ol'}</option>
-          <option value="de">{'\uD83C\uDDE9\uD83C\uDDEA Deutsch'}</option>
-          <option value="fr">{'\uD83C\uDDEB\uD83C\uDDF7 Fran\u00E7ais'}</option>
-          <option value="tr">{'\uD83C\uDDF9\uD83C\uDDF7 T\u00FCrk\u00E7e'}</option>
-          <option value="pl">{'\uD83C\uDDF5\uD83C\uDDF1 Polski'}</option>
+          {[
+            { code: 'ru', flag: '\uD83C\uDDF7\uD83C\uDDFA' },
+            { code: 'en', flag: '\uD83C\uDDFA\uD83C\uDDF8' },
+            { code: 'uk', flag: '\uD83C\uDDFA\uD83C\uDDE6' },
+            { code: 'es', flag: '\uD83C\uDDEA\uD83C\uDDF8' },
+            { code: 'de', flag: '\uD83C\uDDE9\uD83C\uDDEA' },
+            { code: 'fr', flag: '\uD83C\uDDEB\uD83C\uDDF7' },
+            { code: 'tr', flag: '\uD83C\uDDF9\uD83C\uDDF7' },
+            { code: 'pl', flag: '\uD83C\uDDF5\uD83C\uDDF1' },
+          ].map(opt => (
+            <option key={opt.code} value={opt.code}>{opt.flag + ' ' + getLanguageLabel(opt.code)}</option>
+          ))}
         </select>
         <select
           value={country}
@@ -739,17 +759,21 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
           onBlur={(e) => e.target.style.borderColor = theme.border}
         >
-          <option value="RU">{'\uD83C\uDDF7\uD83C\uDDFA \u0420\u043E\u0441\u0441\u0438\u044F'}</option>
-          <option value="US">{'\uD83C\uDDFA\uD83C\uDDF8 USA'}</option>
-          <option value="UA">{'\uD83C\uDDFA\uD83C\uDDE6 \u0423\u043A\u0440\u0430\u0457\u043D\u0430'}</option>
-          <option value="BY">{'\uD83C\uDDE7\uD83C\uDDFE \u0411\u0435\u043B\u0430\u0440\u0443\u0441\u044C'}</option>
-          <option value="KZ">{'\uD83C\uDDF0\uD83C\uDDFF \u041A\u0430\u0437\u0430\u0445\u0441\u0442\u0430\u043D'}</option>
-          <option value="UZ">{'\uD83C\uDDFA\uD83C\uDDFF \u0423\u0437\u0431\u0435\u043A\u0438\u0441\u0442\u0430\u043D'}</option>
-          <option value="DE">{'\uD83C\uDDE9\uD83C\uDDEA Deutschland'}</option>
-          <option value="FR">{'\uD83C\uDDEB\uD83C\uDDF7 France'}</option>
-          <option value="ES">{'\uD83C\uDDEA\uD83C\uDDF8 Espa\u00F1a'}</option>
-          <option value="TR">{'\uD83C\uDDF9\uD83C\uDDF7 T\u00FCrkiye'}</option>
-          <option value="PL">{'\uD83C\uDDF5\uD83C\uDDF1 Polska'}</option>
+          {[
+            { code: 'RU', flag: '\uD83C\uDDF7\uD83C\uDDFA' },
+            { code: 'US', flag: '\uD83C\uDDFA\uD83C\uDDF8' },
+            { code: 'UA', flag: '\uD83C\uDDFA\uD83C\uDDE6' },
+            { code: 'BY', flag: '\uD83C\uDDE7\uD83C\uDDFE' },
+            { code: 'KZ', flag: '\uD83C\uDDF0\uD83C\uDDFF' },
+            { code: 'UZ', flag: '\uD83C\uDDFA\uD83C\uDDFF' },
+            { code: 'DE', flag: '\uD83C\uDDE9\uD83C\uDDEA' },
+            { code: 'FR', flag: '\uD83C\uDDEB\uD83C\uDDF7' },
+            { code: 'ES', flag: '\uD83C\uDDEA\uD83C\uDDF8' },
+            { code: 'TR', flag: '\uD83C\uDDF9\uD83C\uDDF7' },
+            { code: 'PL', flag: '\uD83C\uDDF5\uD83C\uDDF1' },
+          ].map(opt => (
+            <option key={opt.code} value={opt.code}>{opt.flag + ' ' + getCountryLabel(opt.code, lang)}</option>
+          ))}
         </select>
       </div>
 
@@ -812,7 +836,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           onFocus={(e) => e.target.style.borderColor = '#f59e0b'}
           onBlur={(e) => e.target.style.borderColor = theme.border}
         >
-          <option value="metric">{'Metric (\u043A\u043C, \u043B)'}</option>
+          <option value="metric">{t('profile.unitsMetric')}</option>
           <option value="imperial">{'Imperial (mi, gal)'}</option>
         </select>
       </div>
@@ -827,14 +851,14 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           textTransform: 'uppercase',
           marginBottom: '4px',
         }}>
-          {'\u041B\u0438\u0447\u043D\u044B\u0435 \u0434\u0430\u043D\u043D\u044B\u0435'}
+          {t('profile.personalInfo')}
         </div>
         <Row
-          label={'\u0418\u043C\u044F'}
+          label={t('profile.name')}
           value={profile?.name}
         />
         <Row
-          label={'\u0422\u0435\u043B\u0435\u0444\u043E\u043D'}
+          label={t('profile.phone')}
           value={profile?.phone}
         />
         {/* HOS mode toggle */}
@@ -845,11 +869,11 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           padding: '12px 0',
           borderBottom: '1px solid ' + theme.border,
         }}>
-          <span style={{ fontSize: '14px', color: theme.dim }}>{'\u0420\u0435\u0436\u0438\u043C \u0432\u043E\u0436\u0434\u0435\u043D\u0438\u044F'}</span>
+          <span style={{ fontSize: '14px', color: theme.dim }}>{t('profile.drivingMode')}</span>
           <div style={{ display: 'flex', gap: '4px', background: theme.bg, borderRadius: '10px', padding: '3px' }}>
             {[
-              { key: 'cis', label: '\uD83C\uDDF7\uD83C\uDDFA \u0421\u041D\u0413' },
-              { key: 'usa', label: '\uD83C\uDDFA\uD83C\uDDF8 \u0421\u0428\u0410' },
+              { key: 'cis', label: '\uD83C\uDDF7\uD83C\uDDFA ' + (getCountryLabel('RU', lang) || 'CIS') },
+              { key: 'usa', label: '\uD83C\uDDFA\uD83C\uDDF8 ' + (getCountryLabel('US', lang) || 'USA') },
             ].map(opt => (
               <button
                 key={opt.key}
@@ -941,7 +965,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
             letterSpacing: '0.5px',
             textTransform: 'uppercase',
           }}>
-            {'\u041C\u0430\u0448\u0438\u043D\u0430'}
+            {t('profile.vehicle')}
           </div>
           {!editingMain && (
             <button
@@ -954,14 +978,14 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                 padding: '4px',
                 lineHeight: 1,
               }}
-              title={'\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+              title={t('profile.edit')}
             >{'\u270F\uFE0F'}</button>
           )}
         </div>
         {editingMain ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             <div>
-              <label style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430'}</label>
+              <label style={labelStyle}>{t('vehicle.brand')}</label>
               <BrandComboBox
                 value={mainForm.brand}
                 onChange={(v) => setMainForm({ ...mainForm, brand: v })}
@@ -974,17 +998,17 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               />
             </div>
             <div>
-              <label style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C'}</label>
+              <label style={labelStyle}>{t('vehicle.model')}</label>
               <input
                 type="text"
                 value={mainForm.model}
                 onChange={(e) => setMainForm({ ...mainForm, model: e.target.value })}
-                placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: FH, Actros, 5490'}
+                placeholder={t('profile.modelPlaceholder')}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>{'\u041F\u0440\u043E\u0431\u0435\u0433 (\u043A\u043C)'}</label>
+              <label style={labelStyle}>{t('profile.mileage') + ' (' + (unitSys === 'imperial' ? t('common.mi') : t('common.km')) + ')'}</label>
               <input
                 type="number"
                 value={mainForm.odometer}
@@ -995,17 +1019,17 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               />
             </div>
             <div>
-              <label style={labelStyle}>{'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}</label>
+              <label style={labelStyle}>{t('profile.plateLabel')}</label>
               <input
                 type="text"
                 value={mainForm.plate_number}
                 onChange={(e) => setMainForm({ ...mainForm, plate_number: e.target.value })}
-                placeholder={'\u0410123\u0411\u0412 77'}
+                placeholder={t('profile.platePlaceholder')}
                 style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>{'\u0420\u0430\u0441\u0445\u043E\u0434: ' + mainForm.fuel_consumption + ' \u043B/100\u043A\u043C'}</label>
+              <label style={labelStyle}>{t('profile.consumption') + ': ' + mainForm.fuel_consumption + ' ' + t('profile.consumptionUnit')}</label>
               <input
                 type="range"
                 min="5"
@@ -1038,7 +1062,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                 }}
               >
-                {savingMain ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+                {savingMain ? t('common.saving') : t('common.save')}
               </button>
               <button
                 onClick={cancelEditMain}
@@ -1055,31 +1079,33 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                 }}
               >
-                {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+                {t('common.cancel')}
               </button>
             </div>
           </div>
         ) : (
           <>
             <Row
-              label={'\u041C\u0430\u0440\u043A\u0430'}
+              label={t('vehicle.brand')}
               value={profile?.brand}
             />
             <Row
-              label={'\u041C\u043E\u0434\u0435\u043B\u044C'}
+              label={t('vehicle.model')}
               value={profile?.model}
             />
             <Row
-              label={'\u041F\u0440\u043E\u0431\u0435\u0433'}
-              value={profile?.odometer ? profile.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : null}
+              label={t('profile.mileage')}
+              value={profile?.odometer
+                ? formatNumber(unitSys === 'imperial' ? profile.odometer * 0.621371 : profile.odometer, lang, { maximumFractionDigits: 0 }) + ' ' + (unitSys === 'imperial' ? t('common.mi') : t('common.km'))
+                : null}
             />
             <Row
-              label={'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}
+              label={t('profile.plateLabel')}
               value={profile?.plate_number}
             />
             <Row
-              label={'\u0420\u0430\u0441\u0445\u043E\u0434'}
-              value={profile?.fuel_consumption ? profile.fuel_consumption + ' \u043B/100\u043A\u043C' : null}
+              label={t('profile.consumption')}
+              value={profile?.fuel_consumption ? profile.fuel_consumption + ' ' + t('profile.consumptionUnit') : null}
             />
           </>
         )}
@@ -1096,7 +1122,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
             textTransform: 'uppercase',
             marginBottom: '8px',
           }}>
-            {'\u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u043C\u0430\u0448\u0438\u043D\u044B'} ({vehicles.length})
+            {t('profile.extraVehicles')} ({vehicles.length})
           </div>
 
           {vehicles.map((v) => (
@@ -1144,7 +1170,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                           padding: '4px',
                           lineHeight: 1,
                         }}
-                        title={'\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u0442\u044C'}
+                        title={t('profile.edit')}
                       >{'\u270F\uFE0F'}</button>
                       <button
                         onClick={() => setDeleteConfirmId(v.id)}
@@ -1156,7 +1182,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                           padding: '4px',
                           lineHeight: 1,
                         }}
-                        title={'\u0423\u0434\u0430\u043B\u0438\u0442\u044C'}
+                        title={t('common.delete')}
                       >{'\uD83D\uDDD1\uFE0F'}</button>
                     </>
                   )}
@@ -1170,7 +1196,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                       background: '#f59e0b20',
                       marginLeft: '4px',
                     }}>
-                      {'\u0410\u043A\u0442\u0438\u0432\u043D\u0430\u044F'}
+                      {t('profile.active')}
                     </span>
                   ) : (
                     <button
@@ -1188,7 +1214,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                         marginLeft: '4px',
                       }}
                     >
-                      {'\u0412\u044B\u0431\u0440\u0430\u0442\u044C'}
+                      {t('profile.select')}
                     </button>
                   )}
                 </div>
@@ -1198,7 +1224,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {editingVehicleId === v.id ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   <div>
-                    <label style={labelStyle}>{'\u041C\u0430\u0440\u043A\u0430'}</label>
+                    <label style={labelStyle}>{t('vehicle.brand')}</label>
                     <BrandComboBox
                       value={vehicleForm.brand}
                       onChange={(v) => setVehicleForm({ ...vehicleForm, brand: v })}
@@ -1211,17 +1237,17 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>{'\u041C\u043E\u0434\u0435\u043B\u044C'}</label>
+                    <label style={labelStyle}>{t('vehicle.model')}</label>
                     <input
                       type="text"
                       value={vehicleForm.model}
                       onChange={(e) => setVehicleForm({ ...vehicleForm, model: e.target.value })}
-                      placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: FH, Actros, 5490'}
+                      placeholder={t('profile.modelPlaceholder')}
                       style={inputStyle}
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>{'\u0413\u043E\u0434 \u0432\u044B\u043F\u0443\u0441\u043A\u0430'}</label>
+                    <label style={labelStyle}>{t('profile.year')}</label>
                     <input
                       type="number"
                       value={vehicleForm.year}
@@ -1233,7 +1259,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>{'\u041F\u0440\u043E\u0431\u0435\u0433 (\u043A\u043C)'}</label>
+                    <label style={labelStyle}>{t('profile.mileage') + ' (' + (unitSys === 'imperial' ? t('common.mi') : t('common.km')) + ')'}</label>
                     <input
                       type="number"
                       value={vehicleForm.odometer}
@@ -1244,27 +1270,27 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>{'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}</label>
+                    <label style={labelStyle}>{t('profile.plateLabel')}</label>
                     <input
                       type="text"
                       value={vehicleForm.plate_number}
                       onChange={(e) => setVehicleForm({ ...vehicleForm, plate_number: e.target.value })}
-                      placeholder={'\u0410123\u0411\u0412 77'}
+                      placeholder={t('profile.platePlaceholder')}
                       style={inputStyle}
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>{'\u0418\u043C\u044F \u0432\u043E\u0434\u0438\u0442\u0435\u043B\u044F'}</label>
+                    <label style={labelStyle}>{t('profile.driverNameField')}</label>
                     <input
                       type="text"
                       value={vehicleForm.driver_name}
                       onChange={(e) => setVehicleForm({ ...vehicleForm, driver_name: e.target.value })}
-                      placeholder={'\u041F\u0451\u0442\u0440 \u0418\u0432\u0430\u043D\u043E\u0432'}
+                      placeholder={t('profile.driverNamePlaceholder')}
                       style={inputStyle}
                     />
                   </div>
                   <div>
-                    <label style={labelStyle}>{'\u0420\u0430\u0441\u0445\u043E\u0434: ' + vehicleForm.fuel_consumption + ' \u043B/100\u043A\u043C'}</label>
+                    <label style={labelStyle}>{t('profile.consumption') + ': ' + vehicleForm.fuel_consumption + ' ' + t('profile.consumptionUnit')}</label>
                     <input
                       type="range"
                       min="5"
@@ -1280,14 +1306,14 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                     </div>
                   </div>
                   <div>
-                    <label style={labelStyle}>{'\u0422\u0438\u043F \u0442\u043E\u043F\u043B\u0438\u0432\u0430'}</label>
+                    <label style={labelStyle}>{t('profile.fuelType')}</label>
                     <select
                       value={vehicleForm.fuel_type}
                       onChange={(e) => setVehicleForm({ ...vehicleForm, fuel_type: e.target.value })}
                       style={inputStyle}
                     >
-                      {FUEL_TYPES.map((ft) => (
-                        <option key={ft.value} value={ft.value}>{ft.label}</option>
+                      {FUEL_TYPE_KEYS.map((ft) => (
+                        <option key={ft.value} value={ft.value}>{t(ft.labelKey)}</option>
                       ))}
                     </select>
                   </div>
@@ -1309,7 +1335,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                         fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                       }}
                     >
-                      {savingVehicle ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...' : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+                      {savingVehicle ? t('common.saving') : t('common.save')}
                     </button>
                     <button
                       onClick={cancelEditVehicle}
@@ -1326,7 +1352,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                         fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                       }}
                     >
-                      {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+                      {t('common.cancel')}
                     </button>
                   </div>
                 </div>
@@ -1337,9 +1363,9 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   fontSize: '12px',
                   color: theme.dim,
                 }}>
-                  <span>{v.odometer ? v.odometer.toLocaleString('ru-RU') + ' \u043A\u043C' : ''}</span>
-                  <span>{v.fuel_consumption ? v.fuel_consumption + ' \u043B/100\u043A\u043C' : ''}</span>
-                  {v.year && <span>{v.year + ' \u0433.'}</span>}
+                  <span>{v.odometer ? formatNumber(unitSys === 'imperial' ? v.odometer * 0.621371 : v.odometer, lang, { maximumFractionDigits: 0 }) + ' ' + (unitSys === 'imperial' ? t('common.mi') : t('common.km')) : ''}</span>
+                  <span>{v.fuel_consumption ? v.fuel_consumption + ' ' + t('profile.consumptionUnit') : ''}</span>
+                  {v.year && <span>{v.year + ' ' + t('profile.yearShort')}</span>}
                 </div>
               )}
             </div>
@@ -1377,7 +1403,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
           }}
         >
           <span style={{ fontSize: '20px' }}>+</span>
-          {'\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043C\u0430\u0448\u0438\u043D\u0443'}
+          {t('vehicle.addVehicle')}
         </button>
       )}
 
@@ -1400,8 +1426,8 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
         }}
       >
         {loggingOut
-          ? '\u0412\u044B\u0445\u043E\u0434...'
-          : '\u0412\u044B\u0439\u0442\u0438'}
+          ? t('logout.loading')
+          : t('logout.button')}
       </button>
 
       {/* Delete confirmation modal */}
@@ -1432,10 +1458,10 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
             }}>
               <div style={{ fontSize: '40px', marginBottom: '12px' }}>{'\u26A0\uFE0F'}</div>
               <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text, marginBottom: '8px' }}>
-                {'\u0423\u0434\u0430\u043B\u0438\u0442\u044C \u043C\u0430\u0448\u0438\u043D\u0443 ' + (vDel ? vDel.brand + ' ' + vDel.model : '') + '?'}
+                {t('profile.deleteVehicleConfirm').replace('{vehicle}', vDel ? vDel.brand + ' ' + vDel.model : '')}
               </div>
               <div style={{ fontSize: '14px', color: theme.dim, marginBottom: '20px' }}>
-                {'\u0412\u0441\u0435 \u0434\u0430\u043D\u043D\u044B\u0435 \u044D\u0442\u043E\u0439 \u043C\u0430\u0448\u0438\u043D\u044B \u0431\u0443\u0434\u0443\u0442 \u043F\u043E\u0442\u0435\u0440\u044F\u043D\u044B.'}
+                {t('profile.deleteVehicleWarning')}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -1455,7 +1481,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                     fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                   }}
                 >
-                  {deleting ? '\u0423\u0434\u0430\u043B\u0435\u043D\u0438\u0435...' : '\u0423\u0434\u0430\u043B\u0438\u0442\u044C'}
+                  {deleting ? t('profile.deleting') : t('common.delete')}
                 </button>
                 <button
                   onClick={() => setDeleteConfirmId(null)}
@@ -1472,7 +1498,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                     fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
                   }}
                 >
-                  {'\u041E\u0442\u043C\u0435\u043D\u0430'}
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>
@@ -1512,7 +1538,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               marginBottom: '16px',
             }}>
               <div style={{ fontSize: '18px', fontWeight: 700, color: theme.text }}>
-                {'\u041D\u043E\u0432\u0430\u044F \u043C\u0430\u0448\u0438\u043D\u0430'}
+                {t('profile.newVehicle')}
               </div>
               <button
                 onClick={() => setShowAddForm(false)}
@@ -1531,7 +1557,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Brand */}
               <div>
                 <label style={labelStyle}>
-                  {'\u041C\u0430\u0440\u043A\u0430 *'}
+                  {t('vehicle.brand') + ' *'}
                 </label>
                 <BrandComboBox
                   value={formData.brand}
@@ -1548,13 +1574,13 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Model */}
               <div>
                 <label style={labelStyle}>
-                  {'\u041C\u043E\u0434\u0435\u043B\u044C *'}
+                  {t('vehicle.model') + ' *'}
                 </label>
                 <input
                   type="text"
                   value={formData.model}
                   onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  placeholder={'\u041D\u0430\u043F\u0440\u0438\u043C\u0435\u0440: FH, Actros, 5490'}
+                  placeholder={t('profile.modelPlaceholder')}
                   style={inputStyle}
                 />
               </div>
@@ -1562,7 +1588,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Year */}
               <div>
                 <label style={labelStyle}>
-                  {'\u0413\u043E\u0434 \u0432\u044B\u043F\u0443\u0441\u043A\u0430'}
+                  {t('profile.year')}
                 </label>
                 <input
                   type="number"
@@ -1578,7 +1604,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Odometer */}
               <div>
                 <label style={labelStyle}>
-                  {'\u041F\u0440\u043E\u0431\u0435\u0433 (\u043A\u043C) *'}
+                  {t('profile.mileage') + ' (' + (unitSys === 'imperial' ? t('common.mi') : t('common.km')) + ') *'}
                 </label>
                 <input
                   type="number"
@@ -1593,13 +1619,13 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Plate number */}
               <div>
                 <label style={labelStyle}>
-                  {'\u0413\u043E\u0441\u043D\u043E\u043C\u0435\u0440'}
+                  {t('profile.plateLabel')}
                 </label>
                 <input
                   type="text"
                   value={formData.plate_number}
                   onChange={(e) => setFormData({ ...formData, plate_number: e.target.value })}
-                  placeholder={'\u0410123\u0411\u0412 77'}
+                  placeholder={t('profile.platePlaceholder')}
                   style={inputStyle}
                 />
               </div>
@@ -1613,7 +1639,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
                   type="text"
                   value={formData.driver_name}
                   onChange={(e) => setFormData({ ...formData, driver_name: e.target.value })}
-                  placeholder={'\u041F\u0451\u0442\u0440 \u0418\u0432\u0430\u043D\u043E\u0432'}
+                  placeholder={t('profile.driverNamePlaceholder')}
                   style={inputStyle}
                 />
               </div>
@@ -1720,7 +1746,7 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Fuel consumption */}
               <div>
                 <label style={labelStyle}>
-                  {'\u0421\u0440\u0435\u0434\u043D\u0438\u0439 \u0440\u0430\u0441\u0445\u043E\u0434 *: ' + formData.fuel_consumption + ' \u043B/100\u043A\u043C'}
+                  {t('profile.consumptionAvg') + ' *: ' + formData.fuel_consumption + ' ' + t('profile.consumptionUnit')}
                 </label>
                 <input
                   type="range"
@@ -1740,15 +1766,15 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               {/* Fuel type */}
               <div>
                 <label style={labelStyle}>
-                  {'\u0422\u0438\u043F \u0442\u043E\u043F\u043B\u0438\u0432\u0430 *'}
+                  {t('profile.fuelType') + ' *'}
                 </label>
                 <select
                   value={formData.fuel_type}
                   onChange={(e) => setFormData({ ...formData, fuel_type: e.target.value })}
                   style={inputStyle}
                 >
-                  {FUEL_TYPES.map((ft) => (
-                    <option key={ft.value} value={ft.value}>{ft.label}</option>
+                  {FUEL_TYPE_KEYS.map((ft) => (
+                    <option key={ft.value} value={ft.value}>{t(ft.labelKey)}</option>
                   ))}
                 </select>
               </div>
@@ -1774,8 +1800,8 @@ export default function ProfileScreen({ userId, profile, onBack, onLogout }) {
               }}
             >
               {saving
-                ? '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u0435...'
-                : '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C'}
+                ? t('common.saving')
+                : t('common.save')}
             </button>
             {inviteStatus === 'sent' && (
               <div style={{ marginTop: '8px', padding: '8px 12px', borderRadius: '8px', background: '#22c55e20', color: '#22c55e', fontSize: '13px', textAlign: 'center' }}>

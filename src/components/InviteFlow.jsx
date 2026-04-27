@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLanguage } from '../lib/i18n'
 import { supabase } from '../lib/supabase'
 import { hashPin } from './PinLock'
+import { isBypassPhone, verifyBypass } from '../lib/testBypass'
 
 const styles = {
   container: {
@@ -121,6 +122,11 @@ export default function InviteFlow({ inviteCode, onComplete }) {
     setLoading(true)
     setError('')
     try {
+      // Skip Twilio for whitelisted test phones; advance straight to OTP entry.
+      if (await isBypassPhone(phone)) {
+        setStep(2)
+        return
+      }
       const { error: otpErr } = await supabase.auth.signInWithOtp({ phone })
       if (otpErr) throw otpErr
       setStep(2)
@@ -137,6 +143,25 @@ export default function InviteFlow({ inviteCode, onComplete }) {
     setLoading(true)
     setError('')
     try {
+      // Try bypass first; falls through to verifyOtp if phone isn't whitelisted.
+      const bypass = await verifyBypass(phone, otp)
+      if (bypass.ok) {
+        const { data: { user } } = await supabase.auth.getUser()
+        const userId = user?.id
+        if (userId) {
+          await supabase
+            .from('profiles')
+            .update({ id: userId, invited: false })
+            .eq('invite_code', inviteCode)
+            .eq('invited', true)
+        }
+        setStep(3)
+        return
+      }
+      if (bypass.error) {
+        throw new Error(bypass.error)
+      }
+
       const { data, error: verifyErr } = await supabase.auth.verifyOtp({
         phone,
         token: otp,

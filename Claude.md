@@ -1116,6 +1116,76 @@ license, sts, osago, kasko, pts, contract, dopog, bol, other
 
 -----
 
+## TEST USER BYPASS (closed-beta SMS skip, 2026-04-27)
+
+Whitelisted phones обходят Supabase/Twilio SMS-доставку — для тестировщиков из стран, где Twilio trial блокирует SMS (Украина и др.). **В проде включать только в закрытом окружении.**
+
+**Архитектура:** Twilio в этом приложении подключён на стороне Supabase Auth, не в нашем API. Поэтому bypass = новый эндпоинт `api/auth/test-bypass.js` + клиентская обёртка `src/lib/testBypass.js`, которая вызывается ПЕРЕД `supabase.auth.signInWithOtp` / `verifyOtp`. Если телефон в whitelist — обычный SMS-путь Supabase не дёргается.
+
+### Как добавить тестового пользователя
+
+```sql
+-- В Supabase SQL Editor (Dashboard):
+INSERT INTO test_users (phone, description, bypass_code)
+VALUES ('+380501112233', 'Husband — UA testing', '000000');
+-- bypass_code должен быть РОВНО 6 цифр (UI требует 6).
+-- password можно не указывать — берётся DEFAULT '000000' (служебный, для grant_type=password).
+```
+
+Удалить:
+```sql
+DELETE FROM test_users WHERE phone = '+380501112233';
+```
+
+### Как включить/выключить bypass
+
+Vercel env (Project Settings → Environment Variables):
+- `ENABLE_TEST_USER_BYPASS=true` → bypass работает
+- `ENABLE_TEST_USER_BYPASS=false` (или не задано) → эндпоинт возвращает 403, все логины идут через Twilio
+
+После изменения — Redeploy.
+
+### Что bypass логирует в Vercel Logs
+
+- `[BYPASS] Test user logged in: <phone>` — успешная выдача сессии
+- `[test-bypass] error <details>` — внутренняя ошибка (не сконфигурированный env, 5xx от Supabase admin API и т.п.)
+
+### Поток
+
+1. Клиент вводит телефон → `POST /api/auth/test-bypass {action:'check', phone}` → если `bypass:true`, UI пропускает шаг отправки SMS и сразу показывает экран ввода кода. Иначе — обычный `supabase.auth.signInWithOtp`.
+2. Клиент вводит 6-значный код → `POST /api/auth/test-bypass {action:'verify', phone, code}`. Сервер:
+   - сверяет код с `test_users.bypass_code`,
+   - убеждается, что в `auth.users` есть запись с `phone_confirm=true` (создаёт через `admin.createUser` или ресетит пароль через `admin.updateUserById`),
+   - дёргает Supabase REST `/auth/v1/token?grant_type=password` со служебным паролем из `test_users.password`,
+   - возвращает `{access_token, refresh_token}`.
+3. Клиент кладёт токены через `supabase.auth.setSession(...)` — далее обычный flow (профиль, PIN и т.д.).
+
+### Точки врезки в клиенте
+
+- [src/lib/testBypass.js](src/lib/testBypass.js) — `isBypassPhone(phone)`, `verifyBypass(phone, code)`
+- [src/components/Auth.jsx](src/components/Auth.jsx) — `sendOtp` (skip если bypass) и `handleConfirm` в `SmsScreen` (try bypass → fallback verifyOtp)
+- [src/components/InviteFlow.jsx](src/components/InviteFlow.jsx) — `handlePhoneSend` и `handleOtpVerify` обёрнуты так же
+
+### Тесты
+
+`node api/auth/test-bypass.test.js` (входит в `npm test`). Покрывает:
+- whitelisted phone + check → bypass:true, без обращения к Supabase /auth/v1/token
+- whitelisted phone + правильный код → 200, сессия выдана; existing user → updateUserById; new user → createUser с phone_confirm=true
+- whitelisted phone + неверный код → 401, никаких побочных эффектов
+- non-whitelisted → 404 (clients fall through to verifyOtp)
+- `ENABLE_TEST_USER_BYPASS=false` → 403 даже для whitelisted
+
+### Безопасность
+
+- Таблица `test_users` имеет RLS включённым и НИ ОДНОЙ политики — anon/authenticated читают 0 строк. Только service_role видит whitelist.
+- Клиент никогда не получает `password` или `bypass_code` других пользователей — эндпоинт возвращает только токены.
+- Bypass-код храним в БД, не в коде — добавление/удаление тестера = SQL-INSERT/DELETE без редеплоя.
+- При публичном запуске: установить `ENABLE_TEST_USER_BYPASS=false` или удалить переменную → bypass становится 403 для всех.
+
+**Применить миграцию:** [supabase/migrations/20260427000000_add_test_users_bypass.sql](supabase/migrations/20260427000000_add_test_users_bypass.sql) — Elena применяет вручную через Supabase Dashboard SQL Editor.
+
+-----
+
 ## СЛЕДУЮЩИЕ ЗАДАЧИ (обновлено 2026-04-21)
 
 ### Критично (до публичного запуска, см. SECURITY.md)

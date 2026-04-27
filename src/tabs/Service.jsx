@@ -2025,9 +2025,16 @@ function BolSection({ userId, vehicleId, userRole }) {
 }
 
 /* ===== DOCS TAB ===== */
-export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, profile, onNavigate }) {
+export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, profile, onNavigate, initialTile, onTileConsumed, initialBookkeepingSection, onSectionConsumed }) {
   const { t } = useLanguage()
-  const [activeTile, setActiveTile] = useState(null)
+  const [activeTile, setActiveTile] = useState(initialTile || null)
+  useEffect(() => {
+    if (initialTile) {
+      setActiveTile(initialTile)
+      if (onTileConsumed) onTileConsumed()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTile])
   const isCompany = userRole === 'company'
   const [selectedVehicleId, setSelectedVehicleId] = useState(null)
   const [localVehicles, setLocalVehicles] = useState([])
@@ -2103,6 +2110,8 @@ export function DocsTab({ userId, vehicleId, userRole, vehicles: vehiclesProp, p
         userVehicles={vehicles}
         profile={profile}
         onBack={() => setActiveTile(null)}
+        initialSection={initialBookkeepingSection}
+        onSectionConsumed={onSectionConsumed}
       />
     )
   }

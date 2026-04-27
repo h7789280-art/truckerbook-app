@@ -1203,6 +1203,7 @@ Vercel env (Project Settings → Environment Variables):
 - [ ] 2FA на все админские аккаунты (GitHub, Vercel, Supabase, Google Cloud, email)
 
 ### Продуктовое развитие (не безопасность)
+- [ ] Добавить `&& isUsaMode` в условие отображения TaxMeterWidget на [Overview.jsx:2834](src/tabs/Overview.jsx#L2834) — на случай non-USA owner_operator deep-link приведёт на пустой DocsTab grid (bookkeeping tile там скрыт по `isUsaMode`).
 - [ ] IFTA Nominatim → GeoJSON (перед онбордингом 20+ машин)
 - [ ] `driver_1099` tax features
 - [ ] `company` role (1120/1120-S/1065)

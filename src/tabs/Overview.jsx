@@ -2835,7 +2835,7 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     <TaxMeterWidget
                       userId={userId}
                       profile={profile}
-                      onOpenTaxSummary={() => onExtraNav?.('service')}
+                      onOpenTaxSummary={() => onExtraNav?.('documents_taxsummary')}
                     />
                   )}
 

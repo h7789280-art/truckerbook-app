@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import IftaTab from './IftaTab'
@@ -14,10 +14,17 @@ import SepIraCalculatorTab from './tax/SepIraCalculatorTab'
 import QBICalculatorTab from './tax/QBICalculatorTab'
 import DeductionAuditTab from './tax/DeductionAuditTab'
 
-export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack }) {
+export default function BookkeepingHome({ userId, role, userVehicles, profile, onBack, initialSection, onSectionConsumed }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
-  const [activeSection, setActiveSection] = useState(null)
+  const [activeSection, setActiveSection] = useState(initialSection || null)
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection)
+      if (onSectionConsumed) onSectionConsumed()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialSection])
 
   const isOwnerOrCompany = role === 'owner_operator' || role === 'company'
   const isDriver1099 = role === 'driver' && profile?.employment_type === '1099'

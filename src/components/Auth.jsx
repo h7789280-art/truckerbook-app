@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase'
 import { hashPin } from './PinLock'
 import BrandComboBox from './BrandComboBox'
 import { useLanguage } from '../lib/i18n'
+import { isBypassPhone, verifyBypass } from '../lib/testBypass'
 
 const COUNTRIES = [
   // \u0421\u041d\u0413
@@ -479,6 +480,23 @@ function SmsScreen({ phone, countryCode, onBack, onNext, onResend }) {
     setError(false)
     setErrorMsg('')
     const fullPhone = countryCode + phone.replace(/\D/g, '')
+
+    // Try test-user bypass first; falls through to normal verifyOtp if phone
+    // isn't whitelisted or the bypass endpoint is disabled.
+    const bypass = await verifyBypass(fullPhone, code)
+    if (bypass.ok) {
+      setLoading(false)
+      onNext()
+      return
+    }
+    if (bypass.error) {
+      setLoading(false)
+      setError(true)
+      setErrorMsg(bypass.error)
+      setCode('')
+      return
+    }
+
     const { error: verifyError } = await supabase.auth.verifyOtp({
       phone: fullPhone,
       token: code,
@@ -1211,6 +1229,14 @@ export default function Auth({ onComplete, onboardingOnly }) {
     const fullPhone = country.code + phone.replace(/\D/g, '')
     setOtpLoading(true)
     setOtpError('')
+
+    // Skip Twilio entirely for whitelisted test phones — UI still advances to
+    // the OTP screen, where the user enters their assigned bypass code.
+    if (await isBypassPhone(fullPhone)) {
+      setOtpLoading(false)
+      return true
+    }
+
     const { error } = await supabase.auth.signInWithOtp({ phone: fullPhone })
     setOtpLoading(false)
     if (error) {

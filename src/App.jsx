@@ -299,6 +299,16 @@ function AppInner() {
   const [showChat, setShowChat] = useState(false)
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [showSmartScan, setShowSmartScan] = useState(false)
+  const [smartScanHint, setSmartScanHint] = useState(null)
+  const openSmartScan = useCallback((hint = null) => {
+    setSmartScanHint(typeof hint === 'string' ? hint : null)
+    setShowSmartScan(true)
+  }, [])
+  const closeSmartScan = useCallback(() => {
+    setShowSmartScan(false)
+    setSmartScanHint(null)
+  }, [])
+  const openAddModal = useCallback(() => setIsModalOpen(true), [])
   const { unread: chatUnread, resetUnread: resetChatUnread } = useChatUnread()
 
   useEffect(() => {
@@ -520,11 +530,11 @@ function AppInner() {
     }
     switch (activeTab) {
       case 'expenses':
-        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} initialSubTab={expensesInitSubTab} initialCategory={expensesInitCategory} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} />
+        return <Expenses userId={userId} fuelRefreshKey={fuelRefreshKey} bytRefreshKey={bytRefreshKey} activeVehicleId={vehicleId} userRole={userRole} onSubTabChange={setExpensesSubTab} profile={profile} initialSubTab={expensesInitSubTab} initialCategory={expensesInitCategory} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} onOpenSmartScan={openSmartScan} onOpenAddModal={openAddModal} />
       case 'trips':
-        return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} />
+        return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} onOpenSmartScan={openSmartScan} onOpenAddModal={openAddModal} />
       case 'service':
-        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} initialSubTab={serviceInitSubTab} onSubTabConsumed={() => setServiceInitSubTab(null)} />
+        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} initialSubTab={serviceInitSubTab} onSubTabConsumed={() => setServiceInitSubTab(null)} onOpenSmartScan={openSmartScan} />
       case 'documents':
         return <DocsTab userId={userId} vehicleId={vehicleId} userRole={userRole} profile={profile} onNavigate={handleExtraTabNav} initialTile={docsInitTile} onTileConsumed={() => setDocsInitTile(null)} initialBookkeepingSection={docsBookkeepingSection} onSectionConsumed={() => setDocsBookkeepingSection(null)} />
       case 'jobs':
@@ -553,7 +563,7 @@ function AppInner() {
         return <PersonalExpensesDetails userId={userId} onBack={handleBackFromExtra} initialPeriod={reportDrillPayload?.period} initialCustomFrom={reportDrillPayload?.customFrom} initialCustomTo={reportDrillPayload?.customTo} />
 
       default:
-        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} onOpenSmartScan={() => setShowSmartScan(true)} onOpenAddModal={() => setIsModalOpen(true)} />
+        return <Overview userName={userName} userId={userId} profile={profile} onOpenProfile={() => setShowProfile(true)} activeVehicleId={vehicleId} refreshKey={overviewRefreshKey} onExtraNav={handleExtraTabNav} userRole={userRole} onOpenSmartScan={() => openSmartScan(null)} onOpenAddModal={openAddModal} />
     }
   }
 
@@ -799,7 +809,7 @@ function AppInner() {
                 onClick={(e) => e.stopPropagation()}
               >
                 <button
-                  onClick={() => { setShowFabMenu(false); setShowSmartScan(true) }}
+                  onClick={() => { setShowFabMenu(false); openSmartScan(null) }}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 10,
                     padding: '12px 18px', borderRadius: 14,
@@ -847,22 +857,23 @@ function AppInner() {
           />
           {showSmartScan && (
             <SmartScan
-              onClose={() => setShowSmartScan(false)}
+              onClose={closeSmartScan}
               userId={userId}
               vehicleId={vehicleId}
+              contextHint={smartScanHint}
               onSaved={(count) => {
-                setShowSmartScan(false)
+                closeSmartScan()
                 setFuelRefreshKey(k => k + 1)
                 setBytRefreshKey(k => k + 1)
                 setOverviewRefreshKey(k => k + 1)
               }}
               onTripSaved={() => {
-                setShowSmartScan(false)
+                closeSmartScan()
                 setTripsRefreshKey(k => k + 1)
                 setOverviewRefreshKey(k => k + 1)
               }}
               onServiceSaved={() => {
-                setShowSmartScan(false)
+                closeSmartScan()
                 setServiceRefreshKey(k => k + 1)
                 setOverviewRefreshKey(k => k + 1)
               }}

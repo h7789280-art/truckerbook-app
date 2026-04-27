@@ -508,12 +508,14 @@ function TrailerBlock({ userId, theme }) {
   )
 }
 
-function TripsTab({ userId, refreshKey, theme, profile }) {
+function TripsTab({ userId, refreshKey, theme, profile, onOpenSmartScan, onOpenAddModal }) {
   const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
   const isCompanyRole = profile?.role === 'company'
   const isOwnerRole = profile?.role === 'owner_operator'
+  const role = profile?.role || 'owner_operator'
+  const showQuickAdd = (role === 'owner_operator' || role === 'driver') && !!(onOpenSmartScan || onOpenAddModal)
   const [entries, setEntries] = useState([])
   const [vehicles, setVehicles] = useState([])
   const [loading, setLoading] = useState(true)
@@ -1156,6 +1158,59 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
         )}
       </div>
 
+      {/* Quick add: Add Manually + AI Scan — driver / owner_operator only */}
+      {showQuickAdd && (
+        <div style={{ display: 'flex', gap: '8px' }}>
+          {onOpenAddModal && (
+            <button
+              onClick={() => onOpenAddModal()}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '12px',
+                border: '1px solid ' + theme.border,
+                background: theme.card,
+                color: theme.text,
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+              }}
+            >
+              {'✏️'} {t('addModal.trip')}
+            </button>
+          )}
+          {onOpenSmartScan && (
+            <button
+              onClick={() => onOpenSmartScan(t('smartScan.hints.trip'))}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '12px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 10px rgba(34,197,94,0.25)',
+                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+              }}
+            >
+              {'🤖'} {t('smartScan.title')}
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Trip cards */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
@@ -1376,7 +1431,7 @@ function TripsTab({ userId, refreshKey, theme, profile }) {
   )
 }
 
-export default function Trips({ userId, refreshKey, profile, onBack }) {
+export default function Trips({ userId, refreshKey, profile, onBack, onOpenSmartScan, onOpenAddModal }) {
   const { theme } = useTheme()
 
   return (
@@ -1399,7 +1454,7 @@ export default function Trips({ userId, refreshKey, profile, onBack }) {
           {'\u2190'}
         </button>
       )}
-      <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} profile={profile} />
+      <TripsTab userId={userId} refreshKey={refreshKey} theme={theme} profile={profile} onOpenSmartScan={onOpenSmartScan} onOpenAddModal={onOpenAddModal} />
     </div>
   )
 }

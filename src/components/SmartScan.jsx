@@ -9,7 +9,7 @@ import ScanConfirm from './ScanConfirm'
 import TripConfirm from './TripConfirm'
 import RepairConfirm from './RepairConfirm'
 
-export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripSaved, onServiceSaved }) {
+export default function SmartScan({ onClose, userId, vehicleId, contextHint = null, onSaved, onTripSaved, onServiceSaved }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [preview, setPreview] = useState(null)
@@ -329,9 +329,29 @@ export default function SmartScan({ onClose, userId, vehicleId, onSaved, onTripS
         </div>
 
         {/* Hint */}
-        <div style={{ color: theme.dim, fontSize: 13, marginBottom: 14, lineHeight: 1.4 }}>
+        <div style={{ color: theme.dim, fontSize: 13, marginBottom: contextHint ? 8 : 14, lineHeight: 1.4 }}>
           {t('smartScan.hint')}
         </div>
+
+        {/* Contextual hint — soft orientation when SmartScan is opened from a specific tab */}
+        {contextHint && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 6,
+            padding: '8px 10px',
+            marginBottom: 14,
+            background: 'rgba(245,158,11,0.08)',
+            border: '1px solid rgba(245,158,11,0.25)',
+            borderRadius: 10,
+            color: theme.dim,
+            fontSize: 12,
+            lineHeight: 1.45,
+          }}>
+            <span aria-hidden style={{ flexShrink: 0 }}>{'💡'}</span>
+            <span>{contextHint}</span>
+          </div>
+        )}
 
         {/* Photo input buttons */}
         <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handleFile} />

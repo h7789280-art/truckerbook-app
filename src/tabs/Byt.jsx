@@ -47,7 +47,7 @@ function getDateRange(period, customFrom, customTo) {
   return { from: null, to: null }
 }
 
-export default function Byt({ userId, refreshKey, userRole }) {
+export default function Byt({ userId, refreshKey, userRole, onOpenSmartScan, onOpenAddModal }) {
   const { t, lang } = useLanguage()
   const cs = getCurrencySymbol()
   const isOwnerOperator = userRole === 'owner_operator'
@@ -256,6 +256,9 @@ export default function Byt({ userId, refreshKey, userRole }) {
     transition: 'all 0.2s',
   })
 
+  const role = userRole || 'owner_operator'
+  const showQuickAdd = (role === 'owner_operator' || role === 'driver') && !!(onOpenSmartScan || onOpenAddModal)
+
   return (
     <div style={{ padding: '16px', minHeight: '100vh' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px', paddingRight: 44 }}>
@@ -332,6 +335,59 @@ export default function Byt({ userId, refreshKey, userRole }) {
           )}
         </div>
       </div>
+
+      {/* Quick add: Add Manually + AI Scan \u2014 driver / owner_operator only */}
+      {showQuickAdd && (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          {onOpenAddModal && (
+            <button
+              onClick={() => onOpenAddModal()}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '12px',
+                border: '1px solid var(--border, #1e2a3f)',
+                background: 'var(--card, #111827)',
+                color: 'var(--text, #e2e8f0)',
+                fontSize: '14px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+              }}
+            >
+              {'\u270f\ufe0f'} {t('scan.addManually')}
+            </button>
+          )}
+          {onOpenSmartScan && (
+            <button
+              onClick={() => onOpenSmartScan(t('smartScan.hints.personalExpense'))}
+              style={{
+                flex: 1,
+                padding: '12px',
+                borderRadius: '12px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                boxShadow: '0 2px 10px rgba(34,197,94,0.25)',
+                fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif',
+              }}
+            >
+              {'\ud83e\udd16'} {t('smartScan.title')}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Summary cards */}
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>

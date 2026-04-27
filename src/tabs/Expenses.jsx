@@ -4,7 +4,7 @@ import { fetchVehicles } from '../lib/api'
 import Fuel from './Fuel'
 import Byt from './Byt'
 
-export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile, initialSubTab, initialCategory, onBack }) {
+export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, activeVehicleId, userRole, onSubTabChange, profile, initialSubTab, initialCategory, onBack, onOpenSmartScan, onOpenAddModal }) {
   const { t } = useLanguage()
   const [subTab, setSubTab] = useState(initialSubTab || 'vehicle')
   const [vehicles, setVehicles] = useState([])
@@ -135,9 +135,11 @@ export default function Expenses({ userId, fuelRefreshKey, bytRefreshKey, active
           vehicles={vehicles}
           isAllVehicles={isCompany && filterVehicleId === 'all'}
           initialCategory={initialCategory}
+          onOpenSmartScan={onOpenSmartScan}
+          onOpenAddModal={onOpenAddModal}
         />
       ) : (
-        <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} userRole={userRole} />
+        <Byt userId={userId} refreshKey={bytRefreshKey} activeVehicleId={activeVehicleId} userRole={userRole} onOpenSmartScan={onOpenSmartScan} onOpenAddModal={onOpenAddModal} />
       )}
     </div>
   )

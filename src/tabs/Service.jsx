@@ -155,7 +155,7 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service({ userId, activeVehicleId, userRole, profile, initialSubTab, onSubTabConsumed }) {
+export default function Service({ userId, activeVehicleId, userRole, profile, initialSubTab, onSubTabConsumed, onOpenSmartScan }) {
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState(initialSubTab || 'service')
   useEffect(() => {
@@ -261,6 +261,7 @@ export default function Service({ userId, activeVehicleId, userRole, profile, in
           profilePlate={profilePlate}
           userId={userId}
           onReload={loadData}
+          onOpenSmartScan={onOpenSmartScan}
         />
       )}
       {activeTab === 'tires' && (
@@ -335,7 +336,7 @@ function getDateRange(period, customFrom, customTo) {
 }
 
 /* ===== SERVICE TAB ===== */
-function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePlate, userId, onReload }) {
+function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePlate, userId, onReload, onOpenSmartScan }) {
   const { t } = useLanguage()
   const [activeTile, setActiveTile] = useState(null)
   const [selectedVehicleId, setSelectedVehicleId] = useState(null)
@@ -440,12 +441,13 @@ function ServiceTab({ repairs, odometer, loading, userRole, vehicles, profilePla
         else { setActiveTile(null) }
       }}
       onReload={onReload}
+      onOpenSmartScan={onOpenSmartScan}
     />
   )
 }
 
 /* ===== SERVICE LIST VIEW (shared for Repair / Maintenance) ===== */
-function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, userId, allowedCategories, tileKey, selectedVehicleId, onBack, onReload }) {
+function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, userId, allowedCategories, tileKey, selectedVehicleId, onBack, onReload, onOpenSmartScan }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const unitSys = getUnits()
@@ -615,16 +617,44 @@ function ServiceListView({ repairs, odometer, userRole, vehicles, profilePlate, 
       </div>
 
       {/* Add button — moved above history */}
-      <button
-        onClick={() => setShowAddModal(true)}
-        style={{
-          width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
-          background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000',
-          fontSize: '15px', fontWeight: 700, cursor: 'pointer', marginBottom: '16px',
-        }}
-      >
-        {addLabel}
-      </button>
+      {isRepair && onOpenSmartScan && (userRole === 'owner_operator' || userRole === 'driver') ? (
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <button
+            onClick={() => setShowAddModal(true)}
+            style={{
+              flex: 1, padding: '14px', borderRadius: '12px', border: 'none',
+              background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000',
+              fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+            }}
+          >
+            {addLabel}
+          </button>
+          <button
+            onClick={() => onOpenSmartScan(t('smartScan.hints.repair'))}
+            style={{
+              flex: 1, padding: '14px', borderRadius: '12px', border: 'none',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: '#fff',
+              fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              boxShadow: '0 2px 10px rgba(34,197,94,0.25)',
+            }}
+          >
+            {'🤖'} {t('smartScan.title')}
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setShowAddModal(true)}
+          style={{
+            width: '100%', padding: '14px', borderRadius: '12px', border: 'none',
+            background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#000',
+            fontSize: '15px', fontWeight: 700, cursor: 'pointer', marginBottom: '16px',
+          }}
+        >
+          {addLabel}
+        </button>
+      )}
 
       {/* History list */}
       <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--dim)', letterSpacing: '0.5px', textTransform: 'uppercase', marginBottom: '10px' }}>

@@ -300,6 +300,7 @@ function AppInner() {
   const [showFabMenu, setShowFabMenu] = useState(false)
   const [showSmartScan, setShowSmartScan] = useState(false)
   const [smartScanHint, setSmartScanHint] = useState(null)
+  const [pendingPartFromRepair, setPendingPartFromRepair] = useState(null)
   const openSmartScan = useCallback((hint = null) => {
     setSmartScanHint(typeof hint === 'string' ? hint : null)
     setShowSmartScan(true)
@@ -534,7 +535,7 @@ function AppInner() {
       case 'trips':
         return <Trips userId={userId} refreshKey={tripsRefreshKey} activeVehicleId={vehicleId} profile={profile} onBack={navStack.length > 0 ? handleBackFromExtra : undefined} onOpenSmartScan={openSmartScan} onOpenAddModal={openAddModal} />
       case 'service':
-        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} initialSubTab={serviceInitSubTab} onSubTabConsumed={() => setServiceInitSubTab(null)} onOpenSmartScan={openSmartScan} />
+        return <Service userId={userId} activeVehicleId={vehicleId} refreshKey={serviceRefreshKey} userRole={userRole} profile={profile} initialSubTab={serviceInitSubTab} onSubTabConsumed={() => setServiceInitSubTab(null)} onOpenSmartScan={openSmartScan} pendingPart={pendingPartFromRepair} onPendingPartConsumed={() => setPendingPartFromRepair(null)} />
       case 'documents':
         return <DocsTab userId={userId} vehicleId={vehicleId} userRole={userRole} profile={profile} onNavigate={handleExtraTabNav} initialTile={docsInitTile} onTileConsumed={() => setDocsInitTile(null)} initialBookkeepingSection={docsBookkeepingSection} onSectionConsumed={() => setDocsBookkeepingSection(null)} />
       case 'jobs':
@@ -877,6 +878,11 @@ function AppInner() {
                 setServiceRefreshKey(k => k + 1)
                 setOverviewRefreshKey(k => k + 1)
               }}
+              onPartFromRepair={userRole === 'owner_operator' ? (partPreset) => {
+                setPendingPartFromRepair(partPreset)
+                setServiceInitSubTab('resources')
+                setActiveTab('service')
+              } : null}
             />
           )}
         </>

@@ -155,7 +155,7 @@ const cardStyle = {
   padding: '16px',
 }
 
-export default function Service({ userId, activeVehicleId, userRole, profile, initialSubTab, onSubTabConsumed, onOpenSmartScan }) {
+export default function Service({ userId, activeVehicleId, userRole, profile, initialSubTab, onSubTabConsumed, onOpenSmartScan, pendingPart, onPendingPartConsumed }) {
   const { t } = useLanguage()
   const [activeTab, setActiveTab] = useState(initialSubTab || 'service')
   useEffect(() => {
@@ -286,7 +286,7 @@ export default function Service({ userId, activeVehicleId, userRole, profile, in
       {activeTab === 'docs' && <DocsTab userId={userId} vehicleId={activeVehicleId} userRole={userRole} vehicles={vehicles} profile={profile} />}
       {activeTab === 'dvir' && <DVIRInspection userId={userId} vehicleId={activeVehicleId} />}
       {activeTab === 'resources' && userRole === 'owner_operator' && (
-        <ResourcesTab userId={userId} vehicleId={activeVehicleId} profileOdometer={odometer} />
+        <ResourcesTab userId={userId} vehicleId={activeVehicleId} profileOdometer={odometer} pendingPart={pendingPart} onPendingPartConsumed={onPendingPartConsumed} />
       )}
     </div>
   )
@@ -3354,7 +3354,7 @@ function VehiclePhotoModal({ userId, vehicleId, onClose, onSaved }) {
 }
 
 /* ===== RESOURCES TAB (owner_operator only) ===== */
-function ResourcesTab({ userId, vehicleId, profileOdometer }) {
+function ResourcesTab({ userId, vehicleId, profileOdometer, pendingPart, onPendingPartConsumed }) {
   const { t } = useLanguage()
   const cs = getCurrencySymbol()
   const [parts, setParts] = useState([])
@@ -3373,6 +3373,24 @@ function ResourcesTab({ userId, vehicleId, profileOdometer }) {
     setShowHistory(true)
     setHighlightedId(h.id)
   }, [])
+
+  // Auto-open PartFormModal when arriving from RepairConfirm with prefilled
+  // values (cost/installDate/odometer/shopName). The user picks the category;
+  // PartFormModal honors the extra preset fields in its initial state.
+  useEffect(() => {
+    if (!pendingPart) return
+    const notes = pendingPart.shopName ? pendingPart.shopName : ''
+    setAddPreset({
+      category: null,
+      installDate: pendingPart.installDate || null,
+      odometer: pendingPart.odometer != null ? pendingPart.odometer : null,
+      cost: pendingPart.cost != null ? pendingPart.cost : null,
+      notes,
+    })
+    setShowAddModal(true)
+    if (onPendingPartConsumed) onPendingPartConsumed()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingPart])
 
   useEffect(() => {
     if (!highlightedId || loading) return
@@ -3743,10 +3761,12 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
   })
   const [installedDate, setInstalledDate] = useState(() => {
     if (editing?.installed_date) return editing.installed_date
+    if (preset?.installDate) return preset.installDate
     return getLocalDateString()
   })
   const [installedOdometer, setInstalledOdometer] = useState(() => {
     if (editing?.installed_odometer != null) return String(editing.installed_odometer)
+    if (preset?.odometer != null) return String(preset.odometer)
     if (typeof currentOdometer === 'number' && currentOdometer > 0) return String(currentOdometer)
     return ''
   })
@@ -3760,8 +3780,16 @@ function PartFormModal({ userId, vehicleId, currentOdometer, preset, editing, on
     if (preset?.months != null) return String(preset.months)
     return initialPreset?.months != null ? String(initialPreset.months) : ''
   })
-  const [cost, setCost] = useState(editing?.cost != null ? String(editing.cost) : '')
-  const [notes, setNotes] = useState(editing?.notes || '')
+  const [cost, setCost] = useState(() => {
+    if (editing?.cost != null) return String(editing.cost)
+    if (preset?.cost != null) return String(preset.cost)
+    return ''
+  })
+  const [notes, setNotes] = useState(() => {
+    if (editing?.notes) return editing.notes
+    if (preset?.notes) return preset.notes
+    return ''
+  })
   const [saving, setSaving] = useState(false)
 
   // Invoice scanning state

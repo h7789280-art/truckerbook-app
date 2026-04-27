@@ -16,7 +16,7 @@ const REPAIR_CAT_TO_SERVICE = {
   other: 'repair',
 }
 
-export default function RepairConfirm({ result, file, userId, vehicleId, onClose, onSaved }) {
+export default function RepairConfirm({ result, file, userId, vehicleId, onClose, onSaved, onReclassify, onAlsoAddPart }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
 
@@ -24,19 +24,32 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
   const [date, setDate] = useState(result.date || getLocalDateString())
   const [mileage, setMileage] = useState(result.mileage || '')
   const [notes, setNotes] = useState(result.notes || '')
-  const [items, setItems] = useState(() =>
-    (result.items || []).map((item, i) => ({
+  const [items, setItems] = useState(() => {
+    const arr = (result.items || []).map((item, i) => ({
       id: i,
       checked: true,
       description: item.description || '',
       amount: parseFloat(item.amount) || 0,
       category: REPAIR_CATEGORIES.includes(item.category) ? item.category : 'other',
     }))
-  )
+    // Empty payload (e.g. unknown→repair or reclassify): seed one editable
+    // row so the form is usable. The caller can still pass result.total
+    // when reclassifying receipt→repair to surface a single-line carry-over.
+    if (arr.length === 0) {
+      const seedTotal = result.total != null ? parseFloat(result.total) || 0 : 0
+      return [{
+        id: 0, checked: true, description: '',
+        amount: seedTotal, category: 'other',
+      }]
+    }
+    return arr
+  })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [dupFound, setDupFound] = useState(null) // { duplicates, proceed }
   const [checking, setChecking] = useState(false)
+  const [reclassifyOpen, setReclassifyOpen] = useState(false)
+  const [alsoAddPart, setAlsoAddPart] = useState(false)
 
   const updateItem = (id, field, value) => {
     setItems(prev => prev.map(it => it.id === id ? { ...it, [field]: value } : it))
@@ -123,7 +136,19 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
         }
       }
 
-      if (onSaved) onSaved(savedCount)
+      // If the user ticked "this includes a part replacement", hand the
+      // prefilled values up so the parent can open PartFormModal next.
+      // Otherwise just close as usual.
+      if (alsoAddPart && onAlsoAddPart && savedCount > 0) {
+        onAlsoAddPart({
+          cost: total,
+          installDate: date,
+          odometer: parseInt(mileage, 10) || null,
+          shopName: shopName || null,
+        })
+      } else if (onSaved) {
+        onSaved(savedCount)
+      }
     } catch (e) {
       console.error('RepairConfirm save error:', e?.message || e, e)
       const msg = e?.message || e?.error_description || String(e)
@@ -212,7 +237,7 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <h3 style={{ margin: 0, color: theme.text, fontSize: 18, fontWeight: 700 }}>
             {'\uD83D\uDD27'} {t('repair.confirmTitle')}
           </h3>
@@ -223,6 +248,68 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
             {'\u2715'}
           </button>
         </div>
+
+        {/* Soft reclassify link */}
+        {onReclassify && (
+          <div style={{ marginBottom: 14, fontSize: 12, color: theme.dim, position: 'relative' }}>
+            <span>{t('smartScan.reclassify.repair.label')}</span>{' '}
+            <button
+              onClick={() => setReclassifyOpen(o => !o)}
+              style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                color: theme.dim, fontSize: 12, textDecoration: 'underline',
+                fontFamily: 'inherit',
+              }}
+            >
+              {t('smartScan.reclassify.changeType')}
+            </button>
+            {reclassifyOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: 4,
+                background: theme.card2, border: '1px solid ' + theme.border,
+                borderRadius: 10, padding: 6, zIndex: 5, minWidth: 200,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+              }}>
+                <button
+                  onClick={() => {
+                    setReclassifyOpen(false)
+                    onReclassify('receipt', { total, date, shop_name: shopName })
+                  }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsReceipt')}
+                </button>
+                <button
+                  onClick={() => { setReclassifyOpen(false); onReclassify('trip', { date }) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsTrip')}
+                </button>
+                <button
+                  onClick={() => { setReclassifyOpen(false); onReclassify('archive', null) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsArchive')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Shop name */}
         <div style={{ marginBottom: 12 }}>
@@ -343,6 +430,27 @@ export default function RepairConfirm({ result, file, userId, vehicleId, onClose
             ${total.toFixed(2)}
           </span>
         </div>
+
+        {/* Also add part checkbox — opens PartFormModal after save with prefilled fields */}
+        {onAlsoAddPart && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={{
+              display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer',
+              color: theme.text, fontSize: 13, lineHeight: 1.4,
+            }}>
+              <input
+                type="checkbox"
+                checked={alsoAddPart}
+                onChange={e => setAlsoAddPart(e.target.checked)}
+                style={{ width: 18, height: 18, accentColor: '#f59e0b', flexShrink: 0, marginTop: 2 }}
+              />
+              <span>{t('smartScan.repair.alsoAddPart')}</span>
+            </label>
+            <div style={{ color: theme.dim, fontSize: 11, marginTop: 4, paddingLeft: 26, lineHeight: 1.4 }}>
+              {t('smartScan.repair.alsoAddPartHint')}
+            </div>
+          </div>
+        )}
 
         {/* Error */}
         {error && (

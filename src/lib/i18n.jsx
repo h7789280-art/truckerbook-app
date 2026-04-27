@@ -1141,6 +1141,36 @@ const translations = {
         personalExpense: '\u0421\u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0440\u0443\u0439 \u0447\u0435\u043a \u0437\u0430 \u0435\u0434\u0443, \u0434\u0443\u0448, \u0441\u0442\u043e\u044f\u043d\u043a\u0443 \u0438\u043b\u0438 \u0434\u0440\u0443\u0433\u0438\u0435 \u043b\u0438\u0447\u043d\u044b\u0435 \u0440\u0430\u0441\u0445\u043e\u0434\u044b',
         repair: '\u0421\u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0438\u0440\u0443\u0439 \u043d\u0430\u043a\u043b\u0430\u0434\u043d\u0443\u044e \u0438\u0437 \u0421\u0422\u041e \u0438\u043b\u0438 \u043c\u0430\u0441\u0442\u0435\u0440\u0441\u043a\u043e\u0439',
       },
+      unknown: {
+        title: '\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u0440\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u0442\u044C \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438. \u0427\u0442\u043E \u044D\u0442\u043E?',
+        subtitle: '\u0412\u044B\u0431\u0435\u0440\u0438 \u0442\u0438\u043F \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 \u2014 \u043C\u044B \u043E\u0442\u043A\u0440\u043E\u0435\u043C \u0444\u043E\u0440\u043C\u0443 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u043E\u0434\u0430. \u0424\u043E\u0442\u043E \u0443\u0436\u0435 \u0437\u0430\u0433\u0440\u0443\u0436\u0435\u043D\u043E.',
+        receipt: '\uD83E\uDDFE \u042D\u0442\u043E \u0447\u0435\u043A',
+        trip: '\uD83D\uDE9B \u042D\u0442\u043E \u0440\u0435\u0439\u0441',
+        repair: '\uD83D\uDD27 \u042D\u0442\u043E \u043D\u0430\u043A\u043B\u0430\u0434\u043D\u0430\u044F \u0437\u0430 \u0440\u0435\u043C\u043E\u043D\u0442',
+        archive: '\uD83D\uDCC1 \u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u043A\u0430\u043A \u0444\u043E\u0442\u043E \u0432 \u0430\u0440\u0445\u0438\u0432',
+        archived: '\u0421\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u043E \u0432 \u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u044B',
+        cancel: '\u041E\u0442\u043C\u0435\u043D\u0430',
+      },
+      repair: {
+        alsoAddPart: '\u042D\u0442\u043E \u0432\u043A\u043B\u044E\u0447\u0430\u0435\u0442 \u0437\u0430\u043C\u0435\u043D\u0443 \u0434\u0435\u0442\u0430\u043B\u0438 (\u043C\u0430\u0441\u043B\u043E, \u0444\u0438\u043B\u044C\u0442\u0440, \u043A\u043E\u043B\u043E\u0434\u043A\u0438 \u0438 \u0442.\u043F.)',
+        alsoAddPartHint: '\u041F\u043E\u0441\u043B\u0435 \u0441\u043E\u0445\u0440\u0430\u043D\u0435\u043D\u0438\u044F \u043E\u0442\u043A\u0440\u043E\u0435\u0442\u0441\u044F \u0444\u043E\u0440\u043C\u0430 Part Resources \u0441 \u043F\u0440\u0435\u0434\u0437\u0430\u043F\u043E\u043B\u043D\u0435\u043D\u043D\u044B\u043C\u0438 \u043F\u043E\u043B\u044F\u043C\u0438',
+      },
+      reclassify: {
+        changeType: '\u0418\u0437\u043C\u0435\u043D\u0438\u0442\u044C \u0442\u0438\u043F',
+        openAsReceipt: '\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043A\u0430\u043A \u0447\u0435\u043A',
+        openAsTrip: '\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043A\u0430\u043A \u0440\u0435\u0439\u0441',
+        openAsRepair: '\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u043A\u0430\u043A \u043D\u0430\u043A\u043B\u0430\u0434\u043D\u0443\u044E \u0440\u0435\u043C\u043E\u043D\u0442\u0430',
+        openAsArchive: '\u0421\u043E\u0445\u0440\u0430\u043D\u0438\u0442\u044C \u0432 \u0430\u0440\u0445\u0438\u0432',
+        receipt: {
+          label: '\u0420\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043E \u043A\u0430\u043A \u0447\u0435\u043A.',
+        },
+        trip: {
+          label: '\u0420\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043E \u043A\u0430\u043A \u0440\u0435\u0439\u0441.',
+        },
+        repair: {
+          label: '\u0420\u0430\u0441\u043F\u043E\u0437\u043D\u0430\u043D\u043E \u043A\u0430\u043A \u043D\u0430\u043A\u043B\u0430\u0434\u043D\u0430\u044F \u0437\u0430 \u0440\u0435\u043C\u043E\u043D\u0442.',
+        },
+      },
     },
     repair: {
       confirmTitle: '\u041d\u0430\u043a\u043b\u0430\u0434\u043d\u0430\u044f \u0440\u0435\u043c\u043e\u043d\u0442\u0430',
@@ -3394,6 +3424,36 @@ const translations = {
         vehicleExpense: 'Take a photo of a fuel, repair, parts, or other vehicle-expense receipt',
         personalExpense: 'Take a photo of a meal, shower, parking, or other personal-expense receipt',
         repair: 'Take a photo of an invoice from a repair shop or mechanic',
+      },
+      unknown: {
+        title: 'Couldn\u0027t recognize automatically. What is this?',
+        subtitle: 'Pick a document type \u2014 we\u0027ll open the form for manual entry. Photo is already loaded.',
+        receipt: '\uD83E\uDDFE This is a receipt',
+        trip: '\uD83D\uDE9B This is a trip',
+        repair: '\uD83D\uDD27 This is a repair invoice',
+        archive: '\uD83D\uDCC1 Save as a photo to archive',
+        archived: 'Saved to Documents',
+        cancel: 'Cancel',
+      },
+      repair: {
+        alsoAddPart: 'This includes a part replacement (oil, filter, brake pads, etc.)',
+        alsoAddPartHint: 'After saving, the Part Resources form will open with prefilled fields',
+      },
+      reclassify: {
+        changeType: 'Change type',
+        openAsReceipt: 'Open as receipt',
+        openAsTrip: 'Open as trip',
+        openAsRepair: 'Open as repair invoice',
+        openAsArchive: 'Save to archive',
+        receipt: {
+          label: 'Recognized as a receipt.',
+        },
+        trip: {
+          label: 'Recognized as a trip.',
+        },
+        repair: {
+          label: 'Recognized as a repair invoice.',
+        },
       },
     },
     repair: {
@@ -5653,6 +5713,36 @@ const translations = {
         personalExpense: '\u0421\u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0443\u0439 \u0447\u0435\u043a \u0437\u0430 \u0457\u0436\u0443, \u0434\u0443\u0448, \u0441\u0442\u043e\u044f\u043d\u043a\u0443 \u0430\u0431\u043e \u0456\u043d\u0448\u0456 \u043e\u0441\u043e\u0431\u0438\u0441\u0442\u0456 \u0432\u0438\u0442\u0440\u0430\u0442\u0438',
         repair: '\u0421\u0444\u043e\u0442\u043e\u0433\u0440\u0430\u0444\u0443\u0439 \u043d\u0430\u043a\u043b\u0430\u0434\u043d\u0443 \u0437\u0456 \u0421\u0422\u041e \u0430\u0431\u043e \u043c\u0430\u0439\u0441\u0442\u0435\u0440\u043d\u0456',
       },
+      unknown: {
+        title: '\u041D\u0435 \u0432\u0434\u0430\u043B\u043E\u0441\u044F \u0440\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u0442\u0438 \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u043D\u043E. \u0429\u043E \u0446\u0435?',
+        subtitle: '\u041E\u0431\u0435\u0440\u0438 \u0442\u0438\u043F \u0434\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0430 \u2014 \u043C\u0438 \u0432\u0456\u0434\u043A\u0440\u0438\u0454\u043C\u043E \u0444\u043E\u0440\u043C\u0443 \u0434\u043B\u044F \u0440\u0443\u0447\u043D\u043E\u0433\u043E \u0432\u0432\u0435\u0434\u0435\u043D\u043D\u044F. \u0424\u043E\u0442\u043E \u0432\u0436\u0435 \u0437\u0430\u0432\u0430\u043D\u0442\u0430\u0436\u0435\u043D\u043E.',
+        receipt: '\uD83E\uDDFE \u0426\u0435 \u0447\u0435\u043A',
+        trip: '\uD83D\uDE9B \u0426\u0435 \u0440\u0435\u0439\u0441',
+        repair: '\uD83D\uDD27 \u0426\u0435 \u043D\u0430\u043A\u043B\u0430\u0434\u043D\u0430 \u0437\u0430 \u0440\u0435\u043C\u043E\u043D\u0442',
+        archive: '\uD83D\uDCC1 \u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u044F\u043A \u0444\u043E\u0442\u043E \u0432 \u0430\u0440\u0445\u0456\u0432',
+        archived: '\u0417\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043E \u0432 \u0414\u043E\u043A\u0443\u043C\u0435\u043D\u0442\u0438',
+        cancel: '\u0421\u043A\u0430\u0441\u0443\u0432\u0430\u0442\u0438',
+      },
+      repair: {
+        alsoAddPart: '\u0426\u0435 \u0432\u043A\u043B\u044E\u0447\u0430\u0454 \u0437\u0430\u043C\u0456\u043D\u0443 \u0434\u0435\u0442\u0430\u043B\u0456 (\u043C\u0430\u0441\u043B\u043E, \u0444\u0456\u043B\u044C\u0442\u0440, \u043A\u043E\u043B\u043E\u0434\u043A\u0438 \u0442\u043E\u0449\u043E)',
+        alsoAddPartHint: '\u041F\u0456\u0441\u043B\u044F \u0437\u0431\u0435\u0440\u0435\u0436\u0435\u043D\u043D\u044F \u0432\u0456\u0434\u043A\u0440\u0438\u0454\u0442\u044C\u0441\u044F \u0444\u043E\u0440\u043C\u0430 Part Resources \u0437 \u0437\u0430\u043F\u043E\u0432\u043D\u0435\u043D\u0438\u043C\u0438 \u043F\u043E\u043B\u044F\u043C\u0438',
+      },
+      reclassify: {
+        changeType: '\u0417\u043C\u0456\u043D\u0438\u0442\u0438 \u0442\u0438\u043F',
+        openAsReceipt: '\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u044F\u043A \u0447\u0435\u043A',
+        openAsTrip: '\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u044F\u043A \u0440\u0435\u0439\u0441',
+        openAsRepair: '\u0412\u0456\u0434\u043A\u0440\u0438\u0442\u0438 \u044F\u043A \u043D\u0430\u043A\u043B\u0430\u0434\u043D\u0443 \u0440\u0435\u043C\u043E\u043D\u0442\u0443',
+        openAsArchive: '\u0417\u0431\u0435\u0440\u0435\u0433\u0442\u0438 \u0432 \u0430\u0440\u0445\u0456\u0432',
+        receipt: {
+          label: '\u0420\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u043E \u044F\u043A \u0447\u0435\u043A.',
+        },
+        trip: {
+          label: '\u0420\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u043E \u044F\u043A \u0440\u0435\u0439\u0441.',
+        },
+        repair: {
+          label: '\u0420\u043E\u0437\u043F\u0456\u0437\u043D\u0430\u043D\u043E \u044F\u043A \u043D\u0430\u043A\u043B\u0430\u0434\u043D\u0443 \u0437\u0430 \u0440\u0435\u043C\u043E\u043D\u0442.',
+        },
+      },
     },
     repair: {
       confirmTitle: '\u041d\u0430\u043a\u043b\u0430\u0434\u043d\u0430 \u0440\u0435\u043c\u043e\u043d\u0442\u0443',
@@ -7653,6 +7743,36 @@ const translations = {
         personalExpense: 'Toma foto del recibo de comida, ducha, parqueo u otros gastos personales',
         repair: 'Toma foto de la factura del taller o mec\u00e1nico',
       },
+      unknown: {
+        title: 'No se pudo reconocer autom\u00E1ticamente. \u00BFQu\u00E9 es esto?',
+        subtitle: 'Elige el tipo de documento \u2014 abriremos el formulario para ingresar a mano. La foto ya est\u00E1 cargada.',
+        receipt: '\uD83E\uDDFE Es un recibo',
+        trip: '\uD83D\uDE9B Es un viaje',
+        repair: '\uD83D\uDD27 Es una factura de reparaci\u00F3n',
+        archive: '\uD83D\uDCC1 Guardar como foto en archivo',
+        archived: 'Guardado en Documentos',
+        cancel: 'Cancelar',
+      },
+      repair: {
+        alsoAddPart: 'Esto incluye un cambio de pieza (aceite, filtro, pastillas, etc.)',
+        alsoAddPartHint: 'Despu\u00E9s de guardar se abrir\u00E1 Part Resources con los campos rellenados',
+      },
+      reclassify: {
+        changeType: 'Cambiar tipo',
+        openAsReceipt: 'Abrir como recibo',
+        openAsTrip: 'Abrir como viaje',
+        openAsRepair: 'Abrir como factura de reparaci\u00F3n',
+        openAsArchive: 'Guardar en archivo',
+        receipt: {
+          label: 'Reconocido como recibo.',
+        },
+        trip: {
+          label: 'Reconocido como viaje.',
+        },
+        repair: {
+          label: 'Reconocido como factura de reparaci\u00F3n.',
+        },
+      },
     },
     repair: {
       confirmTitle: 'Factura de reparaci\u00f3n',
@@ -9635,6 +9755,37 @@ const translations = {
         vehicleExpense: 'Take a photo of a fuel, repair, parts, or other vehicle-expense receipt',
         personalExpense: 'Take a photo of a meal, shower, parking, or other personal-expense receipt',
         repair: 'Take a photo of an invoice from a repair shop or mechanic',
+      },
+      // TODO: translate from English
+      unknown: {
+        title: 'Couldn\u0027t recognize automatically. What is this?',
+        subtitle: 'Pick a document type \u2014 we\u0027ll open the form for manual entry. Photo is already loaded.',
+        receipt: '\uD83E\uDDFE This is a receipt',
+        trip: '\uD83D\uDE9B This is a trip',
+        repair: '\uD83D\uDD27 This is a repair invoice',
+        archive: '\uD83D\uDCC1 Save as a photo to archive',
+        archived: 'Saved to Documents',
+        cancel: 'Cancel',
+      },
+      repair: {
+        alsoAddPart: 'This includes a part replacement (oil, filter, brake pads, etc.)',
+        alsoAddPartHint: 'After saving, the Part Resources form will open with prefilled fields',
+      },
+      reclassify: {
+        changeType: 'Change type',
+        openAsReceipt: 'Open as receipt',
+        openAsTrip: 'Open as trip',
+        openAsRepair: 'Open as repair invoice',
+        openAsArchive: 'Save to archive',
+        receipt: {
+          label: 'Recognized as a receipt.',
+        },
+        trip: {
+          label: 'Recognized as a trip.',
+        },
+        repair: {
+          label: 'Recognized as a repair invoice.',
+        },
       },
     },
     repair: {
@@ -11622,6 +11773,37 @@ const translations = {
         personalExpense: 'Take a photo of a meal, shower, parking, or other personal-expense receipt',
         repair: 'Take a photo of an invoice from a repair shop or mechanic',
       },
+      // TODO: translate from English
+      unknown: {
+        title: 'Couldn\u0027t recognize automatically. What is this?',
+        subtitle: 'Pick a document type \u2014 we\u0027ll open the form for manual entry. Photo is already loaded.',
+        receipt: '\uD83E\uDDFE This is a receipt',
+        trip: '\uD83D\uDE9B This is a trip',
+        repair: '\uD83D\uDD27 This is a repair invoice',
+        archive: '\uD83D\uDCC1 Save as a photo to archive',
+        archived: 'Saved to Documents',
+        cancel: 'Cancel',
+      },
+      repair: {
+        alsoAddPart: 'This includes a part replacement (oil, filter, brake pads, etc.)',
+        alsoAddPartHint: 'After saving, the Part Resources form will open with prefilled fields',
+      },
+      reclassify: {
+        changeType: 'Change type',
+        openAsReceipt: 'Open as receipt',
+        openAsTrip: 'Open as trip',
+        openAsRepair: 'Open as repair invoice',
+        openAsArchive: 'Save to archive',
+        receipt: {
+          label: 'Recognized as a receipt.',
+        },
+        trip: {
+          label: 'Recognized as a trip.',
+        },
+        repair: {
+          label: 'Recognized as a repair invoice.',
+        },
+      },
     },
     repair: {
       confirmTitle: 'Facture de r\u00e9paration',
@@ -13607,6 +13789,37 @@ const translations = {
         vehicleExpense: 'Take a photo of a fuel, repair, parts, or other vehicle-expense receipt',
         personalExpense: 'Take a photo of a meal, shower, parking, or other personal-expense receipt',
         repair: 'Take a photo of an invoice from a repair shop or mechanic',
+      },
+      // TODO: translate from English
+      unknown: {
+        title: 'Couldn\u0027t recognize automatically. What is this?',
+        subtitle: 'Pick a document type \u2014 we\u0027ll open the form for manual entry. Photo is already loaded.',
+        receipt: '\uD83E\uDDFE This is a receipt',
+        trip: '\uD83D\uDE9B This is a trip',
+        repair: '\uD83D\uDD27 This is a repair invoice',
+        archive: '\uD83D\uDCC1 Save as a photo to archive',
+        archived: 'Saved to Documents',
+        cancel: 'Cancel',
+      },
+      repair: {
+        alsoAddPart: 'This includes a part replacement (oil, filter, brake pads, etc.)',
+        alsoAddPartHint: 'After saving, the Part Resources form will open with prefilled fields',
+      },
+      reclassify: {
+        changeType: 'Change type',
+        openAsReceipt: 'Open as receipt',
+        openAsTrip: 'Open as trip',
+        openAsRepair: 'Open as repair invoice',
+        openAsArchive: 'Save to archive',
+        receipt: {
+          label: 'Recognized as a receipt.',
+        },
+        trip: {
+          label: 'Recognized as a trip.',
+        },
+        repair: {
+          label: 'Recognized as a repair invoice.',
+        },
       },
     },
     repair: {
@@ -15597,6 +15810,37 @@ const translations = {
         vehicleExpense: 'Take a photo of a fuel, repair, parts, or other vehicle-expense receipt',
         personalExpense: 'Take a photo of a meal, shower, parking, or other personal-expense receipt',
         repair: 'Take a photo of an invoice from a repair shop or mechanic',
+      },
+      // TODO: translate from English
+      unknown: {
+        title: 'Couldn\u0027t recognize automatically. What is this?',
+        subtitle: 'Pick a document type \u2014 we\u0027ll open the form for manual entry. Photo is already loaded.',
+        receipt: '\uD83E\uDDFE This is a receipt',
+        trip: '\uD83D\uDE9B This is a trip',
+        repair: '\uD83D\uDD27 This is a repair invoice',
+        archive: '\uD83D\uDCC1 Save as a photo to archive',
+        archived: 'Saved to Documents',
+        cancel: 'Cancel',
+      },
+      repair: {
+        alsoAddPart: 'This includes a part replacement (oil, filter, brake pads, etc.)',
+        alsoAddPartHint: 'After saving, the Part Resources form will open with prefilled fields',
+      },
+      reclassify: {
+        changeType: 'Change type',
+        openAsReceipt: 'Open as receipt',
+        openAsTrip: 'Open as trip',
+        openAsRepair: 'Open as repair invoice',
+        openAsArchive: 'Save to archive',
+        receipt: {
+          label: 'Recognized as a receipt.',
+        },
+        trip: {
+          label: 'Recognized as a trip.',
+        },
+        repair: {
+          label: 'Recognized as a repair invoice.',
+        },
       },
     },
     repair: {

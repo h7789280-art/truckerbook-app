@@ -3,13 +3,14 @@ import { useTheme } from '../lib/theme'
 import { useLanguage } from '../lib/i18n'
 import { checkDuplicateTrip } from '../lib/api'
 
-export default function TripConfirm({ data, onSave, onBack, onClose }) {
+export default function TripConfirm({ data, onSave, onBack, onClose, onReclassify }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [dupFound, setDupFound] = useState(null)
   const [checking, setChecking] = useState(false)
+  const [reclassifyOpen, setReclassifyOpen] = useState(false)
 
   const [originCity, setOriginCity] = useState(data.origin_city || '')
   const [originState, setOriginState] = useState(data.origin_state || '')
@@ -161,7 +162,7 @@ export default function TripConfirm({ data, onSave, onBack, onClose }) {
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={(e) => e.stopPropagation()}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <h3 style={{ margin: 0, color: theme.text, fontSize: 18, fontWeight: 700 }}>
             {t('tripParse.confirmTitle')}
           </h3>
@@ -172,6 +173,68 @@ export default function TripConfirm({ data, onSave, onBack, onClose }) {
             {'\u2715'}
           </button>
         </div>
+
+        {/* Soft reclassify link \u2014 for the small minority where AI guessed wrong. */}
+        {onReclassify && (
+          <div style={{ marginBottom: 14, fontSize: 12, color: theme.dim, position: 'relative' }}>
+            <span>{t('smartScan.reclassify.trip.label')}</span>{' '}
+            <button
+              onClick={() => setReclassifyOpen(o => !o)}
+              style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                color: theme.dim, fontSize: 12, textDecoration: 'underline',
+                fontFamily: 'inherit',
+              }}
+            >
+              {t('smartScan.reclassify.changeType')}
+            </button>
+            {reclassifyOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: 4,
+                background: theme.card2, border: '1px solid ' + theme.border,
+                borderRadius: 10, padding: 6, zIndex: 5, minWidth: 200,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+              }}>
+                <button
+                  onClick={() => { setReclassifyOpen(false); onReclassify('receipt', null) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsReceipt')}
+                </button>
+                <button
+                  onClick={() => {
+                    setReclassifyOpen(false)
+                    onReclassify('repair', { pickup_date: pickupDate || null })
+                  }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsRepair')}
+                </button>
+                <button
+                  onClick={() => { setReclassifyOpen(false); onReclassify('archive', null) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsArchive')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Route summary */}
         <div style={{

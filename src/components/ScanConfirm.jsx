@@ -49,14 +49,14 @@ function mapCategory(aiCategory, type) {
   return VEHICLE_CAT_MAP[aiCategory] || 'other'
 }
 
-export default function ScanConfirm({ result, file, userId, vehicleId, onClose, onSaved }) {
+export default function ScanConfirm({ result, file, userId, vehicleId, onClose, onSaved, onReclassify }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
 
   const [storeName, setStoreName] = useState(result.store_name || '')
   const [date, setDate] = useState(result.date || getLocalDateString())
-  const [items, setItems] = useState(() =>
-    (result.items || []).map((item, i) => {
+  const [items, setItems] = useState(() => {
+    const arr = (result.items || []).map((item, i) => {
       const type = guessType(item.category)
       return {
         id: i,
@@ -69,7 +69,17 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
         fuelDetails: item.fuel_details || null,
       }
     })
-  )
+    // Empty payload (e.g. unknown→receipt or reclassify): seed one editable
+    // row so the form is usable.
+    if (arr.length === 0) {
+      return [{
+        id: 0, checked: true, description: '', amount: 0,
+        type: 'vehicle', category: 'other', aiCategory: '', fuelDetails: null,
+      }]
+    }
+    return arr
+  })
+  const [reclassifyOpen, setReclassifyOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
   const [dupFound, setDupFound] = useState(null) // { duplicates, proceed callback }
@@ -358,7 +368,7 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
     <div style={overlay} onClick={onClose}>
       <div style={modal} onClick={e => e.stopPropagation()}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <h3 style={{ margin: 0, color: theme.text, fontSize: 18, fontWeight: 700 }}>
             {'\u2705'} {t('scan.confirm')}
           </h3>
@@ -369,6 +379,69 @@ export default function ScanConfirm({ result, file, userId, vehicleId, onClose, 
             {'\u2715'}
           </button>
         </div>
+
+        {/* Soft reclassify link \u2014 for the small minority where AI guessed wrong. */}
+        {onReclassify && (
+          <div style={{ marginBottom: 14, fontSize: 12, color: theme.dim, position: 'relative' }}>
+            <span>{t('smartScan.reclassify.receipt.label')}</span>{' '}
+            <button
+              onClick={() => setReclassifyOpen(o => !o)}
+              style={{
+                background: 'none', border: 'none', padding: 0, cursor: 'pointer',
+                color: theme.dim, fontSize: 12, textDecoration: 'underline',
+                fontFamily: 'inherit',
+              }}
+            >
+              {t('smartScan.reclassify.changeType')}
+            </button>
+            {reclassifyOpen && (
+              <div style={{
+                position: 'absolute', top: '100%', left: 0, marginTop: 4,
+                background: theme.card2, border: '1px solid ' + theme.border,
+                borderRadius: 10, padding: 6, zIndex: 5, minWidth: 200,
+                boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+              }}>
+                <button
+                  onClick={() => { setReclassifyOpen(false); onReclassify('trip', null) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsTrip')}
+                </button>
+                <button
+                  onClick={() => {
+                    setReclassifyOpen(false)
+                    const total = items.reduce((s, it) => s + (parseFloat(it.amount) || 0), 0)
+                    onReclassify('repair', { total, date })
+                  }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsRepair')}
+                </button>
+                <button
+                  onClick={() => { setReclassifyOpen(false); onReclassify('archive', null) }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'left',
+                    padding: '8px 10px', background: 'none', border: 'none',
+                    color: theme.text, fontSize: 13, cursor: 'pointer',
+                    fontFamily: 'inherit', borderRadius: 6,
+                  }}
+                >
+                  {t('smartScan.reclassify.openAsArchive')}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Store name */}
         <div style={{ marginBottom: 12 }}>

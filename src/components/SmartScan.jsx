@@ -8,8 +8,36 @@ import { compressImage } from '../lib/imageCompress'
 import ScanConfirm from './ScanConfirm'
 import TripConfirm from './TripConfirm'
 import RepairConfirm from './RepairConfirm'
+import UnknownDocChoice from './UnknownDocChoice'
 
-export default function SmartScan({ onClose, userId, vehicleId, contextHint = null, onSaved, onTripSaved, onServiceSaved }) {
+// Field-mapping when the user reclassifies a Confirm to a different type.
+// Keep the small subset where carry-over makes sense; everything else falls
+// through to an empty Confirm.
+function mapReclassify(fromType, toType, payload) {
+  const p = payload || {}
+  if (fromType === 'receipt' && toType === 'repair') {
+    return { total: p.total || null, date: p.date || null }
+  }
+  if (fromType === 'repair' && toType === 'receipt') {
+    return {
+      // Receipts are item-based; surface the total as a single line item.
+      items: p.total != null
+        ? [{ description: p.shop_name || '', amount: p.total, category: 'other' }]
+        : [],
+      date: p.date || null,
+    }
+  }
+  if (fromType === 'trip' && toType === 'repair') {
+    return { date: p.pickup_date || null }
+  }
+  if (fromType === 'repair' && toType === 'trip') {
+    return { pickup_date: p.date || null }
+  }
+  // receipt<->trip + anything else: empty
+  return {}
+}
+
+export default function SmartScan({ onClose, userId, vehicleId, contextHint = null, onSaved, onTripSaved, onServiceSaved, onPartFromRepair }) {
   const { theme } = useTheme()
   const { t } = useLanguage()
   const [preview, setPreview] = useState(null)
@@ -20,6 +48,8 @@ export default function SmartScan({ onClose, userId, vehicleId, contextHint = nu
   const [error, setError] = useState(null)
   const [result, setResult] = useState(null) // AI response
   const [docType, setDocType] = useState(null) // 'receipt' | 'trip' | 'repair' | 'unknown'
+  const [showUnknownChoice, setShowUnknownChoice] = useState(false)
+  const [unknownRawText, setUnknownRawText] = useState(null)
   const cameraRef = useRef(null)
   const galleryRef = useRef(null)
 
@@ -147,12 +177,22 @@ export default function SmartScan({ onClose, userId, vehicleId, contextHint = nu
         return
       }
 
-      if (!resp.ok || (data.doc_type === 'unknown')) {
+      if (!resp.ok) {
         if (resp.status >= 500) {
           setError(data.error || 'Service temporarily unavailable')
         } else {
           setError(data.error || t('smartScan.unknownType'))
         }
+        setScanning(false)
+        return
+      }
+
+      // doc_type=unknown: server couldn't classify. Open the manual choice
+      // modal so the user can pick a type and keep the photo (which is
+      // already loaded in `file` / `preview`).
+      if (data.doc_type === 'unknown') {
+        setUnknownRawText(text.trim() || null)
+        setShowUnknownChoice(true)
         setScanning(false)
         return
       }
@@ -215,6 +255,56 @@ export default function SmartScan({ onClose, userId, vehicleId, contextHint = nu
     onClose()
   }
 
+  // Reclassify: switch the open Confirm to a different doc_type, optionally
+  // carrying over a small set of fields. Used both by the unknown-choice
+  // modal and by the soft "Изменить тип" link inside each Confirm.
+  const reclassifyTo = (toType, fromType = null, payload = null) => {
+    setError(null)
+    if (toType === 'archive') {
+      handleArchiveCurrent()
+      return
+    }
+    const mapped = (fromType && payload) ? mapReclassify(fromType, toType, payload) : {}
+    setResult(mapped)
+    setDocType(toType)
+  }
+
+  // Save the current photo / text into the unified documents archive without
+  // tying it to any business record. Used for "Сохранить как фото в архив".
+  const handleArchiveCurrent = async () => {
+    try {
+      await saveToArchive({
+        docType: 'other',
+        photoFile: file || null,
+        ocrData: {
+          raw_text: text.trim() || null,
+        },
+        linkedTable: null,
+        linkedId: null,
+        vehicleId: vehicleId || null,
+      })
+    } catch (archiveErr) {
+      console.error('[SmartScan] archive-only save failed:', archiveErr)
+    }
+    if (onSaved) onSaved(0)
+    onClose()
+  }
+
+  // Unknown-choice modal: AI couldn't classify, user picks a type manually.
+  if (showUnknownChoice) {
+    return (
+      <UnknownDocChoice
+        imagePreview={preview}
+        rawText={unknownRawText}
+        onChooseReceipt={() => { setShowUnknownChoice(false); setResult({}); setDocType('receipt') }}
+        onChooseTrip={() => { setShowUnknownChoice(false); setResult({}); setDocType('trip') }}
+        onChooseRepair={() => { setShowUnknownChoice(false); setResult({}); setDocType('repair') }}
+        onArchive={async () => { setShowUnknownChoice(false); await handleArchiveCurrent() }}
+        onCancel={() => setShowUnknownChoice(false)}
+      />
+    )
+  }
+
   // Show TripConfirm
   if (docType === 'trip' && result) {
     return (
@@ -223,6 +313,7 @@ export default function SmartScan({ onClose, userId, vehicleId, contextHint = nu
         onSave={handleSaveTrip}
         onBack={() => { setResult(null); setDocType(null) }}
         onClose={onClose}
+        onReclassify={(toType, payload) => reclassifyTo(toType, 'trip', payload)}
       />
     )
   }
@@ -240,6 +331,7 @@ export default function SmartScan({ onClose, userId, vehicleId, contextHint = nu
           if (onSaved) onSaved(count)
           onClose()
         }}
+        onReclassify={(toType, payload) => reclassifyTo(toType, 'receipt', payload)}
       />
     )
   }
@@ -257,6 +349,14 @@ export default function SmartScan({ onClose, userId, vehicleId, contextHint = nu
           if (onServiceSaved) onServiceSaved(count)
           onClose()
         }}
+        onReclassify={(toType, payload) => reclassifyTo(toType, 'repair', payload)}
+        onAlsoAddPart={onPartFromRepair ? (partPreset) => {
+          // Close SmartScan first, then bubble the prefilled part data up
+          // so App.jsx can route to Service → ResourcesTab.
+          onPartFromRepair(partPreset)
+          if (onServiceSaved) onServiceSaved(0)
+          onClose()
+        } : null}
       />
     )
   }

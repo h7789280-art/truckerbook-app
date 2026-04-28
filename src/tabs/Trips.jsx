@@ -874,15 +874,12 @@ function TripsTab({ userId, refreshKey, theme, profile, onOpenSmartScan, onOpenA
     }
   }
 
-  const totalIncome = entries.reduce((s, t) => s + (t.income || 0), 0)
-  const totalKm = entries.reduce((s, t) => s + (t.distance_km || 0), 0)
-  const totalDeadhead = entries.reduce((s, t) => s + (t.deadhead_km || 0), 0)
   const distUnit = unitSys === 'imperial' ? 'mi' : t('trips.km')
 
   const card = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '16px' }
   const miniCard = { background: theme.card, border: '1px solid ' + theme.border, borderRadius: '12px', padding: '12px', textAlign: 'center' }
 
-  // Period date range for company role
+  // Period date range — applies to all roles
   const periodRange = useMemo(() => {
     const now = new Date()
     if (periodFilter === 'week') {
@@ -898,18 +895,24 @@ function TripsTab({ userId, refreshKey, theme, profile, onOpenSmartScan, onOpenA
     return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now }
   }, [periodFilter, customFrom, customTo])
 
-  // Filtered trips for company role
-  const companyTrips = useMemo(() => {
-    if (!isCompanyRole) return []
-    let filtered = entries.filter(tr => {
+  // Trips filtered by period — used by all roles
+  const periodTrips = useMemo(() => {
+    return entries.filter(tr => {
       const d = new Date(tr.created_at)
       return d >= periodRange.from && d <= periodRange.to
     })
-    if (filterVehicleId !== 'all') {
-      filtered = filtered.filter(tr => tr.vehicle_id === filterVehicleId)
-    }
-    return filtered
-  }, [isCompanyRole, entries, periodRange, filterVehicleId])
+  }, [entries, periodRange])
+
+  // Company-specific filter: vehicle on top of period
+  const companyTrips = useMemo(() => {
+    if (!isCompanyRole) return []
+    return filterVehicleId !== 'all'
+      ? periodTrips.filter(tr => tr.vehicle_id === filterVehicleId)
+      : periodTrips
+  }, [isCompanyRole, periodTrips, filterVehicleId])
+
+  const totalIncome = periodTrips.reduce((s, t) => s + (t.income || 0), 0)
+  const totalKm = periodTrips.reduce((s, t) => s + (t.distance_km || 0), 0)
 
   // Group trips by vehicle for company role
   const tripsByVehicle = useMemo(() => {
@@ -1211,6 +1214,55 @@ function TripsTab({ userId, refreshKey, theme, profile, onOpenSmartScan, onOpenA
         </div>
       )}
 
+      {/* Period filter — non-company roles (company has its own at the top with vehicle picker) */}
+      {!isCompanyRole && (
+        <>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button onClick={() => setPeriodFilter('week')} style={periodBtnStyle('week')}>
+              {t('trips.week')}
+            </button>
+            <button onClick={() => setPeriodFilter('month')} style={periodBtnStyle('month')}>
+              {t('common.month')}
+            </button>
+            <button onClick={() => setPeriodFilter('custom')} style={periodBtnStyle('custom')}>
+              {t('trips.periodFilter')}
+            </button>
+          </div>
+          {periodFilter === 'custom' && (
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={e => setCustomFrom(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '14px',
+                }}
+              />
+              <input
+                type="date"
+                value={customTo}
+                onChange={e => setCustomTo(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '10px 12px',
+                  borderRadius: '10px',
+                  border: '1px solid ' + theme.border,
+                  background: theme.card,
+                  color: theme.text,
+                  fontSize: '14px',
+                }}
+              />
+            </div>
+          )}
+        </>
+      )}
+
       {/* Trip cards */}
       {loading ? (
         <div style={{ textAlign: 'center', padding: '40px 0', color: theme.dim, fontSize: 14 }}>
@@ -1304,12 +1356,12 @@ function TripsTab({ userId, refreshKey, theme, profile, onOpenSmartScan, onOpenA
             )
           })
         )
-      ) : entries.length === 0 ? (
+      ) : periodTrips.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px 20px', color: theme.dim, fontSize: 14 }}>
           {t('trips.noTrips')}
         </div>
       ) : (
-        entries.map((trip) => (
+        periodTrips.map((trip) => (
           <div key={trip.id} data-highlight-id={trip.id} style={{ ...card, outline: highlightedId === trip.id ? '2px solid #f59e0b' : undefined, outlineOffset: '2px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
               <div>

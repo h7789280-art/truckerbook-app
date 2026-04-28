@@ -1806,8 +1806,8 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
                     <span style={{ fontSize: '13px', color: theme.text }}>{t('overview.fleetFree')}: {freeVehicles}</span>
                   </div>
                 </div>
-                {/* Trips card — clickable, navigates to detail screen */}
-                <div onClick={() => onExtraNav?.('trips_detail')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+                {/* Trips card — clickable, navigates to Trips tab */}
+                <div onClick={() => onExtraNav?.('trips')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
                   <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{t('overview.goToTrips')}</div>
                 </div>
               </>
@@ -3020,9 +3020,9 @@ export default function Overview({ userName, userId, profile, onOpenProfile, act
             </div>
           )}
 
-          {/* Trips card — for owner_operator and driver, navigates to trips_detail */}
+          {/* Trips card — for owner_operator and driver, navigates to Trips tab */}
           {(role === 'owner_operator' || role === 'driver') && (
-          <div onClick={() => onExtraNav?.('trips_detail')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
+          <div onClick={() => onExtraNav?.('trips')} style={{ ...cardStyle, marginBottom: '12px', cursor: 'pointer', position: 'relative', transition: 'opacity 0.15s' }} onPointerDown={e => e.currentTarget.style.opacity = '0.6'} onPointerUp={e => e.currentTarget.style.opacity = '1'} onPointerLeave={e => e.currentTarget.style.opacity = '1'}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div style={{ fontSize: '16px', fontWeight: 700, color: theme.text }}>{'\ud83d\ude9b'} {t('overview.goToTrips')}</div>
               <div style={{ fontSize: '24px', color: '#000000', fontWeight: 700 }}>{'\u203a'}</div>

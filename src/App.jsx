@@ -15,7 +15,6 @@ import Jobs from './tabs/Jobs'
 import News from './tabs/News'
 import Marketplace from './tabs/Marketplace'
 import FinanceDetails from './tabs/FinanceDetails'
-import TripsDetails from './tabs/TripsDetails'
 import Reports from './tabs/Reports'
 import MySalary from './tabs/MySalary'
 import {
@@ -546,8 +545,6 @@ function AppInner() {
         return <Marketplace />
       case 'finance':
         return <FinanceDetails userId={userId} profile={profile} onBack={handleBackFromExtra} />
-      case 'trips_detail':
-        return <TripsDetails userId={userId} profile={profile} onBack={handleBackFromExtra} />
       case 'reports':
         return <Reports userId={userId} profile={profile} onBack={handleBackFromExtra} onNavigate={handleExtraTabNav} />
       case 'my_salary':
